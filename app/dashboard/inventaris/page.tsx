@@ -1,5 +1,6 @@
 import Breadcrumbs from "@/components/Breadcrumbs"
 
+
 export default function InventarisPage() {
   const dataDummy = [
     { nama: "Stent DES 3.0x18", lot: "ST123", stok: 5, ed: "2025-12-01" },

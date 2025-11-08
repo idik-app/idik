@@ -1,27 +1,55 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    "baseUrl": ".",
+    "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
+    "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "esModuleInterop": true,
-    "module": "esnext",
+    "module": "ESNext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
       {
         "name": "next"
       }
     ],
+    /* 🎯 Path alias JARVIS-style (clean & future-proof) */
     "paths": {
-      "@/*": ["./*"]
-    }
+      "@/*": ["./*"],
+      "@app/*": ["app/*"],
+      "@components/*": ["components/*"],
+      "@/components/*": ["components/*"],
+      "@contexts/*": ["app/contexts/*"],
+      "@dashboard/*": ["app/dashboard/*"],
+      "@hooks/*": ["app/hooks/*"],
+      "@utils/*": ["app/utils/*"],
+      "@pasien/*": ["app/dashboard/pasien/*"],
+      "@inventaris/*": ["app/dashboard/inventaris/*"],
+      "@database/*": ["app/dashboard/database/*"],
+      "@trading/*": ["app/dashboard/trading/*"],
+      "@lib/*": ["lib/*"],
+      "@/lib/*": ["lib/*"]
+    },
+    /* 🧠 Tambahan agar TypeScript mengenali deklarasi custom */
+    "typeRoots": ["./types", "./node_modules/@types"]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "app",
+    "types",
+    ".next/dev/types/**/*.ts",
+    "next.config.js",
+    "components/common"
+  ],
   "exclude": ["node_modules"]
 }

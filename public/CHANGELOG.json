@@ -1,0 +1,32 @@
+{
+  "version": "6.0.0",
+  "codename": "Adaptive Cathlab Intelligence",
+  "releaseDate": "2025-12-01",
+  "overview": "Rilis generasi keenam IDIK-App yang memperkenalkan sistem adaptif berbasis AI untuk analitik tindakan, prediksi stok, dan insight operasional real-time. Semua modul bekerja secara otonom, audit-ready, dan dapat belajar dari data pengguna.",
+  "coreUpdates": [
+    {
+      "title": "Smart Audit Engine",
+      "summary": "Mesin analitik internal yang mendeteksi anomali pemakaian alat dan memberi rekomendasi korektif otomatis."
+    },
+    {
+      "title": "AI Stock Forecast",
+      "summary": "Prediksi kebutuhan alat berdasarkan tren pasien dan pola tindakan dokter dengan model regresi ringan (Supabase Edge Function)."
+    },
+    {
+      "title": "Realtime Insight Panel",
+      "summary": "Dashboard adaptif yang menampilkan alert dinamis (warna dan intensitas berubah mengikuti kondisi ruang)."
+    },
+    {
+      "title": "Cathlab Assistant v1",
+      "summary": "Chat module kontekstual untuk membantu staf menemukan data pasien, riwayat tindakan, atau laporan logistik melalui bahasa natural."
+    },
+    {
+      "title": "System Health Monitor",
+      "summary": "Menampilkan status koneksi, latency, cache, dan load Supabase secara live di panel hologram."
+    },
+    {
+      "title": "Autonomous Learning Layer",
+      "summary": "Setiap interaksi data (pasien, alat, waktu) disimpan sebagai vektor pembelajaran internal untuk adaptasi sistem di masa depan."
+    }
+  ]
+}

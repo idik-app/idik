@@ -1,0 +1,255 @@
+/* ======================================================
+   💠 IDIK CATHLAB – JARVIS LOADER & EFFECTS (v2.2 Final)
+   ====================================================== */
+
+:root {
+  --jarvis-bg-dark: #0b111a;
+  --jarvis-bg-light: #0e1624;
+  --jarvis-cyan: #00e0ff;
+  --jarvis-cyan-soft: rgba(0, 224, 255, 0.15);
+  --jarvis-gold: #d1a85f;
+  --jarvis-border: rgba(0, 255, 255, 0.3);
+  --jarvis-transition: all 0.3s ease;
+}
+
+/* ======================================================
+   ⚙️ BASE STRUCTURE
+   ====================================================== */
+.jarvis-loader {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(
+    circle at center,
+    var(--jarvis-bg-dark),
+    #000 80%
+  );
+  color: var(--jarvis-cyan);
+  font-family: "Orbitron", "Rajdhani", monospace;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  overflow: hidden;
+  z-index: 9999;
+  animation: fadeIn 0.8s ease-out;
+}
+
+/* === Fade-in/out transition === */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.jarvis-loader.fade-out {
+  animation: fadeOut 0.8s ease-in forwards;
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  70% {
+    opacity: 0.5;
+    transform: scale(1.05);
+    filter: brightness(1.5);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.95);
+    filter: brightness(0);
+  }
+}
+
+/* ======================================================
+   ✳️ HOLOGRAPHIC GRID BACKGROUND
+   ====================================================== */
+.holo-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+      var(--jarvis-cyan-soft) 1px,
+      transparent 1px
+    ),
+    linear-gradient(90deg, var(--jarvis-cyan-soft) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: moveGrid 8s linear infinite;
+  opacity: 0.4;
+  z-index: 1;
+  pointer-events: none;
+}
+
+@keyframes moveGrid {
+  from {
+    background-position: 0 0, 0 0;
+  }
+  to {
+    background-position: 40px 40px, 40px 40px;
+  }
+}
+
+/* ======================================================
+   🔵 ROTATING ENERGY RING
+   ====================================================== */
+.ring {
+  width: 200px;
+  height: 200px;
+  border: 2px solid rgba(0, 224, 255, 0.6);
+  border-radius: 50%;
+  box-shadow: 0 0 25px rgba(0, 224, 255, 0.4),
+    inset 0 0 40px rgba(0, 224, 255, 0.2);
+  position: relative;
+  z-index: 2;
+  animation: pulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+/* ======================================================
+   🪞 IRONMAN MASK – Neon Glow
+   ====================================================== */
+.ironman-mask {
+  width: 120px;
+  height: 120px;
+  margin-top: -160px;
+  z-index: 3;
+  filter: drop-shadow(0 0 20px var(--jarvis-cyan));
+  animation: flicker 3s ease-in-out infinite;
+}
+
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 0.9;
+    filter: drop-shadow(0 0 20px var(--jarvis-cyan));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 30px var(--jarvis-gold));
+  }
+}
+
+.ironman-svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* ======================================================
+   💬 STATUS TEXT – Typing Glow
+   ====================================================== */
+.status-text {
+  margin-top: 2rem;
+  font-size: 1rem;
+  letter-spacing: 3px;
+  color: var(--jarvis-cyan);
+  z-index: 4;
+  text-align: center;
+  text-shadow: 0 0 12px rgba(0, 224, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  animation: typing 1s steps(30, end), blink 1.2s infinite;
+}
+
+@keyframes typing {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* ======================================================
+   🌌 SCAN LINE OVERLAY
+   ====================================================== */
+.jarvis-loader::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 255, 255, 0.06) 50%,
+    transparent 100%
+  );
+  animation: scan 3s linear infinite;
+  z-index: 5;
+  pointer-events: none;
+}
+
+@keyframes scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+/* ======================================================
+   ⚙️ DASHBOARD MODE – Compact Loader
+   ====================================================== */
+.dashboard-mode {
+  background: transparent;
+}
+
+.dashboard-mode .ring {
+  width: 100px;
+  height: 100px;
+  border-width: 1.5px;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.2),
+    inset 0 0 20px rgba(0, 255, 255, 0.1);
+}
+
+.dashboard-mode .ironman-mask {
+  width: 80px;
+  height: 80px;
+  margin-top: -100px;
+}
+
+.dashboard-mode .status-text {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+/* ======================================================
+   📱 RESPONSIVE OPTIMIZATION
+   ====================================================== */
+@media (max-width: 768px) {
+  .ring {
+    width: 150px;
+    height: 150px;
+  }
+  .ironman-mask {
+    width: 100px;
+    height: 100px;
+    margin-top: -120px;
+  }
+  .status-text {
+    font-size: 0.9rem;
+  }
+}

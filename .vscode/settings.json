@@ -1,0 +1,31 @@
+{
+  // --- GIT ---
+  "git.ignoreLimitWarning": true,
+
+  // --- JSON SCHEMA FIX ---
+  "json.schemaDownload.enable": false, // hentikan schema eksternal agar ENOTFOUND hilang
+  "json.validate.enable": true, // tetap validasi dasar JSON lokal
+
+  // --- TYPESCRIPT / REACT / NEXT ---
+  "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+  "typescript.preferences.importModuleSpecifier": "shortest",
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+
+  // --- TAILWINDCSS ---
+  "tailwindCSS.includeLanguages": {
+    "typescriptreact": "html",
+    "javascriptreact": "html"
+  },
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+  "files.associations": {
+    "*.tsx": "typescriptreact"
+  },
+
+  // --- UI STYLE ---
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.tabSize": 2
+}

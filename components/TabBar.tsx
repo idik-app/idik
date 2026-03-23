@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X } from "lucide-react";
-import { useTabContext } from "@/app/contexts/TabContext";
-import { usePathname } from "next/navigation";
+import { X, Trash2 } from "lucide-react";
+import { useTabContext } from "@/contexts/TabContext";
+import { useRouter } from "next/navigation";
+import { menuConfig } from "@/app/config/menuConfig";
 
 /* ⚡ Cathlab JARVIS TabBar v2.6 – Gold-Cyan Hybrid (Z-Index Fixed)
    🔹 Auto-highlight tab aktif berdasarkan URL (usePathname)
@@ -15,12 +16,33 @@ import { usePathname } from "next/navigation";
 */
 
 export default function TabBar() {
-  const { tabs, activeTab, setActiveTab, closeTab, addTab } = useTabContext();
+  const { tabs, activeTab, setActiveTab, closeTab, addTab, closeAllTabs } = useTabContext();
   const containerRef = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
+  const router = useRouter();
   const [glowLeft, setGlowLeft] = useState(false);
   const [glowRight, setGlowRight] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  const hrefByTabId = (() => {
+    const map = new Map<string, string>();
+    try {
+      for (const group of menuConfig as Array<{ items?: Array<{ id: string; href?: string }> }>) {
+        for (const item of group.items ?? []) {
+          if (item?.id && item?.href) map.set(item.id, item.href);
+        }
+      }
+    } catch {
+      // ignore
+    }
+    // fallback penting
+    if (!map.has("dashboard")) map.set("dashboard", "/dashboard");
+    return map;
+  })();
+
+  const pushForTab = (tabId: string) => {
+    const href = hrefByTabId.get(tabId);
+    if (href) router.push(href);
+  };
 
   /* 🧭 Prevent SSR mismatch */
   useEffect(() => setMounted(true), []);
@@ -28,7 +50,8 @@ export default function TabBar() {
   /* 🧩 Pastikan tab Dashboard selalu ada */
   useEffect(() => {
     if (mounted && !tabs.some((t) => t.id === "dashboard")) {
-      addTab({ id: "dashboard", label: "Dashboard Utama", fixed: true });
+      // Jangan override activeTab (URL sync bisa sedang mengarah ke /system/*)
+      addTab({ id: "dashboard", label: "Dashboard Utama", fixed: true }, { activate: false });
     }
   }, [mounted, tabs, addTab]);
 
@@ -52,31 +75,25 @@ export default function TabBar() {
     };
   }, [tabs]);
 
-  /* 🧠 Sinkronisasi tab aktif hanya sekali saat awal load (bukan tiap URL) */
-  useEffect(() => {
-    if (!pathname || tabs.length === 0) return;
-    const lastSegment = pathname.split("/").pop() || "dashboard";
-    if (!tabs.some((t) => t.id === lastSegment)) return;
-    setActiveTab(lastSegment);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Sinkron URL ↔ tab ditangani di TabContext (biar konsisten dengan mapping menuConfig)
 
   return (
     <div
       className="relative z-[30] select-none" // ← FIX: layer di bawah modal
       suppressHydrationWarning
     >
-      {/* 🔷 Main Tab Container */}
+      {/* 🔷 Main Tab Container — min-h agar tidak collapse saat banyak tab ditutup */}
       <div
-        ref={containerRef}
-        className="flex items-center gap-2 px-4 py-2
-                   bg-[#04070d]/70 backdrop-blur-xl
+        className="relative flex items-center min-h-[48px] bg-[#04070d]/70 backdrop-blur-xl
                    border-b border-cyan-500/20
-                   shadow-[0_0_15px_rgba(0,255,255,0.25)]
-                   overflow-x-auto hide-scrollbar"
+                   shadow-[0_0_15px_rgba(0,255,255,0.25)]"
       >
-        <AnimatePresence initial={false}>
-          {tabs.map((tab) => {
+        <div
+          ref={containerRef}
+          className="flex-1 min-w-0 flex items-center gap-2 px-4 py-2 overflow-x-auto hide-scrollbar"
+        >
+          <AnimatePresence initial={false}>
+            {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
               <motion.div
@@ -84,11 +101,27 @@ export default function TabBar() {
                 layout
                 initial={{ scale: 0.85, opacity: 0, y: 5 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.8, opacity: 0, y: -5 }}
+                exit={{
+                  position: "absolute",
+                  scale: 0.8,
+                  opacity: 0,
+                  y: -5,
+                  transition: { duration: 0.2 },
+                }}
                 transition={{ type: "spring", stiffness: 220, damping: 18 }}
               >
                 <button
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    // TabBar harus mengubah URL juga agar sinkron dengan tab aktif
+                    const href = hrefByTabId.get(tab.id);
+                    if (href) {
+                      // URL = source of truth; TabContext akan sinkron via usePathname
+                      router.push(href);
+                    } else {
+                      // fallback kalau tab tidak punya route
+                      setActiveTab(tab.id);
+                    }
+                  }}
                   className={`group relative flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-300
                     ${
                       isActive
@@ -126,7 +159,22 @@ export default function TabBar() {
               </motion.div>
             );
           })}
-        </AnimatePresence>
+          </AnimatePresence>
+        </div>
+
+        {/* 🧹 Tutup semua tab (sisakan Dashboard) */}
+        <div className="flex-shrink-0 pr-2">
+          <motion.button
+            type="button"
+            onClick={() => closeAllTabs()}
+            disabled={tabs.length <= 1}
+            className="p-2 rounded-lg text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/10 border border-transparent hover:border-cyan-500/30 transition disabled:opacity-50 disabled:pointer-events-none"
+            title="Tutup semua tab"
+            aria-label="Tutup semua tab"
+          >
+            <Trash2 size={18} />
+          </motion.button>
+        </div>
       </div>
 
       {/* 🔹 Neon Glow Edges */}

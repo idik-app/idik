@@ -1,22 +1,19 @@
 // app/api/audit/log.ts
 import { headers } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * logAudit
- * Mencatat aktivitas API ke tabel `audit_logs`.
- * Tabel wajib memiliki kolom:
- * id | timestamp | user_id | action | endpoint | ip | details
+ * Mencatat aktivitas API ke tabel `audit_log` (sama dengan /api/audit/log route).
+ * Kolom: event_type, action, module, actor, metadata, ip_address, status, created_at
  */
 export async function logAudit(
   action: string,
-  details: any = {},
+  details: Record<string, unknown> = {},
   userId?: string
 ) {
   try {
-    const supabase = createClient();
-
-    // Ambil header request
+    const supabase = createAdminClient();
     const hdr = await headers();
     const endpoint = hdr.get("x-invoke-path") || "unknown";
     const ip =
@@ -24,17 +21,16 @@ export async function logAudit(
       hdr.get("cf-connecting-ip") ||
       "0.0.0.0";
 
-    // Simpan ke tabel
-    await supabase.from("audit_logs").insert([
-      {
-        user_id: userId ?? "system",
-        action,
-        endpoint,
-        ip,
-        details,
-        timestamp: new Date().toISOString(),
-      },
-    ]);
+    await supabase.from("audit_log").insert({
+      event_type: action,
+      action,
+      module: endpoint,
+      actor: userId ?? "system",
+      metadata: details,
+      ip_address: ip,
+      status: "success",
+      created_at: new Date().toISOString(),
+    });
   } catch (error) {
     console.error("Audit log failed:", error);
   }

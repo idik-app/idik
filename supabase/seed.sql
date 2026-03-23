@@ -1,0 +1,3 @@
+-- Seed untuk Supabase lokal (opsional).
+-- Tambahkan INSERT di sini jika ingin data awal setelah db reset.
+-- Kosong = hanya schema dari migrations, tanpa data awal.

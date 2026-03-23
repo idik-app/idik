@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase/supabaseClient";
 
 export default function ConsoleLogs() {
   const [logs, setLogs] = useState<string[]>([]);
@@ -10,12 +10,6 @@ export default function ConsoleLogs() {
   const [query, setQuery] = useState("");
   const [clock, setClock] = useState("");
   const panelRef = useRef<HTMLDivElement>(null);
-
-  // 🔌 Supabase client
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
 
   // 🕒 Real-time clock
   useEffect(() => {
@@ -43,7 +37,7 @@ export default function ConsoleLogs() {
         .order("id", { ascending: true })
         .limit(200);
       if (data) {
-        const formatted = data.map(
+        const formatted = (data as { timestamp: string; level: string; message: string }[]).map(
           (r) =>
             `[${new Date(
               r.timestamp

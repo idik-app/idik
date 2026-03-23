@@ -20,7 +20,7 @@ export function DialogContent({
   return (
     <DialogPrimitive.Portal>
       <AnimatePresence>
-        <DialogPrimitive.Overlay asChild forceMount>
+        <DialogPrimitive.Overlay key="jarvis-dialog-overlay" asChild forceMount>
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.7 }}
@@ -31,6 +31,7 @@ export function DialogContent({
         </DialogPrimitive.Overlay>
 
         <DialogPrimitive.Content
+          key="jarvis-dialog-content"
           {...props}
           className={`fixed z-50 top-1/2 left-1/2 w-[95%] max-w-md -translate-x-1/2 -translate-y-1/2
                      rounded-xl border border-cyan-500/40 bg-black/60 text-cyan-100 

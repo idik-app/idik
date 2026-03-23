@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin, requireEnvFlag, requireUser } from "@/lib/auth/guards";
 
 /**
  * 🧠 Audit Log API
@@ -9,15 +10,30 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 
 export async function GET() {
+  const disabled = requireEnvFlag("ENABLE_AUDIT_API", "Audit API disabled");
+  if (disabled) return disabled.response;
+
+  const id = await requireUser();
+  if (!id.ok) return id.response;
+
+  const adminRoles = new Set(["admin", "administrator", "superadmin"]);
+  const isAdminTier = adminRoles.has(id.role);
+
   try {
     const supabase = createAdminClient();
-    const { data, error } = await supabase
+    let q = supabase
       .from("audit_log")
       .select(
         "id, event_type, action, module, actor, metadata, ip_address, status, created_at"
       )
-      .order("created_at", { ascending: false })
-      .limit(100);
+      .order("created_at", { ascending: false });
+
+    // Non-admin hanya boleh melihat log miliknya sendiri.
+    if (!isAdminTier) {
+      q = q.eq("actor", id.userId);
+    }
+
+    const { data, error } = await q.limit(100);
 
     if (error) throw error;
 
@@ -36,6 +52,12 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const disabled = requireEnvFlag("ENABLE_AUDIT_API", "Audit API disabled");
+  if (disabled) return disabled.response;
+
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
   try {
     const supabase = createAdminClient();
     const headerList = await headers();

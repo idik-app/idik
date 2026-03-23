@@ -20,9 +20,35 @@
 # production
 /build
 
+# Google Apps Script / clasp
+.clasp.json
+
 # misc
 .DS_Store
 *.pem
+Thumbs.db
+desktop.ini
+
+# database dumps (backup schema/data, bisa berisi data sensitif)
+dump.sql
+*.dump.sql
+
+# archives (jangan push asset besar / backup)
+*.zip
+*.tar
+*.tar.gz
+*.rar
+
+# backup / salinan file (e.g. "page copy.tsx")
+* copy.*
+* copy *
+
+# editor / temp
+.idea/
+*.swp
+*.swo
+*.bak
+*.tmp
 
 # debug
 npm-debug.log*
@@ -32,6 +58,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel

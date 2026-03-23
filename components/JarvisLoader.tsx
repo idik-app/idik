@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import "@app/styles/jarvis.css";
+import "@/styles/jarvis.css";
 
 interface JarvisLoaderProps {
   mode?: "full" | "dashboard" | "logout";

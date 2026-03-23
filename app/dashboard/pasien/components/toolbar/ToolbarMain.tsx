@@ -1,0 +1,95 @@
+"use client";
+import { motion } from "framer-motion";
+import { Clock } from "lucide-react";
+import { useToolbarLogic } from "./hooks/useToolbarLogic";
+import { ToolbarHeader } from "./ToolbarHeader";
+import ToolbarStatsCard from "./ToolbarStatsCard";
+import FormTambahPasien from "../FormTambahPasien";
+import { usePasienState } from "../../contexts/PasienContext";
+
+/* 🔰 tambahan baru */
+import { ToolbarRealtimeIndicator } from "./ToolbarRealtimeIndicator";
+import { ToolbarQuickStats } from "./ToolbarQuickStats";
+import PasienImport from "../PasienImport";
+import PasienExport from "../PasienExport";
+
+/*───────────────────────────────────────────────
+🧬 ToolbarMain v5.2 — Interactive & Informative
+───────────────────────────────────────────────*/
+export default function ToolbarMain() {
+  const {
+    summary,
+    currentPage,
+    totalPages,
+    perPage,
+    handlePageChange,
+    handlePerPage,
+    isSyncing,
+    isIdle,
+  } = useToolbarLogic();
+  const { modalMode } = usePasienState();
+
+  const fadeSlide = {
+    hidden: { opacity: 0, y: 10 },
+    visible: { opacity: 1, y: 0 },
+  };
+
+  return (
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={fadeSlide}
+      className={`w-full jarvis-glass flex flex-col gap-3 p-4 rounded-xl border
+                  border-cyan-700/40 backdrop-blur-md transition-opacity
+                  shadow-[0_0_25px_rgba(0,255,255,0.08)]
+                  ${isIdle ? "opacity-70" : "opacity-100"}`}
+    >
+      {/* ─────────────────────────────
+         🔹 Header (Search & Pagination)
+      ───────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <ToolbarHeader
+          currentPage={currentPage}
+          totalPages={totalPages}
+          perPage={perPage}
+          handlePageChange={handlePageChange}
+          handlePerPage={handlePerPage}
+        />
+        <ToolbarStatsCard />
+      </div>
+
+      {/* ─────────────────────────────
+         🔹 Layer interaktif tambahan
+      ───────────────────────────── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-cyan-700/30 pt-3">
+        <div className="flex items-center gap-3">
+          <ToolbarRealtimeIndicator />
+          <ToolbarQuickStats />
+          <div className="flex items-center gap-2">
+            <PasienImport />
+            <PasienExport />
+          </div>
+        </div>
+      </div>
+
+      {/* ─────────────────────────────
+         🔹 Info sinkronisasi
+      ───────────────────────────── */}
+      <motion.div
+        variants={fadeSlide}
+        className={`text-[11px] text-right pr-2 ${
+          isSyncing ? "text-yellow-400" : "text-cyan-400"
+        }`}
+      >
+        <div className="flex items-center justify-end gap-1">
+          <Clock size={12} />
+          <span>Sinkron terakhir:</span>
+          <span className="font-semibold">{summary?.lastSync ?? "—"}</span>
+        </div>
+      </motion.div>
+
+      {/* 🔹 Modal tambah pasien */}
+      {modalMode === "add" && <FormTambahPasien />}
+    </motion.div>
+  );
+}

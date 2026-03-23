@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Table,
@@ -15,18 +15,8 @@ import { APIKeyActions } from "./APIKeyActions"; // next batch
 import { useAPIKeys } from "../hooks/useAPIKeys";
 
 export function APIKeyTable() {
-  const { keys, loading, fetchMore, hasMore } = useAPIKeys();
-  const loaderRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!hasMore) return;
-    const observer = new IntersectionObserver(
-      (entries) => entries[0].isIntersecting && fetchMore(),
-      { threshold: 1 }
-    );
-    if (loaderRef.current) observer.observe(loaderRef.current);
-    return () => observer.disconnect();
-  }, [hasMore, fetchMore]);
+  const { keys, creating } = useAPIKeys();
+  const loading = creating;
 
   if (loading && keys.length === 0) {
     return (
@@ -91,7 +81,7 @@ export function APIKeyTable() {
         </div>
       )}
 
-      {hasMore && <div ref={loaderRef} className="h-8" />}
+      {/* pagination/infinite-scroll not implemented in this hook */}
     </motion.div>
   );
 }

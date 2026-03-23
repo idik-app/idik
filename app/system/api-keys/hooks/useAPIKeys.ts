@@ -1,17 +1,16 @@
 "use client";
-
 import { useCallback, useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/ui/use-toast";
 
+/*───────────────────────────────────────────────
+🧩 useAPIKeys v3.2 — Final Stable Edition
+───────────────────────────────────────────────*/
 export function useAPIKeys() {
-  const supabase = createClient();
   const { toast } = useToast();
-
   const [keys, setKeys] = useState<any[]>([]);
   const [creating, setCreating] = useState(false);
 
-  // Ambil semua key
   const fetchKeys = useCallback(async () => {
     const { data, error } = await supabase
       .from("api_keys")
@@ -26,17 +25,13 @@ export function useAPIKeys() {
       });
       return;
     }
-
     setKeys(data ?? []);
-  }, [supabase, toast]);
+  }, [toast]);
 
-  // Buat key baru
   const createKey = useCallback(
     async ({ name, permissions }: { name: string; permissions: string }) => {
       setCreating(true);
-      const { error } = await supabase
-        .from("api_keys")
-        .insert([{ name, permissions }]);
+      const { error } = await (supabase as any).from("api_keys").insert([{ name, permissions }]);
       setCreating(false);
 
       if (error) {
@@ -54,17 +49,12 @@ export function useAPIKeys() {
         fetchKeys();
       }
     },
-    [supabase, fetchKeys, toast]
+    [fetchKeys, toast]
   );
 
-  // Nonaktifkan key (revoke)
   const revokeKey = useCallback(
     async (id: string) => {
-      const { error } = await supabase
-        .from("api_keys")
-        .update({ status: "revoked" })
-        .eq("id", id);
-
+      const { error } = await (supabase as any).from("api_keys").update({ status: "revoked" }).eq("id", id);
       if (error) {
         toast({
           title: "Gagal menonaktifkan key",
@@ -80,21 +70,12 @@ export function useAPIKeys() {
         fetchKeys();
       }
     },
-    [supabase, fetchKeys, toast]
+    [fetchKeys, toast]
   );
 
-  // Regenerasi key (buat ulang)
   const regenerateKey = useCallback(
     async (id: string) => {
-      const { error } = await supabase
-        .from("api_keys")
-        .update({
-          token_hash: crypto.randomUUID().replace(/-/g, ""),
-          status: "active",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id);
-
+      const { error } = await (supabase as any).from("api_keys").update({ token_hash: crypto.randomUUID().replace(/-/g, ""), status: "active", updated_at: new Date().toISOString() }).eq("id", id);
       if (error) {
         toast({
           title: "Gagal memperbarui key",
@@ -110,18 +91,12 @@ export function useAPIKeys() {
         fetchKeys();
       }
     },
-    [supabase, fetchKeys, toast]
+    [fetchKeys, toast]
   );
 
   useEffect(() => {
     fetchKeys();
   }, [fetchKeys]);
 
-  return {
-    keys,
-    createKey,
-    revokeKey, // ✅ ditambahkan
-    regenerateKey, // ✅ ditambahkan
-    creating,
-  };
+  return { keys, createKey, revokeKey, regenerateKey, creating };
 }

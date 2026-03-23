@@ -1,30 +1,33 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // ✅ PENTING: Tambahkan transpilePackages untuk mengatasi masalah bundling/$$typeof.
+  // Next.js akan memproses library ini seolah-olah mereka adalah bagian dari kode Anda sendiri.
+  transpilePackages: ["@react-spring/web", "framer-motion", "recharts"],
+
+  // Mode Strict React
   reactStrictMode: true,
 
-  // ✅ Supabase SSR: gunakan opsi stabil
+  // ✅ Supabase SSR: gunakan opsi stabil untuk paket eksternal
   serverExternalPackages: ["@supabase/ssr"],
 
-  // ✅ Ganti images.domains → images.remotePatterns
+  // ✅ Konfigurasi gambar
   images: {
     remotePatterns: [
       { protocol: "http", hostname: "localhost" },
       { protocol: "http", hostname: "192.168.1.12" },
-      { protocol: "https", hostname: "your-supabase-project-id.supabase.co" },
+      // Pastikan untuk mengganti placeholder ini dengan hostname Supabase yang sebenarnya
+      { protocol: "https", hostname: "whbinarvynbyemvqbfjg.supabase.co" },
     ],
     formats: ["image/avif", "image/webp"],
   },
 
-  // ✅ Abaikan build errors ringan
+  // ⚠️ IGNORE: Sebaiknya dinonaktifkan di Production
+  // Ini mengabaikan build errors ringan (TS/ESLint)
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
 
-  // ✅ Environment variabel publik
-  env: {
-    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    BASE_URL: process.env.BASE_URL,
-  },
+  // ❌ DIHAPUS: Next.js sudah secara otomatis menangani variabel yang diawali NEXT_PUBLIC_
+  // sehingga properti env tidak lagi diperlukan di sini.
 
   trailingSlash: false,
 };

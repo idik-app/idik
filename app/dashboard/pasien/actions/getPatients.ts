@@ -1,35 +1,38 @@
-"use server";
+"use client";
+import { useEffect, useState } from "react";
+import { refreshPatients } from "./refreshPatients";
 
-import { createAdminClient } from "@/lib/supabase/admin";
+type GetPatientsResult = { ok: true; data: any[] } | { ok: false; message: string };
 
-export async function getPatients() {
+async function getPatientsClient(): Promise<GetPatientsResult> {
   try {
-    const supabase = createAdminClient();
-
-    const { data, error } = await supabase
-      .from("pasien")
-      .select("*")
-      .order("nama", { ascending: true });
-
-    if (error) throw new Error(error.message);
-
-    return {
-      ok: true,
-      data: (data ?? []).map((p: any) => ({
-        id: String(p.id),
-        noRM: p.no_rm,
-        nama: p.nama,
-        jenisKelamin: p.jk ?? "L",
-        tanggalLahir: p.tanggal_lahir ?? "",
-        alamat: p.alamat ?? "",
-        noHP: p.no_hp ?? "",
-        jenisPembiayaan: p.pembiayaan ?? "Umum",
-        kelasPerawatan: p.kelas ?? "Kelas 2",
-        asuransi: p.asuransi ?? "",
-      })),
-    };
-  } catch (err: any) {
-    console.error("❌ getPatients error:", err.message);
-    return { ok: false, message: err.message, data: [] };
+    const data = await refreshPatients();
+    return { ok: true, data: data as any[] };
+  } catch (e: any) {
+    return { ok: false, message: e?.message ?? "Failed to load patients" };
   }
+}
+
+export function usePatients() {
+  const [patients, setPatients] = useState<any[]>([]);
+  const [isLive, setIsLive] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      setIsLoading(true);
+      const res = await getPatientsClient();
+      if (res.ok) {
+        setPatients(res.data);
+        setIsLive(true);
+      } else {
+        setPatients([]);
+        setIsLive(false);
+      }
+      setIsLoading(false);
+    }
+    fetchData();
+  }, []);
+
+  return { patients, isLive, isLoading };
 }

@@ -3,6 +3,7 @@
 import * as React from "react";
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 /**
  * Komponen AlertDialog bergaya JARVIS Gold–Cyan Hybrid.
@@ -22,7 +23,7 @@ export function AlertDialogContent({
   return (
     <AlertDialogPrimitive.Portal>
       <AnimatePresence>
-        <AlertDialogPrimitive.Overlay asChild forceMount>
+        <AlertDialogPrimitive.Overlay key="alert-dialog-overlay" asChild forceMount>
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.7 }}
@@ -31,6 +32,7 @@ export function AlertDialogContent({
           />
         </AlertDialogPrimitive.Overlay>
         <AlertDialogPrimitive.Content
+          key="alert-dialog-content"
           {...props}
           className={`fixed z-50 top-1/2 left-1/2 w-[95%] max-w-md -translate-x-1/2 -translate-y-1/2
                      rounded-xl border border-cyan-500/40 bg-black/60 text-cyan-100 
@@ -87,15 +89,11 @@ export const AlertDialogTitle = ({
 );
 
 export const AlertDialogDescription = ({
-  children,
   className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) => (
+  ...props
+}: React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Description>) => (
   <AlertDialogPrimitive.Description
-    className={`text-sm text-cyan-300/80 ${className ?? ""}`}
-  >
-    {children}
-  </AlertDialogPrimitive.Description>
+    className={cn("text-sm text-cyan-300/80", className)}
+    {...props}
+  />
 );

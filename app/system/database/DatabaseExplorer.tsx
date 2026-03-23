@@ -10,7 +10,9 @@ import { useDatabaseFetch } from "./hooks/useDatabaseFetch"; // Import hook yang
 
 export default function DatabaseExplorer() {
   // Panggil hook untuk mendapatkan status dan data
-  const { tables, isLoading, error, refreshTables } = useDatabaseFetch();
+  const { tables, loadingTables: isLoading, fetchTables: refreshTables } =
+    useDatabaseFetch();
+  const error = null;
 
   // Asumsi: status koneksi (untuk ikon connected/disconnected)
   const [isConnected, setIsConnected] = useState(true);

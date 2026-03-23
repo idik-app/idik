@@ -2,7 +2,7 @@
 
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import { usePasien } from "../context/PasienContext";
+import { usePasien } from "../contexts/PasienContext";
 import { hitungUsia } from "../utils/formatUsia";
 import { FileText } from "lucide-react";
 
@@ -65,7 +65,7 @@ export default function ExportReportOfficial() {
 
     // === TABLE ===
     const tableColumn = ["No. RM", "Nama", "JK", "Usia", "Alamat", "No. HP"];
-    const tableRows = patients.map((p) => [
+    const tableRows = patients.map((p: any) => [
       p.noRM,
       p.nama,
       p.jenisKelamin,

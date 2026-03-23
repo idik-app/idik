@@ -1,5 +1,13 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## IDIK-App — environment
+
+1. Salin `.env.example` → `.env.local` dan isi nilai (Supabase, `JWT_SECRET` untuk selaras dengan production).
+2. Verifikasi tanpa membocorkan secret: `npm run check:auth-env`  
+   Gate ketat (mis. CI): `npm run check:auth-env -- --strict-prod`  
+3. Login & tabel user: **[docs/AUTH-DB.md](docs/AUTH-DB.md)**.
+4. Rekomendasi prioritas & arsitektur (auth, RBAC, types): **[SARAN_PAMUNGKAS_IDIK_APP.md](SARAN_PAMUNGKAS_IDIK_APP.md)**.
+
 ## Getting Started
 
 First, run the development server:

@@ -1,14 +1,27 @@
-// ⚙️ app/dashboard/layout.tsx
-// Jangan beri "use client" di sini
-import { ReactNode } from "react";
-import { LayoutContainer } from "@/components/layout";
+"use client";
 
-/**
- * 🧠 Dashboard Layout – Server Wrapper (Fix React $$typeof)
- *   - Tidak memiliki "use client"
- *   - Tidak mendefinisikan ulang context provider global
- *   - Semua interaksi client dijalankan di dalam LayoutContainer
- */
-export default function DashboardLayout({ children }: { children: ReactNode }) {
-  return <LayoutContainer />;
+import { useEffect } from "react";
+import { LayoutContainer } from "@/components/layout";
+import { EventBridgeProvider } from "@/contexts/EventBridgeContext";
+import { DiagnosticsHUDProvider } from "@/contexts/DiagnosticsHUDContext";
+import EventBridgeToHUD from "@/dashboard/ui/EventBridgeToHUD";
+import DiagnosticsHUD from "@/dashboard/ui/DiagnosticsHUD";
+
+/** Konten diisi oleh TabContent di LayoutMain (sidebar → tab), bukan oleh route page. */
+export default function DashboardLayout() {
+  useEffect(() => {
+    console.log("✅ DashboardLayout mounted (client)");
+  }, []);
+
+  return (
+    <>
+      <LayoutContainer />
+      <EventBridgeProvider>
+        <DiagnosticsHUDProvider>
+          <EventBridgeToHUD />
+          <DiagnosticsHUD />
+        </DiagnosticsHUDProvider>
+      </EventBridgeProvider>
+    </>
+  );
 }

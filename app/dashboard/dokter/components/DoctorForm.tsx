@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { useDoctor } from "../contexts/DokterContext";
 
-export default function DoctorForm({ initialData, onClose }) {
+type DoctorFormProps = {
+  initialData?: any;
+  onClose: () => void;
+};
+
+export default function DoctorForm({ initialData, onClose }: DoctorFormProps) {
   const isEdit = Boolean(initialData);
   const [form, setForm] = useState(
     initialData || {
@@ -17,7 +22,7 @@ export default function DoctorForm({ initialData, onClose }) {
   );
   const { addDoctor, updateDoctor } = useDoctor();
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isEdit) await updateDoctor(initialData.id, form);
     else await addDoctor(form);

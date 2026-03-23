@@ -3,8 +3,18 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin"; // Import helper Admin
 import { logAudit } from "@/app/api/audit/log";
+import { requireAdmin, requireEnvFlag } from "@/lib/auth/guards";
 
 export async function POST(req: Request) {
+  const disabled = requireEnvFlag(
+    "ENABLE_RAW_SQL_API",
+    "RAW SQL API disabled"
+  );
+  if (disabled) return disabled.response;
+
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
   let body: any;
   try {
     body = await req.json();
@@ -15,7 +25,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const { sql, user } = body;
+  const { sql } = body;
 
   // 1. Validasi Input & Akses
   if (!sql || typeof sql !== "string") {
@@ -25,17 +35,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // Keamanan: Hanya izinkan Admin (role: 'admin') menjalankan Raw SQL
-  if (!user || user.role !== "admin") {
-    await logAudit("RAW_SQL_ATTEMPT_DENIED", {
-      sql: sql.substring(0, 50) + "...",
-      user: user?.id || "unauthenticated",
-    });
-    return NextResponse.json(
-      { ok: false, message: "Akses ditolak. Hanya Admin yang diizinkan." },
-      { status: 403 }
-    );
-  }
+  // Keamanan: Admin sudah divalidasi server-side (Supabase/JWT cookie)
 
   let queryResult: any = null;
   let queryError: any = null;
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     // 4. Log Audit Sukses
     await logAudit("RUN_RAW_SQL_SUCCESS", {
       sql: sql,
-      user: user.id,
+      user: admin.userId,
     });
   } catch (error: any) {
     queryError = error.message;
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
     // Log audit untuk query yang gagal
     await logAudit("RAW_SQL_FAIL", {
       sql: sql,
-      user: user.id,
+      user: admin.userId,
       error: error.message,
     });
 

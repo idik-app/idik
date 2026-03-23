@@ -31,9 +31,9 @@ export default function PasienActionPanel({ patient, onUpdate }: any) {
       )}
       {modalType === "edit" && (
         <PasienModalForm
-          patient={patient}
+          mode="edit"
+          selectedPatient={patient}
           onClose={() => setModalType(null)}
-          onSave={(updated) => onUpdate(updated)}
         />
       )}
     </>

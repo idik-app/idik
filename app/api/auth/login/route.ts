@@ -1,6 +1,7 @@
 // 💾 app/api/auth/login/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server-";
+import { getRedirectTargetForRole } from "@/lib/auth/redirect";
 
 /* ============================================================
    🔐 LOGIN DENGAN SUPABASE AUTH
@@ -32,13 +33,15 @@ export async function POST(req: Request) {
   // 3. Ambil role dari metadata (default: "user")
   const userRole = data.user.user_metadata?.role || "user";
 
-  // 4. Peta role → halaman redirect
-  const routeMap: Record<string, string> = {
-    admin: "/dashboard/admin",
-    staff: "/dashboard/inventaris",
-    user: "/dashboard/pasien",
-  };
-  const target = routeMap[userRole] || "/dashboard";
+  // 4. Peta role → halaman redirect (samakan dengan JWT flow)
+  // Supabase lama memakai "user/staff"; map-kan agar tetap bisa dipakai.
+  const normalized =
+    String(userRole).toLowerCase() === "user"
+      ? "pasien"
+      : String(userRole).toLowerCase() === "staff"
+        ? "perawat"
+        : userRole;
+  const target = getRedirectTargetForRole(normalized);
 
   // 5. Redirect (Supabase sudah otomatis set cookie session)
   return new NextResponse(null, {

@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ModalWrapper from "@/components/global/ModalWrapper";
 import type { Pasien } from "../types/pasien";
-import { addPatientAction, editPatientAction } from "../actions/clientBridge";
+import {
+  addPatientAction,
+  editPatientAction,
+  refreshPatientsAction,
+} from "../actions/clientBridge";
+import { usePasienDispatch } from "../contexts/PasienHooks";
+import { mapFromSupabase } from "../data/pasienSchema";
 
 /*───────────────────────────────────────────────
  🧠 PasienModalForm – Add/Edit Modal (Stable v5.6.6)
@@ -23,6 +29,7 @@ export default function PasienModalForm({
 }) {
   if (!mode) return null;
   const isEdit = mode === "edit";
+  const dispatch = usePasienDispatch();
 
   const [formData, setFormData] = useState<Omit<Pasien, "id">>({
     noRM: "",
@@ -31,7 +38,7 @@ export default function PasienModalForm({
     tanggalLahir: "",
     alamat: "",
     noHP: "",
-    jenisPembiayaan: "Umum",
+    jenisPembiayaan: "BPJS",
     kelasPerawatan: "Kelas 2",
     asuransi: "",
   });
@@ -55,13 +62,35 @@ export default function PasienModalForm({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+function normalizeTanggalLahir(raw: string): string {
+  if (!raw) return "";
+  // Jika sudah format YYYY-MM-DD, langsung pakai
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  // DUKUNG format seperti 30-6-1967 atau 30/06/1967
+  const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) {
+    const [_, d, mo, y] = m;
+    const day = d.padStart(2, "0");
+    const month = mo.padStart(2, "0");
+    return `${y}-${month}-${day}`;
+  }
+
+  return raw;
+}
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
     setFormData((p) => ({
       ...p,
-      [name]: name === "jenisKelamin" ? (value as "L" | "P") : value,
+      [name]:
+        name === "jenisKelamin"
+          ? (value as "L" | "P")
+          : name === "tanggalLahir"
+          ? normalizeTanggalLahir(value)
+          : value,
     }));
   };
 
@@ -72,9 +101,25 @@ export default function PasienModalForm({
     }
     setLoading(true);
     try {
-      if (isEdit && selectedPatient)
-        await editPatientAction(selectedPatient.id, formData);
-      else await addPatientAction(formData);
+      const resp = isEdit && selectedPatient
+        ? await editPatientAction(selectedPatient.id, formData)
+        : await addPatientAction(formData);
+
+      if (!resp?.ok) {
+        const msg =
+          resp?.error?.message ||
+          resp?.message ||
+          (typeof resp?.error === "string" ? resp.error : null) ||
+          "Terjadi kesalahan saat menyimpan data";
+        throw new Error(msg);
+      }
+
+      // Setelah berhasil simpan, refresh list agar tabel langsung terisi
+      const refreshed = await refreshPatientsAction();
+      if (refreshed?.ok && Array.isArray(refreshed?.data)) {
+        const mapped = refreshed.data.map((p: any) => mapFromSupabase(p));
+        dispatch({ type: "SET_PATIENTS", payload: mapped });
+      }
       onClose();
     } catch (err: any) {
       setError(err.message || "Terjadi kesalahan saat menyimpan data");
@@ -131,7 +176,8 @@ export default function PasienModalForm({
               <InputField
                 label="Tanggal Lahir"
                 name="tanggalLahir"
-                type="date"
+                type="text"
+                placeholder="30-06-1967 atau 1967-06-30"
                 value={formData.tanggalLahir}
                 onChange={handleChange}
               />
@@ -146,6 +192,45 @@ export default function PasienModalForm({
                 label="No. HP"
                 name="noHP"
                 value={formData.noHP}
+                onChange={handleChange}
+                colSpan
+              />
+
+              <div>
+                <label className="text-sm text-cyan-300">Jenis Pembiayaan</label>
+                <select
+                  name="jenisPembiayaan"
+                  value={formData.jenisPembiayaan}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 mt-1 bg-black/30 border border-cyan-600/50 
+                             rounded-lg focus:outline-none focus:border-yellow-400"
+                >
+                  <option value="BPJS">BPJS</option>
+                  <option value="BPJS PBI">BPJS PBI</option>
+                  <option value="Umum">Umum</option>
+                  <option value="Asuransi">Asuransi</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm text-cyan-300">Kelas Perawatan</label>
+                <select
+                  name="kelasPerawatan"
+                  value={formData.kelasPerawatan}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 mt-1 bg-black/30 border border-cyan-600/50 
+                             rounded-lg focus:outline-none focus:border-yellow-400"
+                >
+                  <option value="Kelas 1">Kelas 1</option>
+                  <option value="Kelas 2">Kelas 2</option>
+                  <option value="Kelas 3">Kelas 3</option>
+                </select>
+              </div>
+
+              <InputField
+                label="Asuransi (opsional)"
+                name="asuransi"
+                value={formData.asuransi}
                 onChange={handleChange}
                 colSpan
               />
@@ -189,6 +274,7 @@ function InputField({
   onChange,
   type = "text",
   colSpan = false,
+  placeholder,
 }: {
   label: string;
   name: string;
@@ -196,6 +282,7 @@ function InputField({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   type?: string;
   colSpan?: boolean;
+  placeholder?: string;
 }) {
   return (
     <div className={colSpan ? "col-span-2" : ""}>
@@ -205,6 +292,7 @@ function InputField({
         name={name}
         value={value}
         onChange={onChange}
+        placeholder={placeholder}
         className="w-full px-3 py-2 mt-1 bg-black/30 border border-cyan-600/50 
                    rounded-lg focus:outline-none focus:border-yellow-400"
       />

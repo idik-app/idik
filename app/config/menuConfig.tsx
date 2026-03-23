@@ -4,217 +4,315 @@ import {
   House,
   Users,
   Stethoscope,
-  Activity,
   Box,
   ClipboardList,
   FileBarChart,
   HeartPulse,
-  Wrench,
-  Cpu,
   BarChart4,
-  Settings,
-  Wallet,
-  Bell,
-  ShieldCheck,
-  LineChart,
-  CandlestickChart,
   Database,
   Bug,
   KeySquare,
   Terminal,
   Network,
   Info,
+  GaugeCircle,
+  ScrollText,
+  Syringe,
+  ShieldCheck,
+  Settings,
 } from "lucide-react";
 
-/* ⚡ menuConfig v3.4.4 – Gold-Cyan Hybrid (Synced)
-   🔹 Sinkron 100% dengan struktur /app/dashboard/system/[page].tsx
-   🔹 Siap untuk TabContext v6.4 & Sidebar v5.6.5
-   🔹 Role-based visibility dapat diaktifkan per modul
+/* ⚡ menuConfig v4.0 – Neo-Hologram Gold-Cyan Hybrid
+   – Adaptive Priority Engine
+   – Hologram Pulse / Edge / Scan Presets
+   – Role-based (future)
+   – Badge-ready (dynamic)
 */
 
 export const menuConfig = [
+  /* ============================================
+   *  MAIN MODULES
+   * ============================================ */
   {
     group: "Main",
+    hologram: "edge",
     items: [
       {
         id: "dashboard",
         label: "Dashboard",
         icon: <House size={18} />,
-        path: "/dashboard",
+        href: "/dashboard",
+        priority: 1,
+        module: "DashboardMain",
+        hologram: "pulse",
       },
       {
         id: "pasien",
         label: "Pasien",
         icon: <Users size={18} />,
-        path: "/dashboard/pasien",
+        href: "/dashboard/pasien",
+        priority: 2,
+        module: "PasienDashboard",
+        hologram: "scan",
       },
       {
         id: "dokter",
         label: "Dokter",
         icon: <Stethoscope size={18} />,
-        path: "/dashboard/dokter",
+        href: "/dashboard/dokter",
+        priority: 3,
+        module: "DokterDashboard",
+        hologram: "scan",
       },
     ],
   },
+
+  /* ============================================
+   *  CATHLAB MODULES
+   * ============================================ */
   {
     group: "Cathlab",
+    hologram: "pulse",
     items: [
       {
         id: "inventaris",
         label: "Inventaris",
         icon: <Box size={18} />,
-        path: "/dashboard/inventaris",
+        href: "/dashboard/inventaris",
+        priority: 1,
+        module: "InventarisDashboard",
+        hologram: "edge",
       },
       {
         id: "pemakaian",
-        label: "Pemakaian",
+        label: "Pemakaian Alkes",
         icon: <ClipboardList size={18} />,
-        path: "/dashboard/pemakaian",
+        href: "/dashboard/pemakaian",
+        priority: 1,
+        module: "PemakaianDashboard",
+        hologram: "pulse",
       },
       {
         id: "monitoring",
-        label: "Monitoring",
+        label: "Monitoring Cathlab",
         icon: <HeartPulse size={18} />,
-        path: "/dashboard/monitoring",
-      },
-      {
-        id: "grafik",
-        label: "Grafik",
-        icon: <Activity size={18} />,
-        path: "/dashboard/grafik",
+        href: "/dashboard/smart/monitoring",
+        priority: 2,
+        module: "MonitoringCathlab",
+        hologram: "scan",
       },
     ],
   },
+
+  /* ============================================
+   *  FARMASI / DEPO
+   * ============================================ */
+  {
+    group: "Farmasi",
+    hologram: "pulse",
+    items: [
+      {
+        id: "farmasi-master-data",
+        label: "Master Data",
+        icon: <Box size={18} />,
+        href: "/dashboard/farmasi/master",
+        priority: 1,
+        module: "FarmasiMasterData",
+        hologram: "edge",
+      },
+      {
+        id: "farmasi-stok-opname",
+        label: "Stok Opname",
+        icon: <ClipboardList size={18} />,
+        href: "/dashboard/farmasi/stok-opname",
+        priority: 2,
+        module: "FarmasiStokOpname",
+        hologram: "pulse",
+      },
+      {
+        id: "farmasi-laporan-keluar",
+        label: "Lap. Barang Keluar",
+        icon: <FileBarChart size={18} />,
+        href: "/dashboard/farmasi/laporan/keluar",
+        priority: 4,
+        module: "FarmasiLaporanKeluar",
+        hologram: "edge",
+      },
+      {
+        id: "farmasi-laporan-stok-alkes",
+        label: "Lap. Stok Alkes",
+        icon: <BarChart4 size={18} />,
+        href: "/dashboard/farmasi/laporan/stok-alkes",
+        priority: 4,
+        module: "FarmasiLaporanStokAlkes",
+        hologram: "scan",
+      },
+    ],
+  },
+
+  /* ============================================
+   *  LAYANAN MEDIS
+   * ============================================ */
+  {
+    group: "Layanan",
+    hologram: "scan",
+    items: [
+      {
+        id: "tindakan",
+        label: "Tindakan Medis",
+        icon: <Syringe size={18} />,
+        href: "/dashboard/layanan/tindakan",
+        priority: 1,
+        module: "TindakanDashboard", // v7.0 cinematic module
+        hologram: "edge",
+      },
+    ],
+  },
+
+  /* ============================================
+   *  ADMINISTRATION
+   * ============================================ */
   {
     group: "Admin",
+    hologram: "edge",
     items: [
       {
-        id: "vendor",
-        label: "Vendor / Distributor",
-        icon: <Database size={18} />,
-        path: "/dashboard/vendor",
-      },
-      {
-        id: "logistik",
-        label: "Logistik & Stok",
-        icon: <Wrench size={18} />,
-        path: "/dashboard/logistik",
-      },
-      {
-        id: "user",
-        label: "Manajemen User",
+        id: "admin",
+        label: "Admin",
         icon: <ShieldCheck size={18} />,
-        path: "/dashboard/user",
+        href: "/dashboard/admin",
+        priority: 1,
+        module: "AdminDashboard",
+        hologram: "pulse",
       },
     ],
   },
-  {
-    group: "Trading",
-    items: [
-      {
-        id: "market",
-        label: "Market Overview",
-        icon: <LineChart size={18} />,
-        path: "/dashboard/trading/market",
-      },
-      {
-        id: "alerts-signals",
-        label: "Alerts & Signals",
-        icon: <Bell size={18} />,
-        path: "/dashboard/trading/alerts-signals",
-      },
-      {
-        id: "auto-trade",
-        label: "Auto Trade",
-        icon: <Cpu size={18} />,
-        path: "/dashboard/trading/auto-trade",
-      },
-      {
-        id: "portfolio",
-        label: "Portfolio",
-        icon: <Wallet size={18} />,
-        path: "/dashboard/trading/portfolio",
-      },
-      {
-        id: "charts",
-        label: "Charts",
-        icon: <CandlestickChart size={18} />,
-        path: "/dashboard/trading/charts",
-      },
-    ],
-  },
+
+  /* ============================================
+   *  TOOLS
+   * ============================================ */
   {
     group: "Tools",
+    hologram: "pulse",
     items: [
       {
         id: "report",
         label: "Report Generator",
         icon: <FileBarChart size={18} />,
-        path: "/dashboard/tools/report",
+        href: "/dashboard/laporan",
+        priority: 2,
+        module: "ReportGenerator",
+        hologram: "scan",
       },
       {
         id: "analytics",
         label: "Analytics",
         icon: <BarChart4 size={18} />,
-        path: "/dashboard/tools/analytics",
+        href: "/dashboard/smart/analytics",
+        priority: 1,
+        module: "AnalyticsDashboard",
+        hologram: "edge",
       },
     ],
   },
+
+  /* ============================================
+   *  PENGATURAN
+   * ============================================ */
   {
-    group: "Settings",
+    group: "Pengaturan",
+    hologram: "scan",
     items: [
       {
         id: "pengaturan",
         label: "Pengaturan",
         icon: <Settings size={18} />,
-        path: "/dashboard/settings/pengaturan",
+        href: "/dashboard/settings",
+        priority: 1,
+        module: "SettingsDashboard",
+        hologram: "pulse",
       },
     ],
   },
+
+  /* ============================================
+   *  SYSTEM MODULES (DEV/ADMIN)
+   * ============================================ */
   {
-    group: "System / Developer Mode",
+    group: "System",
+    hologram: "edge",
     items: [
       {
-        id: "console",
-        label: "Console & Logs",
-        icon: <Terminal size={18} />,
-        path: "/dashboard/system/console",
-      },
-      {
-        id: "api-keys",
-        label: "API Keys",
-        icon: <KeySquare size={18} />,
-        path: "/dashboard/system/api-keys",
-      },
-      {
-        id: "supabase",
-        label: "Supabase Console",
-        icon: <Network size={18} />,
-        path: "/dashboard/system/supabase",
+        id: "diagnostics",
+        label: "Diagnostics",
+        icon: <GaugeCircle size={18} />,
+        href: "/system",
+        priority: 1,
+        module: "DiagnosticsHUD",
+        hologram: "pulse",
       },
       {
         id: "database",
         label: "Database Explorer",
         icon: <Database size={18} />,
-        path: "/dashboard/system/database",
+        href: "/system/database",
+        priority: 3,
+        module: "DatabaseExplorer",
+        hologram: "edge",
+      },
+      {
+        id: "audit",
+        label: "Audit Log",
+        icon: <ScrollText size={18} />,
+        href: "/system/database/audit",
+        priority: 4,
+        module: "AuditLog",
+        hologram: "scan",
+      },
+      {
+        id: "supabase",
+        label: "Supabase Console",
+        icon: <Network size={18} />,
+        href: "/system/supabase",
+        priority: 4,
+        module: "SupabaseConsole",
+        hologram: "scan",
+      },
+      {
+        id: "console",
+        label: "Console & Logs",
+        icon: <Terminal size={18} />,
+        href: "/system/console",
+        priority: 4,
+        module: "ConsoleLogs",
+        hologram: "edge",
+      },
+      {
+        id: "api-keys",
+        label: "API Keys",
+        icon: <KeySquare size={18} />,
+        href: "/system/api-keys",
+        priority: 5,
+        module: "ApiKeys",
+        hologram: "scan",
       },
       {
         id: "debug",
         label: "Debug Tools",
         icon: <Bug size={18} />,
-        path: "/dashboard/system/debug",
+        href: "/system/debug",
+        priority: 6,
+        module: "DebugTools",
+        hologram: "edge",
       },
       {
         id: "version",
         label: "Version Info",
         icon: <Info size={18} />,
-        path: "/dashboard/system/version",
-      },
-      {
-        id: "system",
-        label: "System Status", // ← Tambahan baru
-        icon: <Cpu size={18} />, // ← Ikon Build Meta / Status
-        path: "/system", // ← Path langsung ke /system
+        href: "/system/version",
+        priority: 7,
+        module: "VersionInfo",
+        hologram: "pulse",
       },
     ],
   },

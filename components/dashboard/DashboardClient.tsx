@@ -1,25 +1,28 @@
-// 📁 components/dashboard/DashboardClient.tsx
 "use client";
-import { createBrowserClientInstance } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
+/*───────────────────────────────────────────────
+🧩 DashboardClient v2.1 – Supabase Global Integration
+───────────────────────────────────────────────*/
 export default function DashboardClient() {
-  const supabase = createBrowserClientInstance();
-  const [data, setData] = useState<any[]>([]);
+  const [status, setStatus] = useState("Loading Supabase...");
 
   useEffect(() => {
-    supabase
-      .from("doctor")
-      .select("*")
-      .then(({ data }) => setData(data || []));
+    async function checkConnection() {
+      const { data, error } = await supabase
+        .from("pasien")
+        .select("id")
+        .limit(1);
+      if (error) setStatus(`❌ Connection error: ${error.message}`);
+      else setStatus("✅ Supabase Connected");
+    }
+    checkConnection();
   }, []);
 
   return (
-    <div className="p-6">
-      <h2 className="text-cyan-300 font-bold">Dashboard JARVIS (Client)</h2>
-      <pre className="text-xs text-gray-400">
-        {JSON.stringify(data, null, 2)}
-      </pre>
+    <div className="p-4 text-cyan-300 text-sm">
+      <p>{status}</p>
     </div>
   );
 }

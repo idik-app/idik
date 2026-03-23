@@ -26,7 +26,12 @@ export function ExportButton({ type, data }: { type: string; data: any[] }) {
       </button>
 
       {open && (
-        <ExportModal type={type} data={data} onClose={() => setOpen(false)} />
+        <ExportModal
+          isOpen={open}
+          type={type}
+          data={data}
+          onClose={() => setOpen(false)}
+        />
       )}
     </>
   );

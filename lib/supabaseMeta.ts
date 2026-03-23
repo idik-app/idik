@@ -13,7 +13,7 @@ export async function getTables() {
 }
 
 export async function getColumns(table: string) {
-  const { data, error } = await supabase.rpc("list_columns", {
+  const { data, error } = await (supabase as any).rpc("list_columns", {
     table_name: table,
   });
 

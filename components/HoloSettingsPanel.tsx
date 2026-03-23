@@ -1,6 +1,6 @@
 "use client";
 import { motion, AnimatePresence } from "framer-motion";
-import { useUI } from "@app/contexts/UIContext";
+import { useUI } from "@/contexts/UIContext";
 import { X } from "lucide-react";
 
 type TransitionMode = "fast" | "smooth" | "cinematic";

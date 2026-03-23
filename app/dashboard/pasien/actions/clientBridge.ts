@@ -1,25 +1,35 @@
 "use client";
 
-import {
-  addPatient,
-  editPatient,
-  deletePatient,
-  refreshPatients,
-} from "./serverActions";
+/**
+ * 🔒 clientBridge.ts — versi aman React 19 / Next 16
+ * Semua fungsi di sini berjalan di sisi client
+ * dan hanya memanggil endpoint API, bukan server action langsung.
+ */
 
-/* Bridge murni client → memanggil fungsi server */
 export async function addPatientAction(data: any) {
-  return await addPatient(data);
+  const res = await fetch("/api/pasien/add", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
 }
 
 export async function editPatientAction(id: string, data: any) {
-  return await editPatient(id, data);
+  const res = await fetch(`/api/pasien/${id}/edit`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return res.json();
 }
 
 export async function deletePatientAction(id: string) {
-  return await deletePatient(id);
+  const res = await fetch(`/api/pasien/${id}`, { method: "DELETE" });
+  return res.json();
 }
 
 export async function refreshPatientsAction() {
-  return await refreshPatients();
+  const res = await fetch("/api/pasien");
+  return res.json();
 }

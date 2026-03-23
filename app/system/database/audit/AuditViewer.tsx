@@ -11,17 +11,32 @@ import { useEffect, useState } from "react";
 export default function AuditViewer() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   async function fetchLogs() {
     setLoading(true);
     try {
       const res = await fetch("/api/audit/log", { cache: "no-store" });
       const data = await res.json();
-      if (data.ok && Array.isArray(data.data)) setLogs(data.data);
-      else setLogs([]);
+      if (data?.ok && Array.isArray(data.data)) {
+        setLogs(data.data);
+        setError(null);
+      } else {
+        setLogs([]);
+        setError(
+          typeof data?.message === "string"
+            ? data.message
+            : res.status === 401
+              ? "Unauthorized"
+              : res.status === 403
+                ? "Forbidden"
+                : "Gagal memuat audit log"
+        );
+      }
     } catch (err) {
       console.error("❌ fetchLogs error:", err);
       setLogs([]);
+      setError("Gagal memuat audit log");
     } finally {
       setLoading(false);
     }
@@ -39,7 +54,7 @@ export default function AuditViewer() {
   if (!logs.length)
     return (
       <div className="text-center text-gray-500 py-6">
-        Tidak ada aktivitas yang tercatat.
+        {error ? error : "Tidak ada aktivitas yang tercatat."}
       </div>
     );
 

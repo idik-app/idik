@@ -19,5 +19,5 @@ export default function DashboardPage() {
       </div>
     );
 
-  return <DashboardMain stats={data} />;
+  return <DashboardMain />;
 }

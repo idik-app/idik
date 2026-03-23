@@ -1,61 +1,95 @@
 "use client";
-import { useState, useMemo, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { Pasien } from "../types/pasien";
+import { usePasienState } from "./states/usePasienState";
 
 /**
- * 🎯 usePasienFilter v3.8
- * Pencarian + Pagination adaptif setelah CRUD
+ * 🎯 usePasienFilter v6.2 — Filtering, Search, and Pagination
+ * Kompatibel dengan PasienProvider v6.2
  */
-export function usePasienFilter(patients: Pasien[]) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+export function usePasienFilter(base: ReturnType<typeof usePasienState>) {
+  const { patients } = base;
+
+  /* -------------------------------------------------------------- */
+  /* 🔹 1. State filter & pagination                                 */
+  /* -------------------------------------------------------------- */
+  const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
-  // 🔍 Filter pasien
+  /* -------------------------------------------------------------- */
+  /* 🔹 2. Filter hasil berdasarkan pencarian                        */
+  /* -------------------------------------------------------------- */
+  /* -------------------------------------------------------------- */
+  /* 🔹 2. Filter hasil berdasarkan pencarian                        */
+  /* -------------------------------------------------------------- */
   const filteredPatients = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim();
-    if (!q) return patients;
-    return patients.filter(
-      (p) =>
-        p.nama.toLowerCase().includes(q) ||
-        p.noRM?.toLowerCase?.().includes(q) ||
-        p.alamat?.toLowerCase?.().includes(q)
-    );
-  }, [patients, searchQuery]);
+    if (!Array.isArray(patients)) return [];
 
-  // 📄 Pagination total
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredPatients.length / rowsPerPage)
-  );
+    const term = searchTerm.toLowerCase().trim();
+    let list = patients;
 
-  // ⚡ Reset halaman otomatis jika data berubah
-  useEffect(() => {
-    // Jika halaman sekarang > total halaman, kembali ke halaman 1
-    if (currentPage > totalPages) {
-      setCurrentPage(1);
+    if (term) {
+      list = patients.filter((p: Pasien) => {
+        return (
+          p.nama?.toLowerCase().includes(term) ||
+          p.no_rm?.toString().includes(term) ||
+          p.alamat?.toLowerCase().includes(term) ||
+          p.no_hp?.toString().includes(term) ||
+          p.jenis_pembiayaan?.toLowerCase().includes(term) ||
+          p.kelas?.toLowerCase().includes(term)
+        );
+      });
     }
-    // Jika habis dihapus semua, pastikan halaman 1
-    if (filteredPatients.length === 0 && currentPage !== 1) {
-      setCurrentPage(1);
-    }
-  }, [filteredPatients.length, totalPages]);
 
-  // 🔢 Data per halaman
+    // 👉 buat key unik untuk membandingkan isi
+    const key = JSON.stringify(list.map((p) => p.id));
+    // cache hasil agar referensi stabil
+    return useMemo(() => list, [key]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patients, searchTerm]);
+
+  /* -------------------------------------------------------------- */
+  /* 🔹 3. Pagination hasil filter                                   */
+  /* -------------------------------------------------------------- */
   const paginatedPatients = useMemo(() => {
+    if (!Array.isArray(filteredPatients)) return [];
     const start = (currentPage - 1) * rowsPerPage;
-    return filteredPatients.slice(start, start + rowsPerPage);
+    const slice = filteredPatients.slice(start, start + rowsPerPage);
+    const key = JSON.stringify(slice.map((p) => p.id));
+    return useMemo(() => slice, [key]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredPatients, currentPage, rowsPerPage]);
 
+  /* -------------------------------------------------------------- */
+  /* 🔹 4. Utility navigasi halaman                                  */
+  /* -------------------------------------------------------------- */
+  const totalPages = useMemo(() => {
+    return Math.ceil((filteredPatients?.length || 0) / rowsPerPage) || 1;
+  }, [filteredPatients, rowsPerPage]);
+
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) setCurrentPage(page);
+  };
+
+  /* -------------------------------------------------------------- */
+  /* 🔹 5. Return semua fungsi & data                                */
+  /* -------------------------------------------------------------- */
   return {
-    searchQuery,
-    setSearchQuery,
-    filteredPatients,
-    paginatedPatients,
+    searchTerm,
+    handleSearch,
+    currentPage,
+    handlePageChange,
     rowsPerPage,
     setRowsPerPage,
-    currentPage,
-    setCurrentPage,
+    filteredPatients,
+    paginatedPatients,
     totalPages,
   };
 }

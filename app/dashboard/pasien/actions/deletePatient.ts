@@ -1,28 +1,32 @@
-"use client";
-import { createClient } from "@supabase/supabase-js";
+"use server";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { createClient } from "@/lib/supabase/server-";
+import { logPasienAudit } from "@/lib/audit/logPasien";
 
-/* 🗑️ Hapus pasien berdasarkan ID */
 export async function deletePatient(id: string): Promise<void> {
-  console.log("Deleting pasien id:", id); // 👈 log cek id dikirim
-  const { data, error } = await supabase
+  const supabase = await createClient();
+
+  const { data: row } = await supabase
     .from("pasien")
-    .delete()
+    .select("id, no_rm, nama")
     .eq("id", id)
-    .select();
+    .single();
+
+  const { error } = await supabase.from("pasien").delete().eq("id", id);
 
   if (error) {
     console.error("Supabase delete error:", error);
     throw new Error(error.message);
   }
 
-  if (!data || data.length === 0) {
-    console.warn("⚠️ Tidak ada baris terhapus, id mungkin tidak cocok:", id);
-  } else {
-    console.log("✅ Baris terhapus:", data);
-  }
+  const userId = (await supabase.auth.getUser()).data?.user?.id;
+  await logPasienAudit(
+    "DELETE",
+    {
+      patient_id: id,
+      no_rm: (row as { no_rm?: string })?.no_rm,
+      nama: (row as { nama?: string })?.nama,
+    },
+    userId
+  );
 }

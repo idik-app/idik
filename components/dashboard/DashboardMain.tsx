@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import SummaryGrid from "./summary/SummaryGrid";
 import { AIStatusPanel } from "./ai";
+import { AutonomousStatusCard } from "./AutonomousStatusCard";
 import ChartPatients from "./charts/ChartPatients";
 import ChartDoctors from "./charts/ChartDoctors";
 import ChartReuse from "./charts/ChartReuse";
@@ -49,7 +50,10 @@ export default function DashboardMain() {
 
       {/* 📊 Konten utama dashboard */}
       <SummaryGrid />
-      <AIStatusPanel />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <AutonomousStatusCard />
+        <AIStatusPanel />
+      </div>
 
       <div className="grid md:grid-cols-3 gap-6">
         <ChartPatients />

@@ -10,7 +10,7 @@ import {
   Timer,
   Database,
 } from "lucide-react";
-import { useAI } from "@app/contexts/AIContext";
+import { useAI } from "@/contexts/AIContext";
 
 /* ⚙️ Cathlab JARVIS DiagnosticPanel v3.7.0
    🧠 Visualisasi AIContext (Singularity Edition)

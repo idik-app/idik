@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { createClient } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,14 +27,11 @@ interface ColumnInfo {
 
 export default function TableDetailPage() {
   const { table } = useParams();
-  const supabase = createClient();
-
   const [columns, setColumns] = useState<ColumnInfo[]>([]);
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"data" | "sql">("data");
 
-  // SQL Console states
   const [query, setQuery] = useState(`SELECT * FROM ${table} LIMIT 10;`);
   const [queryResult, setQueryResult] = useState<any[]>([]);
   const [queryError, setQueryError] = useState<string | null>(null);
@@ -43,25 +40,31 @@ export default function TableDetailPage() {
   async function fetchTableData() {
     setLoading(true);
     try {
-      const { data: colData } = await supabase
+      // ambil metadata kolom (gunakan schema information_schema)
+      const tableName = typeof table === "string" ? table : Array.isArray(table) ? table[0] : "";
+      const { data: colData, error: colError } = await (supabase as any)
         .from("information_schema.columns")
         .select("column_name, data_type, is_nullable")
-        .eq("table_name", table)
+        .eq("table_name", tableName)
         .limit(50);
 
-      setColumns(
-        colData?.map((c) => ({
-          name: c.column_name,
-          type: c.data_type,
-          nullable: c.is_nullable === "YES",
-        })) ?? []
-      );
+      if (!colError) {
+        setColumns(
+          colData?.map((c: any) => ({
+            name: c.column_name,
+            type: c.data_type,
+            nullable: c.is_nullable === "YES",
+          })) ?? []
+        );
+      }
 
-      const { data: rowsData } = await supabase
-        .from(String(table))
+      // ambil isi tabel
+      const { data: rowsData, error: rowsError } = await (supabase as any)
+        .from(tableName)
         .select("*")
         .limit(50);
-      setRows(rowsData ?? []);
+
+      if (!rowsError) setRows(rowsData ?? []);
     } finally {
       setLoading(false);
     }
@@ -71,7 +74,7 @@ export default function TableDetailPage() {
     setQueryError(null);
     setQueryResult([]);
     try {
-      const { data, error } = await supabase.rpc("exec_sql", { query });
+      const { data, error } = await (supabase as any).rpc("exec_sql", { query });
       if (error) throw error;
       setQueryResult(data ?? []);
       saveHistory(query);
@@ -112,7 +115,7 @@ export default function TableDetailPage() {
           </h1>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/system/database">
+          <Link href="/system/database">
             <Button
               variant="outline"
               className="border-cyan-600/50 text-cyan-300 hover:bg-cyan-900/30"
@@ -154,7 +157,7 @@ export default function TableDetailPage() {
         </button>
       </div>
 
-      {/* Tab Content */}
+      {/* Content */}
       {activeTab === "data" ? (
         loading ? (
           <div className="text-center text-gray-400 animate-pulse mt-20">
@@ -162,7 +165,7 @@ export default function TableDetailPage() {
           </div>
         ) : (
           <>
-            {/* Metadata */}
+            {/* Metadata cards */}
             <div className="grid gap-6 md:grid-cols-2 mb-10">
               <Card className="bg-[#0f1629]/80 border border-cyan-800/30 rounded-2xl shadow-lg">
                 <CardContent className="p-6">
@@ -232,24 +235,22 @@ export default function TableDetailPage() {
           </>
         )
       ) : (
+        /* SQL console */
         <div className="space-y-6">
-          {/* SQL Console */}
           <Card className="bg-[#0d1424]/70 border border-cyan-800/20 rounded-2xl shadow-lg">
             <CardContent className="p-6">
               <div className="flex justify-between mb-3">
                 <label className="block text-sm text-cyan-300">
                   SQL Query Editor
                 </label>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-gray-300 border-cyan-700/50 hover:bg-cyan-900/30"
-                    onClick={clearHistory}
-                  >
-                    <Trash2 size={14} className="mr-1" /> Clear History
-                  </Button>
-                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-gray-300 border-cyan-700/50 hover:bg-cyan-900/30"
+                  onClick={clearHistory}
+                >
+                  <Trash2 size={14} className="mr-1" /> Clear History
+                </Button>
               </div>
 
               <textarea
@@ -275,7 +276,6 @@ export default function TableDetailPage() {
             </CardContent>
           </Card>
 
-          {/* History */}
           {history.length > 0 && (
             <Card className="bg-[#0f1629]/70 border border-cyan-800/20 rounded-2xl shadow-lg">
               <CardContent className="p-6">
@@ -299,7 +299,6 @@ export default function TableDetailPage() {
             </Card>
           )}
 
-          {/* Query Result */}
           {queryResult.length > 0 && (
             <div className="bg-[#0d1424]/70 border border-cyan-800/20 rounded-2xl overflow-x-auto shadow-lg p-4">
               <h3 className="text-cyan-300 font-semibold mb-2 text-sm">

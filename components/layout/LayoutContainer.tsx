@@ -7,8 +7,8 @@ import {
   motion,
   AnimatePresence,
 } from "framer-motion";
-import { useUI } from "@app/contexts/UIContext";
-import { useSession } from "@app/contexts/SessionContext";
+import { useUI } from "@/contexts/UIContext";
+import { useSession } from "@/contexts/SessionContext";
 import LayoutSidebar from "./LayoutSidebar";
 import LayoutHeader from "./LayoutHeader";
 import LayoutMain from "./LayoutMain";
@@ -50,22 +50,39 @@ export default function LayoutContainer() {
   useEffect(() => {
     const refresh = async () => {
       try {
-        const res = await fetch("/api/auth/refresh", { method: "GET" });
+        const res = await fetch("/api/auth/refresh", {
+          method: "GET",
+          credentials: "include",
+        });
         const data = await res.json();
         if (data.ok) {
           console.log("🔁 Token diperbarui:", data.message);
           setBlink(true);
           setVisible(true);
           setSession({
+            ...(typeof data.username === "string" && { username: data.username }),
             role: data.role || "user",
             lastRefresh: new Date().toLocaleTimeString(),
           });
           setTimeout(() => setBlink(false), 1800);
         } else {
           console.warn("⚠️ Refresh gagal:", data.message);
+              // Reset supaya UI tidak "nyangkut" role sebelumnya (mis. admin).
+              setSession({
+                username: "unknown",
+                role: "guest",
+                lastRefresh: null,
+                refreshCount: 0,
+              });
         }
       } catch (err) {
         console.warn("⚠️ Gagal menghubungi refresh endpoint:", err);
+            setSession({
+              username: "unknown",
+              role: "guest",
+              lastRefresh: null,
+              refreshCount: 0,
+            });
       }
     };
 
@@ -107,7 +124,10 @@ export default function LayoutContainer() {
         {/* 💠 Konten utama */}
         <motion.div
           animate={{ marginLeft: contentMargin }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
+          transition={{
+            duration: 0.5,
+            ease: [0.4, 0, 0.2, 1],
+          }}
           className="flex flex-col h-screen flex-grow relative z-[10]"
         >
           <LayoutHeader />

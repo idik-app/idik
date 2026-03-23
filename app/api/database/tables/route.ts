@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/app/api/audit/log";
+import { requireAdmin, requireEnvFlag } from "@/lib/auth/guards";
 
 export async function GET() {
+  const disabled = requireEnvFlag(
+    "ENABLE_DB_SCHEMA_API",
+    "DB schema API disabled"
+  );
+  if (disabled) return disabled.response;
+
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
   try {
     console.log("Testing Supabase connection...");
     const supabase = createAdminClient();

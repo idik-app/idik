@@ -1,89 +1,93 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Pasien } from "../types/pasien";
+import { usePasien } from "../contexts/PasienContext";
 
-/* -------------------------------------------------------
-   🧠 usePasienInsight v1.1 – Otonom Klinik Engine (Stable)
-   Menggunakan created_at sebagai tanggal pendaftaran.
--------------------------------------------------------- */
-export function usePasienInsight(patients: Pasien[]) {
+/*───────────────────────────────────────────────
+ 🧠 usePasienInsight v6.3 – Autonomous Clinic Engine
+   Analisis tren pasien real-time berdasarkan data context.
+───────────────────────────────────────────────*/
+export function usePasienInsight() {
+  const { patients } = usePasien();
+
   const [insight, setInsight] = useState<string>("Menganalisis data pasien...");
   const [trend, setTrend] = useState<{
     bpjs: number;
     umum: number;
     asuransi: number;
-    kelasDominan: string;
     total: number;
     hariIni: number;
+    usiaRata: number;
   }>({
     bpjs: 0,
     umum: 0,
     asuransi: 0,
-    kelasDominan: "-",
     total: 0,
     hariIni: 0,
+    usiaRata: 0,
   });
 
   useEffect(() => {
     if (!patients || patients.length === 0) {
       setInsight("Belum ada data pasien.");
+      setTrend({
+        bpjs: 0,
+        umum: 0,
+        asuransi: 0,
+        total: 0,
+        hariIni: 0,
+        usiaRata: 0,
+      });
       return;
     }
 
     const total = patients.length;
-    const today = new Date().toLocaleDateString("id-ID");
+    const todayISO = new Date().toISOString().slice(0, 10);
 
-    // 🔹 Gunakan created_at untuk hitung pasien baru hari ini
     const hariIni = patients.filter(
-      (p) =>
-        p.created_at &&
-        new Date(p.created_at).toLocaleDateString("id-ID") === today
+      (p: any) =>
+        (p.created_at || "").toString().slice(0, 10) === todayISO ||
+        (p.updated_at || "").toString().slice(0, 10) === todayISO
     ).length;
 
     const bpjs = patients.filter((p) =>
-      p.jenisPembiayaan?.includes("BPJS")
+      (p.jenisPembiayaan || "").toLowerCase().includes("bpjs")
     ).length;
-    const umum = patients.filter((p) => p.jenisPembiayaan === "Umum").length;
-    const asuransi = patients.filter(
-      (p) => p.jenisPembiayaan === "Asuransi"
+    const umum = patients.filter(
+      (p) => (p.jenisPembiayaan || "").toLowerCase() === "umum"
     ).length;
-
-    const kelas1 = patients.filter(
-      (p) => p.kelasPerawatan === "Kelas 1"
-    ).length;
-    const kelas2 = patients.filter(
-      (p) => p.kelasPerawatan === "Kelas 2"
-    ).length;
-    const kelas3 = patients.filter(
-      (p) => p.kelasPerawatan === "Kelas 3"
+    const asuransi = patients.filter((p) =>
+      (p.jenisPembiayaan || "").toLowerCase().includes("asuransi")
     ).length;
 
-    const kelasDominan =
-      kelas1 > kelas2 && kelas1 > kelas3
-        ? "Kelas 1"
-        : kelas2 > kelas1 && kelas2 > kelas3
-        ? "Kelas 2"
-        : "Kelas 3";
+    const usiaRata = Math.round(
+      patients.reduce((sum, p) => sum + (p.usia || 0), 0) / total
+    );
 
-    setTrend({ bpjs, umum, asuransi, kelasDominan, total, hariIni });
+    setTrend({ bpjs, umum, asuransi, total, hariIni, usiaRata });
 
     // 🔹 Analisis naratif sederhana
     const bpjsPersen = ((bpjs / total) * 100).toFixed(1);
     const umumPersen = ((umum / total) * 100).toFixed(1);
     const asuransiPersen = ((asuransi / total) * 100).toFixed(1);
 
-    let pesan = `Saat ini terdapat ${total} pasien terdaftar`;
-    pesan += hariIni > 0 ? `, dengan ${hariIni} pasien baru hari ini.` : `.`;
-    pesan += ` Distribusi pembiayaan: BPJS ${bpjsPersen}%, Umum ${umumPersen}%, dan Asuransi ${asuransiPersen}%.`;
-    pesan += ` ${kelasDominan} menjadi kelas terbanyak.`;
+    let pesan = `📊 Total ${total} pasien terdaftar`;
+    pesan +=
+      hariIni > 0
+        ? `, dengan ${hariIni} pasien baru hari ini.`
+        : `, belum ada pasien baru hari ini.`;
+    pesan += ` Distribusi pembiayaan: BPJS ${bpjsPersen}%, Umum ${umumPersen}%, Asuransi ${asuransiPersen}%.`;
+    pesan += ` Rata-rata usia pasien ${usiaRata} tahun. `;
 
     if (bpjs / total > 0.6) {
-      pesan += " Tren menunjukkan dominasi pasien BPJS, siapkan slot tambahan.";
+      pesan +=
+        "Dominasi BPJS meningkat, pertimbangkan optimasi jadwal layanan.";
     } else if (umum / total > 0.4) {
-      pesan += " Pasien umum meningkat signifikan minggu ini.";
+      pesan += "Pasien umum meningkat signifikan minggu ini.";
     } else if (asuransi / total > 0.3) {
-      pesan += " Asuransi swasta mulai aktif berpartisipasi.";
+      pesan += "Pasien asuransi swasta mulai bertambah.";
+    } else {
+      pesan += "Distribusi pasien stabil tanpa dominasi signifikan.";
     }
 
     setInsight(pesan);

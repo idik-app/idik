@@ -2,7 +2,11 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-export function exportToPDF(type: string, data: any[]) {
+export async function exportToPDF(
+  type: string,
+  data: any[],
+  asBlob = false
+): Promise<Blob | void> {
   if (!data || data.length === 0) {
     alert("Tidak ada data untuk diekspor!");
     return;
@@ -35,7 +39,7 @@ export function exportToPDF(type: string, data: any[]) {
 
   autoTable(doc, {
     head: [headers],
-    body,
+    body: body as any,
     startY: 80,
     styles: {
       fillColor: [0, 0, 0],
@@ -54,5 +58,8 @@ export function exportToPDF(type: string, data: any[]) {
   });
 
   const filename = `IDIK_${type}_${new Date().toISOString().split("T")[0]}.pdf`;
+  if (asBlob) {
+    return doc.output("blob") as unknown as Blob;
+  }
   doc.save(filename);
 }

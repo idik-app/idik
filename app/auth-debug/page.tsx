@@ -14,6 +14,10 @@ export default function AuthDebugPage() {
         const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const key =
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.slice(0, 10) + "...";
+        const isLocal =
+          url?.startsWith("http://127.0.0.1") ||
+          url?.startsWith("http://localhost");
+        const supabaseMode = isLocal ? "Lokal (Docker)" : "Online (Cloud)";
 
         // Cek session aktif
         const {
@@ -23,17 +27,20 @@ export default function AuthDebugPage() {
 
         if (error) {
           setStatus("❌ Gagal mengambil session Supabase");
-          setData({ error: error.message, url, key });
+          setData({ error: error.message, url, key, mode: supabaseMode });
         } else if (!session) {
           setStatus("⚠️ Tidak ada session aktif (belum login)");
-          setData({ url, key });
+          setData({ url, key, mode: supabaseMode });
         } else {
           setStatus("✅ Session aktif, koneksi Supabase normal");
           setData({
             url,
             key,
+            mode: supabaseMode,
             user: session.user.email,
-            exp: new Date(session.expires_at * 1000).toLocaleString(),
+            exp: session.expires_at
+              ? new Date(session.expires_at * 1000).toLocaleString()
+              : "unknown",
           });
         }
       } catch (err: any) {
@@ -59,6 +66,11 @@ export default function AuthDebugPage() {
       }}
     >
       <h2>🧠 Auth Debug – IDIK-App</h2>
+      {data?.mode && (
+        <p style={{ color: "#8f8", marginBottom: "0.5rem" }}>
+          📍 Supabase: <strong>{data.mode}</strong>
+        </p>
+      )}
       <p style={{ color: "#ff9" }}>{status}</p>
 
       <pre

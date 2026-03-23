@@ -1,13 +1,15 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server-";
 import { Pasien } from "../types/pasien";
+import { logPasienAudit } from "@/lib/audit/logPasien";
 
 export async function addPatient(data: Omit<Pasien, "id">) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
+  const noRM = data.noRM || `RM-${Date.now()}`;
   const payload = {
-    no_rm: data.noRM,
+    no_rm: noRM,
     nama: data.nama,
     jenis_kelamin: data.jenisKelamin ?? "L",
     tgl_lahir: data.tanggalLahir ?? null,
@@ -21,7 +23,24 @@ export async function addPatient(data: Omit<Pasien, "id">) {
     asuransi: data.asuransi ?? null,
   };
 
-  const { error } = await supabase.from("pasien").insert([payload]);
-  if (error) throw new Error(error.message);
+  const { data: inserted, error } = await supabase
+    .from("pasien")
+    .insert([payload])
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("❌ Supabase insert error:", error);
+    console.error("📦 Payload dikirim:", payload);
+    throw new Error(error.message);
+  }
+
+  const userId = (await supabase.auth.getUser()).data?.user?.id;
+  await logPasienAudit(
+    "CREATE",
+    { patient_id: inserted?.id, no_rm: noRM, nama: data.nama },
+    userId
+  );
+
   return { success: true };
 }

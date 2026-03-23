@@ -9,14 +9,16 @@ import {
   Cpu,
   Database,
   Wifi,
+  Activity,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-/* ⚙️ Cathlab JARVIS Developer Dashboard v3.4.7
-   🔹 Build Meta & Git Integration
-   - Membaca data build dari /public/.buildmeta.json atau environment
-   - Menampilkan branch, commit, tanggal build, link GitHub, dan status Supabase
-*/
+/* ============================================================
+   CATHLAB JARVIS SYSTEM PAGE
+   v5.0 — Build Meta + Git + Autonomous Diagnostics + Telemetry
+   ============================================================ */
 
 type BuildMeta = {
   branch: string;
@@ -45,15 +47,19 @@ export default function SystemPage() {
     latency: null,
   });
 
+  const [issues, setIssues] = useState<any[]>([]);
+  const [loadingDiag, setLoadingDiag] = useState(true);
+
+  /* =====================================
+     FETCH BUILD META + SYSTEM STATUS
+  ===================================== */
   useEffect(() => {
-    // Ambil data buildmeta.json jika ada
     fetch("/.buildmeta.json")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data) setMeta(data);
       })
       .catch(() => {
-        console.log("ℹ️ No .buildmeta.json found, using fallback env");
         setMeta((m) => ({
           ...m,
           branch: "unknown",
@@ -61,7 +67,7 @@ export default function SystemPage() {
         }));
       });
 
-    // Tes koneksi Supabase & Database latency
+    // Supabase check
     const start = performance.now();
     fetch("/api/database/status")
       .then((r) => (r.ok ? r.json() : null))
@@ -82,6 +88,21 @@ export default function SystemPage() {
       });
   }, []);
 
+  /* =====================================
+     FETCH AUTONOMOUS DIAGNOSTICS
+  ===================================== */
+  useEffect(() => {
+    fetch("/api/system/diagnostics")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((res) => {
+        setIssues(res?.issues || []);
+        setLoadingDiag(false);
+      })
+      .catch(() => {
+        setLoadingDiag(false);
+      });
+  }, []);
+
   const buildTime = new Date(meta.buildDate).toLocaleString("id-ID", {
     dateStyle: "long",
     timeStyle: "short",
@@ -89,39 +110,25 @@ export default function SystemPage() {
 
   return (
     <motion.div
-      className="p-6 min-h-screen text-cyan-100 bg-gradient-to-b from-[#0a0f18] to-[#0d1c28]
-                 backdrop-blur-lg border border-cyan-500/20 rounded-2xl shadow-[0_0_30px_rgba(0,255,255,0.1)]"
+      className="p-6 min-h-screen text-cyan-100 
+                 bg-gradient-to-b from-[#0a0f18] to-[#0d1c28]
+                 backdrop-blur-lg border border-cyan-500/20 rounded-2xl 
+                 shadow-[0_0_30px_rgba(0,255,255,0.1)] space-y-10"
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
     >
-      <h1 className="text-2xl font-bold tracking-widest text-cyan-300 mb-6 flex items-center gap-2">
-        <Cpu
-          size={24}
-          className="text-yellow-400 drop-shadow-[0_0_6px_#FFD700]"
-        />
-        BUILD META & GIT INTEGRATION
+      {/* HEADER */}
+      <h1 className="text-3xl font-bold tracking-widest text-cyan-300 mb-4 flex items-center gap-3">
+        <Cpu className="text-yellow-400 drop-shadow-[0_0_6px_#FFD700]" />
+        IDIK Autonomous System Dashboard
       </h1>
 
+      {/* GRID 1 — Build & Connectivity */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card
-          icon={<GitBranch />}
-          title="Branch"
-          value={meta.branch}
-          sub="Active Git branch"
-        />
-        <Card
-          icon={<GitCommit />}
-          title="Commit"
-          value={meta.commit}
-          sub="Last build commit hash"
-        />
-        <Card
-          icon={<Clock />}
-          title="Build Date"
-          value={buildTime}
-          sub="Generated at deployment"
-        />
+        <Card icon={<GitBranch />} title="Branch" value={meta.branch} />
+        <Card icon={<GitCommit />} title="Commit" value={meta.commit} />
+        <Card icon={<Clock />} title="Build Date" value={buildTime} />
         <Card
           icon={<Database />}
           title="Database"
@@ -134,15 +141,15 @@ export default function SystemPage() {
           value={
             status.supabase === "connected" ? "Connected 🟢" : "Disconnected 🔴"
           }
-          sub="API connectivity status"
         />
       </div>
 
+      {/* LINK TO GITHUB */}
       {meta.repo && (
         <motion.div
           whileHover={{ scale: 1.05 }}
           transition={{ type: "spring", stiffness: 150, damping: 12 }}
-          className="mt-8 flex justify-center"
+          className="mt-6 flex justify-center"
         >
           <a
             href={`${meta.repo}/commit/${meta.commit}`}
@@ -158,22 +165,60 @@ export default function SystemPage() {
         </motion.div>
       )}
 
-      {/* Footer Info */}
-      <div className="text-center text-xs text-gray-500 mt-10">
-        Cathlab JARVIS v3.4.7 —{" "}
-        {meta.repo ? (
-          <a href={meta.repo} className="underline text-cyan-400">
-            GitHub Repo
-          </a>
+      {/* GRID 2 — Autonomous Diagnostics */}
+      <div className="mt-10">
+        <h2 className="text-xl font-bold text-cyan-300 flex items-center gap-2 mb-4">
+          <Activity className="text-cyan-400" />
+          Autonomous Diagnostics
+        </h2>
+
+        {loadingDiag ? (
+          <p className="text-gray-400 italic">Analyzing modules…</p>
+        ) : issues.length === 0 ? (
+          <div className="flex items-center gap-3 text-green-400">
+            <ShieldCheck />
+            Sistem stabil dan tidak ditemukan masalah.
+          </div>
         ) : (
-          "Repository unavailable"
+          <div className="space-y-3">
+            {issues.map((issue, idx) => (
+              <div
+                key={idx}
+                className="p-3 border border-cyan-700/40 rounded bg-black/40 shadow-inner"
+              >
+                <p
+                  className={`font-bold ${
+                    issue.type === "error"
+                      ? "text-red-400"
+                      : issue.type === "warning"
+                      ? "text-yellow-400"
+                      : "text-cyan-300"
+                  }`}
+                >
+                  {issue.type.toUpperCase()}
+                </p>
+                <p>{issue.message}</p>
+                {issue.file && (
+                  <p className="text-xs text-cyan-500 mt-1">{issue.file}</p>
+                )}
+              </div>
+            ))}
+          </div>
         )}
+      </div>
+
+      {/* FOOTER */}
+      <div className="text-center text-xs text-gray-500 mt-10">
+        IDIK Autonomous Kernel — Monitoring Enabled
       </div>
     </motion.div>
   );
 }
 
-/* 🧱 Komponen Card */
+/* ==============================================================
+   Reusable Card Component
+   ============================================================== */
+
 function Card({
   icon,
   title,

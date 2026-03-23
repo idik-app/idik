@@ -37,10 +37,10 @@ UIContext.displayName = "UIContext";
 
 export const UIProvider = ({ children }: { children: React.ReactNode }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true); // desktop: default icon-only, hover untuk expand
   const sidebarWidth = 288;
   const collapsedWidth = 80;
-  const motionX = useMotionValue(sidebarWidth);
+  const motionX = useMotionValue(80);
   const [isMobile, setIsMobile] = useState(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [transitionMode, setTransitionMode] =
@@ -70,7 +70,7 @@ export const UIProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem("idik_transition", transitionMode);
   }, [themeMode, transitionMode]);
 
-  // Sinkronisasi animasi motionX
+  // Sinkronisasi animasi motionX — desktop: collapsed = icon-only (80px), expanded = 288px
   useEffect(() => {
     const from = motionX.get();
     const to = isSidebarOpen
@@ -82,11 +82,11 @@ export const UIProvider = ({ children }: { children: React.ReactNode }) => {
     const controls = animate(from, to, {
       duration:
         transitionMode === "fast"
-          ? 0.3
+          ? 0.4
           : transitionMode === "smooth"
-          ? 0.5
-          : 0.75,
-      ease: [0.33, 1, 0.68, 1],
+          ? 0.55
+          : 0.8,
+      ease: [0.4, 0, 0.2, 1],
       onUpdate: (v) => motionX.set(v),
     });
 

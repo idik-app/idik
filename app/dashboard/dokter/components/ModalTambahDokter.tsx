@@ -22,14 +22,7 @@ export default function ModalTambahDokter({ onClose, onSuccess }: Props) {
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.from("doctor").insert([
-      {
-        nama_dokter: nama.trim(),
-        spesialis: spesialis.trim() || null,
-        kontak: kontak.trim() || null,
-        status,
-      },
-    ]);
+    const { error } = await (supabase as any).from("doctor").insert([{ nama_dokter: nama.trim(), spesialis: spesialis.trim() || null, kontak: kontak.trim() || null, status: status === "aktif" }]);
 
     setLoading(false);
     if (error) setError(error.message);

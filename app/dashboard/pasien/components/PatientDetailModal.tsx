@@ -2,20 +2,21 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
-import { Pasien } from "../types/pasien"; // ✅ gunakan tipe dari types/pasien
+import { Pasien } from "../types/pasien";
 import ModalWrapper from "@/components/global/ModalWrapper";
 
 /* -------------------------------------------------------------
-   👁️ PatientDetailModal – Cathlab JARVIS Mode v4.3 (Fixed)
-   Versi lengkap: tampilkan pembiayaan, kelas, dan asuransi
--------------------------------------------------------------- */
+ * 👁️ PatientDetailModal – Cathlab JARVIS Mode v4.5 (Cleaned)
+ * Menggunakan ModalWrapper yang sudah direvisi
+ * -------------------------------------------------------------- */
 
 interface PatientDetailModalProps {
   patient: Pasien | null;
   onClose: () => void;
 }
 
-export default function PatientDetailModal({
+// Named export untuk mitigasi konflik bundling
+export function PatientDetailModalContent({
   patient,
   onClose,
 }: PatientDetailModalProps) {
@@ -29,7 +30,7 @@ export default function PatientDetailModal({
           initial={{ y: 60, opacity: 0, scale: 0.95 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           exit={{ y: 60, opacity: 0, scale: 0.95 }}
-          transition={{ type: "spring", stiffness: 260, damping: 22 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
           className="relative overflow-hidden bg-gradient-to-br from-cyan-900/40 to-black/70
                      border border-cyan-400/50 rounded-2xl p-6 w-full max-w-lg
                      text-cyan-100 shadow-[0_0_40px_rgba(0,255,255,0.5)]"
@@ -81,8 +82,8 @@ export default function PatientDetailModal({
             <button
               onClick={onClose}
               className="px-6 py-2 rounded-lg border border-cyan-400/40 text-cyan-200 
-                         hover:bg-cyan-400/20 hover:shadow-[0_0_14px_rgba(0,255,255,0.6)] 
-                         transition"
+                             hover:bg-cyan-400/20 hover:shadow-[0_0_14px_rgba(0,255,255,0.6)] 
+                             transition"
             >
               ✖ Tutup
             </button>
@@ -91,6 +92,11 @@ export default function PatientDetailModal({
       </ModalWrapper>
     </AnimatePresence>
   );
+}
+
+// Default export terpisah
+export default function PatientDetailModal(props: PatientDetailModalProps) {
+  return <PatientDetailModalContent {...props} />;
 }
 
 /* 🔹 Komponen Info */

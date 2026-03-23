@@ -32,6 +32,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const setSession = (data: Partial<SessionState>) =>
     setSessionState((prev) => ({ ...prev, ...data }));
 
+  // Rehidrasi dari sessionStorage saat mount (nama user tampil segera setelah pernah login)
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("session");
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<SessionState>;
+      const updates: Partial<SessionState> = {};
+      if (parsed?.username && parsed.username !== "unknown") updates.username = parsed.username;
+      if (parsed?.role) updates.role = parsed.role;
+      if (Object.keys(updates).length > 0) {
+        setSessionState((prev) => ({ ...prev, ...updates }));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const resetSession = () =>
     setSessionState({
       username: "unknown",

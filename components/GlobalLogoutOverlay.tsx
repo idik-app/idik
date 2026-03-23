@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import JarvisLoader from "@/components/JarvisLoader";
-import { useUI } from "@app/contexts/UIContext";
+import { useUI } from "@/contexts/UIContext";
 
 export default function GlobalLogoutOverlay() {
   const { showLogoutAnim } = useUI();

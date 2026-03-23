@@ -45,11 +45,11 @@ export function ExportModal({
   const generateFile = async (): Promise<Blob | null> => {
     switch (format) {
       case "PDF":
-        return await exportToPDF(type, data, true);
+        return (await exportToPDF(type, data, true)) ?? null;
       case "Excel":
-        return await exportToExcel(type, data, true);
+        return (await exportToExcel(type, data, true)) ?? null;
       case "JSON":
-        return await exportToJSON(type, data, true);
+        return (await exportToJSON(type, data, true)) ?? null;
       default:
         return null;
     }

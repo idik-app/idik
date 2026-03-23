@@ -77,7 +77,7 @@ export async function logEvent(
   console.log("📡 [AI-LOG]", entry);
 
   try {
-    await supabase.from("system_logs").insert(entry);
+    await (supabase as any).from("system_logs").insert(entry);
   } catch {
     console.warn("⚠️ Log fallback (SafeMode)");
   }

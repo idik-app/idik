@@ -28,7 +28,7 @@ export const pasienSchema = z.object({
     .optional()
     .or(z.literal("")),
   jenisPembiayaan: z
-    .enum(["BPJS", "Umum", "Asuransi"])
+    .enum(["BPJS", "BPJS PBI", "Umum", "Asuransi"])
     .refine((val) => !!val, { message: "Jenis pembiayaan wajib dipilih" }),
   kelasPerawatan: z
     .enum(["Kelas 1", "Kelas 2", "Kelas 3"])
@@ -48,12 +48,13 @@ export const mapFromSupabase = (p: any) => ({
   id: String(p.id),
   noRM: p.no_rm ?? "",
   nama: p.nama ?? "",
-  jenisKelamin: p.jk ?? "L",
-  tanggalLahir: p.tanggal_lahir ?? "",
+  // dukung beberapa variasi kolom yang pernah dipakai di repo/view
+  jenisKelamin: p.jenis_kelamin ?? p.jk ?? "L",
+  tanggalLahir: p.tgl_lahir ?? p.tanggal_lahir ?? "",
   alamat: p.alamat ?? "",
-  noHP: p.no_hp ?? "",
-  jenisPembiayaan: p.pembiayaan ?? "Umum",
-  kelasPerawatan: p.kelas ?? "Kelas 2",
+  noHP: p.no_telp ?? p.no_hp ?? "",
+  jenisPembiayaan: p.jenis_pembiayaan ?? p.pembiayaan ?? "Umum",
+  kelasPerawatan: p.kelas_perawatan ?? p.kelas ?? "Kelas 2",
   asuransi: p.asuransi ?? "",
   created_at: p.created_at ?? "",
   updated_at: p.updated_at ?? "",
@@ -62,11 +63,11 @@ export const mapFromSupabase = (p: any) => ({
 export const mapToSupabase = (p: PasienFormData) => ({
   no_rm: p.noRM,
   nama: p.nama,
-  jk: p.jenisKelamin,
-  tanggal_lahir: p.tanggalLahir,
+  jenis_kelamin: p.jenisKelamin,
+  tgl_lahir: p.tanggalLahir,
   alamat: p.alamat,
-  no_hp: p.noHP ?? "",
-  pembiayaan: p.jenisPembiayaan,
-  kelas: p.kelasPerawatan,
+  no_telp: p.noHP ?? "",
+  jenis_pembiayaan: p.jenisPembiayaan,
+  kelas_perawatan: p.kelasPerawatan,
   asuransi: p.asuransi ?? "",
 });

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { requireAdmin } from "@/lib/auth/guards";
 
 // ✅ Ambil environment variabel
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -24,11 +25,15 @@ globalThis.logs = logs;
 
 // ✅ GET → ambil log sementara
 export async function GET() {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
   return Response.json({ logs });
 }
 
 // ✅ POST → catat log baru + simpan ke Supabase
 export async function POST(req: Request) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
   try {
     const { level = "info", message = "", meta = {} } = await req.json();
     if (!message) {

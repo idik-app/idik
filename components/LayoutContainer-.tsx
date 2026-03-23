@@ -2,8 +2,8 @@
 
 import { motion, LazyMotion, domAnimation } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
-import { useUI } from "@app/contexts/UIContext";
-import { useTabs } from "@app/contexts/TabContext";
+import { useUI } from "@/contexts/UIContext";
+import { useTabs } from "@/contexts/TabContext";
 import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
 import TabBar from "@/components/TabBar";
@@ -116,22 +116,14 @@ export default function LayoutContainer({
             }}
           >
             <motion.div
-              key={activeTab}
-              initial={{ opacity: 0.85, scale: 0.995 }}
+              initial={false}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
               className="rounded-2xl bg-gradient-to-br from-cyan-900/20 via-black/60 to-black/80 p-1"
             >
-              <motion.div
-                animate={{
-                  opacity: [0.9, 1],
-                  filter: ["blur(2px)", "blur(0px)"],
-                }}
-                transition={{ duration: 0.1, ease: "easeOut" }}
-                className="rounded-2xl"
-              >
+              <div className="rounded-2xl">
                 <TabContent />
-              </motion.div>
+              </div>
             </motion.div>
           </main>
 

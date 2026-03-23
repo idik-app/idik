@@ -2,7 +2,11 @@
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
-export function exportToExcel(type: string, data: any[]) {
+export async function exportToExcel(
+  type: string,
+  data: any[],
+  asBlob = false
+): Promise<Blob | void> {
   if (!data || data.length === 0) {
     alert("Tidak ada data untuk diekspor!");
     return;
@@ -19,5 +23,6 @@ export function exportToExcel(type: string, data: any[]) {
   const blob = new Blob([excelBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
+  if (asBlob) return blob;
   saveAs(blob, filename);
 }

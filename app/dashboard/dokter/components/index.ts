@@ -15,6 +15,5 @@ export { default as DokterSkeleton } from "./DokterSkeleton";
 export { default as DokterStatusBadge } from "./DokterStatusBadge";
 export { default as DokterTable } from "./DokterTable";
 export { default as DokterToolbar } from "./DokterToolbar";
-export { default as DoctorDetailModal } from "./DoctorDetailModal";
 export { default as ExportReportDokter } from "./ExportReportDokter";
 export { default as ModalTambahDokter } from "./ModalTambahDokter";

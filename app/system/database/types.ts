@@ -14,6 +14,8 @@ export interface TableInfo {
 export interface ColumnInfo {
   column_name: string;
   data_type: string;
+  is_nullable?: string;
+  column_default?: string | null;
 }
 
 // Data preview (10 baris pertama)

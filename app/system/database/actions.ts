@@ -1,6 +1,6 @@
 "use server";
 
-import { getServerSupabase } from "@app/api/supabase/client";
+import { getServerSupabase } from "@/api/supabase/client";
 
 /** Ambil daftar tabel dan metadata database */
 export async function getTables() {

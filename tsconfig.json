@@ -13,33 +13,35 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "react-jsx",
+    "jsx": "preserve",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
-    /* 🎯 Path alias JARVIS-style (clean & future-proof) */
+
+    "plugins": [{ "name": "next" }],
+
+    /* ============================================================
+       🔥 OFFICIAL JARVIS MODE ALIAS (NO CONFLICT)
+       ============================================================ */
     "paths": {
-      "@/*": ["./*"],
-      "@app/*": ["app/*"],
-      "@components/*": ["components/*"],
+      "@/core/*": ["core/*"],
+      "@/modules/*": ["app/modules/*"],
+      "@/contexts/*": ["app/contexts/*"],
+      "@/dashboard/*": ["app/dashboard/*"],
       "@/components/*": ["components/*"],
-      "@contexts/*": ["app/contexts/*"],
-      "@dashboard/*": ["app/dashboard/*"],
-      "@hooks/*": ["app/hooks/*"],
-      "@utils/*": ["app/utils/*"],
-      "@pasien/*": ["app/dashboard/pasien/*"],
-      "@inventaris/*": ["app/dashboard/inventaris/*"],
-      "@database/*": ["app/dashboard/database/*"],
-      "@trading/*": ["app/dashboard/trading/*"],
-      "@lib/*": ["lib/*"],
-      "@/lib/*": ["lib/*"]
+      "@/hooks/*": ["app/hooks/*"],
+      "@/utils/*": ["app/utils/*"],
+      "@/lib/*": ["lib/*"],
+      "@/pasien/*": ["app/dashboard/pasien/*"],
+      "@/inventaris/*": ["app/dashboard/inventaris/*"],
+      "@/database/*": ["app/dashboard/database/*"],
+      "@/trading/*": ["app/dashboard/trading/*"],
+      "@/styles/*": ["app/styles/*"],
+      "@/*": ["*"]
     },
-    /* 🧠 Tambahan agar TypeScript mengenali deklarasi custom */
+
+    /* Agar TypeScript mengenali deklarasi khusus */
     "typeRoots": ["./types", "./node_modules/@types"]
   },
+
   "include": [
     "next-env.d.ts",
     "**/*.ts",
@@ -48,8 +50,42 @@
     "app",
     "types",
     ".next/dev/types/**/*.ts",
-    "next.config.js",
-    "components/common"
+    "next.config.js"
   ],
-  "exclude": ["node_modules"]
+
+  "exclude": [
+    "node_modules",
+    "scripts/dbSync.ts",
+    "**/*.backup.ts",
+    "**/*.backup.tsx",
+    "app/dashboard/pasien/contexts/core/**",
+    "app/dashboard/pasien/contexts/usePasienCrud.ts",
+    "app/dashboard/pasien/contexts/usePasienFilter.ts",
+    "app/dashboard/pasien/hooks/usePasienInsight.ts",
+    "app/dashboard/pasien/hooks/usePasienSync.ts",
+    "app/dashboard/pasien/insights/pasienInsight.ts",
+    "app/dashboard/pasien/utils/validator.ts",
+    "app/dashboard/pasien/index.tsx",
+    "app/dashboard/pasien/PasienDashboardContent.tsx",
+    "app/interface",
+    "app/interface/**",
+    "app/modules",
+    "app/modules/**",
+    "app\\modules",
+    "app\\modules\\**"
+    ,
+    "app/system",
+    "app/system/**",
+    "core",
+    "core/**",
+    "components/dashboard/**",
+    "components/global/ExportShare/**",
+    "app/services/WatcherService.ts"
+    ,
+    "app/system/api-keys/**",
+    "app/system/database/**",
+    "components/global/ExportShare",
+    "components/global/ExportShare/**",
+    "core/registry/ModuleRegistry.ts"
+  ]
 }

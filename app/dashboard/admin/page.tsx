@@ -1,3 +1,9 @@
+import UserCrud from "./components/UserCrud";
+
 export default function AdminPage() {
-  return <h1 className="p-6 text-cyan-400">Admin Dashboard</h1>;
+  return (
+    <div className="min-h-screen px-3 sm:px-6 py-4">
+      <UserCrud />
+    </div>
+  );
 }

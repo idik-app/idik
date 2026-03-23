@@ -20,6 +20,7 @@ import {
   Syringe,
   ShieldCheck,
   Settings,
+  GitBranch,
 } from "lucide-react";
 
 /* ⚡ menuConfig v4.0 – Neo-Hologram Gold-Cyan Hybrid
@@ -99,6 +100,15 @@ export const menuConfig = [
         href: "/dashboard/smart/monitoring",
         priority: 2,
         module: "MonitoringCathlab",
+        hologram: "scan",
+      },
+      {
+        id: "koronar-3d",
+        label: "Anotasi Koronar 3D",
+        icon: <GitBranch size={18} />,
+        href: "/dashboard/cathlab/koronar-3d",
+        priority: 2,
+        module: "Koronar3DAnnotation",
         hologram: "scan",
       },
     ],

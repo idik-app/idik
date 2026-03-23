@@ -25,6 +25,7 @@ const URL_SEGMENT_TO_TAB: Record<string, { id: string; label: string }> = {
   laporan: { id: "report", label: "Report Generator" },
   audit: { id: "audit", label: "Audit Log" },
   master: { id: "farmasi-master-data", label: "Master Data Farmasi" },
+  "koronar-3d": { id: "koronar-3d", label: "Anotasi Koronar 3D" },
 };
 
 export type Tab = {

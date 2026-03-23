@@ -21,6 +21,9 @@ const LaporanPage = dynamic(() => import("@/app/dashboard/laporan/page"));
 const MonitoringPage = dynamic(
   () => import("@/app/dashboard/smart/monitoring/page")
 );
+const Koronar3DPage = dynamic(
+  () => import("@/app/dashboard/cathlab/koronar-3d/page")
+);
 const AnalyticsPage = dynamic(
   () => import("@/app/dashboard/smart/analytics/page")
 );
@@ -88,6 +91,8 @@ export default function TabContent() {
         return <LaporanPage />;
       case "monitoring":
         return <MonitoringPage />;
+      case "koronar-3d":
+        return <Koronar3DPage />;
       case "analytics":
         return <AnalyticsPage />;
       case "diagnostics":

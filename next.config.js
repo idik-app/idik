@@ -2,7 +2,7 @@
 const nextConfig = {
   // ✅ PENTING: Tambahkan transpilePackages untuk mengatasi masalah bundling/$$typeof.
   // Next.js akan memproses library ini seolah-olah mereka adalah bagian dari kode Anda sendiri.
-  transpilePackages: ["@react-spring/web", "framer-motion", "recharts"],
+  transpilePackages: ["@react-spring/web", "framer-motion", "recharts", "three"],
 
   // Mode Strict React
   reactStrictMode: true,

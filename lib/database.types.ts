@@ -157,6 +157,18 @@ export interface DistributorBarangRow {
 }
 
 /** Ledger mutasi stok inventaris (Cathlab). */
+export interface CathlabKoronarAnnotationRow {
+  id: string;
+  created_by: string;
+  pasien_id: string | null;
+  tindakan_id: string | null;
+  template_id: string;
+  title: string | null;
+  payload: Json;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface InventarisStokMutasiRow {
   id: string;
   created_at: string;
@@ -258,6 +270,20 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<InventarisStokMutasiRow>;
+      };
+      cathlab_koronar_annotation: {
+        Row: CathlabKoronarAnnotationRow;
+        Insert: Omit<
+          CathlabKoronarAnnotationRow,
+          "id" | "created_at" | "updated_at"
+        > & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Omit<CathlabKoronarAnnotationRow, "id" | "created_by" | "created_at">
+        >;
       };
     };
     Views: {

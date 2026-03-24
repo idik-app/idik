@@ -1,7 +1,14 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState, useRef, useEffect, useSyncExternalStore } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  useSyncExternalStore,
+  useCallback,
+  memo,
+} from "react";
 import { Eye, EyeOff } from "lucide-react";
 
 interface LoginModalProps {
@@ -11,20 +18,126 @@ interface LoginModalProps {
   onError?: () => void;
 }
 
+/** State ketik di sini supaya parent (motion + blur) tidak re-render tiap huruf — mengurangi delay di HP. */
+const LoginFormFields = memo(function LoginFormFields({
+  loading,
+  error,
+  onLogin,
+}: {
+  loading: boolean;
+  error: string;
+  onLogin: (username: string, password: string) => void;
+}) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const usernameInputRef = useRef<HTMLInputElement>(null);
+  const didFocusUsername = useRef(false);
+
+  useEffect(() => {
+    if (didFocusUsername.current) return;
+    const t = setTimeout(() => {
+      usernameInputRef.current?.focus();
+      didFocusUsername.current = true;
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onLogin(username, password);
+  };
+
+  const inputClass =
+    "w-full rounded-lg bg-white/10 border border-white/20 px-3 py-2.5 text-base focus:ring-2 focus:ring-cyan-400 outline-none placeholder-gray-400 sm:px-4 sm:py-2";
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+      <div>
+        <label className="block text-xs text-gray-300 mb-1 sm:text-sm">
+          Username
+        </label>
+        <input
+          ref={usernameInputRef}
+          type="text"
+          name="username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className={inputClass}
+          placeholder="Masukkan username"
+          disabled={loading}
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="next"
+        />
+      </div>
+
+      <div className="mb-4 sm:mb-6">
+        <label className="block text-xs text-gray-300 mb-1 sm:text-sm">
+          Password
+        </label>
+        <div className="relative">
+          <input
+            type={showPassword ? "text" : "password"}
+            name="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className={`${inputClass} pr-11`}
+            placeholder="Masukkan password"
+            disabled={loading}
+            autoComplete="current-password"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="done"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded text-gray-400 hover:text-cyan-400 hover:bg-white/10 active:bg-white/15 sm:right-2 sm:min-h-0 sm:min-w-0 sm:p-1.5 transition-colors"
+            title={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+            tabIndex={-1}
+          >
+            {showPassword ? (
+              <EyeOff className="w-5 h-5" aria-hidden />
+            ) : (
+              <Eye className="w-5 h-5" aria-hidden />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <p className="mb-3 text-center text-xs leading-snug text-red-400 bg-red-900/30 p-2 rounded-lg sm:mb-4 sm:text-sm">
+          {error}
+        </p>
+      )}
+
+      <button
+        type="submit"
+        disabled={loading}
+        className={`w-full rounded-lg py-3 text-base font-semibold text-white shadow-md transition-transform active:scale-[0.98] sm:py-2 sm:shadow-lg sm:hover:scale-[1.02] ${
+          loading
+            ? "bg-gray-500 cursor-not-allowed active:scale-100"
+            : "bg-gradient-to-r from-cyan-600 to-blue-600 active:opacity-95 sm:hover:shadow-[0_0_20px_rgba(0,255,255,0.5)]"
+        }`}
+      >
+        {loading ? "Memproses..." : "Masuk"}
+      </button>
+    </form>
+  );
+});
+
 export default function LoginModal({
   onClose,
   onSuccess,
   onError,
 }: LoginModalProps) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [shake, setShake] = useState(false);
-
-  const usernameInputRef = useRef<HTMLInputElement>(null);
-  const didFocusUsername = useRef(false);
 
   const isMobile = useSyncExternalStore(
     (onStoreChange) => {
@@ -36,22 +149,21 @@ export default function LoginModal({
     () => false
   );
 
-  /* Fokus ke username hanya sekali saat modal pertama kali terbuka */
-  useEffect(() => {
-    if (didFocusUsername.current) return;
-    const t = setTimeout(() => {
-      if (usernameInputRef.current) {
-        usernameInputRef.current.focus();
-        didFocusUsername.current = true;
-      }
-    }, 0);
-    return () => clearTimeout(t);
-  }, []);
+  const playErrorSound = () => {
+    const errorSound = new Audio("/sfx/error.mp3");
+    errorSound.volume = 0.4;
+    errorSound.play().catch(() => {});
+  };
+
+  const triggerShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 600);
+  };
 
   /* ============================================================
      🔐 Fungsi Login Lokal (JWT Cookie)
   ============================================================ */
-  const handleLogin = async () => {
+  const handleLogin = useCallback(async (username: string, password: string) => {
     setError("");
 
     if (!username || !password) {
@@ -130,25 +242,7 @@ export default function LoginModal({
     } finally {
       setLoading(false);
     }
-  };
-
-  /* 🔊 Suara error */
-  const playErrorSound = () => {
-    const errorSound = new Audio("/sfx/error.mp3");
-    errorSound.volume = 0.4;
-    errorSound.play().catch(() => {});
-  };
-
-  /* 💢 Efek shake */
-  const triggerShake = () => {
-    setShake(true);
-    setTimeout(() => setShake(false), 600);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleLogin();
-  };
+  }, [onSuccess, onError]);
 
   const overlayTransition = { duration: isMobile ? 0.18 : 0.4 };
   const panelTransition = { duration: isMobile ? 0.22 : 0.5 };
@@ -194,82 +288,11 @@ export default function LoginModal({
             Akses Sistem IDIK-App
           </h2>
 
-          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
-            {/* Username */}
-            <div>
-              <label className="block text-xs text-gray-300 mb-1 sm:text-sm">
-                Username
-              </label>
-              <input
-                ref={usernameInputRef}
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full rounded-lg bg-white/10 border border-white/20 px-3 py-2.5 text-[15px] focus:ring-2 focus:ring-cyan-400 outline-none placeholder-gray-400 sm:px-4 sm:py-2 sm:text-base"
-                placeholder="Masukkan username"
-                disabled={loading}
-                autoComplete="username"
-              />
-            </div>
-
-            {/* Password + toggle show/hide */}
-            <div className="mb-4 sm:mb-6">
-              <label className="block text-xs text-gray-300 mb-1 sm:text-sm">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-lg bg-white/10 border border-white/20 px-3 py-2.5 pr-11 text-[15px] focus:ring-2 focus:ring-cyan-400 outline-none placeholder-gray-400 sm:px-4 sm:py-2 sm:text-base"
-                  placeholder="Masukkan password"
-                  disabled={loading}
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded text-gray-400 hover:text-cyan-400 hover:bg-white/10 active:bg-white/15 sm:right-2 sm:min-h-0 sm:min-w-0 sm:p-1.5 transition-colors"
-                  title={showPassword ? "Sembunyikan password" : "Tampilkan password"}
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" aria-hidden />
-                  ) : (
-                    <Eye className="w-5 h-5" aria-hidden />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Pesan Error */}
-            {error && (
-              <motion.p
-                className="mb-3 text-center text-xs leading-snug text-red-400 bg-red-900/30 p-2 rounded-lg sm:mb-4 sm:text-sm"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: isMobile ? 0.12 : 0.2 }}
-              >
-                {error}
-              </motion.p>
-            )}
-
-            {/* Tombol Login (submit form = Enter juga trigger) */}
-            <motion.button
-              type="submit"
-              whileHover={isMobile ? undefined : { scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-              disabled={loading}
-              className={`w-full rounded-lg py-3 text-[15px] font-semibold text-white shadow-md transition-all duration-300 sm:py-2 sm:text-base sm:shadow-lg ${
-                loading
-                  ? "bg-gray-500 cursor-not-allowed"
-                  : "bg-gradient-to-r from-cyan-600 to-blue-600 active:opacity-95 sm:hover:shadow-[0_0_20px_rgba(0,255,255,0.5)]"
-              }`}
-            >
-              {loading ? "Memproses..." : "Masuk"}
-            </motion.button>
-          </form>
+          <LoginFormFields
+            loading={loading}
+            error={error}
+            onLogin={handleLogin}
+          />
         </motion.div>
       </motion.div>
     </>

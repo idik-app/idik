@@ -29,7 +29,7 @@ export default async function Home() {
   }
 
   return (
-    <main className="relative h-screen flex items-center justify-center overflow-hidden bg-black text-white">
+    <main className="relative min-h-[100dvh] min-h-screen flex items-center justify-center overflow-x-hidden overflow-y-auto overscroll-y-contain bg-black text-white py-5 px-0 sm:py-0">
       <CinematicIntro />
     </main>
   );

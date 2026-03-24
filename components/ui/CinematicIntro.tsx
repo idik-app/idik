@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+  useSyncExternalStore,
+} from "react";
 import {
   motion,
   AnimatePresence,
@@ -21,6 +28,18 @@ function mulberry32(seed: number) {
   };
 }
 
+const MOBILE_MQ = "(max-width: 767px)";
+
+function subscribeMobileViewport(cb: () => void) {
+  const mq = window.matchMedia(MOBILE_MQ);
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+}
+
+function getMobileSnapshot() {
+  return window.matchMedia(MOBILE_MQ).matches;
+}
+
 export default function CinematicIntro_v3_ArcReactor_Heavy() {
   /* ---------------------------------------------------------
      ⚙️ STATE UTAMA
@@ -33,6 +52,13 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
   >("intro");
 
   const reducedMotion = useReducedMotion();
+  const isMobile = useSyncExternalStore(
+    subscribeMobileViewport,
+    getMobileSnapshot,
+    () => false
+  );
+  /** Hanya matikan animasi berat saat prefers-reduced-motion (mobile ikut animasi penuh) */
+  const lite = Boolean(reducedMotion);
   const router = useRouter();
 
   /* ---------------------------------------------------------
@@ -44,8 +70,8 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
       setIndex(fullText.length);
       return;
     }
-    const typingSpeed = 80;
-    const resetDelay = 1500;
+    const typingSpeed = isMobile ? 38 : 80;
+    const resetDelay = isMobile ? 900 : 1500;
 
     const timeout =
       index < fullText.length
@@ -53,7 +79,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
         : setTimeout(() => setIndex(0), resetDelay);
 
     return () => clearTimeout(timeout);
-  }, [index, phase, fullText.length, reducedMotion]);
+  }, [index, phase, fullText.length, reducedMotion, isMobile]);
 
   useEffect(() => {
     setTypedText(fullText.slice(0, index));
@@ -94,7 +120,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
 
   const addLoginRipple = useCallback(
     (clientX: number, clientY: number) => {
-      if (reducedMotion) return;
+      if (lite) return;
       const btn = loginBtnRef.current;
       if (!btn) return;
 
@@ -112,7 +138,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
       }, 800);
       loginRippleTimeoutsRef.current.set(id, t);
     },
-    [reducedMotion]
+    [lite]
   );
 
   const handleLoginRippleFromEvent = useCallback(
@@ -120,7 +146,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
       e: { clientX: number; clientY: number },
       kind: "hover" | "click"
     ) => {
-      if (reducedMotion) return;
+      if (lite) return;
 
       if (kind === "hover") {
         const now = Date.now();
@@ -130,7 +156,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
 
       addLoginRipple(e.clientX, e.clientY);
     },
-    [addLoginRipple, reducedMotion]
+    [addLoginRipple, lite]
   );
 
   /* ---------------------------------------------------------
@@ -147,7 +173,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
   const proximityThresholdPx = 180;
 
   useEffect(() => {
-    if (reducedMotion) {
+    if (reducedMotion || isMobile) {
       proximitySmoothedRef.current = 0;
       setProximity(0);
       return;
@@ -209,7 +235,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
       proximitySmoothedRef.current = 0;
       setProximity(0);
     };
-  }, [phase, reducedMotion]);
+  }, [phase, reducedMotion, isMobile]);
 
   useEffect(() => {
     ambientRef.current = new Audio("/sfx/ambient-soft.mp3");
@@ -345,185 +371,227 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden bg-[#0b0d16] z-[999]"
+        className="fixed inset-0 flex min-h-[100dvh] flex-col items-center justify-center gap-0 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[#0b0d16] z-[999] px-4 py-6 pt-[max(0.75rem,env(safe-area-inset-top,0px))] pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:min-h-0 sm:overflow-hidden sm:px-0 sm:py-0 sm:pt-0 sm:pb-0"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 1 }}
       >
-        {/* ---- Aurora Layer ---- */}
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
-          className="absolute z-[0] w-[1000px] h-[1000px] bg-gradient-to-tr from-blue-600/25 via-purple-600/15 to-pink-600/20 rounded-full blur-[200px]"
-        />
-        <motion.div
-          animate={{ rotate: -360 }}
-          transition={{ duration: 55, repeat: Infinity, ease: "linear" }}
-          className="absolute z-[0] w-[1200px] h-[1200px] bg-gradient-to-bl from-indigo-700/20 via-fuchsia-600/15 to-blue-700/25 rounded-full blur-[250px]"
-        />
+        {/* Background FX: terpusat, tidak pernah >100% lebar viewport (blur ikut ter-clip) */}
+        <div
+          className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
+          aria-hidden
+        >
+        {/* ---- Aurora Layer (statis di mobile = lebih ringan) ---- */}
+        {lite ? (
+          <>
+            <div className="absolute left-1/2 top-1/2 z-[0] h-[min(92vw,1000px)] w-[min(92vw,1000px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-tr from-blue-600/22 via-purple-600/12 to-pink-600/18 blur-[100px] sm:h-[1000px] sm:w-[1000px] sm:blur-[200px]" />
+            <div className="absolute left-1/2 top-1/2 z-[0] h-[min(96vw,1200px)] w-[min(96vw,1200px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-bl from-indigo-700/18 via-fuchsia-600/12 to-blue-700/22 blur-[120px] sm:h-[1200px] sm:w-[1200px] sm:blur-[250px]" />
+          </>
+        ) : (
+          <>
+            {/* Anchor di luar motion: Framer mengontrol transform di motion → jangan campur translate Tailwind */}
+            <div className="absolute left-1/2 top-1/2 z-[0] -translate-x-1/2 -translate-y-1/2">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+                className="h-[1000px] w-[1000px] rounded-full bg-gradient-to-tr from-blue-600/25 via-purple-600/15 to-pink-600/20 blur-[200px]"
+              />
+            </div>
+            <div className="absolute left-1/2 top-1/2 z-[0] -translate-x-1/2 -translate-y-1/2">
+              <motion.div
+                animate={{ rotate: -360 }}
+                transition={{ duration: 55, repeat: Infinity, ease: "linear" }}
+                className="h-[1200px] w-[1200px] rounded-full bg-gradient-to-bl from-indigo-700/20 via-fuchsia-600/15 to-blue-700/25 blur-[250px]"
+              />
+            </div>
+          </>
+        )}
 
         {/* ---- Reactor Core ---- */}
-        <motion.div
-          animate={{
-            rotate: 360,
-            scale: reducedMotion ? 1 : [1, 1.05, 1],
-            opacity: reducedMotion ? 1 : [0.65, 1, 0.65],
-          }}
-          transition={
-            reducedMotion
-              ? { duration: 0.01 }
-              : { duration: 10, repeat: Infinity, ease: "easeInOut" }
-          }
-          className="absolute z-[10] w-[520px] h-[520px] border-[10px] border-t-cyan-400/95 border-r-purple-500/90 border-b-transparent border-l-transparent rounded-full blur-[6px]"
-        />
-        <motion.div
-          animate={{
-            rotate: -360,
-            scale: reducedMotion ? 1 : [1, 1.08, 1],
-            opacity: reducedMotion ? 0.9 : [0.55, 0.95, 0.55],
-          }}
-          transition={
-            reducedMotion
-              ? { duration: 0.01 }
-              : { duration: 14, repeat: Infinity, ease: "easeInOut" }
-          }
-          className="absolute z-[11] w-[560px] h-[560px] border-[10px] border-b-pink-400/85 border-l-blue-500/85 border-t-transparent border-r-transparent rounded-full blur-[7px]"
-        />
+        <div className="absolute left-1/2 top-1/2 z-[10] -translate-x-1/2 -translate-y-1/2">
+          <motion.div
+            animate={{
+              rotate: lite ? 0 : 360,
+              scale: lite ? 1 : [1, 1.05, 1],
+              opacity: lite ? 1 : [0.65, 1, 0.65],
+            }}
+            transition={
+              lite
+                ? { duration: 0.01 }
+                : { duration: 10, repeat: Infinity, ease: "easeInOut" }
+            }
+            className="h-[min(72vw,520px)] w-[min(72vw,520px)] rounded-full border-[6px] border-t-cyan-400/95 border-r-purple-500/90 border-b-transparent border-l-transparent blur-[4px] sm:h-[520px] sm:w-[520px] sm:border-[10px] sm:blur-[6px]"
+            style={{ transformOrigin: "center center" }}
+          />
+        </div>
+        <div className="absolute left-1/2 top-1/2 z-[11] -translate-x-1/2 -translate-y-1/2">
+          <motion.div
+            animate={{
+              rotate: lite ? 0 : -360,
+              scale: lite ? 1 : [1, 1.08, 1],
+              opacity: lite ? 0.9 : [0.55, 0.95, 0.55],
+            }}
+            transition={
+              lite
+                ? { duration: 0.01 }
+                : { duration: 14, repeat: Infinity, ease: "easeInOut" }
+            }
+            className="h-[min(78vw,560px)] w-[min(78vw,560px)] rounded-full border-[6px] border-b-pink-400/85 border-l-blue-500/85 border-t-transparent border-r-transparent blur-[5px] sm:h-[560px] sm:w-[560px] sm:border-[10px] sm:blur-[7px]"
+            style={{ transformOrigin: "center center" }}
+          />
+        </div>
 
         {/* ---- Outer Pulse Ring (lebih sangar) ---- */}
-        <motion.div
-          animate={
-            reducedMotion
-              ? { scale: 1, opacity: 1 }
-              : { scale: [0.98, 1.02, 0.98], opacity: [0.25, 0.85, 0.25] }
-          }
-          transition={
-            reducedMotion
-              ? { duration: 0.01 }
-              : { duration: 2.6, repeat: Infinity, ease: "easeInOut" }
-          }
-          className="absolute z-[12] w-[640px] h-[640px] rounded-full"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(34,211,238,0.22) 0%, rgba(147,51,234,0.12) 45%, rgba(0,0,0,0) 70%)",
-            // bikin hanya "ring" (bukan fill penuh)
-            WebkitMaskImage:
-              "radial-gradient(circle, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 67%)",
-            maskImage:
-              "radial-gradient(circle, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 67%)",
-            filter:
-              "drop-shadow(0 0 18px rgba(59,130,246,0.45)) drop-shadow(0 0 36px rgba(147,51,234,0.22))",
-          }}
-        />
+        <div className="absolute left-1/2 top-1/2 z-[12] -translate-x-1/2 -translate-y-1/2">
+          <motion.div
+            animate={
+              lite
+                ? { scale: 1, opacity: 1 }
+                : { scale: [0.98, 1.02, 0.98], opacity: [0.25, 0.85, 0.25] }
+            }
+            transition={
+              lite
+                ? { duration: 0.01 }
+                : { duration: 2.6, repeat: Infinity, ease: "easeInOut" }
+            }
+            className="h-[min(84vw,640px)] w-[min(84vw,640px)] rounded-full sm:h-[640px] sm:w-[640px]"
+            style={{
+              transformOrigin: "center center",
+              background:
+                "radial-gradient(circle, rgba(34,211,238,0.22) 0%, rgba(147,51,234,0.12) 45%, rgba(0,0,0,0) 70%)",
+              WebkitMaskImage:
+                "radial-gradient(circle, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 67%)",
+              maskImage:
+                "radial-gradient(circle, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 67%)",
+              filter:
+                "drop-shadow(0 0 18px rgba(59,130,246,0.45)) drop-shadow(0 0 36px rgba(147,51,234,0.22))",
+            }}
+          />
+        </div>
 
         {/* ---- CRT / Scanlines (localized to reactor) ---- */}
-        <motion.div
-          aria-hidden="true"
-          className="absolute z-[13] w-[560px] h-[560px] rounded-full pointer-events-none"
-          style={{
-            background:
-              "repeating-linear-gradient(to bottom, rgba(255,255,255,0.09) 0px, rgba(255,255,255,0.09) 1px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 2px)",
-            WebkitMaskImage:
-              "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
-            maskImage:
-              "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
-            mixBlendMode: "overlay",
-          }}
-          animate={
-            reducedMotion
-              ? { opacity: 0.18 }
-              : { opacity: [0.12, 0.28, 0.16], y: [0, -8, 0] }
-          }
-          transition={
-            reducedMotion
-              ? { duration: 0.01 }
-              : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
-          }
-        />
+        <div className="absolute left-1/2 top-1/2 z-[13] -translate-x-1/2 -translate-y-1/2">
+          <motion.div
+            aria-hidden="true"
+            className="pointer-events-none h-[min(78vw,560px)] w-[min(78vw,560px)] rounded-full sm:h-[560px] sm:w-[560px]"
+            style={{
+              background:
+                "repeating-linear-gradient(to bottom, rgba(255,255,255,0.09) 0px, rgba(255,255,255,0.09) 1px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 2px)",
+              WebkitMaskImage:
+                "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
+              maskImage:
+                "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
+              mixBlendMode: "overlay",
+              transformOrigin: "center center",
+            }}
+            animate={
+              lite
+                ? { opacity: 0.14 }
+                : { opacity: [0.12, 0.28, 0.16], y: [0, -8, 0] }
+            }
+            transition={
+              lite
+                ? { duration: 0.01 }
+                : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
+            }
+          />
+        </div>
 
         {/* ---- Chromatic split (subtle) ---- */}
-        {!reducedMotion && (
+        {!lite && (
           <>
-            <motion.div
-              aria-hidden="true"
-              className="absolute z-[14] w-[560px] h-[560px] rounded-full pointer-events-none"
-              style={{
-                background:
-                  "repeating-linear-gradient(to bottom, rgba(34,211,238,0.14) 0px, rgba(34,211,238,0.14) 1px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 2px)",
-                WebkitMaskImage:
-                  "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
-                maskImage:
-                  "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
-                mixBlendMode: "screen",
-                filter: "blur(0.2px)",
-              }}
-              animate={{ x: [-1, 1, -1], opacity: [0.08, 0.16, 0.1] }}
-              transition={{ duration: 2.1, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.div
-              aria-hidden="true"
-              className="absolute z-[14] w-[560px] h-[560px] rounded-full pointer-events-none"
-              style={{
-                background:
-                  "repeating-linear-gradient(to bottom, rgba(244,114,182,0.14) 0px, rgba(244,114,182,0.14) 1px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 2px)",
-                WebkitMaskImage:
-                  "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
-                maskImage:
-                  "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
-                mixBlendMode: "screen",
-                filter: "blur(0.2px)",
-              }}
-              animate={{ x: [1, -1, 1], opacity: [0.08, 0.14, 0.1] }}
-              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-            />
+            <div className="absolute left-1/2 top-1/2 z-[14] -translate-x-1/2 -translate-y-1/2">
+              <motion.div
+                aria-hidden="true"
+                className="pointer-events-none h-[560px] w-[560px] rounded-full"
+                style={{
+                  background:
+                    "repeating-linear-gradient(to bottom, rgba(34,211,238,0.14) 0px, rgba(34,211,238,0.14) 1px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 2px)",
+                  WebkitMaskImage:
+                    "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
+                  maskImage:
+                    "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
+                  mixBlendMode: "screen",
+                  filter: "blur(0.2px)",
+                  transformOrigin: "center center",
+                }}
+                animate={{ x: [-1, 1, -1], opacity: [0.08, 0.16, 0.1] }}
+                transition={{ duration: 2.1, repeat: Infinity, ease: "easeInOut" }}
+              />
+            </div>
+            <div className="absolute left-1/2 top-1/2 z-[14] -translate-x-1/2 -translate-y-1/2">
+              <motion.div
+                aria-hidden="true"
+                className="pointer-events-none h-[560px] w-[560px] rounded-full"
+                style={{
+                  background:
+                    "repeating-linear-gradient(to bottom, rgba(244,114,182,0.14) 0px, rgba(244,114,182,0.14) 1px, rgba(0,0,0,0) 1px, rgba(0,0,0,0) 2px)",
+                  WebkitMaskImage:
+                    "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
+                  maskImage:
+                    "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
+                  mixBlendMode: "screen",
+                  filter: "blur(0.2px)",
+                  transformOrigin: "center center",
+                }}
+                animate={{ x: [1, -1, 1], opacity: [0.08, 0.14, 0.1] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+              />
+            </div>
           </>
         )}
 
         {/* ---- Grain / Noise (localized CRT texture) ---- */}
-        <motion.div
-          aria-hidden="true"
-          className="absolute z-[15] w-[560px] h-[560px] rounded-full pointer-events-none"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle, rgba(255,255,255,0.24) 1px, rgba(0,0,0,0) 1.5px)",
-            backgroundSize: "3px 3px",
-            backgroundPosition: "0px 0px",
-            mixBlendMode: "overlay",
-            filter: "blur(0.2px)",
-            WebkitMaskImage:
-              "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
-            maskImage:
-              "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
-          }}
-          animate={
-            reducedMotion
-              ? { opacity: 0.12 }
-              : {
-                  opacity: [0.06, 0.12, 0.07],
-                  x: [0, 1, -1, 0],
-                  y: [0, -1, 1, 0],
-                }
-          }
-          transition={
-            reducedMotion ? { duration: 0.01 } : { duration: 2.1, repeat: Infinity, ease: "easeInOut" }
-          }
-        />
+        <div className="absolute left-1/2 top-1/2 z-[15] -translate-x-1/2 -translate-y-1/2">
+          <motion.div
+            aria-hidden="true"
+            className="pointer-events-none h-[min(78vw,560px)] w-[min(78vw,560px)] rounded-full sm:h-[560px] sm:w-[560px]"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle, rgba(255,255,255,0.24) 1px, rgba(0,0,0,0) 1.5px)",
+              backgroundSize: "3px 3px",
+              backgroundPosition: "0px 0px",
+              mixBlendMode: "overlay",
+              filter: "blur(0.2px)",
+              WebkitMaskImage:
+                "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
+              maskImage:
+                "radial-gradient(circle, rgba(0,0,0,1) 58%, rgba(0,0,0,0) 72%)",
+              transformOrigin: "center center",
+            }}
+            animate={
+              lite
+                ? { opacity: 0.1 }
+                : {
+                    opacity: [0.06, 0.12, 0.07],
+                    x: [0, 1, -1, 0],
+                    y: [0, -1, 1, 0],
+                  }
+            }
+            transition={
+              lite ? { duration: 0.01 } : { duration: 2.1, repeat: Infinity, ease: "easeInOut" }
+            }
+          />
+        </div>
 
         {/* ---- Core Glow ---- */}
-        <motion.div
-          className="absolute z-[16] w-[190px] h-[190px] bg-[radial-gradient(circle,rgba(59,130,246,0.55),transparent_70%)] rounded-full blur-2xl"
-          animate={
-            reducedMotion
-              ? { scale: 1, opacity: 0.9 }
-              : { scale: [0.9, 1.12, 0.9], opacity: [0.45, 0.9, 0.45] }
-          }
-          transition={
-            reducedMotion
-              ? { duration: 0.01 }
-              : { duration: 2.4, repeat: Infinity, ease: "easeInOut" }
-          }
-        />
+        <div className="absolute left-1/2 top-1/2 z-[16] -translate-x-1/2 -translate-y-1/2">
+          <motion.div
+            className="h-[min(36vw,160px)] w-[min(36vw,160px)] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.55),transparent_70%)] blur-xl sm:h-[190px] sm:w-[190px] sm:blur-2xl"
+            style={{ transformOrigin: "center center" }}
+            animate={
+              lite
+                ? { scale: 1, opacity: 0.88 }
+                : { scale: [0.9, 1.12, 0.9], opacity: [0.45, 0.9, 0.45] }
+            }
+            transition={
+              lite
+                ? { duration: 0.01 }
+                : { duration: 2.4, repeat: Infinity, ease: "easeInOut" }
+            }
+          />
+        </div>
 
         {/* ---- Partikel ---- */}
         {particles.map((p, i) => (
@@ -541,21 +609,23 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
                 "0 0 10px rgba(59,130,246,0.35), 0 0 22px rgba(147,51,234,0.22)",
             }}
             animate={{
-              y: reducedMotion ? 0 : [0, -36, 0],
-              opacity: reducedMotion ? 0.75 : [0.35, 0.98, 0.35],
-              scale: reducedMotion ? 1 : [1, 1.45, 1],
+              y: lite ? 0 : [0, -36, 0],
+              opacity: lite ? 0.7 : [0.35, 0.98, 0.35],
+              scale: lite ? 1 : [1, 1.45, 1],
             }}
             transition={{
-              duration: reducedMotion ? 0.01 : p.duration,
-              repeat: reducedMotion ? 0 : Infinity,
-              delay: reducedMotion ? 0 : p.delay,
+              duration: lite ? 0.01 : p.duration,
+              repeat: lite ? 0 : Infinity,
+              delay: lite ? 0 : p.delay,
             }}
           />
         ))}
+        </div>
 
-        {/* ---- Logo ---- */}
+        <section className="relative z-40 mx-auto flex w-full max-w-md flex-col items-center px-2 sm:max-w-lg sm:px-0">
+        {/* ---- Logo + copy (mobile: skala & padding agar muat layar) ---- */}
         <motion.h1
-          className="relative z-40 text-7xl md:text-8xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 mb-3"
+          className="relative z-40 text-center text-[clamp(1.4rem,6.2vw,4.5rem)] sm:text-6xl md:text-8xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 mb-2 sm:mb-3 px-1 leading-tight"
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 1.5 }}
@@ -565,7 +635,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
 
         {/* ---- Efek Mesin Ketik ---- */}
         <motion.p
-          className="relative z-40 text-center text-lg md:text-xl font-light tracking-wide text-slate-200"
+          className="relative z-40 text-center text-sm sm:text-lg md:text-xl font-light tracking-wide text-slate-200 px-4 max-w-[min(100%,36rem)] mx-auto leading-snug"
           style={{
             textShadow:
               "0 0 10px rgba(147,51,234,0.5), 0 0 20px rgba(59,130,246,0.4)",
@@ -573,22 +643,20 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
         >
           {typedText}
           <motion.span
-            animate={reducedMotion ? { opacity: 1 } : { opacity: [0, 1, 0] }}
+            animate={lite ? { opacity: 1 } : { opacity: [0, 1, 0] }}
             transition={
-              reducedMotion
-                ? { duration: 0.01 }
-                : { duration: 0.8, repeat: Infinity }
+              lite ? { duration: 0.01 } : { duration: 0.8, repeat: Infinity }
             }
-            className="inline-block w-[2px] h-[22px] bg-slate-200 ml-1 align-middle"
+            className="inline-block w-[2px] h-[18px] sm:h-[22px] bg-slate-200 ml-1 align-middle"
           />
         </motion.p>
 
         {/* ---- RSUD Name ---- */}
         <motion.p
-          className="relative z-40 text-xs md:text-sm uppercase tracking-[0.25em] text-slate-400 mt-4"
+          className="relative z-40 text-center text-xs sm:text-xs md:text-sm uppercase tracking-[0.12em] sm:tracking-[0.25em] text-slate-400 mt-2 sm:mt-4 px-1 max-w-full leading-relaxed"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 5, duration: 1.2 }}
+          transition={{ delay: isMobile ? 1.4 : 5, duration: 1.2 }}
         >
           RSUD dr. Mohamad Soewandhie Surabaya
         </motion.p>
@@ -596,10 +664,10 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
         {/* ---- Tombol Login ---- */}
         {phase === "intro" && (
           <motion.div
-            className="relative z-40 mt-10"
+            className="relative z-40 mt-5 w-full max-w-full px-0 sm:mt-10 sm:max-w-none flex justify-center"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 6 }}
+            transition={{ delay: isMobile ? 1.9 : 6 }}
           >
             {/* proximity pulse behind button */}
             <motion.div
@@ -625,7 +693,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
                 handleLoginRippleFromEvent(e, "click")
               }
               whileHover={
-                reducedMotion
+                lite
                   ? { scale: 1.02 }
                   : {
                       scale: 1.06,
@@ -642,7 +710,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
               }
               whileTap={{ scale: 0.96 }}
               animate={
-                reducedMotion
+                lite
                   ? { boxShadow: "0 0 18px rgba(59,130,246,0.5)" }
                   : {
                       backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
@@ -654,11 +722,11 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
                     }
               }
               transition={
-                reducedMotion
+                lite
                   ? { duration: 0.01 }
                   : { duration: 7, repeat: Infinity, ease: "easeInOut" }
               }
-              className="relative overflow-hidden px-10 py-4 rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-[length:200%_200%] text-white font-bold uppercase tracking-widest shadow-[0_0_25px_rgba(59,130,246,0.35)] ring-1 ring-white/10 backdrop-blur-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 will-change-transform"
+              className="relative w-full max-w-[min(100%,17rem)] overflow-hidden px-4 py-3 sm:w-auto sm:max-w-none sm:px-10 sm:py-4 rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-[length:200%_200%] text-white text-[11px] sm:text-base font-bold uppercase tracking-[0.12em] sm:tracking-widest shadow-[0_0_25px_rgba(59,130,246,0.35)] ring-1 ring-white/10 backdrop-blur-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 will-change-transform"
             >
               {/* soft inner bloom */}
               <span
@@ -707,7 +775,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
                 className="absolute z-[2] top-1/2 h-[170%] w-[70%] -translate-y-1/2 rotate-12 bg-gradient-to-r from-transparent via-white/45 to-transparent blur-[0.5px]"
                 initial={{ opacity: 0, x: "-60%" }}
                 whileHover={
-                  reducedMotion
+                  lite
                     ? { opacity: 0 }
                     : {
                         opacity: 0.85,
@@ -726,7 +794,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
                   aria-hidden="true"
                   className="relative"
                   animate={
-                    reducedMotion
+                    lite
                       ? { opacity: 1 }
                       : {
                           opacity: [0.92, 1, 0.96],
@@ -734,8 +802,8 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
                         }
                   }
                   transition={{
-                    duration: reducedMotion ? 0.01 : 1.6,
-                    repeat: reducedMotion ? 0 : Infinity,
+                    duration: lite ? 0.01 : 1.6,
+                    repeat: lite ? 0 : Infinity,
                     ease: "easeInOut",
                   }}
                   style={{
@@ -749,16 +817,15 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
                 </motion.span>
 
                 <motion.span
-                  className="relative font-mono font-semibold uppercase tracking-[0.32em] text-white/95"
+                  className="relative font-mono font-semibold uppercase tracking-[0.14em] sm:tracking-[0.32em] text-white/95 text-[11px] sm:text-sm"
                   style={{
                     textShadow:
                       proximity > 0
                         ? `1px 0 rgba(34,211,238,${0.32 * proximity}), -1px 0 rgba(244,114,182,${0.22 * proximity})`
                         : undefined,
-                    letterSpacing: "0.32em",
                   }}
                   animate={
-                    reducedMotion
+                    lite
                       ? { opacity: 1 }
                       : {
                           opacity: [0.92, 1, 0.96],
@@ -769,8 +836,8 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
                         }
                   }
                   transition={{
-                    duration: reducedMotion ? 0.01 : 1.9,
-                    repeat: reducedMotion ? 0 : Infinity,
+                    duration: lite ? 0.01 : 1.9,
+                    repeat: lite ? 0 : Infinity,
                     ease: "easeInOut",
                   }}
                 >
@@ -804,6 +871,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
             </motion.button>
           </motion.div>
         )}
+        </section>
 
         {/* ---- Modal Login ---- */}
         <AnimatePresence>
@@ -827,39 +895,35 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
             initial={{ opacity: 0 }}
             animate={{
               opacity: 1,
-              y: reducedMotion ? 0 : [6, 0, -1, 0],
+              y: lite ? 0 : [6, 0, -1, 0],
             }}
-            transition={{ duration: reducedMotion ? 0.01 : 0.35 }}
+            transition={{ duration: lite ? 0.01 : 0.35 }}
           >
             <motion.div
-              className="flex flex-col items-center gap-4"
+              className="flex flex-col items-center gap-4 px-4"
               initial={false}
               animate={
-                reducedMotion
+                lite
                   ? { scale: 1, opacity: 1 }
                   : { scale: [0.98, 1.02, 1], opacity: 1 }
               }
-              transition={{ duration: reducedMotion ? 0.01 : 0.6 }}
+              transition={{ duration: lite ? 0.01 : 0.6 }}
             >
               <motion.h2
-                className="text-5xl font-extrabold text-emerald-300 tracking-widest"
-                animate={
-                  reducedMotion ? { opacity: 1 } : { opacity: [0.6, 1, 0.85] }
-                }
-                transition={{ duration: reducedMotion ? 0.01 : 0.35 }}
+                className="text-3xl sm:text-5xl font-extrabold text-emerald-300 tracking-widest text-center"
+                animate={lite ? { opacity: 1 } : { opacity: [0.6, 1, 0.85] }}
+                transition={{ duration: lite ? 0.01 : 0.35 }}
               >
                 ACCESS GRANTED
               </motion.h2>
               <motion.p
-                className="text-sm md:text-base text-slate-300 tracking-widest"
+                className="text-xs sm:text-sm md:text-base text-slate-300 tracking-wider sm:tracking-widest text-center"
                 initial={{ opacity: 0 }}
                 animate={
-                  reducedMotion
-                    ? { opacity: 0.85 }
-                    : { opacity: [0, 1, 0.75] }
+                  lite ? { opacity: 0.85 } : { opacity: [0, 1, 0.75] }
                 }
                 transition={{
-                  duration: reducedMotion ? 0.01 : 0.8,
+                  duration: lite ? 0.01 : 0.8,
                   delay: 0.08,
                 }}
               >
@@ -878,13 +942,13 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
             className="absolute inset-0 flex items-center justify-center bg-black bg-[repeating-linear-gradient(0deg,rgba(255,0,64,0.05)_0px,rgba(255,0,64,0.05)_1px,transparent_1px,transparent_2px)] z-[9999]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: reducedMotion ? 0.01 : 0.25 }}
+            transition={{ duration: lite ? 0.01 : 0.25 }}
           >
             <motion.h2
-              className="text-5xl font-extrabold text-rose-400 tracking-widest"
-              animate={reducedMotion ? { opacity: 1 } : { x: [0, -4, 4, 0] }}
+              className="text-3xl sm:text-5xl font-extrabold text-rose-400 tracking-widest text-center px-4"
+              animate={lite ? { opacity: 1 } : { x: [0, -4, 4, 0] }}
               transition={
-                reducedMotion ? { duration: 0.01 } : { duration: 0.8 }
+                lite ? { duration: 0.01 } : { duration: 0.8 }
               }
             >
               ACCESS DENIED

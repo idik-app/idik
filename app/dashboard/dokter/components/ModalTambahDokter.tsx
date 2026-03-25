@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { X, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient";
 
 interface Props {
   onClose: () => void;
@@ -28,11 +27,34 @@ export default function ModalTambahDokter({ onClose, onSuccess }: Props) {
     setLoading(true);
     setError(null);
 
-    const { error } = await (supabase as any).from("doctor").insert([{ nama_dokter: nama.trim(), spesialis: spesialis.trim() || null, kontak: kontak.trim() || null, status: status === "aktif" }]);
+    const res = await fetch("/api/doctors", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nama_dokter: nama.trim(),
+        spesialis: spesialis.trim() || null,
+        kontak: kontak.trim() || null,
+        status: status === "aktif",
+      }),
+    });
+
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      message?: string;
+    };
 
     setLoading(false);
-    if (error) setError(error.message);
-    else onSuccess();
+    if (!res.ok || !json.ok) {
+      setError(
+        json.message ||
+          (res.status === 403
+            ? "Hanya admin yang dapat menambah data dokter."
+            : "Gagal menyimpan data dokter.")
+      );
+      return;
+    }
+    onSuccess();
   };
 
   if (!mounted) return null;

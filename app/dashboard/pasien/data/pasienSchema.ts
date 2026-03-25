@@ -43,39 +43,90 @@ export const pasienSchema = z.object({
 export type PasienFormData = z.infer<typeof pasienSchema>;
 
 /* ------------------------------------------------------------
-   🔁 Mapper: Supabase ↔ Frontend (camelCase)
+   📅 Tanggal lahir — DB (date / timestamptz / ISO) → YYYY-MM-DD
+   Hindari string kosong ke Postgres (menjadi NULL) dan input type=text yang tidak lolos Zod.
 ------------------------------------------------------------ */
+export function formatTanggalLahirFromDb(raw: unknown): string {
+  if (raw == null || raw === "") return "";
+  if (raw instanceof Date && !isNaN(raw.getTime())) {
+    const y = raw.getUTCFullYear();
+    const m = String(raw.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(raw.getUTCDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  const s = String(raw).trim();
+  if (!s) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0, 10);
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) {
+    const [, d, mo, y] = m;
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  return s;
+}
+
+/** Nilai aman untuk kolom Postgres `date` — jangan kirim string kosong */
+export function toPgDateFromForm(tanggalLahir: string | undefined | null): string | null {
+  const n = formatTanggalLahirFromDb(tanggalLahir ?? "");
+  return /^\d{4}-\d{2}-\d{2}$/.test(n) ? n : null;
+}
+
+/** DB bisa menyimpan "1" / "Kelas 1" / angka — seragamkan ke enum form */
+function normalizeKelasPerawatanFromDb(raw: unknown): string {
+  const s = String(raw ?? "").trim();
+  if (!s) return "Kelas 2";
+  if (/^Kelas [123]$/.test(s)) return s;
+  if (/^[123]$/.test(s)) return `Kelas ${s}`;
+  return s;
+}
+
 function normalizeJenisPembiayaanFromDb(raw: unknown): string {
   const s = String(raw ?? "").trim();
-  if (s === "BPJS PBI") return "NPBI";
+  if (!s) return "Umum";
+  const upper = s.toUpperCase();
+  if (upper === "BPJS PBI" || upper === "PBI") return "NPBI";
+  if (["BPJS", "NPBI", "UMUM", "ASURANSI"].includes(upper)) {
+    return upper === "UMUM"
+      ? "Umum"
+      : upper === "ASURANSI"
+        ? "Asuransi"
+        : upper;
+  }
   if (["BPJS", "NPBI", "Umum", "Asuransi"].includes(s)) return s;
   return s || "Umum";
 }
 
-export const mapFromSupabase = (p: any) => ({
+export const mapFromSupabase = (p: any) => {
+  const jp = String(p?.jenis_pembiayaan ?? "").trim();
+  const legacy = String(p?.pembiayaan ?? "").trim();
+  const rawPembiayaan = jp || legacy || "Umum";
+
+  return {
   id: String(p.id),
   noRM: p.no_rm ?? "",
   nama: p.nama ?? "",
   // dukung beberapa variasi kolom yang pernah dipakai di repo/view
   jenisKelamin: p.jenis_kelamin ?? p.jk ?? "L",
-  tanggalLahir: p.tgl_lahir ?? p.tanggal_lahir ?? "",
+  tanggalLahir: formatTanggalLahirFromDb(p.tgl_lahir ?? p.tanggal_lahir),
   alamat: p.alamat ?? "",
   noHP: p.no_telp ?? p.no_hp ?? "",
-  jenisPembiayaan: normalizeJenisPembiayaanFromDb(
-    p.jenis_pembiayaan ?? p.pembiayaan ?? "Umum"
+  jenisPembiayaan: normalizeJenisPembiayaanFromDb(rawPembiayaan),
+  kelasPerawatan: normalizeKelasPerawatanFromDb(
+    p.kelas_perawatan ?? p.kelas
   ),
-  kelasPerawatan: p.kelas_perawatan ?? p.kelas ?? "Kelas 2",
   asuransi: p.asuransi ?? "",
   dokter: p.dokter_nama ?? p.nama_dokter ?? p.dokter ?? "",
   created_at: p.created_at ?? "",
   updated_at: p.updated_at ?? "",
-});
+};
+};
 
 export const mapToSupabase = (p: PasienFormData) => ({
   no_rm: p.noRM,
   nama: p.nama,
   jenis_kelamin: p.jenisKelamin,
-  tgl_lahir: p.tanggalLahir,
+  tgl_lahir: toPgDateFromForm(p.tanggalLahir),
   alamat: p.alamat,
   no_telp: p.noHP ?? "",
   jenis_pembiayaan: p.jenisPembiayaan,

@@ -75,7 +75,11 @@ export default function TableToolbar({
     const interval = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          safeRefresh("AUTO");
+          // Never call parent setters (onSearch/onFilter) inside a setState updater —
+          // React treats that as updating TindakanTable during TableToolbar's update.
+          queueMicrotask(() => {
+            void safeRefresh("AUTO");
+          });
           return mode === "THROTTLED" ? 30 : 60;
         }
         return prev - 1;

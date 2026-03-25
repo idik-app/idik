@@ -19,8 +19,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = await addPatient(parsed.data as any);
-    return NextResponse.json({ ok: true, ...result }, { status: 200 });
+    const patient = await addPatient(parsed.data as any);
+    return NextResponse.json({ ok: true, data: patient }, { status: 200 });
   } catch (err: any) {
     console.error("❌ Gagal menambah pasien:", err?.message ?? err);
     return NextResponse.json(

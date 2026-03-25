@@ -1,5 +1,3 @@
-"use server";
-
 import { NextResponse } from "next/server";
 import { pasienSchema } from "@/app/dashboard/pasien/data/pasienSchema";
 import { editPatient } from "@/app/dashboard/pasien/actions/editPatient";
@@ -32,8 +30,8 @@ export async function PUT(
       );
     }
 
-    await editPatient(id, parsed.data as any);
-    return NextResponse.json({ ok: true }, { status: 200 });
+    const patient = await editPatient(id, parsed.data as any);
+    return NextResponse.json({ ok: true, data: patient }, { status: 200 });
   } catch (err: any) {
     console.error("❌ Gagal edit pasien:", err?.message ?? err);
     return NextResponse.json(

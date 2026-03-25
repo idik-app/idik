@@ -9,6 +9,8 @@ export type DoctorOption = {
   id: string;
   nama_dokter: string;
   spesialis: string | null;
+  /** Dari API: false jika status nonaktif di master (tetap bisa dipilih). */
+  aktif?: boolean;
 };
 
 export function formatDoctorLabel(d: DoctorOption): string {
@@ -114,6 +116,11 @@ export function DoctorCombobox({
                 >
                   <span className="block font-medium text-white/95">
                     {d.nama_dokter}
+                    {d.aktif === false ? (
+                      <span className="ml-1 font-normal text-amber-200/80">
+                        (nonaktif)
+                      </span>
+                    ) : null}
                   </span>
                   {d.spesialis ? (
                     <span className="block text-[10px] text-white/50">

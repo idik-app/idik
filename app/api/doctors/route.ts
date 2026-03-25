@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { requireUser } from "@/lib/auth/guards";
+import { requireUser, requireAdmin } from "@/lib/auth/guards";
 import { getServiceSupabaseAdmin } from "@/lib/auth/serviceSupabase";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /** Daftar dokter aktif untuk form pemakaian / pemilihan operator (master `doctor`). */
 export async function GET() {
@@ -21,7 +22,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("doctor")
-    .select("id, nama_dokter, spesialis, status")
+    .select("*")
     .order("nama_dokter", { ascending: true });
 
   if (error) {
@@ -31,19 +32,87 @@ export async function GET() {
     );
   }
 
-  const rows = (data ?? []).filter((r) => {
-    const nama = (r.nama_dokter ?? "").trim();
-    if (!nama) return false;
-    if (r.status === false) return false;
-    return true;
+  type Row = {
+    id: string;
+    nama_dokter?: string | null;
+    /** Beberapa seed / migrasi lama memakai `nama` */
+    nama?: string | null;
+    spesialis?: string | null;
+    status?: boolean | null;
+  };
+
+  /** Tampilkan semua baris yang punya nama (aktif & nonaktif) agar form pemakaian tidak kosong. */
+  const rows = (data ?? []).filter((r: Row) => {
+    const nama = String(r.nama_dokter ?? r.nama ?? "").trim();
+    return nama.length > 0;
   });
 
   return NextResponse.json({
     ok: true,
-    doctors: rows.map((r) => ({
+    doctors: rows.map((r: Row) => ({
       id: r.id,
-      nama_dokter: r.nama_dokter ?? "",
+      nama_dokter: String(r.nama_dokter ?? r.nama ?? "").trim(),
       spesialis: r.spesialis ?? null,
+      aktif: r.status !== false,
     })),
   });
+}
+
+/** Tambah dokter memakai service role — bypass RLS (insert dari anon sering ditolak). */
+export async function POST(req: Request) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
+  try {
+    const body = await req.json();
+    const nama_dokter = String(body?.nama_dokter ?? body?.nama ?? "").trim();
+    const spesialisRaw = body?.spesialis;
+    const kontakRaw = body?.kontak;
+    const spesialis =
+      spesialisRaw != null && String(spesialisRaw).trim().length > 0
+        ? String(spesialisRaw).trim()
+        : null;
+    const kontak =
+      kontakRaw != null && String(kontakRaw).trim().length > 0
+        ? String(kontakRaw).trim()
+        : null;
+
+    if (nama_dokter.length < 1) {
+      return NextResponse.json(
+        { ok: false, message: "nama_dokter wajib diisi" },
+        { status: 400 }
+      );
+    }
+
+    let statusBool = true;
+    if (body?.status !== undefined && body?.status !== null) {
+      if (typeof body.status === "boolean") {
+        statusBool = body.status;
+      } else {
+        const s = String(body.status).toLowerCase().trim();
+        if (s === "aktif") statusBool = true;
+        else if (s === "cuti" || s === "nonaktif") statusBool = false;
+      }
+    }
+
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from("doctor")
+      .insert({
+        nama_dokter,
+        spesialis,
+        kontak,
+        status: statusBool,
+      })
+      .select("id,nama_dokter,spesialis,kontak,status")
+      .maybeSingle();
+
+    if (error) throw error;
+
+    return NextResponse.json({ ok: true, data }, { status: 201 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Gagal menambah dokter";
+    console.error("[POST /api/doctors]", err);
+    return NextResponse.json({ ok: false, message: msg }, { status: 500 });
+  }
 }

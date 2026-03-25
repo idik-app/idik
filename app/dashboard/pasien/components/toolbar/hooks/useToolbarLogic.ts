@@ -26,12 +26,13 @@ export function useToolbarLogic() {
   const [isIdle, setIsIdle] = useState(false);
   const idleTimer = useRef<NodeJS.Timeout | null>(null);
 
+  /** Hanya saat lastSync berubah — jangan ikut filteredPatients (referensi berubah tiap fetch → kedip) */
   useEffect(() => {
     if (!summary?.lastSync || summary.lastSync === "—") return;
     setIsSyncing(true);
     const t = setTimeout(() => setIsSyncing(false), 1000);
     return () => clearTimeout(t);
-  }, [summary?.lastSync, filteredPatients, filterState, perPage]);
+  }, [summary?.lastSync]);
 
   useEffect(() => {
     const handleActivity = () => {

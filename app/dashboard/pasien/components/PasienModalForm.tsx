@@ -4,30 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ModalWrapper from "@/components/global/ModalWrapper";
 import type { Pasien } from "../types/pasien";
-import {
-  addPatientAction,
-  editPatientAction,
-  refreshPatientsAction,
-} from "../actions/clientBridge";
-import { usePasienDispatch } from "../contexts/PasienHooks";
-import { mapFromSupabase, pasienSchema } from "../data/pasienSchema";
+import { addPatientAction, editPatientAction } from "../actions/clientBridge";
+import { usePasien, usePasienDispatch } from "../contexts/PasienHooks";
+import { formatTanggalLahirFromDb, pasienSchema } from "../data/pasienSchema";
 import { hitungUsia } from "../utils/formatUsia";
 import {
   normalizeNamaPasien,
   normalizeNamaPasienInput,
 } from "../utils/normalizeNamaPasien";
 import { formatPasienApiValidationError } from "../utils/pasienValidationMessages";
-
-function normalizeTanggalLahir(raw: string): string {
-  if (!raw) return "";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-  const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if (m) {
-    const [, d, mo, y] = m;
-    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
-  }
-  return raw;
-}
 
 /*───────────────────────────────────────────────
  🧠 PasienModalForm – Add/Edit Modal (Stable v5.6.6)
@@ -44,9 +29,9 @@ export default function PasienModalForm({
   selectedPatient?: Pasien | null;
   onClose: () => void;
 }) {
-  if (!mode) return null;
   const isEdit = mode === "edit";
   const dispatch = usePasienDispatch();
+  const { refresh } = usePasien();
 
   const [formData, setFormData] = useState<Omit<Pasien, "id">>({
     noRM: "",
@@ -60,30 +45,50 @@ export default function PasienModalForm({
     asuransi: "",
   });
 
+  const editPatientId = isEdit ? selectedPatient?.id ?? null : null;
+
+  /**
+   * Hanya seed form saat membuka modal / ganti pasien (mode atau id).
+   * Jangan masukkan `selectedPatient` ke dependency: UPSERT & refresh mengganti
+   * referensi objek dan akan memicu effect → setFormData menimpa input user.
+   */
   useEffect(() => {
-    if (isEdit && selectedPatient) {
+    if (mode === "add") {
       setFormData({
-        noRM: selectedPatient.noRM,
-        nama: normalizeNamaPasien(selectedPatient.nama ?? ""),
-        jenisKelamin: selectedPatient.jenisKelamin,
-        tanggalLahir: selectedPatient.tanggalLahir,
-        alamat: selectedPatient.alamat || "",
-        noHP: selectedPatient.noHP || "",
-        jenisPembiayaan: selectedPatient.jenisPembiayaan,
-        kelasPerawatan: selectedPatient.kelasPerawatan,
-        asuransi: selectedPatient.asuransi || "",
+        noRM: "",
+        nama: "",
+        jenisKelamin: "L",
+        tanggalLahir: "",
+        alamat: "",
+        noHP: "",
+        jenisPembiayaan: "BPJS",
+        kelasPerawatan: "Kelas 2",
+        asuransi: "",
       });
+      return;
     }
-  }, [isEdit, selectedPatient]);
+    if (mode !== "edit" || !editPatientId || !selectedPatient) return;
+    setFormData({
+      noRM: selectedPatient.noRM,
+      nama: normalizeNamaPasien(selectedPatient.nama ?? ""),
+      jenisKelamin: selectedPatient.jenisKelamin,
+      tanggalLahir: formatTanggalLahirFromDb(selectedPatient.tanggalLahir),
+      alamat: selectedPatient.alamat || "",
+      noHP: selectedPatient.noHP || "",
+      jenisPembiayaan: selectedPatient.jenisPembiayaan,
+      kelasPerawatan: selectedPatient.kelasPerawatan,
+      asuransi: selectedPatient.asuransi || "",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lihat komentar di atas
+  }, [mode, editPatientId]);
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const umurTeks = useMemo(() => {
-    const t = formData.tanggalLahir?.trim() ?? "";
-    if (!t) return "—";
-    const iso = /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : normalizeTanggalLahir(t);
-    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "—";
+    const t = formatTanggalLahirFromDb(formData.tanggalLahir?.trim() ?? "");
+    if (!t || !/^\d{4}-\d{2}-\d{2}$/.test(t)) return "—";
+    const iso = t;
     return hitungUsia(iso).teks;
   }, [formData.tanggalLahir]);
 
@@ -97,16 +102,13 @@ export default function PasienModalForm({
         name === "jenisKelamin"
           ? (value as "L" | "P")
           : name === "tanggalLahir"
-          ? normalizeTanggalLahir(value)
+          ? value
           : name === "nama"
           ? normalizeNamaPasienInput(value)
           : value;
       const patch: Partial<Omit<Pasien, "id">> = {
         [name]: nextVal,
       } as Partial<Omit<Pasien, "id">>;
-      if (name === "jenisPembiayaan" && value === "NPBI") {
-        patch.kelasPerawatan = "Kelas 3";
-      }
       return { ...p, ...patch };
     });
   };
@@ -117,7 +119,7 @@ export default function PasienModalForm({
       setError("No. RM dan Nama wajib diisi");
       return;
     }
-    const tanggalLahirIso = normalizeTanggalLahir(formData.tanggalLahir.trim());
+    const tanggalLahirIso = formatTanggalLahirFromDb(formData.tanggalLahir.trim());
     const payload = {
       ...formData,
       nama: namaFinal,
@@ -141,19 +143,26 @@ export default function PasienModalForm({
         throw new Error(formatPasienApiValidationError(resp));
       }
 
-      // Setelah berhasil simpan, refresh list agar tabel langsung terisi
-      const refreshed = await refreshPatientsAction();
-      if (refreshed?.ok && Array.isArray(refreshed?.data)) {
-        const mapped = refreshed.data.map((p: any) => mapFromSupabase(p));
-        dispatch({ type: "SET_PATIENTS", payload: mapped });
+      if (resp.data) {
+        dispatch({ type: "UPSERT_PATIENT", payload: resp.data as Pasien });
       }
       onClose();
+      void refresh();
     } catch (err: any) {
       setError(err.message || "Terjadi kesalahan saat menyimpan data");
     } finally {
       setLoading(false);
     }
   };
+
+  const handleTanggalLahirBlur = () => {
+    setFormData((p) => ({
+      ...p,
+      tanggalLahir: formatTanggalLahirFromDb(p.tanggalLahir.trim()),
+    }));
+  };
+
+  if (!mode) return null;
 
   return (
     <AnimatePresence>
@@ -205,9 +214,10 @@ export default function PasienModalForm({
                   label="Tanggal Lahir"
                   name="tanggalLahir"
                   type="text"
-                  placeholder="30-06-1967 atau 1967-06-30"
+                  placeholder="1967-06-30 atau 30-06-1967"
                   value={formData.tanggalLahir}
                   onChange={handleChange}
+                  onBlur={handleTanggalLahirBlur}
                 />
 
                 <div>
@@ -317,6 +327,7 @@ function InputField({
   name,
   value,
   onChange,
+  onBlur,
   type = "text",
   colSpan = false,
   placeholder,
@@ -325,6 +336,7 @@ function InputField({
   name: string;
   value: any;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
   type?: string;
   colSpan?: boolean;
   placeholder?: string;
@@ -337,6 +349,7 @@ function InputField({
         name={name}
         value={value}
         onChange={onChange}
+        onBlur={onBlur}
         placeholder={placeholder}
         className="w-full px-3 py-2 mt-1 bg-black/30 border border-cyan-600/50 
                    rounded-lg focus:outline-none focus:border-yellow-400"

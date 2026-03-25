@@ -25,21 +25,23 @@ export function subscribePasienRealtime(
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(async () => {
       try {
-        const { data, error } = await supabase
-          .from("pasien")
-          .select("*")
-          .order("nama", { ascending: true });
-
-        if (error) {
-          console.warn("⚠️ Gagal memuat data pasien (diredam):", error.message);
+        const res = await fetch("/api/pasien", {
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.ok) {
+          console.warn(
+            "⚠️ Gagal memuat data pasien (diredam):",
+            json?.error || json?.message || res.status
+          );
           return;
         }
-
+        const data = json.data;
         if (Array.isArray(data) && typeof onChange === "function") {
           const mapped = data.map((p: any) =>
             mapFromSupabase(p)
           ) as Pasien[];
-
           onChange(mapped);
         }
       } catch (err) {

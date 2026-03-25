@@ -5,8 +5,9 @@ import { requireDashboardSession } from "@/lib/auth/requireDashboardSession";
 import { Pasien } from "../types/pasien";
 import { logPasienAudit } from "@/lib/audit/logPasien";
 import { normalizeNamaPasien } from "../utils/normalizeNamaPasien";
+import { mapFromSupabase, toPgDateFromForm } from "../data/pasienSchema";
 
-export async function addPatient(data: Omit<Pasien, "id">) {
+export async function addPatient(data: Omit<Pasien, "id">): Promise<Pasien> {
   const session = await requireDashboardSession();
   const supabase = createAdminClient();
 
@@ -15,21 +16,18 @@ export async function addPatient(data: Omit<Pasien, "id">) {
     no_rm: noRM,
     nama: normalizeNamaPasien(data.nama ?? ""),
     jenis_kelamin: data.jenisKelamin ?? "L",
-    tgl_lahir: data.tanggalLahir ?? null,
+    tgl_lahir: toPgDateFromForm(data.tanggalLahir),
     alamat: data.alamat ?? null,
     no_telp: data.noHP ?? null,
     jenis_pembiayaan: data.jenisPembiayaan ?? "Umum",
-    kelas_perawatan:
-      data.jenisPembiayaan === "NPBI"
-        ? "Kelas 3"
-        : data.kelasPerawatan ?? "Kelas 2",
+    kelas_perawatan: data.kelasPerawatan ?? "Kelas 2",
     asuransi: data.asuransi ?? null,
   };
 
   const { data: inserted, error } = await supabase
     .from("pasien")
     .insert([payload])
-    .select("id")
+    .select("*")
     .single();
 
   if (error) {
@@ -44,5 +42,5 @@ export async function addPatient(data: Omit<Pasien, "id">) {
     session.username
   );
 
-  return { success: true };
+  return mapFromSupabase(inserted) as Pasien;
 }

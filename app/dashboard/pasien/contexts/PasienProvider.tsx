@@ -4,7 +4,8 @@ import {
   createContext,
   useReducer,
   useEffect,
-  useState,
+  useCallback,
+  useMemo,
   type ReactNode,
 } from "react";
 import {
@@ -42,12 +43,14 @@ export const PasienContext = createContext<
 export function PasienProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  const closeModal = () => dispatch({ type: "CLOSE_MODAL" });
+  const closeModal = useCallback(() => {
+    dispatch({ type: "CLOSE_MODAL" });
+  }, []);
 
   /*-----------------------------------------------
    ?? Ambil data utama pasien
   -----------------------------------------------*/
-  const fetchPatients = async () => {
+  const fetchPatients = useCallback(async () => {
     if (!isSupabaseConfigured()) {
       dispatch({
         type: "SET_ERROR",
@@ -60,14 +63,21 @@ export function PasienProvider({ children }: { children: ReactNode }) {
     try {
       dispatch({ type: "SET_LOADING", payload: true });
 
-      const { data, error } = await supabase
-        .from("view_pasien_full")
-        .select("*")
-        .order("created_at", { ascending: false });
+      /** Sama dengan modal refresh: GET /api/pasien (service role), bukan anon ke view — hindari beda data vs edit */
+      const res = await fetch("/api/pasien", {
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) {
+        throw new Error(
+          json?.error ||
+            json?.message ||
+            `Gagal memuat pasien (${res.status})`
+        );
+      }
 
-      if (error) throw new Error(error.message);
-
-      const safe = (data || []).map((p: any) => mapFromSupabase(p)) as Pasien[];
+      const safe = (json.data || []).map((p: any) => mapFromSupabase(p)) as Pasien[];
       dispatch({ type: "SET_PATIENTS", payload: safe });
       dispatch({ type: "SET_SUMMARY", payload: calculateSummary(safe) });
       dispatch({ type: "SET_LIVE", payload: true });
@@ -76,7 +86,7 @@ export function PasienProvider({ children }: { children: ReactNode }) {
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  };
+  }, []);
 
   /*-----------------------------------------------
    ?? Efek inisialisasi + sinkronisasi realtime
@@ -134,13 +144,23 @@ export function PasienProvider({ children }: { children: ReactNode }) {
         console.log("?? Realtime channel pasien-sync-stable removed");
       }
     };
-  }, []);
+  }, [fetchPatients]);
+
+  const contextValue = useMemo(
+    () => ({
+      state,
+      dispatch,
+      closeModal,
+      refresh: fetchPatients,
+    }),
+    [state, dispatch, closeModal, fetchPatients]
+  );
 
   /*-----------------------------------------------
    ?? Provider utama
   -----------------------------------------------*/
   return (
-    <PasienContext.Provider value={{ state, dispatch, closeModal, refresh: fetchPatients }}>
+    <PasienContext.Provider value={contextValue}>
       {children}
     </PasienContext.Provider>
   );

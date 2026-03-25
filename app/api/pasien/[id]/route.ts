@@ -1,5 +1,3 @@
-"use server";
-
 import { NextResponse } from "next/server";
 import { deletePatient } from "@/app/dashboard/pasien/actions/deletePatient";
 

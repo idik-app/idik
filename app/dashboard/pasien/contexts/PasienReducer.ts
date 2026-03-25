@@ -79,6 +79,7 @@ export type Summary = {
 
 export type Action =
   | { type: "SET_PATIENTS"; payload: Pasien[] }
+  | { type: "UPSERT_PATIENT"; payload: Pasien }
   | { type: "APPLY_FILTER"; payload: any }
   | { type: "SET_SUMMARY"; payload: any }
   | { type: "SET_MODAL_MODE"; payload: string | null }
@@ -122,6 +123,12 @@ export function reducer(state: State, action: Action): State {
       const filters = state.filters ?? { search: "", pembiayaan: "", kelas: "" };
       const filtered = filterPatientsByStateFilters(newData, filters);
 
+      const selId = state.selectedPatient?.id;
+      const nextSelected =
+        selId != null
+          ? newData.find((p) => p.id === selId) ?? state.selectedPatient
+          : state.selectedPatient;
+
       return {
         ...state,
         patients: newData,
@@ -129,6 +136,30 @@ export function reducer(state: State, action: Action): State {
         filters,
         summary: calculateSummary(filtered),
         loading: false,
+        selectedPatient: nextSelected,
+      };
+    }
+
+    case "UPSERT_PATIENT": {
+      const patient = action.payload;
+      if (!patient?.id) return state;
+      const idx = state.patients.findIndex((p) => p.id === patient.id);
+      const nextPatients =
+        idx >= 0
+          ? state.patients.map((p) => (p.id === patient.id ? patient : p))
+          : [...state.patients, patient];
+      const filters = state.filters ?? { search: "", pembiayaan: "", kelas: "" };
+      const filtered = filterPatientsByStateFilters(nextPatients, filters);
+      const nextSelected =
+        state.selectedPatient?.id === patient.id
+          ? patient
+          : state.selectedPatient;
+      return {
+        ...state,
+        patients: nextPatients,
+        filteredPatients: filtered,
+        summary: calculateSummary(filtered),
+        selectedPatient: nextSelected,
       };
     }
 

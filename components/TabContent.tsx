@@ -9,6 +9,7 @@ import { useTabs } from "@/contexts/TabContext";
 const DashboardMain = dynamic(() => import("@/app/dashboard/page")); // ✅ Server dashboard utama
 const PasienPage = dynamic(() => import("@/app/dashboard/pasien/page"));
 const DokterPage = dynamic(() => import("@/app/dashboard/dokter/page"));
+const RuanganPage = dynamic(() => import("@/app/dashboard/ruangan/page"));
 const InventarisPage = dynamic(() => import("@/app/dashboard/inventaris/page"));
 const PemakaianPage = dynamic(() => import("@/app/dashboard/pemakaian/page"));
 const MasterFarmasiPage = dynamic(
@@ -58,6 +59,8 @@ export default function TabContent() {
         return <PasienPage />;
       case "dokter":
         return <DokterPage />;
+      case "ruangan":
+        return <RuanganPage />;
       case "inventaris":
         return <InventarisPage />;
       case "pemakaian":

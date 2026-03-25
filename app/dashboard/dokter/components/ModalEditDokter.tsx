@@ -46,6 +46,7 @@ export default function ModalEditDokter({ doctor, onClose, onSuccess }: Props) {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);

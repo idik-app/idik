@@ -50,7 +50,10 @@ export default function DepoLayoutClient({
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white print:bg-white">
+    <div
+      className="min-h-screen bg-[#020617] text-white print:bg-white"
+      suppressHydrationWarning
+    >
       <div className="border-b border-emerald-900/60 bg-slate-950/60 backdrop-blur print:hidden">
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -63,6 +66,7 @@ export default function DepoLayoutClient({
           </div>
           <button
             type="button"
+            suppressHydrationWarning
             className="px-3 py-1.5 rounded-full text-[11px] text-white bg-slate-900/70 border border-emerald-800/70 hover:bg-slate-900"
             onClick={async () => {
               await fetch("/api/auth", {
@@ -104,6 +108,7 @@ export default function DepoLayoutClient({
             <div className="flex min-w-0 justify-end">
               <button
                 type="button"
+                suppressHydrationWarning
                 aria-expanded={!sidebarCollapsed}
                 aria-label={
                   sidebarCollapsed ? "Buka menu samping" : "Sembunyikan menu samping"
@@ -173,7 +178,10 @@ export default function DepoLayoutClient({
           </nav>
         </aside>
 
-        <main className="rounded-2xl border border-emerald-900/60 bg-slate-950/30 p-0 min-h-[50vh] print:border-0 print:min-h-0 print:bg-white print:shadow-none">
+        <main
+          suppressHydrationWarning
+          className="rounded-2xl border border-emerald-900/60 bg-slate-950/30 p-0 min-h-[50vh] print:border-0 print:min-h-0 print:bg-white print:shadow-none"
+        >
           {children}
         </main>
       </div>

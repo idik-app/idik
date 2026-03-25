@@ -6,6 +6,7 @@ import {
   useState,
   useMemo,
   useCallback,
+  useEffect,
 } from "react";
 import {
   supabase,
@@ -22,10 +23,17 @@ interface Dokter {
   status?: string;
 }
 
+export type DokterStatusFilter = "all" | "aktif" | "nonaktif";
+
 interface DokterContextType {
   // UI states
   searchQuery: string;
   setSearchQuery: (q: string) => void;
+  filterSpesialis: string;
+  setFilterSpesialis: (s: string) => void;
+  statusFilter: DokterStatusFilter;
+  setStatusFilter: (s: DokterStatusFilter) => void;
+  spesialisOptions: string[];
   currentPage: number;
   setCurrentPage: (n: number) => void;
   rowsPerPage: number;
@@ -39,8 +47,8 @@ interface DokterContextType {
   loading: boolean;
 
   // CRUD actions
-  fetchDoctors: () => Promise<{ error?: any }>;
-  deleteDoctor: (id: string) => Promise<void>;
+  fetchDoctors: (opts?: { silent?: boolean }) => Promise<{ error?: any }>;
+  deleteDoctor: (id: string) => Promise<{ ok: boolean; error?: string }>;
   addDoctor: (payload: Record<string, any>) => Promise<void>;
   updateDoctor: (id: string, payload: Record<string, any>) => Promise<void>;
 }
@@ -49,16 +57,29 @@ const DokterContext = createContext<DokterContextType | undefined>(undefined);
 
 export function DokterProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterSpesialis, setFilterSpesialis] = useState("");
+  const [statusFilter, setStatusFilter] =
+    useState<DokterStatusFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [doctors, setDoctors] = useState<Dokter[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const spesialisOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of doctors) {
+      const s = d.spesialis?.trim();
+      if (s) set.add(s);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "id"));
+  }, [doctors]);
+
   // Ambil data dokter dari Supabase (tabel: doctor — konsisten dengan migration)
-  const fetchDoctors = useCallback(async () => {
+  const fetchDoctors = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
     if (!isSupabaseConfigured()) {
       setDoctors([]);
-      setLoading(false);
+      if (!silent) setLoading(false);
       if (!dokterSupabaseWarned) {
         dokterSupabaseWarned = true;
         // Biarkan caller yang memutuskan mau pakai error ini atau tidak
@@ -69,7 +90,7 @@ export function DokterProvider({ children }: { children: React.ReactNode }) {
           "Supabase belum dikonfigurasi. Set `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_ANON_KEY` di `.env.local`, lalu restart dev server.",
       };
     }
-    setLoading(true);
+    if (!silent) setLoading(true);
     const { data, error } = await supabase
       .from("doctor")
       .select("*")
@@ -84,7 +105,7 @@ export function DokterProvider({ children }: { children: React.ReactNode }) {
           status: d.status === true ? "aktif" : "nonaktif",
         }))
       );
-    setLoading(false);
+    if (!silent) setLoading(false);
     return { error };
   }, [supabase]);
 
@@ -98,10 +119,31 @@ export function DokterProvider({ children }: { children: React.ReactNode }) {
   };
 
   const deleteDoctor = useCallback(
-    async (id: string) => {
-      if (!isSupabaseConfigured()) return;
-      await supabase.from("doctor").delete().eq("id", id);
-      await fetchDoctors();
+    async (id: string): Promise<{ ok: boolean; error?: string }> => {
+      try {
+        const res = await fetch(
+          `/api/doctors/${encodeURIComponent(id)}`,
+          { method: "DELETE", credentials: "same-origin" }
+        );
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          message?: string;
+        };
+        if (!res.ok || !json.ok) {
+          const hint =
+            res.status === 403
+              ? "Hanya admin yang dapat menghapus data dokter."
+              : json.message || res.statusText || "Gagal menghapus data dokter.";
+          return { ok: false, error: hint };
+        }
+        await fetchDoctors({ silent: true });
+        return { ok: true };
+      } catch (e) {
+        return {
+          ok: false,
+          error: e instanceof Error ? e.message : "Gagal menghapus data dokter.",
+        };
+      }
     },
     [fetchDoctors]
   );
@@ -129,10 +171,20 @@ export function DokterProvider({ children }: { children: React.ReactNode }) {
 
   // Filter dan pagination
   const filteredDoctors = useMemo(() => {
-    return doctors.filter((d) =>
-      d.nama.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [searchQuery, doctors]);
+    const q = searchQuery.toLowerCase().trim();
+    return doctors.filter((d) => {
+      const matchSearch =
+        !q ||
+        d.nama.toLowerCase().includes(q) ||
+        (d.spesialis?.toLowerCase().includes(q) ?? false) ||
+        (d.kontak?.toLowerCase().includes(q) ?? false);
+      const matchSpesialis =
+        !filterSpesialis || (d.spesialis?.trim() ?? "") === filterSpesialis;
+      const matchStatus =
+        statusFilter === "all" || d.status === statusFilter;
+      return matchSearch && matchSpesialis && matchStatus;
+    });
+  }, [searchQuery, doctors, filterSpesialis, statusFilter]);
 
   const totalPages = Math.ceil(filteredDoctors.length / rowsPerPage) || 1;
 
@@ -141,11 +193,28 @@ export function DokterProvider({ children }: { children: React.ReactNode }) {
     return filteredDoctors.slice(start, start + rowsPerPage);
   }, [filteredDoctors, currentPage, rowsPerPage]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterSpesialis, statusFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [rowsPerPage]);
+
+  useEffect(() => {
+    setCurrentPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
+
   return (
     <DokterContext.Provider
       value={{
         searchQuery,
         setSearchQuery,
+        filterSpesialis,
+        setFilterSpesialis,
+        statusFilter,
+        setStatusFilter,
+        spesialisOptions,
         currentPage,
         setCurrentPage,
         rowsPerPage,

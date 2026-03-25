@@ -18,6 +18,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { UIProvider } from "@/contexts/UIContext";
 import { TabProvider } from "@/contexts/TabContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { AppDialogProvider } from "@/contexts/AppDialogContext";
 import { AIProvider } from "@/contexts/AIContext";
 import { SessionProvider } from "@/contexts/SessionContext";
 
@@ -55,27 +56,29 @@ export default function RootLayout({
   }, []);
 
   return (
-    <html lang="id">
-      <body>
+    <html lang="id" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <EventBridgeProvider>
           <DiagnosticsHUDProvider>
             <AutonomousKernelProvider>
             <JarvisFXProvider>
               <NotificationProvider>
-                <ConnectionNotify />
-                <ThemeProvider>
-                  <UIProvider>
-                    <SessionProvider>
-                      <TabProvider>
-                        <AIProvider>
-                          {children}
-                          <GlobalLogoutOverlay />
-                          <UpdateBanner />
-                        </AIProvider>
-                      </TabProvider>
-                    </SessionProvider>
-                  </UIProvider>
-                </ThemeProvider>
+                <AppDialogProvider>
+                  <ConnectionNotify />
+                  <ThemeProvider>
+                    <UIProvider>
+                      <SessionProvider>
+                        <TabProvider>
+                          <AIProvider>
+                            {children}
+                            <GlobalLogoutOverlay />
+                            <UpdateBanner />
+                          </AIProvider>
+                        </TabProvider>
+                      </SessionProvider>
+                    </UIProvider>
+                  </ThemeProvider>
+                </AppDialogProvider>
               </NotificationProvider>
             </JarvisFXProvider>
             </AutonomousKernelProvider>

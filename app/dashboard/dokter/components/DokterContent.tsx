@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { UserPlus } from "lucide-react";
 import { useDokter } from "../contexts/DokterContext";
 import DokterTable from "./DokterTable";
+import DokterToolbar from "./DokterToolbar";
+import DokterPagination from "./DokterPagination";
 import ShimmerDokter from "./ShimmerDokter";
 import ConfirmDialog from "./ConfirmDialog";
 import ModalTambahDokter from "./ModalTambahDokter";
@@ -15,9 +17,19 @@ import ExportReportDokter from "./ExportReportDokter";
 type ErrorType = "network" | "missing_table" | "unknown" | null;
 
 export default function DokterContent() {
-  const { doctors, loading, fetchDoctors, deleteDoctor } = useDokter();
+  const {
+    doctors,
+    loading,
+    fetchDoctors,
+    deleteDoctor,
+    paginatedDoctors,
+    filteredDoctors,
+  } = useDokter();
   const [error, setError] = useState<ErrorType>(null);
-  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{
+    id: string;
+    nama: string;
+  } | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingDoctor, setEditingDoctor] = useState<{
     id: string;
@@ -29,8 +41,14 @@ export default function DokterContent() {
 
   useEffect(() => {
     fetchDoctors().then(({ error }) => {
-      if (error?.message?.includes("table")) setError("missing_table");
-      else if (error?.message?.includes("fetch")) setError("network");
+      const msg =
+        typeof error === "string"
+          ? error
+          : error && typeof error === "object" && "message" in error
+            ? String((error as { message?: string }).message)
+            : "";
+      if (msg.includes("table")) setError("missing_table");
+      else if (msg.includes("fetch")) setError("network");
       else if (error) setError("unknown");
     });
   }, [fetchDoctors]);
@@ -73,7 +91,7 @@ export default function DokterContent() {
           👨‍⚕️ Daftar Dokter
         </h2>
         <div className="flex items-center gap-2">
-          <ExportReportDokter data={doctors} />
+          <ExportReportDokter data={filteredDoctors} />
           <button
             onClick={() => setShowModal(true)}
             className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600/30 hover:bg-cyan-600/50 rounded-lg text-cyan-200 border border-cyan-500/40 transition-all"
@@ -84,9 +102,12 @@ export default function DokterContent() {
         </div>
       </div>
 
+      <DokterToolbar />
+
       {/* Tabel */}
       <DokterTable
-        doctors={doctors.map((d) => ({
+        noMatch={doctors.length > 0 && filteredDoctors.length === 0}
+        doctors={paginatedDoctors.map((d) => ({
           ...d,
           badge: <DokterStatusBadge status={(d as any).status} />,
         }))}
@@ -99,18 +120,21 @@ export default function DokterContent() {
             status: row.status,
           })
         }
-        onDelete={(id) => setConfirmId(id)}
+        onDelete={(row) => setConfirmDelete(row)}
       />
 
+      <DokterPagination />
+
       {/* Dialog Konfirmasi */}
-      {confirmId && (
+      {confirmDelete && (
         <ConfirmDialog
-          message="Hapus data dokter ini?"
-          onConfirm={() => {
-            deleteDoctor(confirmId);
-            setConfirmId(null);
+          itemName={confirmDelete.nama}
+          onConfirm={async () => {
+            const r = await deleteDoctor(confirmDelete.id);
+            if (!r.ok) throw new Error(r.error ?? "Gagal menghapus data dokter.");
+            setConfirmDelete(null);
           }}
-          onCancel={() => setConfirmId(null)}
+          onCancel={() => setConfirmDelete(null)}
         />
       )}
 

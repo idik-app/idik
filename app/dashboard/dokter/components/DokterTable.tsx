@@ -10,11 +10,31 @@ import { PencilLine, Trash2 } from "lucide-react";
 
 interface DokterTableProps {
   doctors: any[];
-  onDelete: (id: string) => void;
+  onDelete: (row: { id: string; nama: string }) => void;
   onEdit?: (row: any) => void;
+  /** True when DB ada data tetapi filter/pencarian tidak mengembalikan baris */
+  noMatch?: boolean;
 }
 
-export default function DokterTable({ doctors, onDelete, onEdit }: DokterTableProps) {
+export default function DokterTable({
+  doctors,
+  onDelete,
+  onEdit,
+  noMatch,
+}: DokterTableProps) {
+  if (noMatch) {
+    return (
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="text-center text-cyan-400 py-8 px-2"
+      >
+        Tidak ada dokter yang cocok dengan pencarian atau filter. Ubah kata
+        kunci atau reset filter.
+      </motion.p>
+    );
+  }
+
   if (!doctors || doctors.length === 0)
     return (
       <motion.p
@@ -22,7 +42,7 @@ export default function DokterTable({ doctors, onDelete, onEdit }: DokterTablePr
         animate={{ opacity: 1 }}
         className="text-center text-cyan-400 py-6"
       >
-        🟢 Koneksi berhasil, tetapi belum ada data dokter.
+        Belum ada data dokter. Gunakan tombol Tambah untuk menambahkan.
       </motion.p>
     );
 
@@ -102,7 +122,7 @@ export default function DokterTable({ doctors, onDelete, onEdit }: DokterTablePr
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (confirm(`Hapus dokter ${d.nama}?`)) onDelete(d.id);
+                      onDelete({ id: d.id, nama: String(d.nama ?? "") });
                     }}
                     className="p-1.5 rounded-md border border-red-500/40 
                                text-red-400 hover:text-red-200 

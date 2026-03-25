@@ -133,3 +133,41 @@ export async function PATCH(
     );
   }
 }
+
+/** Hapus baris `doctor` memakai service role (bypass RLS). Klien anon sering gagal diam-diam karena kebijakan RLS. */
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
+  const { id } = await params;
+  if (!id) {
+    return NextResponse.json({ ok: false, message: "Missing id" }, { status: 400 });
+  }
+
+  try {
+    const supabase = createAdminClient();
+
+    const { data: existing, error: findErr } = await supabase
+      .from("doctor")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (findErr) throw findErr;
+    if (!existing) {
+      return NextResponse.json({ ok: false, message: "Dokter tidak ditemukan" }, { status: 404 });
+    }
+
+    const { error: delErr } = await supabase.from("doctor").delete().eq("id", id);
+    if (delErr) throw delErr;
+
+    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Failed to delete doctor";
+    console.error("[DELETE /api/doctors/:id]", err);
+    return NextResponse.json({ ok: false, message: msg }, { status: 500 });
+  }
+}

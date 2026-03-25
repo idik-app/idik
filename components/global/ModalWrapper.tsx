@@ -1,6 +1,6 @@
 "use client";
 import { createPortal } from "react-dom";
-import { useEffect, useRef, useState, ReactNode } from "react";
+import { useEffect, useRef, useState, ReactNode, useCallback } from "react";
 
 /**
  * ✅ ModalWrapper v2 — kompatibel dengan nested modal
@@ -24,6 +24,13 @@ export function ModalWrapperContent({
 }: ModalWrapperProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [mounted, setMounted] = useState(false);
+  /** Parent sering mengirim fungsi baru tiap render; jangan jadikan dependency effect portal */
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  const backdropClick = useCallback(() => {
+    onCloseRef.current?.();
+  }, []);
 
   useEffect(() => {
     const el = document.createElement("div");
@@ -36,7 +43,7 @@ export function ModalWrapperContent({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose?.();
+        onCloseRef.current?.();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -46,13 +53,13 @@ export function ModalWrapperContent({
       document.body.style.overflow = "";
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose]);
+  }, []);
 
   if (!mounted || !ref.current) return null;
 
   return createPortal(
     <div
-      onClick={onClose}
+      onClick={backdropClick}
       style={{ zIndex }}
       className={`fixed inset-0 grid place-items-center bg-black/60 backdrop-blur-sm`}
     >

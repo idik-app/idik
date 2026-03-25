@@ -12,6 +12,7 @@ type MbRow = {
   distributor_id: string | null;
   satuan: string | null;
   is_active: boolean;
+  harga_jual: number | null;
 };
 
 type DbRow = {
@@ -22,7 +23,19 @@ type DbRow = {
   barcode: string | null;
   distributor_id: string;
   is_active: boolean | null;
+  harga_jual: number | null;
 };
+
+function pickHarga(
+  masterHarga: number | null | undefined,
+  variantHarga: number | null | undefined,
+): number | null {
+  const v = variantHarga != null ? Number(variantHarga) : null;
+  if (v != null && Number.isFinite(v)) return v;
+  const m = masterHarga != null ? Number(masterHarga) : null;
+  if (m != null && Number.isFinite(m)) return m;
+  return null;
+}
 
 /**
  * Baris untuk pilih barang di pemakaian: gabungan master_barang +
@@ -47,7 +60,7 @@ export async function GET() {
   const { data: masters, error: me } = await supabase
     .from("master_barang")
     .select(
-      "id, kode, nama, jenis, kategori, barcode, distributor_id, satuan, is_active"
+      "id, kode, nama, jenis, kategori, barcode, distributor_id, satuan, is_active, harga_jual"
     )
     .order("nama", { ascending: true });
 
@@ -70,7 +83,7 @@ export async function GET() {
       ? await supabase
           .from("distributor_barang")
           .select(
-            "id, master_barang_id, lot, ukuran, ed, barcode, distributor_id, is_active"
+            "id, master_barang_id, lot, ukuran, ed, barcode, distributor_id, is_active, harga_jual"
           )
           .in("master_barang_id", masterIds)
       : { data: [], error: null };
@@ -131,6 +144,7 @@ export async function GET() {
     lot: string | null;
     ukuran: string | null;
     ed: string | null;
+    harga_jual: number | null;
   }[] = [];
 
   for (const m of activeMasters) {
@@ -138,6 +152,9 @@ export async function GET() {
     const distFromMaster = m.distributor_id
       ? distMap.get(String(m.distributor_id)) ?? null
       : null;
+
+    const masterHarga =
+      m.harga_jual != null ? Number(m.harga_jual) : null;
 
     if (children.length === 0) {
       items.push({
@@ -155,6 +172,10 @@ export async function GET() {
         lot: null,
         ukuran: null,
         ed: null,
+        harga_jual:
+          masterHarga != null && Number.isFinite(masterHarga)
+            ? masterHarga
+            : null,
       });
       continue;
     }
@@ -162,6 +183,8 @@ export async function GET() {
     for (const db of children) {
       const did = String(db.distributor_id);
       const dn = distMap.get(did) || null;
+      const vHarga =
+        db.harga_jual != null ? Number(db.harga_jual) : null;
       items.push({
         pickId: db.id,
         master_barang_id: m.id,
@@ -177,6 +200,7 @@ export async function GET() {
         lot: db.lot?.trim() || null,
         ukuran: db.ukuran?.trim() || null,
         ed: db.ed?.trim() || null,
+        harga_jual: pickHarga(masterHarga, vHarga),
       });
     }
   }

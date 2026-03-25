@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo, useCallback } from "react";
 import { Pasien } from "@/app/dashboard/pasien/types/pasien";
-import { usePasien } from "@/app/dashboard/pasien/contexts/PasienHooks";
+import { usePasien, usePasienDispatch } from "@/app/dashboard/pasien/contexts/PasienHooks";
 import { addPatient, editPatient, deletePatient } from "@/app/dashboard/pasien/actions/serverActions";
 import { useNotification } from "@/app/contexts/NotificationContext";
 
@@ -11,6 +11,7 @@ import { useNotification } from "@/app/contexts/NotificationContext";
  */
 export function usePasienCrud() {
   const { patients, refresh, ...rest } = usePasien();
+  const dispatch = usePasienDispatch();
   const { show } = useNotification();
   const [searchQuery, setSearchQuery] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -75,16 +76,19 @@ export function usePasienCrud() {
       setIsProcessing(true);
       try {
         await deletePatient(id);
+        dispatch({ type: "REMOVE_PATIENT", payload: { id } });
         setStatus("deleted");
         show({ type: "warning", message: "🗑️ Data pasien dihapus." });
         await refresh();
-      } catch {
-        show({ type: "error", message: "🚫 Gagal menghapus pasien." });
+      } catch (e: unknown) {
+        const msg =
+          e instanceof Error ? e.message : "Gagal menghapus pasien.";
+        show({ type: "error", message: `🚫 ${msg}` });
       } finally {
         setIsProcessing(false);
       }
     },
-    [refresh, show]
+    [dispatch, refresh, show]
   );
 
   return {

@@ -6,6 +6,9 @@ import { addPatientClient } from "../actions/addPatientClient";
 import ModalWrapper from "@/components/global/ModalWrapper";
 import PasienFormFields from "../components/PasienFormFields";
 import PasienFormActions from "../components/PasienFormActions";
+import {
+  normalizeNamaPasienInput,
+} from "../utils/normalizeNamaPasien";
 
 /**
  * 🧠 FormTambahPasien v6.1 — Modular & Stable
@@ -36,12 +39,13 @@ export default function FormTambahPasien() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
+    const nextVal =
+      name === "nama" ? normalizeNamaPasienInput(value) : (value as string);
     setForm((prev) => ({
       ...prev,
-      [name]:
-        name === "jenisKelamin" ? (value as "L" | "P") : (value as string),
+      [name]: name === "jenisKelamin" ? (value as "L" | "P") : nextVal,
       kelasPerawatan:
-        name === "jenisPembiayaan" && value === "BPJS PBI"
+        name === "jenisPembiayaan" && value === "NPBI"
           ? "Kelas 3"
           : prev.kelasPerawatan,
     }));

@@ -27,69 +27,69 @@ export default function ToolbarSearchFilter() {
     show({ type: "info", message: "🔄 Filter dikembalikan ke default." });
   };
 
+  const selectClass =
+    "min-h-[38px] rounded-lg border border-cyan-600/50 bg-black/30 px-3 py-2 text-sm " +
+    "text-cyan-100 focus:border-yellow-400/80 focus:outline-none focus:ring-1 " +
+    "focus:ring-yellow-400/40 transition shrink-0";
+
   return (
-    <div className="flex flex-wrap items-center gap-3 flex-1 min-w-[300px]">
-      {/* Input Search */}
-      <div className="flex items-center gap-2 flex-grow md:w-64">
-        <Search size={18} className="text-cyan-400" />
+    <div className="flex w-full min-w-0 flex-col gap-3">
+      {/* Baris 1 — pencarian penuh */}
+      <div className="flex w-full items-center gap-2 rounded-lg border border-cyan-600/40 bg-black/25 px-3 py-2.5 shadow-inner">
+        <Search size={18} className="shrink-0 text-cyan-400" aria-hidden />
         <input
           type="text"
-          placeholder="Cari: Nama / No.RM / Dokter / Pembiayaan ..."
-          className="w-full bg-transparent border-b border-cyan-700 text-cyan-200
-                     placeholder-cyan-600 outline-none px-2 pb-1 text-sm
-                     focus:border-yellow-400 focus:text-yellow-300 transition-all"
+          placeholder="Cari: Nama / No.RM / Dokter / Pembiayaan …"
+          className="min-w-0 flex-1 bg-transparent text-sm text-cyan-100 placeholder:text-cyan-600/80 outline-none"
           value={filters.search}
           onChange={(e) => handleChange(e.target.value)}
         />
       </div>
 
-      {/* Filter Pembiayaan */}
-      <select
-        value={filters.pembiayaan}
-        onChange={(e) =>
-          dispatch({
-            type: "APPLY_FILTER",
-            payload: { ...filters, pembiayaan: e.target.value },
-          })
-        }
-        className="bg-transparent border border-cyan-700 text-cyan-200 rounded-md
-                   px-2 py-1 text-sm focus:border-yellow-400 transition"
-      >
-        <option value="">Semua Pembiayaan</option>
-        <option value="BPJS">BPJS</option>
-        <option value="BPJS PBI">BPJS PBI</option>
-        <option value="Umum">Umum</option>
-        <option value="Asuransi">Asuransi</option>
-      </select>
+      {/* Baris 2 — filter + reset */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <select
+          value={filters.pembiayaan}
+          onChange={(e) =>
+            dispatch({
+              type: "APPLY_FILTER",
+              payload: { ...filters, pembiayaan: e.target.value },
+            })
+          }
+          className={`${selectClass} w-full sm:min-w-[11rem] sm:w-auto`}
+        >
+          <option value="">Semua Pembiayaan</option>
+          <option value="BPJS">BPJS</option>
+          <option value="NPBI">NPBI</option>
+          <option value="Umum">Umum</option>
+          <option value="Asuransi">Asuransi</option>
+        </select>
 
-      {/* Filter Kelas */}
-      <select
-        value={filters.kelas}
-        onChange={(e) =>
-          dispatch({
-            type: "APPLY_FILTER",
-            payload: { ...filters, kelas: e.target.value },
-          })
-        }
-        className="bg-transparent border border-cyan-700 text-cyan-200 rounded-md
-                   px-2 py-1 text-sm focus:border-yellow-400 transition"
-      >
-        <option value="">Semua Kelas</option>
-        <option value="Kelas 1">Kelas 1</option>
-        <option value="Kelas 2">Kelas 2</option>
-        <option value="Kelas 3">Kelas 3</option>
-      </select>
+        <select
+          value={filters.kelas}
+          onChange={(e) =>
+            dispatch({
+              type: "APPLY_FILTER",
+              payload: { ...filters, kelas: e.target.value },
+            })
+          }
+          className={`${selectClass} w-full sm:min-w-[9.5rem] sm:w-auto`}
+        >
+          <option value="">Semua Kelas</option>
+        <option value="Kelas 1">1</option>
+        <option value="Kelas 2">2</option>
+        <option value="Kelas 3">3</option>
+        </select>
 
-      {/* Tombol Reset */}
-      <button
-        onClick={handleReset}
-        className="flex items-center gap-1 px-2 py-1 text-xs rounded-md border
-                   border-cyan-700 text-cyan-300 hover:text-yellow-400
-                   hover:border-yellow-400 transition"
-      >
-        <RotateCcw size={14} />
-        Reset
-      </button>
+        <button
+          type="button"
+          onClick={handleReset}
+          className="inline-flex min-h-[38px] shrink-0 items-center justify-center gap-2 rounded-lg border border-cyan-600/50 px-4 py-2 text-sm text-cyan-200 transition hover:border-yellow-400/60 hover:text-yellow-300 sm:ml-auto"
+        >
+          <RotateCcw size={16} className="shrink-0" />
+          Reset
+        </button>
+      </div>
     </div>
   );
 }

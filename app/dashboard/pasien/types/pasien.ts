@@ -14,11 +14,13 @@ export interface Pasien {
   alamat: string;
   noHP?: string; // Supabase: no_hp
 
-  /** Jenis Pembiayaan — termasuk varian PBI */
-  jenisPembiayaan: "BPJS" | "BPJS PBI" | "Umum" | "Asuransi"; // Supabase: pembiayaan
+  /** Jenis Pembiayaan — NPBI = non-PBI / PBI (nama tampilan singkat) */
+  jenisPembiayaan: "BPJS" | "NPBI" | "Umum" | "Asuransi"; // Supabase: pembiayaan
 
   kelasPerawatan: "Kelas 1" | "Kelas 2" | "Kelas 3"; // Supabase: kelas
   asuransi?: string;
+  /** Jika view/join menyediakan nama DPJP (opsional) */
+  dokter?: string;
   created_at?: string;
   updated_at?: string;
 }

@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { Pasien } from "../types/pasien";
+import { formatKelasPerawatanDisplay } from "../utils/formatKelasPerawatan";
 import ModalWrapper from "@/components/global/ModalWrapper";
 
 /* -------------------------------------------------------------
@@ -70,7 +71,10 @@ export function PatientDetailModalContent({
               <Info label="Jenis Pembiayaan" value={patient.jenisPembiayaan} />
             )}
             {patient.kelasPerawatan && (
-              <Info label="Kelas Perawatan" value={patient.kelasPerawatan} />
+              <Info
+                label="Kelas Perawatan"
+                value={formatKelasPerawatanDisplay(patient.kelasPerawatan)}
+              />
             )}
             {patient.asuransi && (
               <Info label="Asuransi" value={patient.asuransi} />

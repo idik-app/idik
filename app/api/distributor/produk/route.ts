@@ -73,7 +73,11 @@ export async function GET(req: Request) {
   const masterMap = new Map<string, any>();
   for (const r of masterRows ?? []) masterMap.set(r.id, r);
 
-  // 3) inventaris stocks (Cathlab) aggregated by master_barang_id
+  /** Admin + tanpa filter distributor_id: beberapa PT bisa pakai master yang sama — stok per (pt, master). */
+  const aggregateInventarisByPair =
+    Boolean(id.isAdminView && !targetDistributorId);
+
+  // 3) inventaris Cathlab — agregasi per master saat satu PT; per (distributor_id, master) saat admin lihat semua PT
   let invQ = supabase
     .from("inventaris")
     .select("id, nama, master_barang_id, stok, distributor_id")
@@ -93,12 +97,23 @@ export async function GET(req: Request) {
     );
 
   const invStock = new Map<string, number>();
-  const invLinesByMaster = new Map<
+  const invLinesByKey = new Map<
     string,
     { id: string; nama: string | null; stok: number }[]
   >();
+
+  function inventarisAggKey(
+    masterBarangId: string,
+    distributorIdRow: string,
+  ): string {
+    if (!aggregateInventarisByPair) return masterBarangId;
+    return `${distributorIdRow}::${masterBarangId}`;
+  }
+
   for (const r of invRows ?? []) {
-    const key = String(r.master_barang_id);
+    const mb = String(r.master_barang_id);
+    const distRow = String((r as { distributor_id?: unknown }).distributor_id ?? "");
+    const key = inventarisAggKey(mb, distRow);
     const prev = invStock.get(key) ?? 0;
     invStock.set(key, prev + Number(r.stok ?? 0));
     const line = {
@@ -106,19 +121,55 @@ export async function GET(req: Request) {
       nama: ((r as any).nama as string | null) ?? null,
       stok: Number((r as any).stok ?? 0),
     };
-    const list = invLinesByMaster.get(key) ?? [];
+    const list = invLinesByKey.get(key) ?? [];
     list.push(line);
-    invLinesByMaster.set(key, list);
+    invLinesByKey.set(key, list);
+  }
+
+  const distNameMap = new Map<string, string>();
+  if (id.isAdminView) {
+    const distIds = [
+      ...new Set(
+        (mappings ?? [])
+          .map((m: { distributor_id?: unknown }) =>
+            String(m.distributor_id ?? "").trim(),
+          )
+          .filter(Boolean),
+      ),
+    ];
+    if (distIds.length > 0) {
+      const { data: distRows, error: distErr } = await supabase
+        .from("master_distributor")
+        .select("id, nama_pt")
+        .in("id", distIds);
+      if (!distErr) {
+        for (const d of distRows ?? []) {
+          distNameMap.set(String((d as { id: string }).id), String((d as { nama_pt?: string | null }).nama_pt ?? "").trim());
+        }
+      }
+    }
   }
 
   const enriched = (mappings ?? []).map((m: any) => {
     const master = masterMap.get(String(m.master_barang_id)) ?? null;
     const mb = String(m.master_barang_id);
+    const dist = String(m.distributor_id ?? "").trim();
+    const stockKey = aggregateInventarisByPair
+      ? inventarisAggKey(mb, dist)
+      : mb;
     return {
       ...m,
       master_barang: master,
-      stok_cathlab: invStock.get(mb) ?? 0,
-      inventaris_lines: invLinesByMaster.get(mb) ?? [],
+      stok_cathlab: invStock.get(stockKey) ?? 0,
+      inventaris_lines: invLinesByKey.get(stockKey) ?? [],
+      ...(id.isAdminView
+        ? {
+            distributor_nama_pt:
+              dist && distNameMap.has(dist)
+                ? distNameMap.get(dist) || null
+                : null,
+          }
+        : {}),
     };
   });
 

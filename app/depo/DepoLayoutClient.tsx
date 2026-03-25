@@ -69,7 +69,7 @@ export default function DepoLayoutClient({
                 method: "DELETE",
                 credentials: "include",
               });
-              window.location.href = "/depo/login";
+              window.location.href = "/";
             }}
           >
             Logout

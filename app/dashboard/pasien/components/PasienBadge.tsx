@@ -37,7 +37,7 @@ export default function PasienBadge({
       : "bg-gray-700 text-gray-200";
 
   const pembiayaanColor =
-    jenisPembiayaan === "BPJS"
+    jenisPembiayaan === "BPJS" || jenisPembiayaan === "NPBI"
       ? "border-cyan-500/60 text-cyan-300"
       : jenisPembiayaan === "Asuransi"
       ? "border-gold/60 text-gold"
@@ -71,7 +71,9 @@ export default function PasienBadge({
           variant="outline"
           className={`${pembiayaanColor} border rounded-full flex items-center gap-1`}
         >
-          {jenisPembiayaan === "BPJS" && <HeartPulse size={12} />}
+          {(jenisPembiayaan === "BPJS" || jenisPembiayaan === "NPBI") && (
+            <HeartPulse size={12} />
+          )}
           {jenisPembiayaan === "Asuransi" && <Wallet size={12} />}
           {jenisPembiayaan === "Umum" && <Wallet size={12} />}
           {jenisPembiayaan}

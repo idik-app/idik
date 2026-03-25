@@ -28,12 +28,15 @@ export function DoctorCombobox({
   options,
   loading,
   className,
+  /** Unik per instance jika beberapa combobox di satu halaman (a11y). */
+  listboxId = "pemakaian-doctor-listbox",
 }: {
   value: string;
   onChange: (label: string) => void;
   options: DoctorOption[];
   loading?: boolean;
   className?: string;
+  listboxId?: string;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -80,7 +83,7 @@ export function DoctorCombobox({
           className="w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40"
           aria-autocomplete="list"
           aria-expanded={open}
-          aria-controls="pemakaian-doctor-listbox"
+          aria-controls={listboxId}
         />
         {loading ? (
           <Loader2
@@ -91,7 +94,7 @@ export function DoctorCombobox({
       </div>
       {open && !loading && filtered.length > 0 ? (
         <ul
-          id="pemakaian-doctor-listbox"
+          id={listboxId}
           role="listbox"
           className="absolute left-0 right-0 top-full z-[60] mt-1 max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl"
         >

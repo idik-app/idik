@@ -29,11 +29,15 @@ export async function middleware(req: NextRequest) {
   const isDashboard = pathname.startsWith("/dashboard");
   const isSystem = pathname.startsWith("/system");
   const isDistributor = pathname.startsWith("/distributor");
-  const isDepoLogin =
-    pathname === "/depo/login" || pathname.startsWith("/depo/login/");
   const isDepo = pathname.startsWith("/depo");
 
-  if (isDepoLogin) return NextResponse.next();
+  /** URL lama: login depo terpisah — sekarang semua lewat root `/`. */
+  if (pathname === "/depo/login" || pathname.startsWith("/depo/login/")) {
+    const url = new URL("/", req.url);
+    const from = req.nextUrl.searchParams.get("from");
+    if (from) url.searchParams.set("from", from);
+    return NextResponse.redirect(url);
+  }
 
   if (!isDashboard && !isSystem && !isDistributor && !isDepo)
     return NextResponse.next();
@@ -41,7 +45,6 @@ export async function middleware(req: NextRequest) {
   const token = req.cookies.get("session")?.value;
   if (!token) {
     console.log(`${LOG_PREFIX} ${pathname} → redirect reason=missing (no session cookie)`);
-    if (isDepo) return redirectToDepoLogin(req);
     return redirectToHome(req, "missing");
   }
 
@@ -142,19 +145,8 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   } catch (err) {
     console.warn(`${LOG_PREFIX} ${pathname} → redirect reason=invalid (token verify failed):`, err);
-    if (isDepo) return redirectToDepoLogin(req);
     return redirectToHome(req, "invalid");
   }
-}
-
-/** Tanpa sesi: ke halaman login portal depo (bukan beranda). */
-function redirectToDepoLogin(req: NextRequest) {
-  const url = new URL("/depo/login", req.url);
-  url.searchParams.set("from", req.nextUrl.pathname);
-  const res = NextResponse.redirect(url);
-  res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
-  res.headers.set("Pragma", "no-cache");
-  return res;
 }
 
 /* 🔁 Redirect helper: kembali ke root dengan alasan (no-store agar redirect tidak di-cache) */

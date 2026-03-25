@@ -7,6 +7,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { usePasienCrud } from "../hooks/usePasienCrud";
 import { useNotification } from "@/app/contexts/NotificationContext";
+import { formatKelasPerawatanDisplay } from "../utils/formatKelasPerawatan";
 
 /**
  * 🧠 PasienExport v3.8
@@ -24,7 +25,11 @@ export default function PasienExport() {
       return;
     }
     try {
-      const worksheet = XLSX.utils.json_to_sheet(patients);
+      const rows = patients.map((p: any) => ({
+        ...p,
+        kelasPerawatan: formatKelasPerawatanDisplay(p.kelasPerawatan),
+      }));
+      const worksheet = XLSX.utils.json_to_sheet(rows);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Data Pasien");
       XLSX.writeFile(workbook, "Data_Pasien_IDIK.xlsx");
@@ -49,7 +54,7 @@ export default function PasienExport() {
         String(p.nama ?? ""),
         String(p.jenisKelamin ?? ""),
         String(p.jenisPembiayaan ?? ""),
-        String(p.kelasPerawatan ?? ""),
+        formatKelasPerawatanDisplay(p.kelasPerawatan),
         String(p.asuransi ?? ""),
         String(p.noHP ?? ""),
       ]);

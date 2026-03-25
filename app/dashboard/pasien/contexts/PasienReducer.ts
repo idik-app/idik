@@ -1,6 +1,47 @@
 import type { Pasien } from "../types/pasien";
 import { calculateSummary } from "./PasienSummary";
 
+/** Bidang teks yang ikut dicocokkan ke query pencarian */
+function patientSearchHaystack(p: Pasien): string {
+  const parts = [
+    p.nama,
+    p.noRM,
+    p.noHP,
+    p.alamat,
+    p.asuransi,
+    p.jenisPembiayaan,
+    p.kelasPerawatan,
+    p.dokter,
+  ];
+  return parts.filter(Boolean).join(" ").toLowerCase();
+}
+
+function matchesSearch(p: Pasien, search: string): boolean {
+  if (!search) return true;
+  const q = search.toLowerCase();
+  return patientSearchHaystack(p).includes(q);
+}
+
+function filterPatientsByStateFilters(
+  patients: Pasien[],
+  filters: FiltersState
+): Pasien[] {
+  const search = (filters.search || "").trim();
+  const pembiayaan = filters.pembiayaan || "";
+  const kelas = filters.kelas || "";
+  if (!search && !pembiayaan && !kelas) return patients;
+  return patients.filter((p) => {
+    const matchSearch = matchesSearch(p, search);
+    const matchPembiayaan =
+      !pembiayaan ||
+      pembiayaan === "Semua" ||
+      p.jenisPembiayaan === pembiayaan;
+    const matchKelas =
+      !kelas || kelas === "Semua" || p.kelasPerawatan === kelas;
+    return matchSearch && matchPembiayaan && matchKelas;
+  });
+}
+
 /*───────────────────────────────────────────────
 🧩 PasienReducer v6.8 — Anti-Render-Loop Edition
 - Hanya update jika data pasien benar-benar berubah
@@ -48,7 +89,8 @@ export type Action =
   | { type: "SET_ERROR"; payload: string | null }
   | { type: "SET_LIVE"; payload: boolean }
   | { type: "SET_PAGE"; payload: number }
-  | { type: "SET_PER_PAGE"; payload: number };
+  | { type: "SET_PER_PAGE"; payload: number }
+  | { type: "REMOVE_PATIENT"; payload: { id: string } };
 
 export const initialState: State = {
   patients: [],
@@ -78,27 +120,7 @@ export function reducer(state: State, action: Action): State {
       }
 
       const filters = state.filters ?? { search: "", pembiayaan: "", kelas: "" };
-      const search = (filters.search || "").trim();
-      const pembiayaan = filters.pembiayaan || "";
-      const kelas = filters.kelas || "";
-      const filtered =
-        !search && !pembiayaan && !kelas
-          ? newData
-          : newData.filter((p) => {
-              const matchSearch =
-                !search ||
-                p.nama?.toLowerCase().includes(search.toLowerCase()) ||
-                (p.noRM && p.noRM.toLowerCase().includes(search.toLowerCase()));
-              const matchPembiayaan =
-                !pembiayaan ||
-                pembiayaan === "Semua" ||
-                p.jenisPembiayaan === pembiayaan;
-              const matchKelas =
-                !kelas ||
-                kelas === "Semua" ||
-                p.kelasPerawatan === kelas;
-              return matchSearch && matchPembiayaan && matchKelas;
-            });
+      const filtered = filterPatientsByStateFilters(newData, filters);
 
       return {
         ...state,
@@ -110,6 +132,22 @@ export function reducer(state: State, action: Action): State {
       };
     }
 
+    case "REMOVE_PATIENT": {
+      const { id } = action.payload;
+      const patients = state.patients.filter((p) => p.id !== id);
+      const filters = state.filters ?? { search: "", pembiayaan: "", kelas: "" };
+      const filtered = filterPatientsByStateFilters(patients, filters);
+      const clearedSelection = state.selectedPatient?.id === id;
+      return {
+        ...state,
+        patients,
+        filteredPatients: filtered,
+        summary: calculateSummary(filtered),
+        selectedPatient: clearedSelection ? null : state.selectedPatient,
+        modalMode: clearedSelection ? null : state.modalMode,
+      };
+    }
+
     /*───────────────────────────────────────────────
      🔹 Filter pasien (simpan nilai filter + hasil filter)
     ───────────────────────────────────────────────*/
@@ -118,19 +156,9 @@ export function reducer(state: State, action: Action): State {
       const search = String(payload.search ?? "").trim();
       const pembiayaan = String(payload.pembiayaan ?? "");
       const kelas = String(payload.kelas ?? "");
-      const filters = { search, pembiayaan, kelas };
+      const filters: FiltersState = { search, pembiayaan, kelas };
 
-      const filtered = state.patients.filter((p) => {
-        const matchSearch =
-          !search ||
-          p.nama?.toLowerCase().includes(search.toLowerCase()) ||
-          (p.noRM && p.noRM.toLowerCase().includes(search.toLowerCase()));
-        const matchPembiayaan =
-          !pembiayaan || pembiayaan === "Semua" || p.jenisPembiayaan === pembiayaan;
-        const matchKelas =
-          !kelas || kelas === "Semua" || p.kelasPerawatan === kelas;
-        return matchSearch && matchPembiayaan && matchKelas;
-      });
+      const filtered = filterPatientsByStateFilters(state.patients, filters);
 
       return {
         ...state,

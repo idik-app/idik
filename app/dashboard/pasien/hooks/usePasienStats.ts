@@ -28,8 +28,9 @@ export function usePasienStats(patients: Pasien[]) {
         p.created_at &&
         new Date(p.created_at).toLocaleDateString("id-ID") === today
     ).length;
-    const bpjs = patients.filter((p) =>
-      p.jenisPembiayaan?.includes("BPJS")
+    const bpjs = patients.filter(
+      (p) =>
+        p.jenisPembiayaan?.includes("BPJS") || p.jenisPembiayaan === "NPBI"
     ).length;
     const umum = patients.filter((p) => p.jenisPembiayaan === "Umum").length;
     const asuransi = patients.filter(

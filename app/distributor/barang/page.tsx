@@ -33,6 +33,8 @@ import {
 type Row = {
   id: string;
   distributor_id?: string;
+  /** Diisi API untuk admin — nama PT distributor baris ini. */
+  distributor_nama_pt?: string | null;
   kode_distributor: string | null;
   harga_jual: number | null;
   min_stok: number | null;
@@ -101,17 +103,19 @@ function pickBarcodeDetectorFormats(): string[] {
 
 function printDaftarBarang(
   rows: Row[],
-  meta: { title: string; generatedAt: string },
+  meta: { title: string; generatedAt: string; showDistributorColumn?: boolean },
 ) {
   const w = window.open("", "_blank");
   if (!w) {
     alert("Tidak bisa membuka jendela cetak. Izinkan pop-up untuk halaman ini.");
     return;
   }
+  const showDist = Boolean(meta.showDistributorColumn);
   const rowsHtml = rows
     .map(
       (r) =>
         `<tr>
+          ${showDist ? `<td>${escapeHtml(r.distributor_nama_pt?.trim() || "—")}</td>` : ""}
           <td>${escapeHtml(r.master_barang?.nama ?? "-")}</td>
           <td>${escapeHtml(r.master_barang?.kode ?? "-")}</td>
           <td>${escapeHtml(r.barcode ?? "—")}</td>
@@ -124,6 +128,7 @@ function printDaftarBarang(
         </tr>`,
     )
     .join("");
+  const headDist = showDist ? "<th>Distributor</th>" : "";
   w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${escapeHtml(meta.title)}</title>
 <style>
 body{font-family:system-ui,-apple-system,sans-serif;font-size:11px;padding:16px;color:#111}
@@ -138,6 +143,7 @@ th{background:#f0f0f0;font-size:10px}
 <div class="meta">${escapeHtml(meta.generatedAt)} · ${rows.length} baris (sesuai filter)</div>
 <table>
 <thead><tr>
+${headDist}
 <th>Nama</th><th>Kode</th><th>Barcode</th><th>Kategori</th><th>LOT</th><th>Ukuran</th><th>ED</th><th>Stok Cathlab</th><th>Harga</th>
 </tr></thead>
 <tbody>${rowsHtml}</tbody>
@@ -180,7 +186,7 @@ function DistributorBarangPageContent() {
   const [formUkuran, setFormUkuran] = useState("");
   const [formEd, setFormEd] = useState("");
   const [formHargaJual, setFormHargaJual] = useState<string>("");
-  /** Hanya mode edit: delta stok Cathlab (+/−), kosong = tidak ubah stok. */
+  /** Hanya mode edit: delta inventaris Cathlab (+/−), kosong = tidak ubah inventaris. */
   const [formStokDelta, setFormStokDelta] = useState<string>("");
   const [formIsActive, setFormIsActive] = useState<boolean>(true);
   /** Nama barang master di mode edit (read-only; sumber kebenaran tetap master_barang_id). */
@@ -191,6 +197,8 @@ function DistributorBarangPageContent() {
   const [keluarkanTarget, setKeluarkanTarget] = useState<Row | null>(null);
   const [keluarkanQty, setKeluarkanQty] = useState("1");
   const [keluarkanLoading, setKeluarkanLoading] = useState(false);
+  const [hapusTarget, setHapusTarget] = useState<Row | null>(null);
+  const [hapusLoading, setHapusLoading] = useState(false);
 
   const closeProductModal = useCallback(() => {
     setModalOpen(false);
@@ -369,11 +377,13 @@ function DistributorBarangPageContent() {
         const kode = r.master_barang?.kode?.toLowerCase() ?? "";
         const kategori = r.kategori?.toLowerCase() ?? "";
         const barcode = r.barcode?.toLowerCase() ?? "";
+        const distName = r.distributor_nama_pt?.toLowerCase() ?? "";
         return (
           name.includes(q2) ||
           kode.includes(q2) ||
           kategori.includes(q2) ||
-          barcode.includes(q2)
+          barcode.includes(q2) ||
+          distName.includes(q2)
         );
       });
     }
@@ -416,6 +426,10 @@ function DistributorBarangPageContent() {
   }, [totalPages]);
 
   const title = useMemo(() => `Barang (Cathlab)`, []);
+
+  /** Admin/superadmin: mode "Semua Distributor" — daftar gabungan semua PT. */
+  const showAdminAllDistributors = adminView && !distributorIdParam;
+  const tableColSpan = showAdminAllDistributors ? 11 : 10;
 
   const confirmKeluarkanKePanel = async () => {
     if (!keluarkanTarget) return;
@@ -462,6 +476,35 @@ function DistributorBarangPageContent() {
     }
   };
 
+  const confirmHapusProduk = async () => {
+    if (!hapusTarget) return;
+    setHapusLoading(true);
+    try {
+      const res = await fetch(
+        `/api/distributor/produk/${encodeURIComponent(hapusTarget.id)}`,
+        { method: "DELETE" },
+      );
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || j?.ok === false) {
+        alert(
+          typeof j?.message === "string"
+            ? j.message
+            : "Gagal menghapus produk distributor.",
+        );
+        return;
+      }
+      if (editing?.id === hapusTarget.id) closeProductModal();
+      setHapusTarget(null);
+      await load();
+    } catch (e) {
+      alert(
+        e instanceof Error ? e.message : "Gagal menjangkau server. Coba lagi.",
+      );
+    } finally {
+      setHapusLoading(false);
+    }
+  };
+
   const openEditRow = (r: Row) => {
     setEditing(r);
     setSelectedMasterLabel(r.master_barang?.nama ?? "");
@@ -482,8 +525,9 @@ function DistributorBarangPageContent() {
       <div>
         <h1 className="text-lg font-semibold text-[#D4AF37]">{title}</h1>
         <p className="text-[12px] text-cyan-300/70">
-          Daftar stok inventaris Cathlab yang supplier-nya adalah distributor
-          Anda.
+          {showAdminAllDistributors
+            ? "Ringkasan produk semua distributor Cathlab (admin). Filter PT lewat dropdown di header, atau pilih “Semua Distributor” untuk melihat gabungan."
+            : "Daftar stok inventaris Cathlab yang supplier-nya adalah distributor Anda."}
         </p>
       </div>
 
@@ -508,8 +552,9 @@ function DistributorBarangPageContent() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="text-[12px] text-cyan-300/70">
-          Daftar produk Cathlab. Barang baru lewat Tambah; tautkan ke master
-          yang sudah ada melalui koordinasi dengan administrator RS.
+          {showAdminAllDistributors
+            ? "Mode gabungan: tampil semua baris distributor_barang. Untuk tambah/keluarkan stok per PT, pilih distributor di header."
+            : "Daftar produk Cathlab. Barang baru lewat Tambah; tautkan ke master yang sudah ada melalui koordinasi dengan administrator RS."}
         </div>
         <button
           onClick={() => {
@@ -547,7 +592,11 @@ function DistributorBarangPageContent() {
                 <input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  placeholder="Cari nama / kode / kategori / barcode..."
+                  placeholder={
+                    adminView && !distributorIdParam
+                      ? "Cari nama / kode / kategori / barcode / distributor…"
+                      : "Cari nama / kode / kategori / barcode…"
+                  }
                   className="min-w-[12rem] flex-1 bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
                 />
                 <select
@@ -582,6 +631,7 @@ function DistributorBarangPageContent() {
                         dateStyle: "medium",
                         timeStyle: "short",
                       }),
+                      showDistributorColumn: showAdminAllDistributors,
                     })
                   }
                   disabled={loading || filteredRows.length === 0}
@@ -595,6 +645,9 @@ function DistributorBarangPageContent() {
             <table className="min-w-full text-[12px]">
             <thead className="bg-slate-950/80">
               <tr className="text-cyan-300/80">
+                {showAdminAllDistributors ? (
+                  <Th className="min-w-[9rem]">Distributor</Th>
+                ) : null}
                 <Th>Nama</Th>
                 <Th>Kode</Th>
                 <Th>Barcode</Th>
@@ -609,7 +662,7 @@ function DistributorBarangPageContent() {
                   Stok Cathlab
                 </Th>
                 <Th className="text-right">Harga</Th>
-                <Th className="sticky right-0 z-20 min-w-[15.5rem] bg-slate-950 !text-center">
+                <Th className="sticky right-0 z-20 min-w-[19rem] bg-slate-950 !text-center">
                   Aksi
                 </Th>
               </tr>
@@ -618,7 +671,7 @@ function DistributorBarangPageContent() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={tableColSpan}
                     className="px-3 py-6 text-center text-cyan-300/60"
                   >
                     Memuat...
@@ -627,7 +680,7 @@ function DistributorBarangPageContent() {
               ) : filteredRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={tableColSpan}
                     className="px-3 py-6 text-center text-cyan-300/60"
                   >
                     Tidak ada data (sesuai filter).
@@ -641,6 +694,11 @@ function DistributorBarangPageContent() {
                     className="group hover:bg-cyan-900/10 cursor-pointer"
                     onClick={() => openEditRow(r)}
                   >
+                    {showAdminAllDistributors ? (
+                      <Td className="align-top text-[11px] text-cyan-200/90 max-w-[14rem]">
+                        {r.distributor_nama_pt?.trim() || "—"}
+                      </Td>
+                    ) : null}
                     <Td>{r.master_barang?.nama ?? "-"}</Td>
                     <Td className="align-top text-[11px] font-mono text-cyan-100/95">
                       <span
@@ -666,7 +724,7 @@ function DistributorBarangPageContent() {
                       {formatDistributorHargaDisplay(r.harga_jual)}
                     </Td>
                     <Td
-                      className="sticky right-0 z-10 min-w-[15.5rem] whitespace-nowrap bg-slate-950 text-center align-middle group-hover:bg-slate-900"
+                      className="sticky right-0 z-10 min-w-[19rem] whitespace-nowrap bg-slate-950 text-center align-middle group-hover:bg-slate-900"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <div className="flex flex-wrap justify-center gap-1.5">
@@ -707,6 +765,16 @@ function DistributorBarangPageContent() {
                           }}
                         >
                           Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="shrink-0 px-2 py-1 rounded-md text-[11px] border border-red-500/65 bg-red-950/45 text-red-100/95 hover:bg-red-950/65"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setHapusTarget(r);
+                          }}
+                        >
+                          Hapus
                         </button>
                       </div>
                     </Td>
@@ -922,6 +990,76 @@ function DistributorBarangPageContent() {
               className="border border-amber-500/60 bg-amber-950/40 text-amber-100 hover:bg-amber-900/50"
             >
               {keluarkanLoading ? "Memproses…" : "Tambah ke panel retur"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={hapusTarget != null}
+        onOpenChange={(open) => {
+          if (!open) {
+            if (hapusLoading) return;
+            setHapusTarget(null);
+          }
+        }}
+      >
+        <DialogContent
+          className="max-w-md border border-red-500/30 bg-slate-950/95 p-6 text-cyan-100 shadow-[0_0_40px_rgba(239,68,68,0.12)] backdrop-blur-xl"
+          onInteractOutside={(e) => {
+            if (hapusLoading) e.preventDefault();
+          }}
+          onPointerDownOutside={(e) => {
+            if (hapusLoading) e.preventDefault();
+          }}
+          onEscapeKeyDown={(e) => {
+            if (hapusLoading) e.preventDefault();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-300">
+              <Trash2
+                className="h-5 w-5 text-red-400/90 shrink-0"
+                aria-hidden
+              />
+              Hapus produk distributor
+            </DialogTitle>
+            <div className="space-y-3 text-sm leading-relaxed text-cyan-200/85">
+              <p>
+                Baris mapping produk distributor akan{" "}
+                <strong className="text-red-200/95">dihapus permanen</strong>{" "}
+                dari katalog PT ini. Master barang RS dan stok inventaris
+                Cathlab{" "}
+                <strong className="text-cyan-200/90">tidak dihapus</strong>{" "}
+                dari halaman ini.
+              </p>
+              <div className="rounded-lg border border-red-900/50 bg-red-950/25 px-3 py-2.5 text-[13px] text-cyan-50">
+                <span className="block text-[10px] font-semibold uppercase tracking-wide text-red-400/85 mb-1">
+                  Produk
+                </span>
+                {hapusTarget?.master_barang?.nama?.trim() ||
+                  hapusTarget?.master_barang?.kode ||
+                  "—"}
+              </div>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="mt-2 gap-2 sm:gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={hapusLoading}
+              onClick={() => setHapusTarget(null)}
+              className="border border-slate-600/70 text-cyan-200 hover:bg-slate-800/80"
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              disabled={hapusLoading}
+              onClick={() => void confirmHapusProduk()}
+              className="border border-red-500/70 bg-red-950/50 text-red-100 hover:bg-red-900/45"
+            >
+              {hapusLoading ? "Menghapus…" : "Hapus"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1194,7 +1332,7 @@ function DistributorBarangPageContent() {
                   </span>
                 </Labeled>
                 {editing ? (
-                  <Labeled label="Penyesuaian stok Cathlab (+/−)">
+                  <Labeled label="Penyesuaian inventaris Cathlab (+/−)">
                     <input
                       value={formStokDelta}
                       onChange={(e) => setFormStokDelta(e.target.value)}
@@ -1206,8 +1344,8 @@ function DistributorBarangPageContent() {
                       disabled={false}
                     />
                     <span className="text-[10px] text-cyan-500/80 font-normal">
-                      Positif menambah stok (MASUK ke baris tertua); negatif
-                      mengurangi (FIFO). Kosongkan jika hanya mengubah
+                      Positif menambah inventaris (MASUK ke baris tertua); negatif
+                      mengurangi inventaris (FIFO). Kosongkan jika hanya mengubah
                       harga/data katalog.
                     </span>
                   </Labeled>
@@ -1219,7 +1357,7 @@ function DistributorBarangPageContent() {
                 di tabel dihitung dari{" "}
                 <strong className="text-cyan-200/90">inventaris</strong>{" "}
                 (agregat). Saat edit, gunakan field penyesuaian di atas untuk
-                tambah/kurang stok; untuk retur terstruktur gunakan{" "}
+                tambah/kurang inventaris; untuk retur terstruktur gunakan{" "}
                 <strong className="text-amber-200/90">Aksi → Keluarkan</strong>{" "}
                 dan <strong className="text-cyan-200/90">Panel retur</strong>.
               </p>
@@ -1284,7 +1422,7 @@ function DistributorBarangPageContent() {
                         const deltaNum = Number(deltaRaw);
                         if (!Number.isFinite(deltaNum) || deltaNum === 0) {
                           alert(
-                            "Penyesuaian stok harus angka tidak nol, atau kosongkan.",
+                            "Penyesuaian inventaris harus angka tidak nol, atau kosongkan.",
                           );
                           return;
                         }
@@ -1312,7 +1450,7 @@ function DistributorBarangPageContent() {
                           alert(
                             typeof dJ?.message === "string"
                               ? dJ.message
-                              : "Data produk tersimpan, tetapi penyesuaian stok gagal.",
+                              : "Data produk tersimpan, tetapi penyesuaian inventaris gagal.",
                           );
                           closeProductModal();
                           await load();

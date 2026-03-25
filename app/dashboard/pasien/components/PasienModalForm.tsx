@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ModalWrapper from "@/components/global/ModalWrapper";
 import type { Pasien } from "../types/pasien";
@@ -10,7 +10,24 @@ import {
   refreshPatientsAction,
 } from "../actions/clientBridge";
 import { usePasienDispatch } from "../contexts/PasienHooks";
-import { mapFromSupabase } from "../data/pasienSchema";
+import { mapFromSupabase, pasienSchema } from "../data/pasienSchema";
+import { hitungUsia } from "../utils/formatUsia";
+import {
+  normalizeNamaPasien,
+  normalizeNamaPasienInput,
+} from "../utils/normalizeNamaPasien";
+import { formatPasienApiValidationError } from "../utils/pasienValidationMessages";
+
+function normalizeTanggalLahir(raw: string): string {
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) {
+    const [, d, mo, y] = m;
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  return raw;
+}
 
 /*───────────────────────────────────────────────
  🧠 PasienModalForm – Add/Edit Modal (Stable v5.6.6)
@@ -47,7 +64,7 @@ export default function PasienModalForm({
     if (isEdit && selectedPatient) {
       setFormData({
         noRM: selectedPatient.noRM,
-        nama: selectedPatient.nama,
+        nama: normalizeNamaPasien(selectedPatient.nama ?? ""),
         jenisKelamin: selectedPatient.jenisKelamin,
         tanggalLahir: selectedPatient.tanggalLahir,
         alamat: selectedPatient.alamat || "",
@@ -62,56 +79,66 @@ export default function PasienModalForm({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-function normalizeTanggalLahir(raw: string): string {
-  if (!raw) return "";
-  // Jika sudah format YYYY-MM-DD, langsung pakai
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-
-  // DUKUNG format seperti 30-6-1967 atau 30/06/1967
-  const m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if (m) {
-    const [_, d, mo, y] = m;
-    const day = d.padStart(2, "0");
-    const month = mo.padStart(2, "0");
-    return `${y}-${month}-${day}`;
-  }
-
-  return raw;
-}
+  const umurTeks = useMemo(() => {
+    const t = formData.tanggalLahir?.trim() ?? "";
+    if (!t) return "—";
+    const iso = /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : normalizeTanggalLahir(t);
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "—";
+    return hitungUsia(iso).teks;
+  }, [formData.tanggalLahir]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
+    setError("");
     const { name, value } = e.target;
-    setFormData((p) => ({
-      ...p,
-      [name]:
+    setFormData((p) => {
+      const nextVal =
         name === "jenisKelamin"
           ? (value as "L" | "P")
           : name === "tanggalLahir"
           ? normalizeTanggalLahir(value)
-          : value,
-    }));
+          : name === "nama"
+          ? normalizeNamaPasienInput(value)
+          : value;
+      const patch: Partial<Omit<Pasien, "id">> = {
+        [name]: nextVal,
+      } as Partial<Omit<Pasien, "id">>;
+      if (name === "jenisPembiayaan" && value === "NPBI") {
+        patch.kelasPerawatan = "Kelas 3";
+      }
+      return { ...p, ...patch };
+    });
   };
 
   const handleSubmit = async () => {
-    if (!formData.noRM.trim() || !formData.nama.trim()) {
+    const namaFinal = normalizeNamaPasien(formData.nama);
+    if (!formData.noRM.trim() || !namaFinal) {
       setError("No. RM dan Nama wajib diisi");
       return;
     }
+    const tanggalLahirIso = normalizeTanggalLahir(formData.tanggalLahir.trim());
+    const payload = {
+      ...formData,
+      nama: namaFinal,
+      tanggalLahir: tanggalLahirIso,
+      noHP: (formData.noHP ?? "").trim(),
+    };
+
+    const parsedLocal = pasienSchema.safeParse(payload);
+    if (!parsedLocal.success) {
+      setError(formatPasienApiValidationError({ error: parsedLocal.error.flatten() }));
+      return;
+    }
+
     setLoading(true);
     try {
       const resp = isEdit && selectedPatient
-        ? await editPatientAction(selectedPatient.id, formData)
-        : await addPatientAction(formData);
+        ? await editPatientAction(selectedPatient.id, payload)
+        : await addPatientAction(payload);
 
       if (!resp?.ok) {
-        const msg =
-          resp?.error?.message ||
-          resp?.message ||
-          (typeof resp?.error === "string" ? resp.error : null) ||
-          "Terjadi kesalahan saat menyimpan data";
-        throw new Error(msg);
+        throw new Error(formatPasienApiValidationError(resp));
       }
 
       // Setelah berhasil simpan, refresh list agar tabel langsung terisi
@@ -159,28 +186,41 @@ function normalizeTanggalLahir(raw: string): string {
                 onChange={handleChange}
               />
 
-              <div>
-                <label className="text-sm text-cyan-300">Jenis Kelamin</label>
-                <select
-                  name="jenisKelamin"
-                  value={formData.jenisKelamin}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 mt-1 bg-black/30 border border-cyan-600/50 
-                             rounded-lg focus:outline-none focus:border-yellow-400"
-                >
-                  <option value="L">Laki-laki</option>
-                  <option value="P">Perempuan</option>
-                </select>
-              </div>
+              <div className="col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="text-sm text-cyan-300">Jenis Kelamin</label>
+                  <select
+                    name="jenisKelamin"
+                    value={formData.jenisKelamin}
+                    onChange={handleChange}
+                    className="mt-1 w-full rounded-lg border border-cyan-600/50 bg-black/30 px-3 py-2
+                               focus:outline-none focus:border-yellow-400"
+                  >
+                    <option value="L">Laki-laki</option>
+                    <option value="P">Perempuan</option>
+                  </select>
+                </div>
 
-              <InputField
-                label="Tanggal Lahir"
-                name="tanggalLahir"
-                type="text"
-                placeholder="30-06-1967 atau 1967-06-30"
-                value={formData.tanggalLahir}
-                onChange={handleChange}
-              />
+                <InputField
+                  label="Tanggal Lahir"
+                  name="tanggalLahir"
+                  type="text"
+                  placeholder="30-06-1967 atau 1967-06-30"
+                  value={formData.tanggalLahir}
+                  onChange={handleChange}
+                />
+
+                <div>
+                  <label className="text-sm text-cyan-300">Umur</label>
+                  <input
+                    readOnly
+                    tabIndex={-1}
+                    value={umurTeks}
+                    className="mt-1 w-full cursor-default rounded-lg border border-cyan-600/30 bg-black/20 px-3 py-2 text-cyan-200"
+                    aria-live="polite"
+                  />
+                </div>
+              </div>
               <InputField
                 label="Alamat"
                 name="alamat"
@@ -206,7 +246,7 @@ function normalizeTanggalLahir(raw: string): string {
                              rounded-lg focus:outline-none focus:border-yellow-400"
                 >
                   <option value="BPJS">BPJS</option>
-                  <option value="BPJS PBI">BPJS PBI</option>
+                  <option value="NPBI">NPBI</option>
                   <option value="Umum">Umum</option>
                   <option value="Asuransi">Asuransi</option>
                 </select>
@@ -221,9 +261,9 @@ function normalizeTanggalLahir(raw: string): string {
                   className="w-full px-3 py-2 mt-1 bg-black/30 border border-cyan-600/50 
                              rounded-lg focus:outline-none focus:border-yellow-400"
                 >
-                  <option value="Kelas 1">Kelas 1</option>
-                  <option value="Kelas 2">Kelas 2</option>
-                  <option value="Kelas 3">Kelas 3</option>
+                  <option value="Kelas 1">1</option>
+                  <option value="Kelas 2">2</option>
+                  <option value="Kelas 3">3</option>
                 </select>
               </div>
 
@@ -237,7 +277,12 @@ function normalizeTanggalLahir(raw: string): string {
             </div>
 
             {error && (
-              <p className="text-red-400 text-sm mt-3 text-center">{error}</p>
+              <p
+                className="text-red-300 text-sm mt-3 max-w-md mx-auto text-left whitespace-pre-line rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2"
+                role="alert"
+              >
+                {error}
+              </p>
             )}
 
             <div className="flex justify-center gap-4 mt-6">

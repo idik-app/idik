@@ -1,3 +1,5 @@
+import { normalizeNamaPasien } from "../utils/normalizeNamaPasien";
+
 /* ============================================================
    📁 pasienImportMap.ts
    Map kolom spreadsheet (Excel/CSV) → format pasien IDIK-App
@@ -81,9 +83,13 @@ function normalizeJK(val: unknown): string {
 /** Normalisasi pembiayaan */
 function normalizePembiayaan(val: unknown): string {
   const s = String(val ?? "").trim();
-  if (["BPJS", "BPJS PBI", "Umum", "Asuransi"].includes(s)) return s;
-  if (/^PBI$/i.test(s)) return "BPJS PBI";
-  if (/^BPJS/i.test(s)) return s.startsWith("BPJS PBI") ? "BPJS PBI" : "BPJS";
+  if (s === "BPJS PBI") return "NPBI";
+  if (["BPJS", "NPBI", "Umum", "Asuransi"].includes(s)) return s;
+  if (/^PBI$/i.test(s) || /^NPBI$/i.test(s)) return "NPBI";
+  if (/^BPJS/i.test(s)) {
+    if (/PBI/i.test(s) && !/^BPJS$/i.test(s)) return "NPBI";
+    return "BPJS";
+  }
   if (/^(UMUM|SWASTA)$/i.test(s)) return "Umum";
   if (/^ASURANSI$/i.test(s)) return "Asuransi";
   return s || "Umum";
@@ -111,7 +117,8 @@ export function mapSheetRowToPasien(row: Record<string, unknown>): Record<string
   }
   // Normalisasi field yang perlu transform
   out.noRM = out.noRM != null ? String(out.noRM).trim() : "";
-  out.nama = out.nama != null ? String(out.nama).trim() : "";
+  out.nama =
+    out.nama != null ? normalizeNamaPasien(String(out.nama)) : "";
   out.jenisKelamin = normalizeJK(out.jenisKelamin);
   out.tanggalLahir = normalizeTanggalLahir(out.tanggalLahir);
   out.alamat = out.alamat != null ? String(out.alamat).trim() : "";

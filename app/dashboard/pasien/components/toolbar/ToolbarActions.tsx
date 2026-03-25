@@ -66,10 +66,10 @@ export function ToolbarActions({
           className="bg-cyan-950/40 border border-cyan-700/40 text-cyan-300
                      rounded-md px-2 py-1.5 focus:border-yellow-400"
         >
-          <option>Semua</option>
-          <option>Kelas 1</option>
-          <option>Kelas 2</option>
-          <option>Kelas 3</option>
+          <option value="">Semua</option>
+          <option value="Kelas 1">1</option>
+          <option value="Kelas 2">2</option>
+          <option value="Kelas 3">3</option>
         </select>
 
         {/* Reset */}

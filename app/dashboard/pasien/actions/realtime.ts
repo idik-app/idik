@@ -1,6 +1,7 @@
 "use client";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase/supabaseClient";
 import { Pasien } from "../types/pasien";
+import { mapFromSupabase } from "../data/pasienSchema";
 
 // Simpan timer debounce global agar fetch tidak terlalu sering
 let debounceTimer: NodeJS.Timeout | null = null;
@@ -35,18 +36,9 @@ export function subscribePasienRealtime(
         }
 
         if (Array.isArray(data) && typeof onChange === "function") {
-          const mapped = data.map((p: any) => ({
-            id: String(p.id),
-            noRM: p.no_rm,
-            nama: p.nama,
-            jenisKelamin: p.jenis_kelamin ?? "L",
-            tanggalLahir: p.tgl_lahir ?? "",
-            alamat: p.alamat ?? "",
-            noHP: p.no_telp ?? "",
-            jenisPembiayaan: p.jenis_pembiayaan ?? "Umum",
-            kelasPerawatan: p.kelas_perawatan ?? "Kelas 2",
-            asuransi: p.asuransi ?? "",
-          }));
+          const mapped = data.map((p: any) =>
+            mapFromSupabase(p)
+          ) as Pasien[];
 
           onChange(mapped);
         }

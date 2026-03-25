@@ -24,11 +24,12 @@ export const pasienSchema = z.object({
   alamat: z.string().min(1, "Alamat wajib diisi"),
   noHP: z
     .string()
-    .regex(/^(\+62|0)[0-9]{8,15}$/, "Nomor HP tidak valid")
-    .optional()
-    .or(z.literal("")),
+    .refine(
+      (s) => s === "" || /^(\+62|0)[0-9]{8,15}$/.test(s),
+      "Nomor HP tidak valid (kosongkan atau format 08… / +62…)"
+    ),
   jenisPembiayaan: z
-    .enum(["BPJS", "BPJS PBI", "Umum", "Asuransi"])
+    .enum(["BPJS", "NPBI", "Umum", "Asuransi"])
     .refine((val) => !!val, { message: "Jenis pembiayaan wajib dipilih" }),
   kelasPerawatan: z
     .enum(["Kelas 1", "Kelas 2", "Kelas 3"])
@@ -44,6 +45,13 @@ export type PasienFormData = z.infer<typeof pasienSchema>;
 /* ------------------------------------------------------------
    🔁 Mapper: Supabase ↔ Frontend (camelCase)
 ------------------------------------------------------------ */
+function normalizeJenisPembiayaanFromDb(raw: unknown): string {
+  const s = String(raw ?? "").trim();
+  if (s === "BPJS PBI") return "NPBI";
+  if (["BPJS", "NPBI", "Umum", "Asuransi"].includes(s)) return s;
+  return s || "Umum";
+}
+
 export const mapFromSupabase = (p: any) => ({
   id: String(p.id),
   noRM: p.no_rm ?? "",
@@ -53,9 +61,12 @@ export const mapFromSupabase = (p: any) => ({
   tanggalLahir: p.tgl_lahir ?? p.tanggal_lahir ?? "",
   alamat: p.alamat ?? "",
   noHP: p.no_telp ?? p.no_hp ?? "",
-  jenisPembiayaan: p.jenis_pembiayaan ?? p.pembiayaan ?? "Umum",
+  jenisPembiayaan: normalizeJenisPembiayaanFromDb(
+    p.jenis_pembiayaan ?? p.pembiayaan ?? "Umum"
+  ),
   kelasPerawatan: p.kelas_perawatan ?? p.kelas ?? "Kelas 2",
   asuransi: p.asuransi ?? "",
+  dokter: p.dokter_nama ?? p.nama_dokter ?? p.dokter ?? "",
   created_at: p.created_at ?? "",
   updated_at: p.updated_at ?? "",
 });

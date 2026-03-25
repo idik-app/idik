@@ -8,7 +8,6 @@ import {
   usePasienState,
 } from "@/app/dashboard/pasien/contexts/PasienHooks"; // ✅ perbaikan path impor
 import PasienToolbar from "./components/PasienToolbar";
-import PasienTable from "./components/PasienTable";
 import PasienModalForm from "./components/PasienModalForm";
 import PatientDetailModal from "./components/PatientDetailModal";
 import type { Pasien } from "./types/pasien";
@@ -53,17 +52,8 @@ export default function PasienContent() {
         </motion.button>
       </header>
 
-      {/* 🔹 Toolbar */}
+      {/* 🔹 Toolbar + tabel (dalam satu kartu) */}
       <PasienToolbar />
-
-      {/* 🔹 Tabel pasien */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
-      >
-        <PasienTable />
-      </motion.div>
 
       {/* 🔹 Modal pasien */}
       <AnimatePresence mode="wait">

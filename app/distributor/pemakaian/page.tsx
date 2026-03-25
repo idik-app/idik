@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type PemakaianRow = {
@@ -16,6 +16,17 @@ function todayISO() {
   return d.toISOString().slice(0, 10);
 }
 
+function formatTanggalId(tanggal: string) {
+  if (!tanggal) return "—";
+  const d = new Date(`${tanggal}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return tanggal;
+  return d.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function DistributorPemakaianPageContent() {
   const searchParams = useSearchParams();
   const distributorIdParam = searchParams.get("distributor_id") ?? "";
@@ -24,9 +35,11 @@ function DistributorPemakaianPageContent() {
   const [to, setTo] = useState<string>(() => todayISO());
   const [rows, setRows] = useState<PemakaianRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const distQ = distributorIdParam
         ? `&distributor_id=${encodeURIComponent(distributorIdParam)}`
@@ -35,16 +48,29 @@ function DistributorPemakaianPageContent() {
         `/api/distributor/pemakaian?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${distQ}`,
         { cache: "no-store" },
       );
-      const json = await res.json();
-      setRows(json?.data ?? []);
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        data?: PemakaianRow[];
+        message?: string;
+      };
+      if (!res.ok || json?.ok === false) {
+        setRows([]);
+        setLoadError(
+          typeof json?.message === "string"
+            ? json.message
+            : `Gagal memuat (${res.status})`,
+        );
+        return;
+      }
+      setRows(Array.isArray(json?.data) ? json.data : []);
     } finally {
       setLoading(false);
     }
-  };
+  }, [distributorIdParam, from, to]);
 
   useEffect(() => {
-    load();
-  }, [distributorIdParam]);
+    void load();
+  }, [load]);
 
   const title = useMemo(() => `Pemakaian (Cathlab)`, []);
 
@@ -54,9 +80,15 @@ function DistributorPemakaianPageContent() {
         <div>
           <h1 className="text-lg font-semibold text-[#D4AF37]">{title}</h1>
           <p className="text-[12px] text-cyan-300/70">
-            Log pemakaian Cathlab yang teratribusi ke stok milik distributor
-            Anda.
+            Catatan pemakaian alkes yang diinput petugas Cathlab untuk barang
+            yang mengikat ke distributor Anda: lewat stok inventaris (supplier),
+            master barang, atau produk di katalog distributor.
           </p>
+          {loadError ? (
+            <p className="text-[12px] text-amber-300/95 mt-1" role="alert">
+              {loadError}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[12px]">
           <label className="text-cyan-300/70">
@@ -120,7 +152,9 @@ function DistributorPemakaianPageContent() {
               ) : (
                 rows.map((r) => (
                   <tr key={r.id} className="hover:bg-cyan-900/10">
-                    <Td>{r.tanggal}</Td>
+                    <Td className="whitespace-nowrap">
+                      {formatTanggalId(String(r.tanggal ?? ""))}
+                    </Td>
                     <Td>{r.inventaris?.nama ?? "-"}</Td>
                     <Td className="text-right tabular-nums">{r.jumlah}</Td>
                     <Td>{r.inventaris?.satuan ?? "-"}</Td>

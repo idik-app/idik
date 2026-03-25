@@ -12,21 +12,13 @@ import { ToolbarRealtimeIndicator } from "./ToolbarRealtimeIndicator";
 import { ToolbarQuickStats } from "./ToolbarQuickStats";
 import PasienImport from "../PasienImport";
 import PasienExport from "../PasienExport";
+import PasienTable from "../PasienTable";
 
 /*───────────────────────────────────────────────
 🧬 ToolbarMain v5.2 — Interactive & Informative
 ───────────────────────────────────────────────*/
 export default function ToolbarMain() {
-  const {
-    summary,
-    currentPage,
-    totalPages,
-    perPage,
-    handlePageChange,
-    handlePerPage,
-    isSyncing,
-    isIdle,
-  } = useToolbarLogic();
+  const { summary, isSyncing, isIdle } = useToolbarLogic();
   const { modalMode } = usePasienState();
 
   const fadeSlide = {
@@ -45,16 +37,10 @@ export default function ToolbarMain() {
                   ${isIdle ? "opacity-70" : "opacity-100"}`}
     >
       {/* ─────────────────────────────
-         🔹 Header (Search & Pagination)
+         🔹 Filter + ringkasan (grid: filter lebar, ringkasan rapi di kanan)
       ───────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <ToolbarHeader
-          currentPage={currentPage}
-          totalPages={totalPages}
-          perPage={perPage}
-          handlePageChange={handlePageChange}
-          handlePerPage={handlePerPage}
-        />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-6">
+        <ToolbarHeader />
         <ToolbarStatsCard />
       </div>
 
@@ -87,6 +73,11 @@ export default function ToolbarMain() {
           <span className="font-semibold">{summary?.lastSync ?? "—"}</span>
         </div>
       </motion.div>
+
+      {/* 🔹 Tabel — satu panel dengan filter & sinkron di atas */}
+      <div className="border-t border-cyan-700/40 pt-3 min-h-0">
+        <PasienTable embedded />
+      </div>
 
       {/* 🔹 Modal tambah pasien */}
       {modalMode === "add" && <FormTambahPasien />}

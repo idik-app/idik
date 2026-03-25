@@ -25,9 +25,9 @@ export function getRedirectTargetForRole(role: unknown): string {
     depo: "/depo/dashboard", // legacy (pre-migration)
     farmasi: "/depo/dashboard", // legacy (pre-migration)
     pharmacy: "/depo/dashboard", // legacy (pre-migration)
-    admin: "/dashboard/admin",
-    administrator: "/dashboard/admin",
-    superadmin: "/dashboard/admin",
+    admin: "/dashboard",
+    administrator: "/dashboard",
+    superadmin: "/dashboard",
   };
 
   return routeMap[r] || "/dashboard";

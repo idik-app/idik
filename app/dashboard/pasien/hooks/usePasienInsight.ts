@@ -50,9 +50,10 @@ export function usePasienInsight() {
         (p.updated_at || "").toString().slice(0, 10) === todayISO
     ).length;
 
-    const bpjs = patients.filter((p) =>
-      (p.jenisPembiayaan || "").toLowerCase().includes("bpjs")
-    ).length;
+    const bpjs = patients.filter((p) => {
+      const j = (p.jenisPembiayaan || "").toLowerCase();
+      return j.includes("bpjs") || j === "npbi";
+    }).length;
     const umum = patients.filter(
       (p) => (p.jenisPembiayaan || "").toLowerCase() === "umum"
     ).length;

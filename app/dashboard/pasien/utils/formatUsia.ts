@@ -10,6 +10,6 @@ export function hitungUsia(tanggalLahir: string) {
 
   if (bulan < 0 || (bulan === 0 && hari < 0)) usia--;
 
-  const teks = `${usia} thn`;
+  const teks = `${usia} TH`;
   return { angka: usia, teks };
 }

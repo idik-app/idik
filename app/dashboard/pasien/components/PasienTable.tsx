@@ -1,9 +1,11 @@
 "use client";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
-import { usePasien } from "../contexts/PasienContext";
+import { usePasien, usePasienDispatch } from "../contexts/PasienContext";
 import { usePasienCrud } from "../hooks/usePasienCrud";
+import ToolbarPagination from "./toolbar/ToolbarPagination";
 import { hitungUsia } from "../utils/formatUsia";
+import { formatKelasPerawatanDisplay } from "../utils/formatKelasPerawatan";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import {
   Eye,
@@ -20,8 +22,14 @@ import {
  * - Tidak ada efek reload terus menerus
  * - Tidak pakai JarvisScanner / shimmer
  */
-export default function PasienTable() {
+type PasienTableProps = {
+  /** Di dalam kartu toolbar (tanpa bingkai kartu kedua) */
+  embedded?: boolean;
+};
+
+export default function PasienTable({ embedded = false }: PasienTableProps) {
   const { filteredPatients, selectPatient, currentPage = 1, perPage = 10 } = usePasien();
+  const dispatch = usePasienDispatch();
   const { handleDelete } = usePasienCrud();
   const [sortField, setSortField] = useState<"nama" | "usia" | null>(null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
@@ -29,8 +37,15 @@ export default function PasienTable() {
   const lastIds = useRef<string>("");
 
   const allFiltered = filteredPatients ?? [];
+  const totalPages = Math.max(1, Math.ceil(allFiltered.length / perPage));
   const start = (currentPage - 1) * perPage;
   const patients = allFiltered.slice(start, start + perPage);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      dispatch({ type: "SET_PAGE", payload: totalPages });
+    }
+  }, [currentPage, totalPages, dispatch]);
 
   // 🔹 deteksi perubahan nyata (id pasien berubah)
   const patientsKey = useMemo(
@@ -79,18 +94,23 @@ export default function PasienTable() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4 }}
-        className="rounded-xl border border-yellow-500/40
-                   bg-gradient-to-br from-cyan-900/10 to-black/60
-                   backdrop-blur-lg shadow-[0_0_15px_rgba(0,255,255,0.08)]
-                   overflow-hidden"
+        className={
+          embedded
+            ? "overflow-hidden flex flex-col min-h-0 rounded-b-lg bg-black/25"
+            : "rounded-xl border border-yellow-500/40 bg-gradient-to-br from-cyan-900/10 to-black/60 backdrop-blur-lg shadow-[0_0_15px_rgba(0,255,255,0.08)] overflow-hidden flex flex-col min-h-0"
+        }
       >
+        <div
+          className="min-h-0 overflow-x-auto overflow-y-auto max-h-[min(60vh,32rem)]
+                     [scrollbar-color:rgba(34,211,238,0.35)_transparent]"
+        >
         <motion.table
           layout
           animate={animateTable ? { opacity: [0.8, 1] } : { opacity: 1 }}
           transition={{ duration: 0.4 }}
           className="min-w-full text-cyan-100 text-sm border-collapse"
         >
-          <thead className="sticky top-0 bg-black/60 backdrop-blur-md border-b border-yellow-400/30 z-20">
+          <thead className="sticky top-0 z-20 bg-black/80 backdrop-blur-md border-b border-yellow-400/30 shadow-[0_1px_0_rgba(250,204,21,0.15)]">
             <tr>
               <th className="py-3 px-4 text-left text-yellow-400">No. RM</th>
               <th
@@ -156,7 +176,7 @@ export default function PasienTable() {
               sortedPatients.map((p) => {
                 const usia = hitungUsia(p.tanggalLahir);
                 const pembiayaanColor =
-                  p.jenisPembiayaan === "BPJS"
+                  p.jenisPembiayaan === "BPJS" || p.jenisPembiayaan === "NPBI"
                     ? "bg-cyan-800/50 text-cyan-300"
                     : p.jenisPembiayaan === "Umum"
                     ? "bg-yellow-800/40 text-yellow-300"
@@ -165,7 +185,17 @@ export default function PasienTable() {
                 return (
                   <tr
                     key={p.id}
-                    className="border-b border-cyan-500/20 hover:bg-cyan-400/10 transition"
+                    role="button"
+                    tabIndex={0}
+                    title="Klik baris untuk mengedit pasien"
+                    onClick={() => selectPatient(p.id, "edit")}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        selectPatient(p.id, "edit");
+                      }
+                    }}
+                    className="border-b border-cyan-500/20 hover:bg-cyan-400/10 transition cursor-pointer"
                   >
                     <td className="py-2 px-4">{p.noRM}</td>
                     <td className="py-2 px-4">{p.nama}</td>
@@ -187,24 +217,38 @@ export default function PasienTable() {
                         {p.jenisPembiayaan}
                       </span>
                     </td>
-                    <td className="py-2 px-4">{p.kelasPerawatan}</td>
+                    <td className="py-2 px-4">
+                      {formatKelasPerawatanDisplay(p.kelasPerawatan)}
+                    </td>
                     <td className="py-2 px-4">{p.asuransi || "-"}</td>
 
                     <td className="py-2 px-4 text-right space-x-2">
                       <button
-                        onClick={() => selectPatient(p.id, "view")}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectPatient(p.id, "view");
+                        }}
                         className="text-cyan-300 hover:text-cyan-100 transition"
                       >
                         <Eye size={18} />
                       </button>
                       <button
-                        onClick={() => selectPatient(p.id, "edit")}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectPatient(p.id, "edit");
+                        }}
                         className="text-yellow-400 hover:text-yellow-300 transition"
                       >
                         <Edit size={18} />
                       </button>
                       <button
-                        onClick={() => setPendingDelete(p)}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPendingDelete(p);
+                        }}
                         className="text-red-400 hover:text-red-300 transition"
                       >
                         <Trash2 size={18} />
@@ -216,6 +260,21 @@ export default function PasienTable() {
             )}
           </tbody>
         </motion.table>
+        </div>
+
+        <div className="shrink-0 flex flex-wrap items-center justify-end gap-2 px-3 py-2.5 border-t border-yellow-500/25 bg-black/40">
+          <ToolbarPagination
+            currentPage={Math.min(currentPage, totalPages)}
+            totalPages={totalPages}
+            perPage={perPage}
+            handlePageChange={(page: number) =>
+              dispatch({ type: "SET_PAGE", payload: page })
+            }
+            handlePerPage={(val: number) =>
+              dispatch({ type: "SET_PER_PAGE", payload: val })
+            }
+          />
+        </div>
       </motion.div>
 
       {pendingDelete && (

@@ -10,6 +10,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { motion } from "framer-motion";
 import { Pasien } from "../types/pasien";
+import { formatKelasPerawatanDisplay } from "../utils/formatKelasPerawatan";
 import { usePasienCrud } from "../hooks/usePasienCrud";
 
 /**
@@ -47,7 +48,10 @@ export default function PasienDetail() {
           <Info label="Alamat" value={patient.alamat} />
           <Info label="No. HP" value={patient.noHP} />
           <Info label="Jenis Pembiayaan" value={patient.jenisPembiayaan} />
-          <Info label="Kelas" value={patient.kelasPerawatan} />
+          <Info
+            label="Kelas"
+            value={formatKelasPerawatanDisplay(patient.kelasPerawatan)}
+          />
           <Info label="Asuransi" value={patient.asuransi} />
           <Separator className="col-span-2 my-2 bg-cyan-800/40" />
           <Info

@@ -1,15 +1,18 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server-";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { requireDashboardSession } from "@/lib/auth/requireDashboardSession";
 import { Pasien } from "../types/pasien";
 import { logPasienAudit } from "@/lib/audit/logPasien";
+import { normalizeNamaPasien } from "../utils/normalizeNamaPasien";
 
 export async function editPatient(id: string, data: Omit<Pasien, "id">) {
-  const supabase = await createClient();
+  const session = await requireDashboardSession();
+  const supabase = createAdminClient();
 
   const payload = {
     no_rm: data.noRM,
-    nama: data.nama,
+    nama: normalizeNamaPasien(data.nama ?? ""),
     jenis_kelamin: data.jenisKelamin,
     tgl_lahir: data.tanggalLahir ?? null,
     alamat: data.alamat ?? null,
@@ -19,17 +22,21 @@ export async function editPatient(id: string, data: Omit<Pasien, "id">) {
     asuransi: data.asuransi ?? null,
   };
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("pasien")
     .update(payload)
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
 
   if (error) throw new Error(error.message);
+  if (!updated) {
+    throw new Error("Pasien tidak ditemukan atau tidak ada perubahan.");
+  }
 
-  const userId = (await supabase.auth.getUser()).data?.user?.id;
   await logPasienAudit(
     "UPDATE",
-    { patient_id: id, no_rm: data.noRM, nama: data.nama },
-    userId
+    { patient_id: id, no_rm: data.noRM, nama: payload.nama },
+    session.username
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Trash2 } from "lucide-react";
+import { PencilLine, Trash2 } from "lucide-react";
 
 /* =========================================================
    🩺 DokterTable – Cathlab JARVIS Mode v3.8 (Gold-Cyan Hybrid)
@@ -11,9 +11,10 @@ import { Trash2 } from "lucide-react";
 interface DokterTableProps {
   doctors: any[];
   onDelete: (id: string) => void;
+  onEdit?: (row: any) => void;
 }
 
-export default function DokterTable({ doctors, onDelete }: DokterTableProps) {
+export default function DokterTable({ doctors, onDelete, onEdit }: DokterTableProps) {
   if (!doctors || doctors.length === 0)
     return (
       <motion.p
@@ -61,26 +62,57 @@ export default function DokterTable({ doctors, onDelete }: DokterTableProps) {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.03 }}
-              className="border-t border-cyan-600/20 
-                         hover:bg-cyan-400/10 transition-all"
+              className={`border-t border-cyan-600/20 
+                         hover:bg-cyan-400/10 transition-all
+                         ${onEdit ? "cursor-pointer" : ""}`}
+              onClick={() => onEdit?.(d)}
+              onKeyDown={(e) => {
+                if (!onEdit) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onEdit(d);
+                }
+              }}
+              tabIndex={onEdit ? 0 : undefined}
+              role={onEdit ? "button" : undefined}
+              aria-label={onEdit ? `Edit dokter ${d.nama}` : undefined}
             >
               <td className="px-3 py-2">{d.nama}</td>
               <td className="px-3 py-2">{d.spesialis || "-"}</td>
               <td className="px-3 py-2">{d.kontak || "-"}</td>
               <td className="px-3 py-2 text-center">{d.badge}</td>
               <td className="px-3 py-2 text-center">
-                <button
-                  onClick={() => {
-                    if (confirm(`Hapus dokter ${d.nama}?`)) onDelete(d.id);
-                  }}
-                  className="p-1.5 rounded-md border border-red-500/40 
-                             text-red-400 hover:text-red-200 
-                             hover:bg-red-500/10 
-                             shadow-[0_0_8px_rgba(255,0,0,0.3)] transition"
-                  title="Hapus dokter"
-                >
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex items-center justify-center gap-2">
+                  {onEdit && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit(d);
+                      }}
+                      className="p-1.5 rounded-md border border-cyan-500/40 
+                                 text-cyan-300 hover:text-cyan-100 
+                                 hover:bg-cyan-500/10 transition"
+                      title="Edit dokter"
+                    >
+                      <PencilLine size={16} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`Hapus dokter ${d.nama}?`)) onDelete(d.id);
+                    }}
+                    className="p-1.5 rounded-md border border-red-500/40 
+                               text-red-400 hover:text-red-200 
+                               hover:bg-red-500/10 
+                               shadow-[0_0_8px_rgba(255,0,0,0.3)] transition"
+                    title="Hapus dokter"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </td>
             </motion.tr>
           ))}

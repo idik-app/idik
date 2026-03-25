@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import ChangePasswordForm from "@/components/auth/ChangePasswordForm";
 
 type DistributorRow = {
   nama_pt: string;
@@ -84,6 +85,9 @@ export default function DistributorProfilPage() {
             <span className="text-cyan-200">Dashboard Farmasi → Master Distributor</span>
             .
           </p>
+        </div>
+        <div className="rounded-2xl border border-cyan-900/60 bg-slate-950/40 p-4">
+          <ChangePasswordForm variant="distributor" />
         </div>
       </div>
     );
@@ -238,6 +242,10 @@ export default function DistributorProfilPage() {
           </button>
         </div>
       </form>
+
+      <div className="rounded-2xl border border-cyan-900/60 bg-slate-950/40 p-4">
+        <ChangePasswordForm variant="distributor" />
+      </div>
     </div>
   );
 }

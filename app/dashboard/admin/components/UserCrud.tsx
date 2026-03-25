@@ -242,6 +242,12 @@ export default function UserCrud() {
     }
 
     if (modalMode === "edit") {
+      if (!form.username.trim()) {
+        return setSubmitError("username wajib");
+      }
+      if (form.username.trim().length < 3) {
+        return setSubmitError("username minimal 3 karakter");
+      }
       const hasNamaBaru = form.distributorNamaBaru.trim().length > 0;
       if (requiresDistributor && !hasNamaBaru && form.distributorId === null) {
         return setSubmitError("distributor wajib: isi nama PT baru atau pilih dari daftar");
@@ -282,6 +288,10 @@ export default function UserCrud() {
         }
         if (form.password && form.password.length >= 6) {
           updatePayload.password = form.password;
+        }
+        const trimmedUsername = form.username.trim();
+        if (trimmedUsername !== editingUser.username) {
+          updatePayload.username = trimmedUsername;
         }
 
         const { res, json } = await fetchJsonWithTimeout(
@@ -559,8 +569,7 @@ export default function UserCrud() {
                       onChange={(e) =>
                         setForm((prev) => ({ ...prev, username: e.target.value }))
                       }
-                      disabled={modalMode === "edit"}
-                      className="w-full bg-gray-800/60 border border-cyan-700/40 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/60 disabled:opacity-70"
+                      className="w-full bg-gray-800/60 border border-cyan-700/40 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
                     />
                   </div>
 

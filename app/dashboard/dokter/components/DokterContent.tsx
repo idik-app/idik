@@ -8,6 +8,7 @@ import DokterTable from "./DokterTable";
 import ShimmerDokter from "./ShimmerDokter";
 import ConfirmDialog from "./ConfirmDialog";
 import ModalTambahDokter from "./ModalTambahDokter";
+import ModalEditDokter from "./ModalEditDokter";
 import DokterStatusBadge from "./DokterStatusBadge";
 import ExportReportDokter from "./ExportReportDokter";
 
@@ -18,6 +19,13 @@ export default function DokterContent() {
   const [error, setError] = useState<ErrorType>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [editingDoctor, setEditingDoctor] = useState<{
+    id: string;
+    nama: string;
+    spesialis?: string;
+    kontak?: string;
+    status?: string;
+  } | null>(null);
 
   useEffect(() => {
     fetchDoctors().then(({ error }) => {
@@ -82,6 +90,15 @@ export default function DokterContent() {
           ...d,
           badge: <DokterStatusBadge status={(d as any).status} />,
         }))}
+        onEdit={(row) =>
+          setEditingDoctor({
+            id: row.id,
+            nama: row.nama,
+            spesialis: row.spesialis,
+            kontak: row.kontak,
+            status: row.status,
+          })
+        }
         onDelete={(id) => setConfirmId(id)}
       />
 
@@ -103,6 +120,17 @@ export default function DokterContent() {
           onClose={() => setShowModal(false)}
           onSuccess={() => {
             setShowModal(false);
+            fetchDoctors();
+          }}
+        />
+      )}
+
+      {editingDoctor && (
+        <ModalEditDokter
+          doctor={editingDoctor}
+          onClose={() => setEditingDoctor(null)}
+          onSuccess={() => {
+            setEditingDoctor(null);
             fetchDoctors();
           }}
         />

@@ -21,10 +21,10 @@ export function getRedirectTargetForRole(role: unknown): string {
     casemix: "/dashboard/laporan",
     distributor: "/distributor/dashboard",
     vendor: "/distributor/dashboard", // legacy (pre-migration)
-    depo_farmasi: "/dashboard/farmasi/master",
-    depo: "/dashboard/farmasi/master", // legacy (pre-migration)
-    farmasi: "/dashboard/farmasi/master", // legacy (pre-migration)
-    pharmacy: "/dashboard/farmasi/master", // legacy (pre-migration)
+    depo_farmasi: "/depo/dashboard",
+    depo: "/depo/dashboard", // legacy (pre-migration)
+    farmasi: "/depo/dashboard", // legacy (pre-migration)
+    pharmacy: "/depo/dashboard", // legacy (pre-migration)
     admin: "/dashboard/admin",
     administrator: "/dashboard/admin",
     superadmin: "/dashboard/admin",

@@ -1,21 +1,49 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { X, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient";
+
+type DoctorRow = {
+  id: string;
+  nama: string;
+  spesialis?: string;
+  kontak?: string;
+  status?: string;
+};
 
 interface Props {
+  doctor: DoctorRow;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export default function ModalTambahDokter({ onClose, onSuccess }: Props) {
-  const [mounted, setMounted] = useState(false);
-  const [nama, setNama] = useState("");
-  const [spesialis, setSpesialis] = useState("");
-  const [kontak, setKontak] = useState("");
-  const [status, setStatus] = useState("aktif");
+async function fetchJsonWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit & { timeoutMs?: number } = {}
+) {
+  const { timeoutMs = 15000, ...rest } = init;
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(input, { ...rest, signal: controller.signal });
+    const json = await res.json().catch(() => ({}));
+    return { res, json };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+export default function ModalEditDokter({ doctor, onClose, onSuccess }: Props) {
+  const [nama, setNama] = useState(doctor.nama);
+  const [spesialis, setSpesialis] = useState(doctor.spesialis ?? "");
+  const [kontak, setKontak] = useState(doctor.kontak ?? "");
+  const [status, setStatus] = useState(() => {
+    const s = (doctor.status ?? "aktif").toLowerCase();
+    if (s === "cuti" || s === "nonaktif") return s;
+    return "aktif";
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,16 +51,37 @@ export default function ModalTambahDokter({ onClose, onSuccess }: Props) {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    setNama(doctor.nama);
+    setSpesialis(doctor.spesialis ?? "");
+    setKontak(doctor.kontak ?? "");
+    const s = (doctor.status ?? "aktif").toLowerCase();
+    setStatus(s === "cuti" || s === "nonaktif" ? s : "aktif");
+  }, [doctor]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const { error } = await (supabase as any).from("doctor").insert([{ nama_dokter: nama.trim(), spesialis: spesialis.trim() || null, kontak: kontak.trim() || null, status: status === "aktif" }]);
+    const { res, json } = await fetchJsonWithTimeout(`/api/doctors/${doctor.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nama_dokter: nama.trim(),
+        spesialis: spesialis.trim() || null,
+        kontak: kontak.trim() || null,
+        status,
+      }),
+      timeoutMs: 15000,
+    });
 
     setLoading(false);
-    if (error) setError(error.message);
-    else onSuccess();
+    if (!res.ok || !json.ok) {
+      setError(json?.message || "Gagal menyimpan");
+      return;
+    }
+    onSuccess();
   };
 
   if (!mounted) return null;
@@ -52,9 +101,7 @@ export default function ModalTambahDokter({ onClose, onSuccess }: Props) {
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-semibold text-cyan-400">
-            Tambah Data Dokter
-          </h3>
+          <h3 className="text-xl font-semibold text-cyan-400">Edit Data Dokter</h3>
           <button
             type="button"
             onClick={onClose}
@@ -67,9 +114,7 @@ export default function ModalTambahDokter({ onClose, onSuccess }: Props) {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm mb-1 text-cyan-300">
-              Nama Dokter
-            </label>
+            <label className="block text-sm mb-1 text-cyan-300">Nama Dokter</label>
             <input
               type="text"
               value={nama}
@@ -77,12 +122,13 @@ export default function ModalTambahDokter({ onClose, onSuccess }: Props) {
               required
               className="w-full bg-gray-800/60 border border-cyan-700/40 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
             />
+            <p className="mt-1 text-xs text-gray-500">
+              Jika nama sama dengan username akun role dokter, username ikut diperbarui.
+            </p>
           </div>
 
           <div>
-            <label className="block text-sm mb-1 text-cyan-300">
-              Spesialis
-            </label>
+            <label className="block text-sm mb-1 text-cyan-300">Spesialis</label>
             <input
               type="text"
               value={spesialis}

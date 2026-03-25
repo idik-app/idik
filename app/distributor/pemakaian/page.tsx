@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type PemakaianRow = {
@@ -33,7 +33,7 @@ function DistributorPemakaianPageContent() {
         : "";
       const res = await fetch(
         `/api/distributor/pemakaian?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${distQ}`,
-        { cache: "no-store" }
+        { cache: "no-store" },
       );
       const json = await res.json();
       setRows(json?.data ?? []);
@@ -54,7 +54,8 @@ function DistributorPemakaianPageContent() {
         <div>
           <h1 className="text-lg font-semibold text-[#D4AF37]">{title}</h1>
           <p className="text-[12px] text-cyan-300/70">
-            Log pemakaian Cathlab yang teratribusi ke stok milik distributor Anda.
+            Log pemakaian Cathlab yang teratribusi ke stok milik distributor
+            Anda.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-[12px]">
@@ -100,13 +101,19 @@ function DistributorPemakaianPageContent() {
             <tbody className="divide-y divide-slate-900/60">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-cyan-300/60">
+                  <td
+                    colSpan={5}
+                    className="px-3 py-6 text-center text-cyan-300/60"
+                  >
                     Memuat...
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-cyan-300/60">
+                  <td
+                    colSpan={5}
+                    className="px-3 py-6 text-center text-cyan-300/60"
+                  >
                     Tidak ada data.
                   </td>
                 </tr>
@@ -117,7 +124,9 @@ function DistributorPemakaianPageContent() {
                     <Td>{r.inventaris?.nama ?? "-"}</Td>
                     <Td className="text-right tabular-nums">{r.jumlah}</Td>
                     <Td>{r.inventaris?.satuan ?? "-"}</Td>
-                    <Td className="max-w-[360px] truncate">{r.keterangan ?? "-"}</Td>
+                    <Td className="max-w-[360px] truncate">
+                      {r.keterangan ?? "-"}
+                    </Td>
                   </tr>
                 ))
               )}
@@ -151,7 +160,9 @@ function Th({
   className?: string;
 }) {
   return (
-    <th className={`px-3 py-2 text-left font-semibold ${className}`}>{children}</th>
+    <th className={`px-3 py-2 text-left font-semibold ${className}`}>
+      {children}
+    </th>
   );
 }
 
@@ -164,4 +175,3 @@ function Td({
 }) {
   return <td className={`px-3 py-2 ${className}`}>{children}</td>;
 }
-

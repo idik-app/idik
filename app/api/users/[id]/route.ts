@@ -77,7 +77,8 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { role, distributor_id, distributor_nama_pt, password } = body ?? {};
+    const { role, distributor_id, distributor_nama_pt, password, username } =
+      body ?? {};
     const roleNormalized =
       typeof role === "string" ? role.trim().toLowerCase() : role;
 
@@ -89,7 +90,7 @@ export async function PATCH(
 
     const { data: existing, error: existingErr } = await supabase
       .from("app_users")
-      .select("id,role,distributor_id")
+      .select("id,username,role,distributor_id")
       .eq("id", id)
       .maybeSingle();
     if (existingErr) throw existingErr;
@@ -101,6 +102,20 @@ export async function PATCH(
     const needsDist = ROLES_REQUIRE_DISTRIBUTOR.has(newRole);
 
     const updatePayload: Record<string, unknown> = {};
+    const oldUsername = String(existing.username ?? "").trim();
+
+    if (username !== undefined) {
+      if (typeof username !== "string" || username.trim().length < 3) {
+        return NextResponse.json(
+          { ok: false, message: "username wajib (min 3 karakter)" },
+          { status: 400 }
+        );
+      }
+      const nextU = username.trim();
+      if (nextU !== oldUsername) {
+        updatePayload.username = nextU;
+      }
+    }
 
     if (role !== undefined) updatePayload.role = roleNormalized;
 
@@ -176,6 +191,28 @@ export async function PATCH(
     if (error) throw error;
     if (!data) {
       return NextResponse.json({ ok: false, message: "User not found" }, { status: 404 });
+    }
+
+    const finalUsername = String(data.username ?? "").trim();
+    if (
+      finalUsername !== oldUsername &&
+      String(data.role).toLowerCase() === "dokter" &&
+      oldUsername.length > 0
+    ) {
+      const { error: docErr } = await supabase
+        .from("doctor")
+        .update({ nama_dokter: finalUsername })
+        .eq("nama_dokter", oldUsername);
+      if (docErr) {
+        await supabase
+          .from("app_users")
+          .update({ username: oldUsername })
+          .eq("id", id);
+        return NextResponse.json(
+          { ok: false, message: docErr.message || "Gagal sinkron nama ke master dokter" },
+          { status: 400 }
+        );
+      }
     }
 
     // Jangan blok response hanya karena audit log (buat UI lebih responsif)

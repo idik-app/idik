@@ -29,12 +29,19 @@ export async function middleware(req: NextRequest) {
   const isDashboard = pathname.startsWith("/dashboard");
   const isSystem = pathname.startsWith("/system");
   const isDistributor = pathname.startsWith("/distributor");
+  const isDepoLogin =
+    pathname === "/depo/login" || pathname.startsWith("/depo/login/");
+  const isDepo = pathname.startsWith("/depo");
 
-  if (!isDashboard && !isSystem && !isDistributor) return NextResponse.next();
+  if (isDepoLogin) return NextResponse.next();
+
+  if (!isDashboard && !isSystem && !isDistributor && !isDepo)
+    return NextResponse.next();
 
   const token = req.cookies.get("session")?.value;
   if (!token) {
     console.log(`${LOG_PREFIX} ${pathname} → redirect reason=missing (no session cookie)`);
+    if (isDepo) return redirectToDepoLogin(req);
     return redirectToHome(req, "missing");
   }
 
@@ -85,6 +92,24 @@ export async function middleware(req: NextRequest) {
       return NextResponse.next();
     }
 
+    if (isDepo) {
+      const allow = new Set([
+        "depo_farmasi",
+        "depo",
+        "farmasi",
+        "pharmacy",
+        "admin",
+        "administrator",
+        "superadmin",
+      ]);
+      if (!allow.has(role)) {
+        console.warn(`${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`);
+        return redirectToUnauthorized(req);
+      }
+      console.log(`${LOG_PREFIX} ${pathname} → ok role=${role}`);
+      return NextResponse.next();
+    }
+
     // Rute sensitif: tier admin / administrator / superadmin (cek spesifik dulu)
     if (pathname.startsWith("/system/database/audit")) {
       if (!ADMINISTRATOR_ROLES.includes(role)) {
@@ -117,8 +142,19 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   } catch (err) {
     console.warn(`${LOG_PREFIX} ${pathname} → redirect reason=invalid (token verify failed):`, err);
+    if (isDepo) return redirectToDepoLogin(req);
     return redirectToHome(req, "invalid");
   }
+}
+
+/** Tanpa sesi: ke halaman login portal depo (bukan beranda). */
+function redirectToDepoLogin(req: NextRequest) {
+  const url = new URL("/depo/login", req.url);
+  url.searchParams.set("from", req.nextUrl.pathname);
+  const res = NextResponse.redirect(url);
+  res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.headers.set("Pragma", "no-cache");
+  return res;
 }
 
 /* 🔁 Redirect helper: kembali ke root dengan alasan (no-store agar redirect tidak di-cache) */
@@ -141,5 +177,13 @@ function redirectToUnauthorized(req: NextRequest) {
 
 /* ✅ Matcher: dashboard + system (keduanya wajib login) */
 export const config = {
-  matcher: ["/dashboard/:path*", "/system", "/system/:path*", "/distributor", "/distributor/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/system",
+    "/system/:path*",
+    "/distributor",
+    "/distributor/:path*",
+    "/depo",
+    "/depo/:path*",
+  ],
 };

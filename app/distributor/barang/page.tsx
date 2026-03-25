@@ -63,6 +63,42 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Format yang diinginkan untuk BarcodeDetector (barcode linear + QR & sejenisnya). */
+const CAMERA_BARCODE_FORMATS_WANTED = [
+  "qr_code",
+  "aztec",
+  "data_matrix",
+  "pdf417",
+  "code_128",
+  "code_39",
+  "code_93",
+  "codabar",
+  "ean_13",
+  "ean_8",
+  "itf",
+  "upc_a",
+  "upc_e",
+] as const;
+
+function pickBarcodeDetectorFormats(): string[] {
+  if (typeof window === "undefined") return [...CAMERA_BARCODE_FORMATS_WANTED];
+  const BD = (
+    window as unknown as {
+      BarcodeDetector?: { getSupportedFormats?: () => string[] };
+    }
+  ).BarcodeDetector;
+  if (typeof BD?.getSupportedFormats !== "function") {
+    return [...CAMERA_BARCODE_FORMATS_WANTED];
+  }
+  const supported = BD.getSupportedFormats();
+  if (!supported?.length) return [...CAMERA_BARCODE_FORMATS_WANTED];
+  const ok = new Set(supported);
+  const picked = CAMERA_BARCODE_FORMATS_WANTED.filter((f) => ok.has(f));
+  if (picked.length > 0) return picked;
+  const minimal = ["qr_code", "code_128"].filter((f) => ok.has(f));
+  return minimal.length > 0 ? minimal : ["qr_code", "code_128"];
+}
+
 function printDaftarBarang(
   rows: Row[],
   meta: { title: string; generatedAt: string },
@@ -230,7 +266,7 @@ function DistributorBarangPageContent() {
     void (async () => {
       if (!hasDetector) {
         setBarcodeHint(
-          "Browser tidak mendukung Scan kamera (Chrome/Edge disarankan). Gunakan scanner USB di kolom barcode.",
+          "Browser tidak mendukung scan kamera untuk barcode/QR (Chrome/Edge disarankan). Gunakan scanner USB di kolom ini.",
         );
         return;
       }
@@ -242,17 +278,20 @@ function DistributorBarangPageContent() {
             };
           }
         ).BarcodeDetector;
-        const detector = new Detector({
-          formats: [
-            "code_128",
-            "code_39",
-            "ean_13",
-            "ean_8",
-            "qr_code",
-            "upc_a",
-            "upc_e",
-          ],
-        });
+        const formats = pickBarcodeDetectorFormats();
+        let detector: InstanceType<typeof Detector>;
+        try {
+          detector = new Detector({ formats });
+        } catch {
+          try {
+            detector = new Detector({ formats: ["qr_code", "code_128"] });
+          } catch {
+            setBarcodeHint(
+              "Browser tidak bisa mengaktifkan pemindaian barcode/QR di kamera. Gunakan Chrome/Edge atau scanner USB.",
+            );
+            return;
+          }
+        }
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: "environment" } },
         });
@@ -958,7 +997,7 @@ function DistributorBarangPageContent() {
                     <input
                       value={barcodeInput}
                       onChange={(e) => setBarcodeInput(e.target.value)}
-                      placeholder="Scan / ketik barcode..."
+                      placeholder="Scan / ketik barcode atau QR…"
                       autoComplete="off"
                       className="w-full bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-cyan-400"
                     />
@@ -981,7 +1020,7 @@ function DistributorBarangPageContent() {
                         <input
                           value={formNamaMasterBaru}
                           onChange={(e) =>
-                            setFormNamaMasterBaru(e.target.value)
+                            setFormNamaMasterBaru(e.target.value.toUpperCase())
                           }
                           placeholder="Nama di master RS"
                           className="w-full bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400"
@@ -1009,7 +1048,7 @@ function DistributorBarangPageContent() {
                               void applyByBarcode(barcodeInput);
                             }
                           }}
-                          placeholder="Scan / ketik"
+                          placeholder="Scan / ketik barcode atau QR"
                           autoComplete="off"
                           className="min-w-[10rem] flex-1 bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-cyan-400"
                         />
@@ -1334,9 +1373,9 @@ function DistributorBarangPageContent() {
       {cameraScanOpen ? (
         <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 p-4">
           <p className="text-[12px] text-cyan-200 mb-3 text-center max-w-sm">
-            Arahkan kamera ke barcode. Izinkan akses kamera bila diminta (HTTPS
-            atau localhost). Firefox/Safari bisa tidak mendukung — gunakan
-            Chrome atau scanner USB.
+            Arahkan kamera ke barcode atau QR. Izinkan akses kamera bila diminta
+            (HTTPS atau localhost). Firefox/Safari bisa tidak mendukung — gunakan
+            Chrome/Edge atau scanner USB.
           </p>
           <video
             ref={videoRef}

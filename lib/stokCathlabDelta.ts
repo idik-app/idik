@@ -124,3 +124,55 @@ export async function applyCathlabStokDelta(
     );
   }
 }
+
+/** Agregat stok Cathlab (semua baris inventaris) untuk satu master + distributor. */
+export async function sumInventarisCathlabAggregate(
+  supabase: SupabaseClient,
+  opts: { masterBarangId: string; distributorId: string },
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("inventaris")
+    .select("stok")
+    .eq("lokasi", "Cathlab")
+    .eq("master_barang_id", opts.masterBarangId)
+    .eq("distributor_id", opts.distributorId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).reduce(
+    (s, r) => s + Number((r as { stok?: number }).stok ?? 0),
+    0,
+  );
+}
+
+/**
+ * Samakan stok agregat Cathlab ke nilai target (bilangan bulat ≥ 0)
+ * dengan satu atau beberapa mutasi delta.
+ */
+export async function setCathlabStokToTarget(
+  supabase: SupabaseClient,
+  opts: {
+    masterBarangId: string;
+    distributorId: string;
+    target: number;
+    actor: string | null;
+    keterangan?: string | null;
+  },
+): Promise<void> {
+  const target = Math.max(0, Math.round(Number(opts.target)));
+  if (!Number.isFinite(target)) {
+    throw new Error("Target stok Cathlab tidak valid.");
+  }
+  const current = await sumInventarisCathlabAggregate(supabase, {
+    masterBarangId: opts.masterBarangId,
+    distributorId: opts.distributorId,
+  });
+  const delta = target - Math.round(current);
+  if (delta === 0) return;
+  await applyCathlabStokDelta(supabase, {
+    masterBarangId: opts.masterBarangId,
+    distributorId: opts.distributorId,
+    delta,
+    actor: opts.actor,
+    keterangan:
+      opts.keterangan ?? "Set stok agregat Cathlab ke nilai target",
+  });
+}

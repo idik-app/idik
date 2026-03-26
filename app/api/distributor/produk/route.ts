@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getDistributorIdentity } from "@/lib/auth/distributor";
-import { parseDistributorBarangExtra } from "@/lib/distributorCatalog";
+import {
+  normalizeDistributorLotAutoValue,
+  parseDistributorBarangExtra,
+} from "@/lib/distributorCatalog";
+import { findDistributorBarangLotConflict } from "@/lib/distributorBarangLotDup";
 import { generateDefaultMasterKode } from "@/lib/masterBarangKode";
 import { insertDistributorEvent } from "@/lib/distributorEventLog";
+import { setCathlabStokToTarget } from "@/lib/stokCathlabDelta";
 
 function parseOptionalDistributorId(
   req: Request,
@@ -309,6 +314,40 @@ export async function POST(req: Request) {
       ? true
       : Boolean(body.is_active);
 
+  const lotValPost = catalog.value.lot;
+  const lotNormPost =
+    lotValPost != null && String(lotValPost).trim() !== ""
+      ? normalizeDistributorLotAutoValue(String(lotValPost))
+      : "";
+  if (lotNormPost) {
+    try {
+      const conflict = await findDistributorBarangLotConflict(supabase, {
+        distributorId,
+        normalizedLot: lotNormPost,
+        allowMasterBarangId: resolvedMasterId,
+      });
+      if (conflict) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message:
+              "Nomor LOT sudah dipakai untuk produk lain di katalog distributor ini. Ubah LOT atau edit entri yang sudah ada.",
+            conflict_distributor_barang_id: conflict.id,
+          },
+          { status: 409 },
+        );
+      }
+    } catch (e) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: e instanceof Error ? e.message : "Gagal memvalidasi LOT",
+        },
+        { status: 500 },
+      );
+    }
+  }
+
   // Insert or update (upsert by unique constraint distributor_id+master_barang_id)
   const payload: Record<string, unknown> = {
     distributor_id: distributorId,
@@ -344,6 +383,44 @@ export async function POST(req: Request) {
         distributor_barang_id: row.id,
         master_barang_id: row.master_barang_id,
         kode_distributor: row.kode_distributor ?? null,
+      },
+    });
+  }
+
+  if (
+    row &&
+    body?.stok_cathlab !== undefined &&
+    body?.stok_cathlab !== null
+  ) {
+    const target = Math.max(0, Math.round(Number(body.stok_cathlab)));
+    if (!Number.isFinite(target)) {
+      return NextResponse.json(
+        { ok: false, message: "stok_cathlab harus angka bulat ≥ 0" },
+        { status: 400 },
+      );
+    }
+    try {
+      await setCathlabStokToTarget(supabase, {
+        masterBarangId: resolvedMasterId,
+        distributorId,
+        target,
+        actor: id.username,
+        keterangan: "Set stok Cathlab dari form tambah produk distributor",
+      });
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message : "Gagal mengatur stok Cathlab";
+      return NextResponse.json({ ok: false, message: msg }, { status: 400 });
+    }
+    void insertDistributorEvent(supabase, {
+      distributorId,
+      eventType: "MUTASI_STOK",
+      actor: id.username,
+      payload: {
+        distributor_barang_id: row.id,
+        master_barang_id: resolvedMasterId,
+        stok_cathlab_target: target,
+        note: "set_stok_form_tambah_produk",
       },
     });
   }

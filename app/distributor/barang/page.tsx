@@ -11,7 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Printer, ScanLine, Trash2, X } from "lucide-react";
+import { Printer, ScanLine, SearchCheck, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,7 +31,10 @@ import {
   parseDistributorHargaForSubmit,
   parseDistributorKemasanBarcodeTemplate,
   normalizeDistributorLotAutoValue,
+  normalizeDistributorUdiBarcodeKey,
   suggestSupraflexLotFromBarcode,
+  suggestGenossLotFromBarcode,
+  suggestDistributorLotFromBarcode,
 } from "@/lib/distributorCatalog";
 
 type Row = {
@@ -204,9 +207,13 @@ function DistributorBarangPageContent() {
   const [hapusTarget, setHapusTarget] = useState<Row | null>(null);
   const [hapusLoading, setHapusLoading] = useState(false);
 
+  /** Hasil klik "cek duplikat" di field LOT (berdasarkan data tabel yang sudah dimuat). */
+  const [lotDupCheckHint, setLotDupCheckHint] = useState<string | null>(null);
+
   const closeProductModal = useCallback(() => {
     setModalOpen(false);
     setCameraScanOpen(false);
+    setLotDupCheckHint(null);
   }, []);
 
   useEffect(() => {
@@ -229,12 +236,17 @@ function DistributorBarangPageContent() {
       if (!v) return;
       const parsed = parseDistributorKemasanBarcodeTemplate(raw);
       const lot = normalizeDistributorLotAutoValue(
-        suggestSupraflexLotFromBarcode(formNamaMasterBaru, v) ?? v,
+        suggestDistributorLotFromBarcode(formNamaMasterBaru, v) ?? v,
       );
-      const vKey = v.toUpperCase();
       setFormLot((prev) => {
         const p = prev.trim();
-        if (p === "" || p.toUpperCase() === vKey) return lot;
+        if (
+          p === "" ||
+          normalizeDistributorUdiBarcodeKey(p) ===
+            normalizeDistributorUdiBarcodeKey(v)
+        ) {
+          return lot;
+        }
         return prev;
       });
       if (parsed.ukuran) {
@@ -251,13 +263,18 @@ function DistributorBarangPageContent() {
     if (!modalOpen || editing) return;
     const v = barcodeInput.trim();
     if (!v) return;
-    const sup = suggestSupraflexLotFromBarcode(formNamaMasterBaru, v);
+    const sup = suggestDistributorLotFromBarcode(formNamaMasterBaru, v);
     if (!sup) return;
     const lot = normalizeDistributorLotAutoValue(sup);
-    const vKey = v.toUpperCase();
     setFormLot((prev) => {
       const p = prev.trim();
-      if (p === "" || p.toUpperCase() === vKey) return lot;
+      if (
+        p === "" ||
+        normalizeDistributorUdiBarcodeKey(p) ===
+          normalizeDistributorUdiBarcodeKey(v)
+      ) {
+        return lot;
+      }
       return prev;
     });
   }, [modalOpen, editing, formNamaMasterBaru, barcodeInput]);
@@ -281,12 +298,15 @@ function DistributorBarangPageContent() {
       if (list.length === 0) {
         const t = parseDistributorKemasanBarcodeTemplate(v);
         applyBarcodeTemplateFields(v);
-        const supLot = suggestSupraflexLotFromBarcode(formNamaMasterBaru, v);
-        const autoBit = supLot
+        const flexLot = suggestSupraflexLotFromBarcode(formNamaMasterBaru, v);
+        const genossLot = suggestGenossLotFromBarcode(formNamaMasterBaru, v);
+        const autoBit = flexLot
           ? " LOT SupraFlex diisi sebagai batch (10) dari barcode — periksa sebelum menyimpan."
-          : t.ukuran != null || t.ed != null
-            ? " LOT & kolom lain diisi otomatis dari pola barcode bila bisa — silakan periksa sebelum menyimpan."
-            : " LOT diisi otomatis sama dengan barcode — lengkapi ukuran/ED jika perlu.";
+          : genossLot
+            ? " LOT GENOSS diisi dari 9 karakter terakhir barcode — periksa sebelum menyimpan."
+            : t.ukuran != null || t.ed != null
+              ? " LOT & kolom lain diisi otomatis dari pola barcode bila bisa — silakan periksa sebelum menyimpan."
+              : " LOT diisi otomatis sama dengan barcode — lengkapi ukuran/ED jika perlu.";
         setBarcodeHint(
           `Tidak ada master dengan barcode ini. Lanjut isi nama barang baru di bawah, atau koordinasikan dengan administrator RS jika barang sudah terdaftar di master.${autoBit}`,
         );
@@ -481,6 +501,53 @@ function DistributorBarangPageContent() {
   /** Admin/superadmin: mode "Semua Distributor" — daftar gabungan semua PT. */
   const showAdminAllDistributors = adminView && !distributorIdParam;
   const tableColSpan = showAdminAllDistributors ? 11 : 10;
+
+  /** Cocokkan LOT ternormalisasi dengan baris yang sudah di-load (filter PT sama seperti daftar). */
+  const findLotDuplicateInLoadedRows = useCallback((): Row | null => {
+    const norm = normalizeDistributorLotAutoValue(formLot);
+    if (!norm) return null;
+    const excludeId = editing?.id ?? null;
+    for (const r of allRows) {
+      if (excludeId && r.id === excludeId) continue;
+      if (showAdminAllDistributors && editing) {
+        const scope =
+          distributorIdParam || editing.distributor_id?.trim() || "";
+        if (scope && String(r.distributor_id ?? "") !== scope) continue;
+      } else if (distributorIdParam) {
+        if (String(r.distributor_id ?? "") !== distributorIdParam) continue;
+      }
+      if (r.lot == null || String(r.lot).trim() === "") continue;
+      if (normalizeDistributorLotAutoValue(String(r.lot)) !== norm) continue;
+      return r;
+    }
+    return null;
+  }, [
+    formLot,
+    allRows,
+    editing,
+    distributorIdParam,
+    showAdminAllDistributors,
+  ]);
+
+  const runLotDuplicateCheck = useCallback(() => {
+    const norm = normalizeDistributorLotAutoValue(formLot);
+    if (!norm) {
+      setLotDupCheckHint("Isi nomor LOT terlebih dahulu.");
+      return;
+    }
+    const hit = findLotDuplicateInLoadedRows();
+    if (hit) {
+      const nama = hit.master_barang?.nama?.trim() || "—";
+      const pt = hit.distributor_nama_pt?.trim();
+      setLotDupCheckHint(
+        `Duplikat di katalog (data tabel): ${nama}${pt ? ` · ${pt}` : ""}. Ubah LOT atau edit entri tersebut.`,
+      );
+    } else {
+      setLotDupCheckHint(
+        "Tidak ada LOT yang sama di baris yang dimuat. Jika simpan tetap ditolak, muat ulang halaman (data bisa belum tersinkron).",
+      );
+    }
+  }, [formLot, findLotDuplicateInLoadedRows]);
 
   const confirmKeluarkanKePanel = async () => {
     if (!keluarkanTarget) return;
@@ -1482,15 +1549,34 @@ function DistributorBarangPageContent() {
                   </select>
                 </Labeled>
                 <Labeled label="LOT">
-                  <input
-                    value={formLot}
-                    onChange={(e) =>
-                      setFormLot(e.target.value.toUpperCase())
-                    }
-                    autoCapitalize="characters"
-                    className="w-full bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400 uppercase"
-                    placeholder="Nomor batch / LOT"
-                  />
+                  <div className="space-y-1">
+                    <div className="flex gap-1.5 items-stretch">
+                      <input
+                        value={formLot}
+                        onChange={(e) => {
+                          setFormLot(e.target.value.toUpperCase());
+                          setLotDupCheckHint(null);
+                        }}
+                        autoCapitalize="characters"
+                        className="min-w-0 flex-1 bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400 uppercase"
+                        placeholder="Nomor batch / LOT"
+                      />
+                      <button
+                        type="button"
+                        title="Cek duplikat LOT di katalog (berdasarkan data tabel)"
+                        aria-label="Cek duplikat LOT"
+                        onClick={() => runLotDuplicateCheck()}
+                        className="shrink-0 inline-flex items-center justify-center px-2.5 rounded-md border border-cyan-700/70 bg-slate-900/80 text-cyan-200/95 hover:bg-slate-800/90 hover:border-cyan-500/60 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                      >
+                        <SearchCheck className="h-4 w-4" aria-hidden />
+                      </button>
+                    </div>
+                    {lotDupCheckHint ? (
+                      <p className="text-[10px] leading-snug text-cyan-400/90">
+                        {lotDupCheckHint}
+                      </p>
+                    ) : null}
+                  </div>
                 </Labeled>
               </div>
 

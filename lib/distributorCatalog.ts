@@ -105,6 +105,49 @@ export function suggestSupraflexLotFromBarcode(
   return `(10)${batch.toUpperCase()}`;
 }
 
+/** Panjang sufiks barcode UDI untuk LOT GENOSS (9 karakter terakhir, mis. `…1025H12-C18` → `25H12-C18`). */
+export const GENOSS_LOT_BARCODE_SUFFIX_LEN = 9;
+
+/**
+ * Untuk **GENOSS**: LOT = **9 karakter terakhir** barcode UDI (format GS1).
+ */
+export function suggestGenossLotFromBarcode(
+  namaBarang: string,
+  barcode: string,
+): string | null {
+  const u = String(namaBarang ?? "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!u.includes("GENOSS")) return null;
+
+  const bc = String(barcode ?? "").trim();
+  const n = GENOSS_LOT_BARCODE_SUFFIX_LEN;
+  if (bc.length < n) return null;
+
+  return bc.slice(-n).toUpperCase();
+}
+
+/** Prioritas: SupraFlex `(10)…` batch, lalu GENOSS (9 karakter akhir), lalu null. */
+export function suggestDistributorLotFromBarcode(
+  namaBarang: string,
+  barcode: string,
+): string | null {
+  return (
+    suggestSupraflexLotFromBarcode(namaBarang, barcode) ??
+    suggestGenossLotFromBarcode(namaBarang, barcode) ??
+    null
+  );
+}
+
+/** Bandingkan string barcode UDI untuk isi otomatis LOT (huruf besar, dash unicode → ASCII). */
+export function normalizeDistributorUdiBarcodeKey(raw: string): string {
+  return String(raw ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, "-");
+}
+
 /** Nilai LOT: trim + huruf besar (form distributor & penyimpanan). */
 export function normalizeDistributorLotAutoValue(raw: string): string {
   return String(raw ?? "").trim().toUpperCase();

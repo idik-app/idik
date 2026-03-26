@@ -41,25 +41,24 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, data: data ?? [] }, { status: 200 });
   }
 
+  const safeQ = q.replace(/,/g, " ").trim();
+  /** Pencarian teks butuh lebih banyak baris mentah agar setelah dedupe nama dagang masih beragam (bukan puluhan varian kode sama). */
+  const textSearchLimit = safeQ ? 80 : 30;
+
   let query = supabase
     .from("master_barang")
     .select(selectCols)
     .eq("is_active", true)
     .order("nama", { ascending: true })
-    .limit(30);
+    .limit(textSearchLimit);
 
-  if (q) {
-    const safeQ = q.replace(/,/g, " ").trim();
-    if (safeQ) {
-      const esc = safeQ
-        .replace(/\\/g, "\\\\")
-        .replace(/%/g, "\\%")
-        .replace(/_/g, "\\_");
-      const pat = `%${esc}%`;
-      query = query.or(
-        `nama.ilike.${pat},kode.ilike.${pat},barcode.ilike.${pat}`
-      );
-    }
+  if (safeQ) {
+    const esc = safeQ
+      .replace(/\\/g, "\\\\")
+      .replace(/%/g, "\\%")
+      .replace(/_/g, "\\_");
+    const pat = `%${esc}%`;
+    query = query.or(`nama.ilike.${pat},kode.ilike.${pat},barcode.ilike.${pat}`);
   }
 
   const { data, error } = await query;

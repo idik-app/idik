@@ -60,6 +60,31 @@ function mergeNavQuery(
 const nav: NavItem[] = [
   { href: "/distributor/dashboard", label: "Dashboard", Icon: LayoutDashboard },
   { href: "/distributor/barang", label: "Barang", Icon: Package },
+  {
+    href: "/distributor/stok-opname",
+    label: "Stok opname",
+    Icon: ClipboardList,
+  },
+  { href: "/distributor/panel-retur", label: "Panel retur", Icon: RotateCcw },
+  {
+    href: "/distributor/riwayat",
+    label: "Histori retur",
+    Icon: History,
+    queryExtra: "event_type=KATALOG_RETUR",
+  },
+  { href: "/distributor/pemakaian", label: "Pemakaian", Icon: Activity },
+  { href: "/distributor/stok-menipis", label: "Stok Menipis", Icon: AlertTriangle },
+  { href: "/distributor/notifikasi", label: "Notifikasi", Icon: Bell },
+  { href: "/distributor/profil", label: "Profil", Icon: User },
+];
+
+export default function DistributorLayoutClient({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const selectedDistributorId = searchParams.get("distributor_id") ?? "";

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Upload, X, FileSpreadsheet, CheckCircle2, AlertCircle } from "lucide-react";
 import { usePasien } from "../contexts/PasienContext";
 import { useNotification } from "@/app/contexts/NotificationContext";
@@ -93,22 +92,15 @@ export default function PasienImport() {
         <Upload size={13} /> Import
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-            onClick={close}
+      {open && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={close}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-xl border border-cyan-700/50 bg-cyan-950/95 shadow-xl shadow-cyan-500/10 animate-in fade-in zoom-in-95 duration-200"
           >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md rounded-xl border border-cyan-700/50 bg-cyan-950/95 shadow-xl shadow-cyan-500/10"
-            >
               <div className="flex items-center justify-between p-4 border-b border-cyan-700/40">
                 <h3 className="text-lg font-semibold text-cyan-200 flex items-center gap-2">
                   <FileSpreadsheet size={20} /> Import dari Spreadsheet
@@ -216,10 +208,9 @@ export default function PasienImport() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        </div>
+      )}
     </>
   );
 }

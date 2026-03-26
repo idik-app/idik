@@ -1,5 +1,4 @@
 "use client";
-import { motion, useAnimationControls } from "framer-motion";
 import { useEffect, useState } from "react";
 
 interface JarvisScannerProps {
@@ -19,37 +18,21 @@ export default function JarvisScanner({
   duration = 3.2,
 }: JarvisScannerProps) {
   const [visible, setVisible] = useState(false);
-  const beamCtrl = useAnimationControls();
-  const pulseCtrl = useAnimationControls();
 
   useEffect(() => {
     if (isActive) {
       setVisible(true);
-      // mulai animasi sekali
-      beamCtrl.start({
-        y: ["-60%", "100%"],
-        opacity: [0.6, 0.8, 0.6],
-        transition: { duration, ease: "easeInOut", repeat: Infinity },
-      });
-      pulseCtrl.start({
-        opacity: [0.3, 0.6, 0.3],
-        scale: [1, 1.02, 1],
-        transition: {
-          duration: duration * 1.2,
-          ease: "easeInOut",
-          repeat: Infinity,
-        },
-      });
     } else {
-      // hentikan animasi segera dan sembunyikan
-      beamCtrl.stop();
-      pulseCtrl.stop();
       const t = setTimeout(() => setVisible(false), 200);
       return () => clearTimeout(t);
     }
-  }, [isActive, beamCtrl, pulseCtrl, duration]);
+  }, [isActive]);
 
   if (!visible) return null;
+
+  const pulseColor = color.replace("0.4", "0.15");
+  const beamDuration = `${Math.max(0.1, duration)}s`;
+  const pulseDuration = `${Math.max(0.1, duration * 1.2)}s`;
 
   return (
     <div
@@ -61,25 +44,52 @@ export default function JarvisScanner({
         backdropFilter: "blur(1px)",
       }}
     >
-      <motion.div
+      <div
         className="absolute left-0 top-0 w-full h-[40%]"
         style={{
           background: `linear-gradient(to bottom, ${color}, transparent 80%)`,
           mixBlendMode: "screen",
+          animation: `jarvisScanBeam ${beamDuration} ease-in-out infinite`,
         }}
-        animate={beamCtrl}
       />
-      <motion.div
+      <div
         className="absolute inset-0"
         style={{
-          background: `radial-gradient(circle at 50% 50%, ${color.replace(
-            "0.4",
-            "0.15"
-          )} 0%, transparent 70%)`,
+          background: `radial-gradient(circle at 50% 50%, ${pulseColor} 0%, transparent 70%)`,
           mixBlendMode: "screen",
+          animation: `jarvisScanPulse ${pulseDuration} ease-in-out infinite`,
         }}
-        animate={pulseCtrl}
       />
+      <style jsx>{`
+        @keyframes jarvisScanBeam {
+          0% {
+            transform: translateY(-60%);
+            opacity: 0.6;
+          }
+          50% {
+            opacity: 0.8;
+          }
+          100% {
+            transform: translateY(100%);
+            opacity: 0.6;
+          }
+        }
+
+        @keyframes jarvisScanPulse {
+          0% {
+            opacity: 0.3;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.6;
+            transform: scale(1.02);
+          }
+          100% {
+            opacity: 0.3;
+            transform: scale(1);
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -2,9 +2,6 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, FileSpreadsheet, FileText } from "lucide-react";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { usePasienCrud } from "../hooks/usePasienCrud";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { formatKelasPerawatanDisplay } from "../utils/formatKelasPerawatan";
@@ -19,12 +16,14 @@ export default function PasienExport() {
   const { show } = useNotification();
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (!patients?.length) {
       show({ type: "warning", message: "Tidak ada data pasien untuk diekspor." });
       return;
     }
+    setExporting("excel");
     try {
+      const XLSX = await import("xlsx");
       const rows = patients.map((p: any) => ({
         ...p,
         kelasPerawatan: formatKelasPerawatanDisplay(p.kelasPerawatan),
@@ -36,16 +35,22 @@ export default function PasienExport() {
       show({ type: "success", message: "Excel berhasil diunduh." });
     } catch (err: any) {
       show({ type: "error", message: "Gagal ekspor Excel: " + (err?.message || "Unknown error") });
+    } finally {
+      setExporting(null);
     }
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     if (!patients?.length) {
       show({ type: "warning", message: "Tidak ada data pasien untuk diekspor." });
       return;
     }
     setExporting("pdf");
     try {
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
       const doc = new jsPDF({ orientation: "landscape" });
       doc.setFontSize(14);
       doc.text("Data Pasien Cathlab IDIK", 14, 16);
@@ -90,6 +95,7 @@ export default function PasienExport() {
     <div className="flex gap-2">
       <Button
         onClick={exportToExcel}
+        disabled={!!exporting}
         className="flex items-center gap-2 bg-gradient-to-r from-cyan-700 to-cyan-500 hover:opacity-90 shadow-md"
       >
         <FileSpreadsheet size={16} /> Excel
@@ -100,7 +106,12 @@ export default function PasienExport() {
         disabled={!!exporting}
         className="flex items-center gap-2 bg-gradient-to-r from-gold to-yellow-400 text-black hover:opacity-90 shadow-md disabled:opacity-70"
       >
-        <FileText size={16} /> {exporting === "pdf" ? "Membuat PDF..." : "PDF"}
+        <FileText size={16} />{" "}
+        {exporting === "pdf"
+          ? "Membuat PDF..."
+          : exporting === "excel"
+            ? "Menyiapkan Excel..."
+            : "PDF"}
       </Button>
 
       <Button

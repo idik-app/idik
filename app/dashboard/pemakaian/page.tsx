@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
-import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import {
   Activity,
   Box,
@@ -33,25 +33,18 @@ import {
   RuanganCombobox,
   type RuanganOption,
 } from "@/components/ui/ruangan-combobox";
-import { DatetimeLocalPicker } from "@/components/ui/datetime-local-picker";
 import {
   BarangVariantCombobox,
   pickRowSearchHaystack,
   type MasterBarangPickRow,
 } from "@/components/ui/barang-variant-combobox";
-import ScanBarcodeQRDialog from "@/app/dashboard/pemakaian/components/ScanBarcodeQRDialog";
 import { ConsumableAngiografiPrintTemplate } from "@/app/dashboard/pemakaian/components/ConsumableAngiografiTemplate";
-import {
-  isSupabaseConfigured,
-  supabase,
-} from "@/lib/supabase/supabaseClient";
 import { useAppDialog } from "@/contexts/AppDialogContext";
 import { PrintIcon } from "@/components/icons/PrintIcon";
 import {
   normalizeTemplateInputBarang,
   type TemplateInputBarangPayload,
 } from "@/lib/pemakaian/templateInputBarang";
-import { TemplateBarangEditorDialog } from "@/app/dashboard/pemakaian/components/TemplateBarangEditorDialog";
 import {
   RincianBarangTemplateTabs,
   type RincianBarangTab,
@@ -65,6 +58,27 @@ import {
   loadKomponenRows,
   loadObatAlkesRows,
 } from "@/app/dashboard/pemakaian/lib/templateLocalStorage";
+
+const ScanBarcodeQRDialog = dynamic(
+  () => import("@/app/dashboard/pemakaian/components/ScanBarcodeQRDialog"),
+  { ssr: false },
+);
+
+const DatetimeLocalPicker = dynamic(
+  () =>
+    import("@/components/ui/datetime-local-picker").then(
+      (m) => m.DatetimeLocalPicker,
+    ),
+  { ssr: false },
+);
+
+const TemplateBarangEditorDialog = dynamic(
+  () =>
+    import("@/app/dashboard/pemakaian/components/TemplateBarangEditorDialog").then(
+      (m) => m.TemplateBarangEditorDialog,
+    ),
+  { ssr: false },
+);
 
 type PemakaianStatus =
   | "DRAFT"
@@ -548,8 +562,6 @@ export default function PemakaianPage() {
 
   /** Sinkron daftar order dari Supabase Realtime (tanpa refresh halaman). */
   useEffect(() => {
-    if (!isSupabaseConfigured()) return;
-
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const scheduleRefresh = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -558,19 +570,37 @@ export default function PemakaianPage() {
       }, 450);
     };
 
-    const channel = supabase
-      .channel("realtime:pemakaian-orders")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "cathlab_pemakaian_order" },
-        () => scheduleRefresh(),
-      )
-      .subscribe();
+    let cancelled = false;
+    let channel: unknown = null;
+    let supabaseRemoveChannel: ((ch: unknown) => unknown) | null = null;
+
+    void (async () => {
+      try {
+        const mod = await import("@/lib/supabase/supabaseClient");
+        if (cancelled) return;
+        if (!mod.isSupabaseConfigured()) return;
+        const sb: any = mod.supabase as any;
+        supabaseRemoveChannel = (ch: unknown) => sb.removeChannel(ch as any);
+        channel = sb
+          .channel("realtime:pemakaian-orders")
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "cathlab_pemakaian_order" },
+            () => scheduleRefresh(),
+          )
+          .subscribe();
+      } catch {
+        /* ignore realtime */
+      }
+    })();
 
     return () => {
+      cancelled = true;
       if (debounceTimer) clearTimeout(debounceTimer);
       try {
-        void supabase.removeChannel(channel);
+        if (channel && supabaseRemoveChannel) {
+          void supabaseRemoveChannel(channel);
+        }
       } catch {
         /* ignore */
       }
@@ -1377,12 +1407,7 @@ export default function PemakaianPage() {
       />
       <div className="print:hidden min-h-full p-6 bg-[#000814] text-white space-y-6">
         {/* ── Header + Aksi Utama ── */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="flex flex-wrap items-center gap-3 mb-2 justify-between"
-        >
+        <div className="flex flex-wrap items-center gap-3 mb-2 justify-between animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="flex items-center gap-3">
             <ClipboardList
               size={28}
@@ -1435,7 +1460,7 @@ export default function PemakaianPage() {
               </button>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* ── Statistik Ringkas ── */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1487,12 +1512,7 @@ export default function PemakaianPage() {
         </div>
 
         {/* ── Filter & pencarian ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="bg-[#050b14]/95 border border-white/10 rounded-2xl px-4 py-3 flex flex-col gap-3 text-xs"
-        >
+        <div className="bg-[#050b14]/95 border border-white/10 rounded-2xl px-4 py-3 flex flex-col gap-3 text-xs animate-in fade-in slide-in-from-top-1 duration-200">
           <div className="flex w-full items-center gap-2 rounded-lg border border-white/15 bg-black/30 px-2.5 py-1.5">
             <Search size={16} className="text-white/45 shrink-0" aria-hidden />
             <input
@@ -1513,15 +1533,10 @@ export default function PemakaianPage() {
               Perawat / Depo input, Depo Farmasi memverifikasi.
             </span>
           </div>
-        </motion.div>
+        </div>
 
         {/* ── Tabel Pemakaian / Resep ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="min-w-0 max-w-full bg-[#050b14]/95 border border-white/10 rounded-2xl p-4 overflow-hidden"
-        >
+        <div className="min-w-0 max-w-full bg-[#050b14]/95 border border-white/10 rounded-2xl p-4 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="flex flex-col gap-3 mb-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
@@ -1802,7 +1817,7 @@ export default function PemakaianPage() {
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* ── Panel detail baris (klik tabel) ── */}
         {detailRow && detailDraft && (
@@ -1817,16 +1832,14 @@ export default function PemakaianPage() {
               aria-label="Tutup detail"
               onClick={closeOrderDetail}
             />
-            <motion.div
-              initial={{ opacity: 0, x: 28 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            <div
               className={[
                 "relative z-10 flex h-full min-h-0 min-w-0 w-full max-w-full flex-col bg-[#050b14] shadow-2xl",
                 /* Mobile: panel lebar penuh, sudut atas membulat seperti lembar */
                 "max-sm:max-h-[100dvh] max-sm:border-x max-sm:border-t max-sm:border-white/15 max-sm:rounded-t-2xl",
                 /* Desktop: drawer kanan, lebih lebar untuk tabel rincian */
                 "sm:max-h-none sm:max-w-2xl sm:border-l sm:border-t-0 sm:border-r-0 sm:border-b-0 sm:border-white/15 sm:rounded-none",
+                "animate-in fade-in slide-in-from-right-6 duration-200",
               ].join(" ")}
               role="dialog"
               aria-modal="true"
@@ -2264,7 +2277,7 @@ export default function PemakaianPage() {
                   {detailSaving ? "Menyimpan…" : "Simpan"}
                 </button>
               </div>
-            </motion.div>
+            </div>
           </div>
         )}
 
@@ -2278,12 +2291,9 @@ export default function PemakaianPage() {
               aria-label="Tutup form"
               onClick={closePemakaianDrawer}
             />
-            <motion.div
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 40 }}
+            <div
               onClick={(e) => e.stopPropagation()}
-              className="relative z-10 w-full sm:max-w-2xl max-h-[90vh] bg-[#050b14] border border-white/15 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+              className="relative z-10 w-full sm:max-w-2xl max-h-[90vh] bg-[#050b14] border border-white/15 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in slide-in-from-bottom-6 duration-200"
             >
               <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
                 <div>
@@ -2649,7 +2659,7 @@ export default function PemakaianPage() {
                   {drawerSaving ? "Menyimpan…" : "Simpan & Kirim ke Depo"}
                 </button>
               </div>
-            </motion.div>
+            </div>
           </div>
         )}
 

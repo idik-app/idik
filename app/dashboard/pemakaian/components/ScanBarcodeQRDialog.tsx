@@ -2,27 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
-import {
-  Html5Qrcode,
-  Html5QrcodeSupportedFormats as F,
-} from "html5-qrcode";
 
 const REGION_ID = "pemakaian-barang-scan-region";
-
-const SCAN_FORMATS = [
-  F.QR_CODE,
-  F.CODE_128,
-  F.EAN_13,
-  F.EAN_8,
-  F.CODE_39,
-  F.CODE_93,
-  F.CODABAR,
-  F.ITF,
-  F.DATA_MATRIX,
-  F.UPC_A,
-  F.UPC_E,
-  F.PDF_417,
-];
 
 type Props = {
   open: boolean;
@@ -37,7 +18,9 @@ export default function ScanBarcodeQRDialog({
   onDecoded,
 }: Props) {
   const [error, setError] = useState<string | null>(null);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerRef = useRef<{ stop: () => Promise<unknown>; clear: () => void } | null>(
+    null,
+  );
   const doneRef = useRef(false);
   const onDecodedRef = useRef(onDecoded);
   onDecodedRef.current = onDecoded;
@@ -48,21 +31,17 @@ export default function ScanBarcodeQRDialog({
     doneRef.current = false;
     setError(null);
 
-    const scanner = new Html5Qrcode(REGION_ID, {
-      verbose: false,
-      formatsToSupport: SCAN_FORMATS,
-    });
-    scannerRef.current = scanner;
+    let cancelled = false;
+    let scanner: any = null;
 
     const finish = (text: string) => {
       if (doneRef.current) return;
       doneRef.current = true;
-      void scanner
-        .stop()
+      void scanner?.stop?.()
         .catch(() => {})
         .finally(() => {
           try {
-            scanner.clear();
+            scanner?.clear?.();
           } catch {
             /* ignore */
           }
@@ -71,24 +50,50 @@ export default function ScanBarcodeQRDialog({
         });
     };
 
-    scanner
-      .start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 260, height: 200 } },
-        (decodedText) => {
-          finish(decodedText);
-        },
-        () => {}
-      )
-      .catch((e: unknown) => {
+    void (async () => {
+      try {
+        const mod = await import("html5-qrcode");
+        if (cancelled) return;
+        const Html5Qrcode = mod.Html5Qrcode as any;
+        const F = mod.Html5QrcodeSupportedFormats as any;
+
+        scanner = new Html5Qrcode(REGION_ID, {
+          verbose: false,
+          formatsToSupport: [
+            F.QR_CODE,
+            F.CODE_128,
+            F.EAN_13,
+            F.EAN_8,
+            F.CODE_39,
+            F.CODE_93,
+            F.CODABAR,
+            F.ITF,
+            F.DATA_MATRIX,
+            F.UPC_A,
+            F.UPC_E,
+            F.PDF_417,
+          ],
+        });
+        scannerRef.current = scanner;
+
+        await scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 260, height: 200 } },
+          (decodedText: string) => finish(decodedText),
+          () => {},
+        );
+      } catch (e: unknown) {
+        if (cancelled) return;
         const msg =
           e instanceof Error
             ? e.message
             : "Tidak dapat membuka kamera. Izinkan akses kamera atau gunakan ketik manual.";
         setError(msg);
-      });
+      }
+    })();
 
     return () => {
+      cancelled = true;
       const s = scannerRef.current;
       scannerRef.current = null;
       if (!s || doneRef.current) return;

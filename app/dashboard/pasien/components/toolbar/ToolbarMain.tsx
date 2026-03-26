@@ -1,5 +1,4 @@
 "use client";
-import { motion } from "framer-motion";
 import { Clock } from "lucide-react";
 import { useToolbarLogic } from "./hooks/useToolbarLogic";
 import { ToolbarHeader } from "./ToolbarHeader";
@@ -21,17 +20,9 @@ export default function ToolbarMain() {
   const { summary, isSyncing, isIdle } = useToolbarLogic();
   const { modalMode } = usePasienState();
 
-  const fadeSlide = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0 },
-  };
-
   return (
-    <motion.div
-      initial="hidden"
-      animate="visible"
-      variants={fadeSlide}
-      className={`w-full jarvis-glass flex flex-col gap-3 p-4 rounded-xl border
+    <div
+      className={`w-full jarvis-glass flex flex-col gap-3 p-4 rounded-xl border animate-in fade-in slide-in-from-top-1 duration-200
                   border-cyan-700/40 backdrop-blur-md transition-opacity
                   shadow-[0_0_25px_rgba(0,255,255,0.08)]
                   ${isIdle ? "opacity-70" : "opacity-100"}`}
@@ -61,9 +52,8 @@ export default function ToolbarMain() {
       {/* ─────────────────────────────
          🔹 Info sinkronisasi
       ───────────────────────────── */}
-      <motion.div
-        variants={fadeSlide}
-        className={`text-[11px] text-right pr-2 ${
+      <div
+        className={`text-[11px] text-right pr-2 animate-in fade-in slide-in-from-top-1 duration-200 ${
           isSyncing ? "text-yellow-400" : "text-cyan-400"
         }`}
       >
@@ -72,7 +62,7 @@ export default function ToolbarMain() {
           <span>Sinkron terakhir:</span>
           <span className="font-semibold">{summary?.lastSync ?? "—"}</span>
         </div>
-      </motion.div>
+      </div>
 
       {/* 🔹 Tabel — satu panel dengan filter & sinkron di atas */}
       <div className="border-t border-cyan-700/40 pt-3 min-h-0">
@@ -81,6 +71,6 @@ export default function ToolbarMain() {
 
       {/* 🔹 Modal tambah pasien */}
       {modalMode === "add" && <FormTambahPasien />}
-    </motion.div>
+    </div>
   );
 }

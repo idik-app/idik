@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase/supabaseClient";
+
+function isPublicSupabaseConfigured() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+}
 
 export function useTindakanData() {
 
@@ -10,16 +15,32 @@ export function useTindakanData() {
   const [error, setError] = useState<any>(null);
 
   const reload = useCallback(async () => {
+    if (!isPublicSupabaseConfigured()) {
+      setError(null);
+      setTindakanList([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("tindakan")
-      .select("*")
-      .order("id", { ascending: false }); // FIX HERE
+    let data: unknown = null;
+    let qErr: unknown = null;
+    try {
+      const mod = await import("@/lib/supabase/supabaseClient");
+      const sb: any = mod.supabase as any;
+      const res = await sb
+        .from("tindakan")
+        .select("*")
+        .order("id", { ascending: false }); // FIX HERE
+      data = res?.data;
+      qErr = res?.error;
+    } catch (e: unknown) {
+      qErr = e;
+    }
 
-    if (error) {
-      console.error("Error load tindakan:", error);
-      setError(error);
+    if (qErr) {
+      console.error("Error load tindakan:", qErr);
+      setError(qErr);
       setTindakanList([]);
     } else {
       setError(null);

@@ -9,7 +9,6 @@
  */
 
 import { DiagnosticsBridge } from "./DiagnosticsBridge";
-import { supabase } from "@/lib/supabase/supabaseClient";
 
 const HEALTH_CHECK_INTERVAL_MS = 15_000;
 const PING_TABLE = "pasien";
@@ -18,7 +17,7 @@ export class AutonomousSupervisor {
   private static instance: AutonomousSupervisor | null = null;
   private healthCheckTimer: ReturnType<typeof setInterval> | null = null;
 
-  supabase = supabase;
+  private supabase: any | null = null;
 
   static init() {
     if (!AutonomousSupervisor.instance) {
@@ -28,11 +27,13 @@ export class AutonomousSupervisor {
   }
 
   constructor() {
-    this.runHealthCheck();
-    this.healthCheckTimer = setInterval(
-      () => this.runHealthCheck(),
-      HEALTH_CHECK_INTERVAL_MS
-    );
+    void this.ensureSupabase().then(() => {
+      void this.runHealthCheck();
+      this.healthCheckTimer = setInterval(
+        () => void this.runHealthCheck(),
+        HEALTH_CHECK_INTERVAL_MS,
+      );
+    });
   }
 
   /** Stop health check (e.g. on teardown) */
@@ -47,6 +48,7 @@ export class AutonomousSupervisor {
   /** Satu kali ping ke Supabase; update Bridge */
   private async runHealthCheck() {
     try {
+      const sb = await this.ensureSupabase();
       const { error } = await this.supabase
         .from(PING_TABLE)
         .select("id")
@@ -64,14 +66,25 @@ export class AutonomousSupervisor {
 
   /** Register listener realtime */
   registerRealtime(channel: string, table: string) {
-    return this.supabase
-      .channel(channel)
-      .on("postgres_changes", { event: "*", schema: "public", table }, () => {
-        DiagnosticsBridge.eventReceived();
-      })
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") DiagnosticsBridge.connected();
-        else DiagnosticsBridge.disconnected();
-      });
+    const p = this.ensureSupabase();
+    // Return a promise-like object: callers can await if needed, but legacy code can ignore.
+    return p.then((sb) =>
+      sb
+        .channel(channel)
+        .on("postgres_changes", { event: "*", schema: "public", table }, () => {
+          DiagnosticsBridge.eventReceived();
+        })
+        .subscribe((status: string) => {
+          if (status === "SUBSCRIBED") DiagnosticsBridge.connected();
+          else DiagnosticsBridge.disconnected();
+        }),
+    );
+  }
+
+  private async ensureSupabase() {
+    if (this.supabase) return this.supabase;
+    const mod = await import("@/lib/supabase/supabaseClient");
+    this.supabase = mod.supabase as any;
+    return this.supabase;
   }
 }

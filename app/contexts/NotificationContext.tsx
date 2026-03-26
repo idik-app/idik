@@ -1,8 +1,11 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
-import { AnimatePresence } from "framer-motion";
-import NotificationPanel from "@/components/NotificationPanel";
+import dynamic from "next/dynamic";
+
+const NotificationPanel = dynamic(() => import("@/components/NotificationPanel"), {
+  ssr: false,
+});
 
 type NotificationType = "success" | "error" | "warning" | "info" | "system";
 
@@ -163,11 +166,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
         className="fixed z-50 right-4 top-4 flex flex-col gap-3 max-w-sm sm:right-6 sm:top-6
                    md:right-8 md:top-8 transition-all"
       >
-        <AnimatePresence>
-          {notifications.slice(-3).map((n) => (
-            <NotificationPanel key={n.id} {...n} onClose={() => clear(n.id)} />
-          ))}
-        </AnimatePresence>
+        {notifications.slice(-3).map((n) => (
+          <div key={n.id} className="animate-in fade-in slide-in-from-top-2 duration-200">
+            <NotificationPanel {...n} onClose={() => clear(n.id)} />
+          </div>
+        ))}
       </div>
     </NotificationContext.Provider>
   );

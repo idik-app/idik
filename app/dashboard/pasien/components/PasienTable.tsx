@@ -1,12 +1,11 @@
 "use client";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import { usePasien, usePasienDispatch } from "../contexts/PasienContext";
 import { usePasienCrud } from "../hooks/usePasienCrud";
 import ToolbarPagination from "./toolbar/ToolbarPagination";
 import { hitungUsia } from "../utils/formatUsia";
 import { formatKelasPerawatanDisplay } from "../utils/formatKelasPerawatan";
-import ConfirmDialog from "@/components/ConfirmDialog";
 import {
   Eye,
   Edit,
@@ -15,6 +14,10 @@ import {
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
+
+const ConfirmDialog = dynamic(() => import("@/components/ConfirmDialog"), {
+  ssr: false,
+});
 
 /**
  * 📋 PasienTable v7.5 — Smooth & Non-Blinking Edition
@@ -90,10 +93,7 @@ export default function PasienTable({ embedded = false }: PasienTableProps) {
 
   return (
     <>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.4 }}
+      <div
         className={
           embedded
             ? "overflow-hidden flex flex-col min-h-0 rounded-b-lg bg-black/25"
@@ -104,11 +104,11 @@ export default function PasienTable({ embedded = false }: PasienTableProps) {
           className="min-h-0 overflow-x-auto overflow-y-auto max-h-[min(60vh,32rem)]
                      [scrollbar-color:rgba(34,211,238,0.35)_transparent]"
         >
-        <motion.table
-          layout
-          animate={animateTable ? { opacity: [0.8, 1] } : { opacity: 1 }}
-          transition={{ duration: 0.4 }}
-          className="min-w-full text-cyan-100 text-sm border-collapse"
+        <table
+          className={[
+            "min-w-full text-cyan-100 text-sm border-collapse transition-opacity duration-300",
+            animateTable ? "opacity-90" : "opacity-100",
+          ].join(" ")}
         >
           <thead className="sticky top-0 z-20 bg-black/80 backdrop-blur-md border-b border-yellow-400/30 shadow-[0_1px_0_rgba(250,204,21,0.15)]">
             <tr>
@@ -259,7 +259,7 @@ export default function PasienTable({ embedded = false }: PasienTableProps) {
               })
             )}
           </tbody>
-        </motion.table>
+        </table>
         </div>
 
         <div className="shrink-0 flex flex-wrap items-center justify-end gap-2 px-3 py-2.5 border-t border-yellow-500/25 bg-black/40">
@@ -275,7 +275,7 @@ export default function PasienTable({ embedded = false }: PasienTableProps) {
             }
           />
         </div>
-      </motion.div>
+      </div>
 
       {pendingDelete && (
         <ConfirmDialog

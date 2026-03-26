@@ -2,13 +2,35 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
 import SummaryGrid from "./summary/SummaryGrid";
 import { AIStatusPanel } from "./ai";
 import { AutonomousStatusCard } from "./AutonomousStatusCard";
-import ChartPatients from "./charts/ChartPatients";
-import ChartDoctors from "./charts/ChartDoctors";
-import ChartReuse from "./charts/ChartReuse";
 import MonitorCathlab from "./monitoring/MonitorCathlab";
+
+function ChartShell({ title }: { title: string }) {
+  return (
+    <div className="bg-black/40 border border-cyan-500/30 rounded-xl p-4 shadow-lg">
+      <p className="text-sm text-cyan-300 mb-2">{title}</p>
+      <div className="h-[200px] rounded-lg bg-white/[0.04] border border-white/10 animate-pulse" />
+    </div>
+  );
+}
+
+const ChartPatients = dynamic(() => import("./charts/ChartPatients"), {
+  ssr: false,
+  loading: () => <ChartShell title="Pasien per Hari" />,
+});
+
+const ChartDoctors = dynamic(() => import("./charts/ChartDoctors"), {
+  ssr: false,
+  loading: () => <ChartShell title="Distribusi Tindakan per Dokter" />,
+});
+
+const ChartReuse = dynamic(() => import("./charts/ChartReuse"), {
+  ssr: false,
+  loading: () => <ChartShell title="Tren Reuse Alkes" />,
+});
 
 /*───────────────────────────────────────────────
  ⚙️ DashboardMain – Cathlab JARVIS Mode v6.0

@@ -1,5 +1,4 @@
 "use client";
-import { motion } from "framer-motion";
 import ToolbarSearchFilter from "./ToolbarSearchFilter";
 
 /*───────────────────────────────────────────────
@@ -7,13 +6,8 @@ import ToolbarSearchFilter from "./ToolbarSearchFilter";
 ───────────────────────────────────────────────*/
 export function ToolbarHeader() {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="min-w-0 flex-1"
-    >
+    <div className="min-w-0 flex-1 animate-in fade-in slide-in-from-top-1 duration-200">
       <ToolbarSearchFilter />
-    </motion.div>
+    </div>
   );
 }

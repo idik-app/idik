@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import dynamic from "next/dynamic";
 import { Plus } from "lucide-react";
 import {
   usePasien,
@@ -8,9 +8,15 @@ import {
   usePasienState,
 } from "@/app/dashboard/pasien/contexts/PasienHooks"; // ✅ perbaikan path impor
 import PasienToolbar from "./components/PasienToolbar";
-import PasienModalForm from "./components/PasienModalForm";
-import PatientDetailModal from "./components/PatientDetailModal";
 import type { Pasien } from "./types/pasien";
+
+const PasienModalForm = dynamic(() => import("./components/PasienModalForm"), {
+  ssr: false,
+});
+
+const PatientDetailModal = dynamic(() => import("./components/PatientDetailModal"), {
+  ssr: false,
+});
 
 /*───────────────────────────────────────────────
 📋 PasienContent v4.1 — Stable Context Edition
@@ -35,51 +41,43 @@ export default function PasienContent() {
         <h2 className="text-xl font-semibold text-yellow-400 flex items-center gap-2">
           <span className="text-2xl">🧬</span> Biodata Pasien
         </h2>
-        <motion.button
+        <button
           onClick={openAddModal}
-          whileHover={{ scale: 1.1, rotate: 8 }}
-          whileTap={{ scale: 0.95 }}
           className="relative flex items-center justify-center
                      w-9 h-9 rounded-full border border-yellow-400/40
                      bg-gradient-to-tr from-yellow-400/20 to-cyan-400/10
                      text-yellow-300 hover:text-black hover:bg-yellow-400
                      hover:shadow-[0_0_10px_rgba(255,255,0,0.4)]
-                     transition-all duration-300"
+                     transition-all duration-300 hover:scale-110 hover:rotate-6 active:scale-95"
           title="Tambah Pasien Baru"
         >
           <Plus className="h-4 w-4" />
           <span className="absolute inset-0 rounded-full animate-pulse border border-yellow-500/30" />
-        </motion.button>
+        </button>
       </header>
 
       {/* 🔹 Toolbar + tabel (dalam satu kartu) */}
       <PasienToolbar />
 
       {/* 🔹 Modal pasien */}
-      <AnimatePresence mode="wait">
-        {isFormModal && (
-          <motion.div
-            key="pasien-modal"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.25 }}
-          >
-            <PasienModalForm
-              mode={modalMode as "add" | "edit"}
-              selectedPatient={selectedPatient as Pasien | null}
-              onClose={closeModal}
-            />
-          </motion.div>
-        )}
+      {isFormModal && (
+        <div key="pasien-modal" className="animate-in fade-in zoom-in-95 duration-200">
+          <PasienModalForm
+            mode={modalMode as "add" | "edit"}
+            selectedPatient={selectedPatient as Pasien | null}
+            onClose={closeModal}
+          />
+        </div>
+      )}
 
-        {isViewModal && (
+      {isViewModal && (
+        <div className="animate-in fade-in zoom-in-95 duration-200">
           <PatientDetailModal
             patient={(selectedPatient as Pasien | null) ?? null}
             onClose={closeModal}
           />
-        )}
-      </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

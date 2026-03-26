@@ -10,6 +10,51 @@ export const DISTRIBUTOR_PRODUK_KATEGORI = [
 export type DistributorProdukKategori =
   (typeof DISTRIBUTOR_PRODUK_KATEGORI)[number];
 
+/** Harga referensi mapping distributor untuk stent koroner (Rp, digunakan otomatis dari nama). */
+export const DISTRIBUTOR_STENT_DEFAULT_HARGA_JUAL = 6_000_000;
+
+/** Harga referensi khusus produk GENOSS (Rp). */
+export const DISTRIBUTOR_GENOSS_DEFAULT_HARGA_JUAL = 6_800_000;
+
+/** Substring nama (huruf besar) yang mengindikasikan item stent → kategori STENT. */
+const STENT_NAMA_MARKERS = [
+  "SUPRAFLEX",
+  "SUPRFAFLEX",
+  "GENOSS",
+  "SAPPHIRE",
+  "SAPHIRE",
+  "STENT",
+] as const;
+
+/** True jika nama barang mengarah ke stent → isi kategori STENT + harga referensi. */
+export function inferStentAlkesFromNamaBarang(nama: string): boolean {
+  const u = String(nama ?? "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!u) return false;
+  for (const m of STENT_NAMA_MARKERS) {
+    if (u.includes(m)) return true;
+  }
+  return false;
+}
+
+/** True jika nama mengarah ke GENOSS (harga referensi tersendiri). */
+export function inferGenossFromNamaBarang(nama: string): boolean {
+  const u = String(nama ?? "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  return u.includes("GENOSS");
+}
+
+/** Harga referensi otomatis untuk nama stent: GENOSS → 6,8jt; selain itu → stent umum. */
+export function defaultDistributorHargaJualForStentNama(nama: string): number {
+  return inferGenossFromNamaBarang(nama)
+    ? DISTRIBUTOR_GENOSS_DEFAULT_HARGA_JUAL
+    : DISTRIBUTOR_STENT_DEFAULT_HARGA_JUAL;
+}
+
 export type ParsedDistributorBarangExtra = {
   /** Barcode kemasan pada mapping distributor (tersimpan bersama produk). */
   barcode: string | null;

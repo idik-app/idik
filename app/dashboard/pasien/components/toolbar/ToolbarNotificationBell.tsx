@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Bell, Trash2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { useNotificationBell } from "@/app/contexts/NotificationContext";
 
 export function ToolbarNotificationBell() {
@@ -67,13 +66,10 @@ export function ToolbarNotificationBell() {
 
       {mounted &&
         createPortal(
-          <AnimatePresence>
+          <>
             {open && dropdownRect && (
-              <motion.div
+              <div
                 ref={dropdownRef}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
                 onMouseLeave={() => setOpen(false)}
                 style={{
                   position: "fixed",
@@ -84,7 +80,8 @@ export function ToolbarNotificationBell() {
                 }}
                 className="w-64 max-h-80 overflow-hidden flex flex-col
                          bg-black/90 border border-cyan-400/40 rounded-xl backdrop-blur-md
-                         text-xs text-cyan-100 shadow-xl"
+                         text-xs text-cyan-100 shadow-xl
+                         animate-in fade-in slide-in-from-top-2 duration-200"
               >
                 <div className="p-2 border-b border-cyan-400/20 flex items-center justify-between sticky top-0 bg-black/90">
                   <span className="font-semibold">Notifikasi</span>
@@ -121,9 +118,9 @@ export function ToolbarNotificationBell() {
                     ))
                   )}
                 </div>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>,
+          </>,
           document.body
         )}
     </div>

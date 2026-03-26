@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { useTindakanStats } from "./hooks/useTindakanStats";
 import { useTindakanRealtime } from "./hooks/useTindakanRealtime";
@@ -82,17 +81,12 @@ export default function TindakanDashboard() {
       className="relative min-h-screen bg-gradient-to-br from-black via-gray-900 to-cyan-950 text-white overflow-hidden"
     >
       {/* ✴️ HEADER */}
-      <motion.header
-        variants={fadeUp}
-        initial="hidden"
-        animate="show"
-        className="sticky top-0 z-30 backdrop-blur-md bg-black/40 border-b border-cyan-900/40 p-6"
-      >
+      <header className="sticky top-0 z-30 backdrop-blur-md bg-black/40 border-b border-cyan-900/40 p-6 animate-in fade-in slide-in-from-top-2 duration-300">
         <div className="space-y-2">
           <TindakanHeader />
           <div className="text-xs font-mono text-cyan-400/80">v8.5.1</div>
         </div>
-      </motion.header>
+      </header>
 
       {/* 🌌 KONTEN UTAMA */}
       <main className="relative overflow-y-auto max-h-[calc(100vh-160px)] px-6 pt-6 pb-28 space-y-10 scrollbar-thin scrollbar-thumb-cyan-800/60 scrollbar-track-transparent">
@@ -123,21 +117,14 @@ export default function TindakanDashboard() {
             </span>
           </div>
 
-          <AnimatePresence mode="wait">
-            <TindakanTable />
-          </AnimatePresence>
+          <TindakanTable />
         </section>
       </main>
 
       {/* 🧠 DiagnosticsHUD */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 2.6, duration: 0.6 }}
-        className="fixed bottom-4 right-4 z-50"
-      >
+      <div className="fixed bottom-4 right-4 z-50 animate-in fade-in duration-300 delay-2000">
         <DiagnosticsHUD />
-      </motion.div>
+      </div>
     </div>
   );
 }

@@ -1,9 +1,12 @@
 "use client";
 import { useRef, useState, useEffect } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
-import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import JarvisScanner from "@/components/effects/JarvisScanner";
-import DiagnosticsHUD from "@/components/DiagnosticsHUD";
+
+const DiagnosticsHUD = dynamic(() => import("@/components/DiagnosticsHUD"), {
+  ssr: false,
+});
 
 export default function TableContainer({
   children,
@@ -31,7 +34,7 @@ export default function TableContainer({
   };
 
   return (
-    <motion.div
+    <div
       ref={ref}
       data-table="tindakan"
       className={`relative rounded-2xl border border-cyan-800/50 bg-black/30 backdrop-blur-md overflow-hidden ${
@@ -58,6 +61,6 @@ export default function TableContainer({
           <DiagnosticsHUD module="Tindakan" />
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }

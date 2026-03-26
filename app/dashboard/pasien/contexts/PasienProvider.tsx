@@ -9,10 +9,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  supabase,
-  isSupabaseConfigured,
-} from "@/lib/supabase/supabaseClient";
-import {
   reducer,
   initialState,
   type State,
@@ -21,6 +17,12 @@ import {
 import { calculateSummary } from "./PasienSummary";
 import type { Pasien } from "../types/pasien";
 import { mapFromSupabase } from "../data/pasienSchema";
+
+function isPublicSupabaseConfigured() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+}
 
 /*-----------------------------------------------
 ?? PasienProvider v6.8 � Stable Realtime Anti-Refresh Edition
@@ -51,7 +53,7 @@ export function PasienProvider({ children }: { children: ReactNode }) {
    ?? Ambil data utama pasien
   -----------------------------------------------*/
   const fetchPatients = useCallback(async () => {
-    if (!isSupabaseConfigured()) {
+    if (!isPublicSupabaseConfigured()) {
       dispatch({
         type: "SET_ERROR",
         payload:
@@ -92,7 +94,7 @@ export function PasienProvider({ children }: { children: ReactNode }) {
    ?? Efek inisialisasi + sinkronisasi realtime
   -----------------------------------------------*/
   useEffect(() => {
-    const configured = isSupabaseConfigured();
+    const configured = isPublicSupabaseConfigured();
     dispatch({ type: "SET_SCANNING", payload: false });
     if (configured) fetchPatients();
 
@@ -122,26 +124,45 @@ export function PasienProvider({ children }: { children: ReactNode }) {
       fetchPatients();
     };
 
-    const ch = configured
-      ? supabase
-          .channel("pasien-sync-stable")
-          .on(
-            "postgres_changes",
-            {
-              event: "*",
-              schema: "public",
-              table: "pasien",
-              filter: "id=neq.0", // cegah event handshake awal
-            },
-            fetchDebounced
-          )
-          .subscribe((status) => console.log("?? Channel status:", status))
-      : null;
+    let cancelled = false;
+    let ch: unknown = null;
+    let removeChannel: ((c: unknown) => unknown) | null = null;
+
+    if (configured) {
+      void (async () => {
+        try {
+          const mod = await import("@/lib/supabase/supabaseClient");
+          if (cancelled) return;
+          const sb: any = mod.supabase as any;
+          removeChannel = (c: unknown) => sb.removeChannel(c as any);
+          ch = sb
+            .channel("pasien-sync-stable")
+            .on(
+              "postgres_changes",
+              {
+                event: "*",
+                schema: "public",
+                table: "pasien",
+                filter: "id=neq.0", // cegah event handshake awal
+              },
+              fetchDebounced,
+            )
+            .subscribe((status: string) => console.log("?? Channel status:", status));
+        } catch {
+          /* ignore realtime */
+        }
+      })();
+    }
 
     return () => {
-      if (ch) {
-        supabase.removeChannel(ch);
-        console.log("?? Realtime channel pasien-sync-stable removed");
+      cancelled = true;
+      try {
+        if (ch && removeChannel) {
+          void removeChannel(ch);
+          console.log("?? Realtime channel pasien-sync-stable removed");
+        }
+      } catch {
+        /* ignore */
       }
     };
   }, [fetchPatients]);

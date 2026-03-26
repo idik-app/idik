@@ -1,5 +1,4 @@
 "use client";
-import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Activity, AlertTriangle, Brain, Zap } from "lucide-react";
 
@@ -62,10 +61,9 @@ export default function AIStatusPanel() {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-cyan-700/40 bg-white/5 backdrop-blur-md p-6 shadow-lg shadow-cyan-700/10">
       {/* Hologram animasi inti */}
-      <motion.div
-        animate={{ rotate: 360 }}
-        transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-        className={`absolute -right-24 -top-24 h-64 w-64 rounded-full bg-gradient-to-tr from-cyan-400/20 to-gold-400/10 blur-3xl ${glowColor}`}
+      <div
+        className={`absolute -right-24 -top-24 h-64 w-64 rounded-full bg-gradient-to-tr from-cyan-400/20 to-gold-400/10 blur-3xl ${glowColor} animate-spin`}
+        style={{ animationDuration: "30s" }}
       />
 
       {/* Header */}
@@ -79,14 +77,9 @@ export default function AIStatusPanel() {
       </div>
 
       {/* Status Utama */}
-      <motion.div
-        key={status.message}
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
+      <div key={status.message} className="animate-in fade-in slide-in-from-top-1 duration-300">
         <p className="text-sm text-cyan-100/90">{status.message}</p>
-      </motion.div>
+      </div>
 
       {/* Footer */}
       <div className="mt-5 flex justify-between items-center text-xs text-gray-400">

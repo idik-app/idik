@@ -27,7 +27,11 @@ import {
   formatDistributorEdDisplay,
   formatDistributorHargaDisplay,
   parseDistributorEdForSubmit,
+  formatDistributorHargaInputValue,
   parseDistributorHargaForSubmit,
+  parseDistributorKemasanBarcodeTemplate,
+  normalizeDistributorLotAutoValue,
+  suggestSupraflexLotFromBarcode,
 } from "@/lib/distributorCatalog";
 
 type Row = {
@@ -219,6 +223,45 @@ function DistributorBarangPageContent() {
     };
   }, []);
 
+  const applyBarcodeTemplateFields = useCallback(
+    (raw: string) => {
+      const v = raw.trim();
+      if (!v) return;
+      const parsed = parseDistributorKemasanBarcodeTemplate(raw);
+      const lot = normalizeDistributorLotAutoValue(
+        suggestSupraflexLotFromBarcode(formNamaMasterBaru, v) ?? v,
+      );
+      const vKey = v.toUpperCase();
+      setFormLot((prev) => {
+        const p = prev.trim();
+        if (p === "" || p.toUpperCase() === vKey) return lot;
+        return prev;
+      });
+      if (parsed.ukuran) {
+        setFormUkuran((prev) => (prev.trim() === "" ? parsed.ukuran! : prev));
+      }
+      if (parsed.ed) {
+        setFormEd((prev) => (prev.trim() === "" ? parsed.ed! : prev));
+      }
+    },
+    [formNamaMasterBaru],
+  );
+
+  useEffect(() => {
+    if (!modalOpen || editing) return;
+    const v = barcodeInput.trim();
+    if (!v) return;
+    const sup = suggestSupraflexLotFromBarcode(formNamaMasterBaru, v);
+    if (!sup) return;
+    const lot = normalizeDistributorLotAutoValue(sup);
+    const vKey = v.toUpperCase();
+    setFormLot((prev) => {
+      const p = prev.trim();
+      if (p === "" || p.toUpperCase() === vKey) return lot;
+      return prev;
+    });
+  }, [modalOpen, editing, formNamaMasterBaru, barcodeInput]);
+
   const applyByBarcode = useCallback(async (raw: string) => {
     const v = raw.trim();
     if (!v) return;
@@ -236,8 +279,16 @@ function DistributorBarangPageContent() {
         return;
       }
       if (list.length === 0) {
+        const t = parseDistributorKemasanBarcodeTemplate(v);
+        applyBarcodeTemplateFields(v);
+        const supLot = suggestSupraflexLotFromBarcode(formNamaMasterBaru, v);
+        const autoBit = supLot
+          ? " LOT SupraFlex diisi sebagai batch (10) dari barcode — periksa sebelum menyimpan."
+          : t.ukuran != null || t.ed != null
+            ? " LOT & kolom lain diisi otomatis dari pola barcode bila bisa — silakan periksa sebelum menyimpan."
+            : " LOT diisi otomatis sama dengan barcode — lengkapi ukuran/ED jika perlu.";
         setBarcodeHint(
-          `Tidak ada master dengan barcode ini. Lanjut isi nama barang baru di bawah, atau koordinasikan dengan administrator RS jika barang sudah terdaftar di master.`,
+          `Tidak ada master dengan barcode ini. Lanjut isi nama barang baru di bawah, atau koordinasikan dengan administrator RS jika barang sudah terdaftar di master.${autoBit}`,
         );
         return;
       }
@@ -257,7 +308,7 @@ function DistributorBarangPageContent() {
     } finally {
       setLoadingModal(false);
     }
-  }, []);
+  }, [applyBarcodeTemplateFields, formNamaMasterBaru]);
 
   useEffect(() => {
     if (!cameraScanOpen) return;
@@ -505,13 +556,130 @@ function DistributorBarangPageContent() {
     }
   };
 
+  const submitProductModal = async () => {
+    const edParsed = parseDistributorEdForSubmit(formEd);
+    if (!edParsed.ok) {
+      alert(edParsed.message);
+      return;
+    }
+    if (!editing && !formNamaMasterBaru.trim()) {
+      alert("Isi nama barang untuk master baru");
+      return;
+    }
+    setLoadingModal(true);
+    try {
+      if (editing) {
+        const patchRes = await fetch(
+          `/api/distributor/produk/${encodeURIComponent(editing.id)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              kode_distributor: formKodeDistributor,
+              harga_jual: parseDistributorHargaForSubmit(formHargaJual),
+              is_active: formIsActive,
+              barcode: barcodeInput.trim() || null,
+              kategori: formKategoriAlkes || null,
+              lot: formLot.trim() || null,
+              ukuran: formUkuran.trim() || null,
+              ed: edParsed.value,
+            }),
+          },
+        );
+        const patchJ = await patchRes.json().catch(() => ({}));
+        if (!patchRes.ok) {
+          alert(
+            typeof patchJ?.message === "string"
+              ? patchJ.message
+              : "Gagal menyimpan data produk",
+          );
+          return;
+        }
+        const deltaRaw = formStokDelta
+          .trim()
+          .replace(/\s/g, "")
+          .replace(",", ".");
+        if (deltaRaw !== "") {
+          const deltaNum = Number(deltaRaw);
+          if (!Number.isFinite(deltaNum) || deltaNum === 0) {
+            alert(
+              "Penyesuaian inventaris harus angka tidak nol, atau kosongkan.",
+            );
+            return;
+          }
+          const deltaBody: Record<string, unknown> = {
+            distributor_barang_id: editing.id,
+            delta: deltaNum,
+          };
+          const distForApi =
+            distributorIdParam || editing.distributor_id?.trim() || "";
+          if (adminView && distForApi) {
+            deltaBody.distributor_id = distForApi;
+          }
+          const dRes = await fetch("/api/distributor/stok-cathlab-delta", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(deltaBody),
+          });
+          const dJ = await dRes.json().catch(() => ({}));
+          if (!dRes.ok || dJ?.ok === false) {
+            alert(
+              typeof dJ?.message === "string"
+                ? dJ.message
+                : "Data produk tersimpan, tetapi penyesuaian inventaris gagal.",
+            );
+            closeProductModal();
+            await load();
+            return;
+          }
+        }
+      } else {
+        const payload: Record<string, unknown> = {
+          kode_distributor: formKodeDistributor ? formKodeDistributor : null,
+          harga_jual: parseDistributorHargaForSubmit(formHargaJual),
+          min_stok: 0,
+          is_active: formIsActive,
+          barcode: barcodeInput.trim() || null,
+          kategori: formKategoriAlkes || null,
+          lot: formLot.trim() || null,
+          ukuran: formUkuran.trim() || null,
+          ed: edParsed.value,
+        };
+        payload.nama_master_baru = formNamaMasterBaru.trim();
+        if (formKodeMasterBaru.trim())
+          payload.kode_master_baru = formKodeMasterBaru.trim();
+        /** Modul Cathlab distributor: master baru selalu ALKES. */
+        payload.jenis_master = "ALKES";
+        if (distributorIdParam) payload.distributor_id = distributorIdParam;
+        const res = await fetch(`/api/distributor/produk`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const j = await res.json();
+        if (!res.ok || !j?.ok) {
+          alert(
+            typeof j?.message === "string"
+              ? j.message
+              : "Gagal menyimpan produk",
+          );
+          return;
+        }
+      }
+      closeProductModal();
+      await load();
+    } finally {
+      setLoadingModal(false);
+    }
+  };
+
   const openEditRow = (r: Row) => {
     setEditing(r);
     setSelectedMasterLabel(r.master_barang?.nama ?? "");
     setFormKodeDistributor(r.kode_distributor ?? "");
     setBarcodeInput(r.barcode ?? "");
     setFormKategoriAlkes(r.kategori ?? "");
-    setFormLot(r.lot ?? "");
+    setFormLot(normalizeDistributorLotAutoValue(r.lot ?? ""));
     setFormUkuran(r.ukuran ?? "");
     setFormEd(distributorEdToFormValue(r.ed));
     setFormHargaJual(distributorHargaToFormValue(r.harga_jual));
@@ -1115,7 +1283,14 @@ function DistributorBarangPageContent() {
               </div>
             </div>
 
-            <div className="p-4 overflow-y-auto text-[12px] space-y-5">
+            <form
+              className="flex min-h-0 flex-1 flex-col"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void submitProductModal();
+              }}
+            >
+            <div className="flex-1 min-h-0 p-4 overflow-y-auto text-[12px] space-y-5">
               {editing ? (
                 <div className="space-y-3">
                   <Labeled label="Nama barang">
@@ -1200,6 +1375,35 @@ function DistributorBarangPageContent() {
                         </button>
                         <button
                           type="button"
+                          title="Isi LOT, ukuran, ED dari pola barcode tanpa cek master"
+                          className="px-2.5 py-1.5 rounded-md text-[11px] bg-cyan-950/60 border border-cyan-700/60 text-cyan-200 hover:bg-cyan-900/50"
+                          onClick={() => {
+                            const v = barcodeInput.trim();
+                            if (!v) {
+                              setBarcodeHint(
+                                "Isi barcode dulu, lalu Isi otomatis.",
+                              );
+                              return;
+                            }
+                            setBarcodeHint(null);
+                            applyBarcodeTemplateFields(v);
+                            const t = parseDistributorKemasanBarcodeTemplate(v);
+                            if (!t.ukuran && !t.ed) {
+                              setBarcodeHint(
+                                "LOT disamakan dengan barcode. Ukuran/ED tidak terbaca dari pola — isi manual jika perlu (ukuran: sering 9 digit terakhir = Ø×100 + panjang mm).",
+                              );
+                            } else {
+                              setBarcodeHint(
+                                "Kolom LOT, ukuran, dan/atau ED diisi dari template barcode — periksa sebelum simpan.",
+                              );
+                            }
+                          }}
+                          disabled={loadingModal}
+                        >
+                          Isi otomatis
+                        </button>
+                        <button
+                          type="button"
                           className="px-2.5 py-1.5 rounded-md text-[11px] bg-slate-800/80 border border-slate-600 hover:bg-slate-800 inline-flex items-center gap-1"
                           onClick={() => {
                             setBarcodeHint(null);
@@ -1280,8 +1484,11 @@ function DistributorBarangPageContent() {
                 <Labeled label="LOT">
                   <input
                     value={formLot}
-                    onChange={(e) => setFormLot(e.target.value)}
-                    className="w-full bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                    onChange={(e) =>
+                      setFormLot(e.target.value.toUpperCase())
+                    }
+                    autoCapitalize="characters"
+                    className="w-full bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400 uppercase"
                     placeholder="Nomor batch / LOT"
                   />
                 </Labeled>
@@ -1319,16 +1526,20 @@ function DistributorBarangPageContent() {
                 <Labeled label="Harga Distributor">
                   <input
                     value={formHargaJual}
-                    onChange={(e) => setFormHargaJual(e.target.value)}
+                    onChange={(e) =>
+                      setFormHargaJual(
+                        formatDistributorHargaInputValue(e.target.value),
+                      )
+                    }
                     inputMode="numeric"
                     autoComplete="off"
                     className="w-full bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400 tabular-nums placeholder:text-slate-600"
-                    placeholder="Rp 3.000.000"
+                    placeholder="6.000.000"
                     disabled={false}
                   />
                   <span className="text-[10px] text-cyan-500/80 font-normal">
-                    Angka rupiah (boleh titik atau tempel dengan Rp), contoh 3
-                    juta: 3000000 atau 3.000.000
+                    Otomatis pemisah ribuan (titik). Boleh tempel angka atau
+                    teks dengan Rp.
                   </span>
                 </Labeled>
                 {editing ? (
@@ -1363,7 +1574,7 @@ function DistributorBarangPageContent() {
               </p>
             </div>
 
-            <div className="px-4 py-3 border-t border-slate-800/80 flex justify-end gap-2">
+            <div className="px-4 py-3 border-t border-slate-800/80 flex justify-end gap-2 shrink-0">
               <button
                 type="button"
                 className="px-3 py-1.5 rounded-full text-xs border border-slate-700 text-cyan-200 hover:bg-slate-900/80"
@@ -1372,138 +1583,14 @@ function DistributorBarangPageContent() {
                 Batal
               </button>
               <button
+                type="submit"
                 disabled={loadingModal}
                 className="px-5 py-2 rounded-full text-xs font-bold bg-gradient-to-r from-emerald-200 via-teal-200 to-cyan-200 text-slate-950 shadow-[0_0_26px_rgba(45,212,191,0.85),0_0_52px_rgba(34,211,238,0.45)] ring-1 ring-white/40 hover:from-emerald-100 hover:via-teal-100 hover:to-cyan-100 hover:shadow-[0_0_32px_rgba(34,211,238,0.95)] disabled:opacity-55"
-                onClick={async () => {
-                  const edParsed = parseDistributorEdForSubmit(formEd);
-                  if (!edParsed.ok) {
-                    alert(edParsed.message);
-                    return;
-                  }
-                  if (!editing && !formNamaMasterBaru.trim()) {
-                    alert("Isi nama barang untuk master baru");
-                    return;
-                  }
-                  setLoadingModal(true);
-                  try {
-                    if (editing) {
-                      const patchRes = await fetch(
-                        `/api/distributor/produk/${encodeURIComponent(editing.id)}`,
-                        {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            kode_distributor: formKodeDistributor,
-                            harga_jual:
-                              parseDistributorHargaForSubmit(formHargaJual),
-                            is_active: formIsActive,
-                            barcode: barcodeInput.trim() || null,
-                            kategori: formKategoriAlkes || null,
-                            lot: formLot.trim() || null,
-                            ukuran: formUkuran.trim() || null,
-                            ed: edParsed.value,
-                          }),
-                        },
-                      );
-                      const patchJ = await patchRes.json().catch(() => ({}));
-                      if (!patchRes.ok) {
-                        alert(
-                          typeof patchJ?.message === "string"
-                            ? patchJ.message
-                            : "Gagal menyimpan data produk",
-                        );
-                        return;
-                      }
-                      const deltaRaw = formStokDelta
-                        .trim()
-                        .replace(/\s/g, "")
-                        .replace(",", ".");
-                      if (deltaRaw !== "") {
-                        const deltaNum = Number(deltaRaw);
-                        if (!Number.isFinite(deltaNum) || deltaNum === 0) {
-                          alert(
-                            "Penyesuaian inventaris harus angka tidak nol, atau kosongkan.",
-                          );
-                          return;
-                        }
-                        const deltaBody: Record<string, unknown> = {
-                          distributor_barang_id: editing.id,
-                          delta: deltaNum,
-                        };
-                        const distForApi =
-                          distributorIdParam ||
-                          editing.distributor_id?.trim() ||
-                          "";
-                        if (adminView && distForApi) {
-                          deltaBody.distributor_id = distForApi;
-                        }
-                        const dRes = await fetch(
-                          "/api/distributor/stok-cathlab-delta",
-                          {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(deltaBody),
-                          },
-                        );
-                        const dJ = await dRes.json().catch(() => ({}));
-                        if (!dRes.ok || dJ?.ok === false) {
-                          alert(
-                            typeof dJ?.message === "string"
-                              ? dJ.message
-                              : "Data produk tersimpan, tetapi penyesuaian inventaris gagal.",
-                          );
-                          closeProductModal();
-                          await load();
-                          return;
-                        }
-                      }
-                    } else {
-                      const payload: Record<string, unknown> = {
-                        kode_distributor: formKodeDistributor
-                          ? formKodeDistributor
-                          : null,
-                        harga_jual:
-                          parseDistributorHargaForSubmit(formHargaJual),
-                        min_stok: 0,
-                        is_active: formIsActive,
-                        barcode: barcodeInput.trim() || null,
-                        kategori: formKategoriAlkes || null,
-                        lot: formLot.trim() || null,
-                        ukuran: formUkuran.trim() || null,
-                        ed: edParsed.value,
-                      };
-                      payload.nama_master_baru = formNamaMasterBaru.trim();
-                      if (formKodeMasterBaru.trim())
-                        payload.kode_master_baru = formKodeMasterBaru.trim();
-                      /** Modul Cathlab distributor: master baru selalu ALKES. */
-                      payload.jenis_master = "ALKES";
-                      if (distributorIdParam)
-                        payload.distributor_id = distributorIdParam;
-                      const res = await fetch(`/api/distributor/produk`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(payload),
-                      });
-                      const j = await res.json();
-                      if (!res.ok || !j?.ok) {
-                        alert(
-                          typeof j?.message === "string"
-                            ? j.message
-                            : "Gagal menyimpan produk",
-                        );
-                        return;
-                      }
-                    }
-                    closeProductModal();
-                    await load();
-                  } finally {
-                    setLoadingModal(false);
-                  }
-                }}
               >
                 {editing ? "Simpan" : "Tambah"}
               </button>
             </div>
+            </form>
           </div>
         </div>
       )}

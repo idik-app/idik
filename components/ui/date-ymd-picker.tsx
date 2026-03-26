@@ -48,11 +48,14 @@ export function DateYmdPicker({
   value,
   onChange,
   className,
+  clearable = true,
 }: {
   label: string;
   value: string;
   onChange: (ymd: string) => void;
   className?: string;
+  /** false = wajib ada tanggal (filter laporan, dll.) */
+  clearable?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -97,7 +100,7 @@ export function DateYmdPicker({
                 : "Pilih tanggal…"}
             </span>
           </button>
-          {selected ? (
+          {clearable && selected ? (
             <button
               suppressHydrationWarning
               type="button"

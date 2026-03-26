@@ -20,6 +20,96 @@ export type ParsedDistributorBarangExtra = {
   ed: string | null;
 };
 
+/** Hasil parse barcode kemasan → saran LOT / ukuran / ED untuk form tambah produk. Lot = teks utuh; ukuran dari 9 digit terakhir (AABBBCCC → Ø mm × panjang) bila masuk rentang alat; ED hanya jika ada pola MM-YYYY di string. */
+export type DistributorKemasanBarcodeTemplate = {
+  lot: string;
+  ukuran: string | null;
+  ed: string | null;
+};
+
+const PLAIN_EAN_LIKE = /^\d{8}$|^\d{12}$|^\d{13}$/;
+
+/** Pemisah Ø × panjang dengan spasi: "2.75x28" / "2.75 × 28" → "2.75 x 28". Hanya segmen angka–x–angka. */
+export function normalizeDistributorUkuranSpacing(raw: string): string {
+  const s = String(raw ?? "").trim();
+  if (!s) return s;
+  return s
+    .replace(/(\d+(?:\.\d+)?)\s*[x×]\s*(\d+)/gi, "$1 x $2")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Ekstrak template dari barcode/UID kemasan (mis. stent): LOT default = string penuh;
+ * ukuran `X.XX x L` jika 9 digit terakhir memenuhi heuristik diameter × panjang (mm).
+ */
+export function parseDistributorKemasanBarcodeTemplate(
+  raw: string,
+): DistributorKemasanBarcodeTemplate {
+  const lot = String(raw ?? "").trim();
+  if (!lot) return { lot: "", ukuran: null, ed: null };
+
+  let ukuran: string | null = null;
+  if (!PLAIN_EAN_LIKE.test(lot)) {
+    const m = lot.match(/(\d{3})(\d{3})(\d{3})$/);
+    if (m) {
+      const dHmm = Number.parseInt(m[1], 10);
+      const lenMm = Number.parseInt(m[2], 10);
+      const diameter = dHmm / 100;
+      if (
+        diameter >= 0.5 &&
+        diameter <= 6.5 &&
+        lenMm >= 5 &&
+        lenMm <= 250
+      ) {
+        ukuran = normalizeDistributorUkuranSpacing(
+          `${diameter.toFixed(2)} x ${lenMm}`,
+        );
+      }
+    }
+  }
+
+  let ed: string | null = null;
+  const y = lot.match(/\b(0[1-9]|1[0-2])-(20\d{2})\b/);
+  if (y) ed = `${y[1]}-${y[2]}`;
+  else {
+    const slash = lot.match(/\b(0[1-9]|1[0-2])\/(20\d{2})\b/);
+    if (slash) ed = `${slash[1]}-${slash[2]}`;
+  }
+
+  return { lot, ukuran, ed };
+}
+
+/**
+ * Untuk master **SUPRAFLEX** (termasuk typo SUPRFAFLEX): LOT GS1 batch AI (10) =
+ * `(10)` + 8 karakter setelah awalan `21` pada barcode UDI (indeks 2–9).
+ * Contoh barcode `21S25TZAUZS…` → `(10)S25TZAUZ`.
+ */
+export function suggestSupraflexLotFromBarcode(
+  namaBarang: string,
+  barcode: string,
+): string | null {
+  const compact = String(namaBarang ?? "")
+    .toUpperCase()
+    .replace(/\s+/g, "");
+  const isSupraflex =
+    compact.includes("SUPRAFLEX") || compact.includes("SUPRFAFLEX");
+  if (!isSupraflex) return null;
+
+  const bc = String(barcode ?? "").trim();
+  if (bc.length < 10 || !bc.startsWith("21")) return null;
+
+  const batch = bc.slice(2, 10);
+  if (!/^[A-Za-z0-9]{8}$/.test(batch)) return null;
+
+  return `(10)${batch.toUpperCase()}`;
+}
+
+/** Nilai LOT: trim + huruf besar (form distributor & penyimpanan). */
+export function normalizeDistributorLotAutoValue(raw: string): string {
+  return String(raw ?? "").trim().toUpperCase();
+}
+
 const ED_MM_YYYY = /^(0[1-9]|1[0-2])-\d{4}$/;
 const ED_LEGACY_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -103,6 +193,18 @@ export function parseDistributorHargaForSubmit(
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Nilai tampilan field harga saat diketik/ditempel: angka saja → format ribuan id-ID (titik),
+ * mis. mengetik 6000000 menjadi "6.000.000".
+ */
+export function formatDistributorHargaInputValue(raw: string): string {
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  if (digits === "") return "";
+  const n = Number(digits);
+  if (!Number.isFinite(n) || n < 0) return "";
+  return RUPIAH_ID_PLAIN.format(n);
+}
+
 /** Tampilan tabel / ringkasan: Rp 3.000.000 */
 export function formatDistributorHargaDisplay(
   harga: number | null | undefined,
@@ -180,18 +282,21 @@ export function parseDistributorBarangExtra(
 
   if (want("lot")) {
     const raw = body.lot;
-    out.lot =
-      raw === undefined || raw === null || String(raw).trim() === ""
-        ? null
-        : String(raw).trim();
+    if (raw === undefined || raw === null || String(raw).trim() === "") {
+      out.lot = null;
+    } else {
+      const lot = normalizeDistributorLotAutoValue(String(raw));
+      out.lot = lot === "" ? null : lot;
+    }
   }
 
   if (want("ukuran")) {
     const raw = body.ukuran;
-    out.ukuran =
-      raw === undefined || raw === null || String(raw).trim() === ""
-        ? null
-        : String(raw).trim();
+    if (raw === undefined || raw === null || String(raw).trim() === "") {
+      out.ukuran = null;
+    } else {
+      out.ukuran = normalizeDistributorUkuranSpacing(String(raw).trim());
+    }
   }
 
   if (want("ed")) {

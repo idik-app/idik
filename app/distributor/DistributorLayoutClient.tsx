@@ -94,8 +94,11 @@ export default function DistributorLayoutClient({
   >([]);
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  /** Hanya true setelah mount — hindari mismatch hidrasi (ekstensi sering menambah atribut ke <button>). */
+  const [layoutInteractive, setLayoutInteractive] = useState(false);
 
   useEffect(() => {
+    setLayoutInteractive(true);
     try {
       const v = window.localStorage.getItem("distributor-sidebar-collapsed");
       if (v === "1") setSidebarCollapsed(true);
@@ -234,33 +237,46 @@ export default function DistributorLayoutClient({
               Menu
             </span>
             <div className="flex min-w-0 justify-end">
-              <button
-                type="button"
-                aria-expanded={!sidebarCollapsed}
-                aria-label={sidebarCollapsed ? "Buka menu samping" : "Sembunyikan menu samping"}
-                title={sidebarCollapsed ? "Buka menu" : "Sembunyikan menu"}
-                onClick={() => {
-                  setSidebarCollapsed((c) => {
-                    const next = !c;
-                    try {
-                      window.localStorage.setItem(
-                        "distributor-sidebar-collapsed",
-                        next ? "1" : "0",
-                      );
-                    } catch {
-                      /* ignore */
-                    }
-                    return next;
-                  });
-                }}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-800/70 bg-slate-900/70 text-cyan-200/90 hover:bg-slate-900 hover:text-cyan-50 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-              >
-                {sidebarCollapsed ? (
-                  <PanelLeftOpen className="h-4 w-4" aria-hidden />
-                ) : (
+              {layoutInteractive ? (
+                <button
+                  type="button"
+                  aria-expanded={!sidebarCollapsed}
+                  aria-label={
+                    sidebarCollapsed
+                      ? "Buka menu samping"
+                      : "Sembunyikan menu samping"
+                  }
+                  title={sidebarCollapsed ? "Buka menu" : "Sembunyikan menu"}
+                  onClick={() => {
+                    setSidebarCollapsed((c) => {
+                      const next = !c;
+                      try {
+                        window.localStorage.setItem(
+                          "distributor-sidebar-collapsed",
+                          next ? "1" : "0",
+                        );
+                      } catch {
+                        /* ignore */
+                      }
+                      return next;
+                    });
+                  }}
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-800/70 bg-slate-900/70 text-cyan-200/90 hover:bg-slate-900 hover:text-cyan-50 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                >
+                  {sidebarCollapsed ? (
+                    <PanelLeftOpen className="h-4 w-4" aria-hidden />
+                  ) : (
+                    <PanelLeftClose className="h-4 w-4" aria-hidden />
+                  )}
+                </button>
+              ) : (
+                <div
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-cyan-800/70 bg-slate-900/70 text-cyan-200/90"
+                  aria-hidden
+                >
                   <PanelLeftClose className="h-4 w-4" aria-hidden />
-                )}
-              </button>
+                </div>
+              )}
             </div>
           </div>
           <nav

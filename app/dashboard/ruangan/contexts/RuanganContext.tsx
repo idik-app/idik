@@ -8,12 +8,24 @@ import {
   useCallback,
   useEffect,
 } from "react";
-import {
-  supabase,
-  isSupabaseConfigured,
-} from "@/lib/supabase/supabaseClient";
 
 let ruanganSupabaseWarned = false;
+
+function isPublicSupabaseConfigured() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+}
+
+let supabasePromise: Promise<any> | null = null;
+async function ensureSupabase() {
+  if (!supabasePromise) {
+    supabasePromise = import("@/lib/supabase/supabaseClient").then(
+      (m) => m.supabase as any,
+    );
+  }
+  return supabasePromise;
+}
 
 export type RuanganRow = {
   id: string;
@@ -98,7 +110,7 @@ export function RuanganProvider({ children }: { children: React.ReactNode }) {
 
   const fetchRows = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
-    if (!isSupabaseConfigured()) {
+    if (!isPublicSupabaseConfigured()) {
       setRows([]);
       if (!silent) setLoading(false);
       if (!ruanganSupabaseWarned) {
@@ -110,7 +122,8 @@ export function RuanganProvider({ children }: { children: React.ReactNode }) {
       };
     }
     if (!silent) setLoading(true);
-    const { data, error } = await supabase
+    const sb: any = await ensureSupabase();
+    const { data, error } = await sb
       .from("ruangan")
       .select("*")
       .order("nama");

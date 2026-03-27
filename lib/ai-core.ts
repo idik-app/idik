@@ -76,7 +76,17 @@ export async function logEvent(
 
   console.log("📡 [AI-LOG]", entry);
 
+  // Default: jangan kirim write log dari browser agar tidak spam 401
+  // pada environment dengan RLS ketat untuk `system_logs`.
+  const allowClientWrite =
+    process.env.NEXT_PUBLIC_ENABLE_CLIENT_SYSTEM_LOG_WRITE === "true";
+  if (!allowClientWrite) return;
+
   try {
+    const {
+      data: { session },
+    } = await (supabase as any).auth.getSession();
+    if (!session) return;
     await (supabase as any).from("system_logs").insert(entry);
   } catch {
     console.warn("⚠️ Log fallback (SafeMode)");

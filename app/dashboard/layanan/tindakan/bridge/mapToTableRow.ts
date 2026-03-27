@@ -12,14 +12,19 @@ export function mapToTableRow(
   data: TindakanJoinResult,
   index: number
 ): TindakanTableRow {
+  const dbId = (data as { id?: string }).id;
+  const raw = data as unknown as Record<string, unknown>;
+  const tindakan =
+    data.tindakan ??
+    (typeof raw.alkes_utama === "string" ? raw.alkes_utama : undefined);
   return {
-    id: safe(data.no_rm) + "-" + index, // unique row ID
+    id: dbId ? String(dbId) : `${safe(data.no_rm)}-${index}`,
     tanggal: safe(data.tanggal),
     waktu: safe(data.waktu),
     no_rm: safe(data.no_rm),
     nama_pasien: safe(data.nama_pasien),
     dokter: safe(data.dokter),
-    tindakan: safe(data.tindakan),
+    tindakan: safe(tindakan),
     kategori: safe(data.kategori),
     severity_level: safe(data.severity_level),
     ruangan: safe(data.ruangan),

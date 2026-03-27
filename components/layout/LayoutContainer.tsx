@@ -76,13 +76,24 @@ export default function LayoutContainer() {
               });
         }
       } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const looksOffline =
+          (err instanceof TypeError &&
+            /failed to fetch|load failed|network/i.test(msg)) ||
+          /err_connection_refused/i.test(msg);
+        if (looksOffline) {
+          console.warn(
+            "⚠️ Server tidak terjangkau (refresh token ditunda). Jalankan dev server atau cek port.",
+          );
+          return;
+        }
         console.warn("⚠️ Gagal menghubungi refresh endpoint:", err);
-            setSession({
-              username: "unknown",
-              role: "guest",
-              lastRefresh: null,
-              refreshCount: 0,
-            });
+        setSession({
+          username: "unknown",
+          role: "guest",
+          lastRefresh: null,
+          refreshCount: 0,
+        });
       }
     };
 

@@ -1,15 +1,23 @@
-// Minimal implementation to satisfy dashboard usage.
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-
-type Stats = Record<string, number>;
 
 function isPublicSupabaseConfigured() {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   );
 }
+
+function todayWibYmd(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+type Stats = Record<string, number>;
 
 export function useTindakanStats() {
   const [stats, setStats] = useState<Stats>({});
@@ -24,10 +32,25 @@ export function useTindakanStats() {
     try {
       const mod = await import("@/lib/supabase/supabaseClient");
       const sb: any = mod.supabase as any;
-      const { count } = await sb
+      const today = todayWibYmd();
+
+      const { data, error } = await sb
         .from("tindakan")
-        .select("*", { count: "exact", head: true });
-      setStats({ Total: count ?? 0 });
+        .select("status,tanggal");
+
+      if (error) throw error;
+      const rows = Array.isArray(data) ? data : [];
+      const todayRows = rows.filter((r: any) => {
+        const t = r?.tanggal;
+        if (t == null || t === "") return false;
+        const s = String(t).slice(0, 10);
+        return s === today;
+      });
+
+      setStats({
+        Total: rows.length,
+        "Hari ini": todayRows.length,
+      });
     } catch {
       setStats({ Total: 0 });
     }

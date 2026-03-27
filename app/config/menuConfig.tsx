@@ -18,13 +18,14 @@ import {
   Info,
   GaugeCircle,
   ScrollText,
-  Syringe,
   ShieldCheck,
   Settings,
   GitBranch,
+  UserRound,
 } from "lucide-react";
 
 /* ⚡ menuConfig v4.0 – Neo-Hologram Gold-Cyan Hybrid
+   – Tindakan medis `/dashboard/layanan/tindakan` tidak di sidebar; akses lewat Beranda Perawat atau URL (wireframe-dashboard-perawat).
    – Adaptive Priority Engine
    – Hologram Pulse / Edge / Scan Presets
    – Role-based (future)
@@ -74,6 +75,15 @@ export const menuConfig = [
         priority: 4,
         module: "RuanganDashboard",
         hologram: "scan",
+      },
+      {
+        id: "perawat",
+        label: "Perawat",
+        icon: <UserRound size={18} />,
+        href: "/dashboard/perawat",
+        priority: 5,
+        module: "PerawatHub",
+        hologram: "pulse",
       },
     ],
   },
@@ -166,25 +176,6 @@ export const menuConfig = [
         priority: 4,
         module: "FarmasiLaporanStokAlkes",
         hologram: "scan",
-      },
-    ],
-  },
-
-  /* ============================================
-   *  LAYANAN MEDIS
-   * ============================================ */
-  {
-    group: "Layanan",
-    hologram: "scan",
-    items: [
-      {
-        id: "tindakan",
-        label: "Tindakan Medis",
-        icon: <Syringe size={18} />,
-        href: "/dashboard/layanan/tindakan",
-        priority: 1,
-        module: "TindakanDashboard", // v7.0 cinematic module
-        hologram: "edge",
       },
     ],
   },

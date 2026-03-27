@@ -6,6 +6,9 @@
 // 1. JOIN RESULT (38 kolom dari database + relasi)
 // =============================================================
 export interface TindakanJoinResult {
+  /** Primary key Supabase — wajib untuk drawer, CRUD, deep link pemakaian */
+  id?: string;
+  pasien_id?: string | null;
   no: number | null;
   tanggal: string | null;
   waktu: string | null;

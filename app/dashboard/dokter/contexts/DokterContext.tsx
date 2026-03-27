@@ -8,12 +8,24 @@ import {
   useCallback,
   useEffect,
 } from "react";
-import {
-  supabase,
-  isSupabaseConfigured,
-} from "@/lib/supabase/supabaseClient";
 
 let dokterSupabaseWarned = false;
+
+function isPublicSupabaseConfigured() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+}
+
+let supabasePromise: Promise<any> | null = null;
+async function ensureSupabase() {
+  if (!supabasePromise) {
+    supabasePromise = import("@/lib/supabase/supabaseClient").then(
+      (m) => m.supabase as any,
+    );
+  }
+  return supabasePromise;
+}
 
 interface Dokter {
   id: string;
@@ -77,7 +89,7 @@ export function DokterProvider({ children }: { children: React.ReactNode }) {
   // Ambil data dokter dari Supabase (tabel: doctor — konsisten dengan migration)
   const fetchDoctors = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
-    if (!isSupabaseConfigured()) {
+    if (!isPublicSupabaseConfigured()) {
       setDoctors([]);
       if (!silent) setLoading(false);
       if (!dokterSupabaseWarned) {
@@ -91,7 +103,9 @@ export function DokterProvider({ children }: { children: React.ReactNode }) {
       };
     }
     if (!silent) setLoading(true);
-    const { data, error } = await supabase
+
+    const sb: any = await ensureSupabase();
+    const { data, error } = await sb
       .from("doctor")
       .select("*")
       .order("nama_dokter");
@@ -107,7 +121,7 @@ export function DokterProvider({ children }: { children: React.ReactNode }) {
       );
     if (!silent) setLoading(false);
     return { error };
-  }, [supabase]);
+  }, []);
 
   const toDoctorPayload = (payload: Record<string, any>) => {
     const p = { ...payload };
@@ -150,23 +164,22 @@ export function DokterProvider({ children }: { children: React.ReactNode }) {
 
   const addDoctor = useCallback(
     async (payload: Record<string, any>) => {
-      if (!isSupabaseConfigured()) return;
-      await (supabase as any).from("doctor").insert(toDoctorPayload(payload));
+      if (!isPublicSupabaseConfigured()) return;
+      const sb: any = await ensureSupabase();
+      await sb.from("doctor").insert(toDoctorPayload(payload));
       await fetchDoctors();
     },
-    [fetchDoctors]
+    [fetchDoctors],
   );
 
   const updateDoctor = useCallback(
     async (id: string, payload: Record<string, any>) => {
-      if (!isSupabaseConfigured()) return;
-      await (supabase as any)
-        .from("doctor")
-        .update(toDoctorPayload(payload))
-        .eq("id", id);
+      if (!isPublicSupabaseConfigured()) return;
+      const sb: any = await ensureSupabase();
+      await sb.from("doctor").update(toDoctorPayload(payload)).eq("id", id);
       await fetchDoctors();
     },
-    [fetchDoctors]
+    [fetchDoctors],
   );
 
   // Filter dan pagination

@@ -193,8 +193,26 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
               ) : (
                 <DialogSurface>
                   <div className="flex gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E8C547]/30 bg-[#0a1628] text-[#E8C547]">
-                      <HelpCircle className="h-6 w-6" strokeWidth={2} aria-hidden />
+                    <div
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border p-2 ${
+                        open.danger
+                          ? "border-rose-500/45 bg-rose-950/55 text-rose-200"
+                          : "border-[#E8C547]/30 bg-[#0a1628] text-[#E8C547]"
+                      }`}
+                    >
+                      {open.danger ? (
+                        <AlertTriangle
+                          className="h-6 w-6"
+                          strokeWidth={2}
+                          aria-hidden
+                        />
+                      ) : (
+                        <HelpCircle
+                          className="h-6 w-6"
+                          strokeWidth={2}
+                          aria-hidden
+                        />
+                      )}
                     </div>
                     <div className="min-w-0 flex-1 pt-0.5">
                       <h2 className="text-sm font-semibold text-[#E8C547] tracking-tight">

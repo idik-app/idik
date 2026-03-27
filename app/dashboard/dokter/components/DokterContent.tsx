@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import { UserPlus } from "lucide-react";
 import { useDokter } from "../contexts/DokterContext";
 import DokterTable from "./DokterTable";
@@ -9,10 +9,16 @@ import DokterToolbar from "./DokterToolbar";
 import DokterPagination from "./DokterPagination";
 import ShimmerDokter from "./ShimmerDokter";
 import ConfirmDialog from "./ConfirmDialog";
-import ModalTambahDokter from "./ModalTambahDokter";
-import ModalEditDokter from "./ModalEditDokter";
 import DokterStatusBadge from "./DokterStatusBadge";
 import ExportReportDokter from "./ExportReportDokter";
+
+const ModalTambahDokter = dynamic(() => import("./ModalTambahDokter"), {
+  ssr: false,
+});
+
+const ModalEditDokter = dynamic(() => import("./ModalEditDokter"), {
+  ssr: false,
+});
 
 type ErrorType = "network" | "missing_table" | "unknown" | null;
 
@@ -80,11 +86,7 @@ export default function DokterContent() {
     );
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={baseCard}
-    >
+    <div className={`${baseCard} animate-in fade-in slide-in-from-top-2 duration-300`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-2xl font-semibold text-cyan-400 flex items-center gap-2">
@@ -159,6 +161,6 @@ export default function DokterContent() {
           }}
         />
       )}
-    </motion.div>
+    </div>
   );
 }

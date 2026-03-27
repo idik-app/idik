@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { pasienSchema } from "@/app/dashboard/pasien/data/pasienSchema";
+import { pasienSchema } from "@/app/dashboard/pasien/data/pasienValidation";
 import { addPatient } from "@/app/dashboard/pasien/actions/addPatient";
 
 /*───────────────────────────────────────────────

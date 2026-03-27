@@ -36,6 +36,8 @@ export default function TabBar() {
     }
     // fallback penting
     if (!map.has("dashboard")) map.set("dashboard", "/dashboard");
+    // Tindakan medis tidak ada di sidebar (hub Perawat); tab dari URL perlu href
+    if (!map.has("tindakan")) map.set("tindakan", "/dashboard/layanan/tindakan");
     return map;
   })();
 

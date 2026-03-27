@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { format } from "date-fns";
+import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
   Activity,
@@ -154,6 +154,12 @@ function formatHargaCell(harga: number | undefined): string {
   return idrLineFormatter.format(harga);
 }
 
+/** Untuk input `datetime-local`: YYYY-MM-DDTHH:mm (waktu lokal). */
+function toDatetimeLocalValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 /** Harga dari baris pilihan; jika null, pakai baris lain dengan master_barang_id sama (master-only / varian lain). */
 function hargaFromPickRow(
   v: MasterBarangPickRow,
@@ -177,7 +183,7 @@ function narrowByLineFields(
   line: Pick<PemakaianLine, "distributor" | "lot" | "ukuran" | "ed">,
 ): MasterBarangPickRow[] {
   if (candidates.length <= 1) return candidates;
-  const L = (s: string | undefined) => (s ?? "").trim().toLowerCase();
+  const L = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
   let filtered = candidates;
   const lot = L(line.lot);
   const uk = L(line.ukuran);
@@ -216,17 +222,13 @@ function resolveHargaFromBarangInput(
   if (byBarcode) return hargaFromPickRow(byBarcode, options);
   const byKode = options.find((v) => v.kode.trim().toLowerCase() === q);
   if (byKode) return hargaFromPickRow(byKode, options);
-  const sameNama = options.filter(
-    (v) => v.nama.trim().toLowerCase() === q,
-  );
+  const sameNama = options.filter((v) => v.nama.trim().toLowerCase() === q);
   let candidates = sameNama;
   if (sameNama.length === 0) {
     candidates = options.filter((v) => v.kode.trim().toLowerCase() === q);
   }
   if (candidates.length === 0) return undefined;
-  const narrowed = line
-    ? narrowByLineFields(candidates, line)
-    : candidates;
+  const narrowed = line ? narrowByLineFields(candidates, line) : candidates;
   for (const c of narrowed) {
     const h = hargaFromPickRow(c, options);
     if (h !== undefined) return h;
@@ -234,15 +236,12 @@ function resolveHargaFromBarangInput(
   return undefined;
 }
 
-function mapCathlabOrderRow(
-  r: Record<string, unknown>,
-): PemakaianOrder | null {
+function mapCathlabOrderRow(r: Record<string, unknown>): PemakaianOrder | null {
   const id = r.id;
   if (typeof id !== "string" || !id.trim()) return null;
   const tanggal = typeof r.tanggal === "string" ? r.tanggal : "";
   const pasien = typeof r.pasien === "string" ? r.pasien : "";
-  const ruangan =
-    typeof r.ruangan === "string" ? r.ruangan.trim() : "";
+  const ruangan = typeof r.ruangan === "string" ? r.ruangan.trim() : "";
   const dokter = typeof r.dokter === "string" ? r.dokter : "";
   const depo = typeof r.depo === "string" ? r.depo : "";
   const status = r.status;
@@ -253,7 +252,10 @@ function mapCathlabOrderRow(
     "TERVERIFIKASI",
     "SELESAI",
   ];
-  if (typeof status !== "string" || !allowed.includes(status as PemakaianStatus))
+  if (
+    typeof status !== "string" ||
+    !allowed.includes(status as PemakaianStatus)
+  )
     return null;
   const rawItems = r.items;
   const items: PemakaianLine[] = [];
@@ -295,7 +297,9 @@ function mapCathlabOrderRow(
     }
   }
   const catatan =
-    typeof r.catatan === "string" && r.catatan.trim() ? r.catatan.trim() : undefined;
+    typeof r.catatan === "string" && r.catatan.trim()
+      ? r.catatan.trim()
+      : undefined;
 
   const templateInputBarang = normalizeTemplateInputBarang(
     r.template_input_barang,
@@ -356,10 +360,7 @@ function mapApiPasienRow(r: Record<string, unknown>): PasienOption | null {
   if (rawId == null || rawId === "") return null;
   const id = String(rawId);
   const nama = typeof r.nama === "string" ? r.nama : String(r.nama ?? "");
-  const no_rm =
-    r.no_rm == null || r.no_rm === ""
-      ? null
-      : String(r.no_rm);
+  const no_rm = r.no_rm == null || r.no_rm === "" ? null : String(r.no_rm);
   const ca = r.created_at;
   const created_at =
     typeof ca === "string"
@@ -390,6 +391,7 @@ function isPasienCreatedLocalToday(iso: string | null | undefined): boolean {
    Resep Alkes • Pemakaian • Depo
 ───────────────────────────────────────────────*/
 export default function PemakaianPage() {
+  const searchParams = useSearchParams();
   const { alert: appAlert, confirm: appConfirm } = useAppDialog();
   const [selectedStatus, setSelectedStatus] = useState<PemakaianStatus | "ALL">(
     "ALL",
@@ -415,6 +417,14 @@ export default function PemakaianPage() {
   const [ruanganListLoading, setRuanganListLoading] = useState(false);
   /** Satu kali per buka drawer: autofill pasien (hari ini) & dokter (sesi). */
   const drawerAutofillRef = useRef({ pasien: false, dokter: false });
+  /** Deep link Tindakan → Pemakaian: jangan buka drawer berulang untuk query yang sama. */
+  const pemakaianDeepLinkOpenedKeyRef = useRef<string | null>(null);
+  /** Hasil fetch `/api/tindakan/[id]` untuk mengisi pasien setelah `pasienList` siap. */
+  const tindakanDeepLinkRef = useRef<{
+    tid: string;
+    pasienId: string | null;
+  } | null>(null);
+  const openPemakaianDrawerRef = useRef<() => void>(() => {});
   const [barangVariantList, setBarangVariantList] = useState<
     MasterBarangPickRow[]
   >([]);
@@ -543,9 +553,7 @@ export default function PemakaianPage() {
       setOrdersFetchError(null);
       const rows = Array.isArray(j.orders) ? j.orders : [];
       const mapped = rows
-        .map((row) =>
-          mapCathlabOrderRow(row as Record<string, unknown>),
-        )
+        .map((row) => mapCathlabOrderRow(row as Record<string, unknown>))
         .filter((x): x is PemakaianOrder => x != null);
       setOrders(mapped);
     } catch {
@@ -650,7 +658,13 @@ export default function PemakaianPage() {
 
   const isDokterSession = role === ROLE_DOKTER;
 
-  const shouldLoadDoctors = isDrawerOpen || detailRow != null;
+  const qpPasien =
+    searchParams.get("pasienId") || searchParams.get("rm");
+  const qpTindakanId = searchParams.get("tindakanId");
+  const hasPemakaianDeepLink =
+    Boolean(qpPasien) || Boolean(qpTindakanId?.trim());
+  const shouldLoadDoctors =
+    isDrawerOpen || detailRow != null || hasPemakaianDeepLink;
 
   /** Master dokter + pasien + katalog variant barang (drawer & panel Edit order). */
   useEffect(() => {
@@ -717,9 +731,7 @@ export default function PemakaianPage() {
         sessionUsername.trim().toLowerCase(),
     );
     if (!exact) return;
-    setDrawerDokter((prev) =>
-      prev.trim() ? prev : formatDoctorLabel(exact),
-    );
+    setDrawerDokter((prev) => (prev.trim() ? prev : formatDoctorLabel(exact)));
   }, [
     isDrawerOpen,
     isDokterSession,
@@ -731,6 +743,14 @@ export default function PemakaianPage() {
   /** Pasien terbaru hari ini — hanya jika kolom pasien masih kosong (tidak menimpa ketikan). */
   useEffect(() => {
     if (!isDrawerOpen) return;
+    const skipTodayForDeepLink =
+      Boolean(searchParams.get("pasienId")?.trim()) ||
+      Boolean(searchParams.get("rm")?.trim()) ||
+      Boolean(searchParams.get("tindakanId")?.trim());
+    if (skipTodayForDeepLink) {
+      drawerAutofillRef.current.pasien = true;
+      return;
+    }
     if (drawerAutofillRef.current.pasien) return;
     if (pasienListLoading) return;
     drawerAutofillRef.current.pasien = true;
@@ -746,7 +766,22 @@ export default function PemakaianPage() {
         prev.trim() ? prev : formatPasienLabel(todayRows[0]),
       );
     }
-  }, [isDrawerOpen, pasienList, pasienListLoading]);
+  }, [isDrawerOpen, pasienList, pasienListLoading, searchParams]);
+
+  /** Deep link dari modul Tindakan (`?pasienId=` / `?rm=` / `?tindakanId=`). */
+  useEffect(() => {
+    if (!isDrawerOpen) return;
+    if (pasienListLoading) return;
+    const rm = searchParams.get("rm");
+    const pid = searchParams.get("pasienId");
+    if (!rm && !pid) return;
+    const p = pid
+      ? pasienList.find((x) => x.id === pid)
+      : pasienList.find(
+          (x) => (x.no_rm ?? "").trim() === (rm ?? "").trim(),
+        );
+    if (p) setDrawerPasien(formatPasienLabel(p));
+  }, [isDrawerOpen, pasienList, pasienListLoading, searchParams]);
 
   function newDrawerLineId() {
     return `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -798,7 +833,7 @@ export default function PemakaianPage() {
     setDrawerDepo(DEFAULT_DRAWER_DEPO);
     setDrawerRuangan("");
     setDrawerCatatan("");
-    setDrawerDateTime(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
+    setDrawerDateTime(toDatetimeLocalValue(new Date()));
     setDrawerLines([
       {
         lineId: newDrawerLineId(),
@@ -811,6 +846,102 @@ export default function PemakaianPage() {
     ]);
     setIsDrawerOpen(true);
   }
+
+  openPemakaianDrawerRef.current = openPemakaianDrawer;
+
+  /** Buka drawer Input Pemakaian otomatis bila URL berisi deep link dari modul Tindakan. */
+  useEffect(() => {
+    const pid = searchParams.get("pasienId")?.trim();
+    const rm = searchParams.get("rm")?.trim();
+    const tid = searchParams.get("tindakanId")?.trim();
+    if (!pid && !rm && !tid) {
+      pemakaianDeepLinkOpenedKeyRef.current = null;
+      return;
+    }
+    if (isDrawerOpen) return;
+    const key = `${pid ?? ""}|${rm ?? ""}|${tid ?? ""}`;
+    if (pemakaianDeepLinkOpenedKeyRef.current === key) return;
+    pemakaianDeepLinkOpenedKeyRef.current = key;
+    openPemakaianDrawerRef.current();
+  }, [searchParams, isDrawerOpen]);
+
+  /** Ambil konteks kasus (dokter, ruangan, catatan) dari `tindakanId`; isi pasien setelah master pasien siap. */
+  useEffect(() => {
+    const tid = searchParams.get("tindakanId")?.trim();
+    if (!tid || !isDrawerOpen) {
+      if (!tid) tindakanDeepLinkRef.current = null;
+      return;
+    }
+
+    const applyPasienFromRef = () => {
+      const cur = tindakanDeepLinkRef.current;
+      const pid = cur?.pasienId;
+      if (!pid || !cur || cur.tid !== tid) return;
+      if (pasienList.length === 0) return;
+      const p = pasienList.find((x) => x.id === pid);
+      if (p) {
+        setDrawerPasien((prev) =>
+          prev.trim() ? prev : formatPasienLabel(p),
+        );
+      }
+    };
+
+    if (tindakanDeepLinkRef.current?.tid === tid) {
+      applyPasienFromRef();
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/tindakan/${encodeURIComponent(tid)}`,
+          { credentials: "include", cache: "no-store" },
+        );
+        const j = (await res.json()) as {
+          ok?: boolean;
+          data?: {
+            dokter?: string | null;
+            ruangan?: string | null;
+            tindakan?: string | null;
+            tanggal?: string | null;
+            pasien_id?: string | null;
+          };
+        };
+        if (cancelled || !j?.ok || !j.data) return;
+        if (tid !== searchParams.get("tindakanId")?.trim()) return;
+        const d = j.data;
+        tindakanDeepLinkRef.current = {
+          tid,
+          pasienId:
+            typeof d.pasien_id === "string" && d.pasien_id.trim()
+              ? d.pasien_id.trim()
+              : null,
+        };
+        setDrawerDokter((prev) =>
+          prev.trim() ? prev : String(d.dokter ?? "").trim(),
+        );
+        setDrawerRuangan((prev) =>
+          prev.trim() ? prev : String(d.ruangan ?? "").trim(),
+        );
+        const hint =
+          d.tindakan && d.tanggal
+            ? `Kasus tindakan: ${d.tindakan} (${d.tanggal}).`
+            : d.tindakan
+              ? `Kasus tindakan: ${d.tindakan}.`
+              : "";
+        if (hint) {
+          setDrawerCatatan((prev) => (prev.trim() ? prev : hint));
+        }
+        applyPasienFromRef();
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isDrawerOpen, searchParams, pasienList]);
 
   const canVerifyDepo = useMemo(
     () => (role != null ? DEPO_VERIFY_ROLES.has(role) : false),
@@ -850,7 +981,9 @@ export default function PemakaianPage() {
       if (mapped) {
         setOrders((prev) => prev.map((o) => (o.id === orderId ? mapped : o)));
         setDetailRow((d) => (d?.id === orderId ? mapped : d));
-        setDetailDraft((d) => (d?.id === orderId ? structuredClone(mapped) : d));
+        setDetailDraft((d) =>
+          d?.id === orderId ? structuredClone(mapped) : d,
+        );
       } else {
         setOrders((prev) =>
           prev.map((o) =>
@@ -952,11 +1085,10 @@ export default function PemakaianPage() {
             status: detailDraft.status,
             items: detailDraft.items,
             catatan: detailDraft.catatan ?? null,
-            templateInputBarang:
-              detailDraft.templateInputBarang ?? {
-                obatAlkes: {},
-                komponen: {},
-              },
+            templateInputBarang: detailDraft.templateInputBarang ?? {
+              obatAlkes: {},
+              komponen: {},
+            },
           }),
         },
       );
@@ -979,9 +1111,7 @@ export default function PemakaianPage() {
         ? mapCathlabOrderRow(j.order as Record<string, unknown>)
         : null;
       if (mapped) {
-        setOrders((prev) =>
-          prev.map((o) => (o.id === mapped.id ? mapped : o)),
-        );
+        setOrders((prev) => prev.map((o) => (o.id === mapped.id ? mapped : o)));
       } else {
         setOrders((prev) =>
           prev.map((o) => (o.id === detailDraft.id ? detailDraft : o)),
@@ -1091,9 +1221,7 @@ export default function PemakaianPage() {
           ruangan,
           dokter,
           depo,
-          items: drawerLines.filter(
-            (l) => cleanFormText(l.barang).length > 0,
-          ),
+          items: drawerLines.filter((l) => cleanFormText(l.barang).length > 0),
           catatan: drawerCatatan.trim() || undefined,
         }),
       });
@@ -1555,7 +1683,9 @@ export default function PemakaianPage() {
                     {ordersFetchError} Pastikan migrasi{" "}
                     <code className="text-[9px]">cathlab_pemakaian_order</code>{" "}
                     sudah di-push dan{" "}
-                    <code className="text-[9px]">SUPABASE_SERVICE_ROLE_KEY</code>{" "}
+                    <code className="text-[9px]">
+                      SUPABASE_SERVICE_ROLE_KEY
+                    </code>{" "}
                     terset di server.
                   </p>
                 ) : null}
@@ -1970,7 +2100,10 @@ export default function PemakaianPage() {
                         className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/30 px-2.5 py-1 text-[10px] font-semibold text-white/90 hover:border-cyan-400/45 hover:bg-cyan-950/40 hover:text-cyan-100"
                         title="Edit daftar baris Obat/Alkes & Komponen (simpan di peramban)"
                       >
-                        <Pencil className="h-3 w-3 text-cyan-300/90" aria-hidden />
+                        <Pencil
+                          className="h-3 w-3 text-cyan-300/90"
+                          aria-hidden
+                        />
                         Edit template
                       </button>
                       <button
@@ -2003,12 +2136,8 @@ export default function PemakaianPage() {
                     onTabChange={setDetailRincianTab}
                     rowsObatAlkes={templateRowsObat}
                     rowsKomponen={templateRowsKomponen}
-                    obatAlkes={
-                      detailDraft.templateInputBarang?.obatAlkes ?? {}
-                    }
-                    komponen={
-                      detailDraft.templateInputBarang?.komponen ?? {}
-                    }
+                    obatAlkes={detailDraft.templateInputBarang?.obatAlkes ?? {}}
+                    komponen={detailDraft.templateInputBarang?.komponen ?? {}}
                     onChangeObatAlkes={(id, v) =>
                       patchDetailTemplateField("obatAlkes", id, v)
                     }
@@ -2016,191 +2145,197 @@ export default function PemakaianPage() {
                       patchDetailTemplateField("komponen", id, v)
                     }
                   >
-                  <div className="min-w-0 max-w-full rounded-xl border border-white/10 overflow-x-auto [scrollbar-gutter:stable]">
-                    <table className="w-max min-w-[800px] text-[10px]">
-                      <thead>
-                        <tr className="bg-[#0a1628] text-white/80">
-                          <th className="text-left font-semibold px-2 py-1.5 min-w-[100px]">
-                            Barang
-                          </th>
-                          <th className="text-left font-semibold px-2 py-1.5 min-w-[88px]">
-                            Distributor
-                          </th>
-                          <th className="text-left font-semibold px-2 py-1.5 min-w-[64px]">
-                            Ukuran
-                          </th>
-                          <th className="text-left font-semibold px-2 py-1.5 min-w-[56px]">
-                            LOT
-                          </th>
-                          <th className="text-left font-semibold px-2 py-1.5 min-w-[52px]">
-                            ED
-                          </th>
-                          <th className="text-right font-semibold px-2 py-1.5 whitespace-nowrap min-w-[6.5rem]">
-                            Harga
-                          </th>
-                          <th className="text-center font-semibold px-2 py-1.5 whitespace-nowrap min-w-[4.25rem]">
-                            Resep
-                          </th>
-                          <th className="text-center font-semibold px-2 py-1.5 whitespace-nowrap min-w-[3.5rem]">
-                            Stok
-                          </th>
-                          <th className="text-center font-semibold px-1 py-1.5 w-[72px]">
-                            Tipe
-                          </th>
-                          <th className="text-center font-semibold px-1 py-1.5 w-[1%] whitespace-nowrap">
-                            Aksi
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/[0.06]">
-                        {detailDraft.items.map((line) => (
-                          <tr key={line.lineId} className="bg-black/20">
-                            <td className="px-1.5 py-1 align-top">
-                              <BarangVariantCombobox
-                                variant="table"
-                                listboxId={`pemakaian-barang-${line.lineId}`}
-                                value={line.barang}
-                                onChange={(nama) =>
-                                  patchDetailLine(line.lineId, { barang: nama })
-                                }
-                                onPickVariant={(v) => {
-                                  const h = hargaFromPickRow(v, barangVariantList);
-                                  patchDetailLine(line.lineId, {
-                                    barang: v.nama.trim(),
-                                    distributor:
-                                      v.distributor_nama?.trim() || undefined,
-                                    lot: v.lot?.trim() || undefined,
-                                    ukuran: v.ukuran?.trim() || undefined,
-                                    ed: v.ed?.trim() || undefined,
-                                    ...(h !== undefined ? { harga: h } : {}),
-                                  });
-                                }}
-                                options={barangVariantList}
-                                loading={barangVariantLoading}
-                              />
-                            </td>
-                            <td className="px-1.5 py-1 align-top">
-                              <input
-                                type="text"
-                                value={line.distributor ?? ""}
-                                onChange={(e) =>
-                                  patchDetailLine(line.lineId, {
-                                    distributor: e.target.value || undefined,
-                                  })
-                                }
-                                className="w-full min-w-[76px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white/80 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                              />
-                            </td>
-                            <td className="px-1.5 py-1 align-top">
-                              <input
-                                type="text"
-                                value={line.ukuran ?? ""}
-                                onChange={(e) =>
-                                  patchDetailLine(line.lineId, {
-                                    ukuran: e.target.value.trim() || undefined,
-                                  })
-                                }
-                                placeholder="—"
-                                className="w-full min-w-[56px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white/85 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                              />
-                            </td>
-                            <td className="px-1.5 py-1 align-top">
-                              <input
-                                type="text"
-                                value={line.lot ?? ""}
-                                onChange={(e) =>
-                                  patchDetailLine(line.lineId, {
-                                    lot: e.target.value.trim() || undefined,
-                                  })
-                                }
-                                placeholder="—"
-                                className="w-full min-w-[52px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white/85 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                              />
-                            </td>
-                            <td className="px-1.5 py-1 align-top">
-                              <input
-                                type="text"
-                                value={line.ed ?? ""}
-                                onChange={(e) =>
-                                  patchDetailLine(line.lineId, {
-                                    ed: e.target.value.trim() || undefined,
-                                  })
-                                }
-                                placeholder="MM-YYYY"
-                                className="w-full min-w-[52px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white/85 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                              />
-                            </td>
-                            <td className="px-1.5 py-1.5 align-middle text-right tabular-nums text-white/90 text-[10px]">
-                              {formatHargaCell(line.harga)}
-                            </td>
-                            <td className="px-1 py-1 align-top">
-                              <input
-                                type="number"
-                                min={0}
-                                value={line.qtyRencana}
-                                onChange={(e) =>
-                                  patchDetailLine(line.lineId, {
-                                    qtyRencana: Math.max(
-                                      0,
-                                      Number(e.target.value) || 0,
-                                    ),
-                                  })
-                                }
-                                className="w-full bg-black/50 border border-white/15 rounded px-1 py-1 text-center tabular-nums text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                              />
-                            </td>
-                            <td className="px-1 py-1 align-top">
-                              <input
-                                type="number"
-                                min={0}
-                                value={line.qtyDipakai}
-                                onChange={(e) =>
-                                  patchDetailLine(line.lineId, {
-                                    qtyDipakai: Math.max(
-                                      0,
-                                      Number(e.target.value) || 0,
-                                    ),
-                                  })
-                                }
-                                className="w-full bg-black/50 border border-white/15 rounded px-1 py-1 text-center tabular-nums text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                              />
-                            </td>
-                            <td className="px-1 py-1 align-top">
-                              <select
-                                suppressHydrationWarning
-                                value={line.tipe}
-                                onChange={(e) =>
-                                  patchDetailLine(line.lineId, {
-                                    tipe: e.target
-                                      .value as PemakaianLine["tipe"],
-                                  })
-                                }
-                                className="w-full bg-black/50 border border-white/15 rounded px-0.5 py-1 text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                              >
-                                <option value="BARU">BARU</option>
-                                <option value="REUSE">REUSE</option>
-                              </select>
-                            </td>
-                            <td className="px-1 py-1 align-middle text-center">
-                              <button
-                                suppressHydrationWarning
-                                type="button"
-                                onClick={() => removeDetailLine(line.lineId)}
-                                className="inline-flex items-center gap-0.5 rounded-lg border border-rose-500/50 bg-rose-950/50 px-1.5 py-0.5 text-[9px] font-semibold text-rose-200 hover:bg-rose-900/60 focus:outline-none focus:ring-1 focus:ring-rose-400/50"
-                                aria-label={`Hapus baris ${line.barang || line.lineId}`}
-                                title="Hapus baris"
-                              >
-                                <Trash2
-                                  className="h-3 w-3 shrink-0"
-                                  aria-hidden
-                                />
-                              </button>
-                            </td>
+                    <div className="min-w-0 max-w-full rounded-xl border border-white/10 overflow-x-auto [scrollbar-gutter:stable]">
+                      <table className="w-max min-w-[800px] text-[10px]">
+                        <thead>
+                          <tr className="bg-[#0a1628] text-white/80">
+                            <th className="text-left font-semibold px-2 py-1.5 min-w-[100px]">
+                              Barang
+                            </th>
+                            <th className="text-left font-semibold px-2 py-1.5 min-w-[88px]">
+                              Distributor
+                            </th>
+                            <th className="text-left font-semibold px-2 py-1.5 min-w-[64px]">
+                              Ukuran
+                            </th>
+                            <th className="text-left font-semibold px-2 py-1.5 min-w-[56px]">
+                              LOT
+                            </th>
+                            <th className="text-left font-semibold px-2 py-1.5 min-w-[52px]">
+                              ED
+                            </th>
+                            <th className="text-right font-semibold px-2 py-1.5 whitespace-nowrap min-w-[6.5rem]">
+                              Harga
+                            </th>
+                            <th className="text-center font-semibold px-2 py-1.5 whitespace-nowrap min-w-[4.25rem]">
+                              Resep
+                            </th>
+                            <th className="text-center font-semibold px-2 py-1.5 whitespace-nowrap min-w-[3.5rem]">
+                              Stok
+                            </th>
+                            <th className="text-center font-semibold px-1 py-1.5 w-[72px]">
+                              Tipe
+                            </th>
+                            <th className="text-center font-semibold px-1 py-1.5 w-[1%] whitespace-nowrap">
+                              Aksi
+                            </th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-white/[0.06]">
+                          {detailDraft.items.map((line) => (
+                            <tr key={line.lineId} className="bg-black/20">
+                              <td className="px-1.5 py-1 align-top">
+                                <BarangVariantCombobox
+                                  variant="table"
+                                  listboxId={`pemakaian-barang-${line.lineId}`}
+                                  value={line.barang}
+                                  onChange={(nama) =>
+                                    patchDetailLine(line.lineId, {
+                                      barang: nama,
+                                    })
+                                  }
+                                  onPickVariant={(v) => {
+                                    const h = hargaFromPickRow(
+                                      v,
+                                      barangVariantList,
+                                    );
+                                    patchDetailLine(line.lineId, {
+                                      barang: v.nama.trim(),
+                                      distributor:
+                                        v.distributor_nama?.trim() || undefined,
+                                      lot: v.lot?.trim() || undefined,
+                                      ukuran: v.ukuran?.trim() || undefined,
+                                      ed: v.ed?.trim() || undefined,
+                                      ...(h !== undefined ? { harga: h } : {}),
+                                    });
+                                  }}
+                                  options={barangVariantList}
+                                  loading={barangVariantLoading}
+                                />
+                              </td>
+                              <td className="px-1.5 py-1 align-top">
+                                <input
+                                  type="text"
+                                  value={line.distributor ?? ""}
+                                  onChange={(e) =>
+                                    patchDetailLine(line.lineId, {
+                                      distributor: e.target.value || undefined,
+                                    })
+                                  }
+                                  className="w-full min-w-[76px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white/80 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                                />
+                              </td>
+                              <td className="px-1.5 py-1 align-top">
+                                <input
+                                  type="text"
+                                  value={line.ukuran ?? ""}
+                                  onChange={(e) =>
+                                    patchDetailLine(line.lineId, {
+                                      ukuran:
+                                        e.target.value.trim() || undefined,
+                                    })
+                                  }
+                                  placeholder="—"
+                                  className="w-full min-w-[56px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white/85 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                                />
+                              </td>
+                              <td className="px-1.5 py-1 align-top">
+                                <input
+                                  type="text"
+                                  value={line.lot ?? ""}
+                                  onChange={(e) =>
+                                    patchDetailLine(line.lineId, {
+                                      lot: e.target.value.trim() || undefined,
+                                    })
+                                  }
+                                  placeholder="—"
+                                  className="w-full min-w-[52px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white/85 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                                />
+                              </td>
+                              <td className="px-1.5 py-1 align-top">
+                                <input
+                                  type="text"
+                                  value={line.ed ?? ""}
+                                  onChange={(e) =>
+                                    patchDetailLine(line.lineId, {
+                                      ed: e.target.value.trim() || undefined,
+                                    })
+                                  }
+                                  placeholder="MM-YYYY"
+                                  className="w-full min-w-[52px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white/85 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                                />
+                              </td>
+                              <td className="px-1.5 py-1.5 align-middle text-right tabular-nums text-white/90 text-[10px]">
+                                {formatHargaCell(line.harga)}
+                              </td>
+                              <td className="px-1 py-1 align-top">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={line.qtyRencana}
+                                  onChange={(e) =>
+                                    patchDetailLine(line.lineId, {
+                                      qtyRencana: Math.max(
+                                        0,
+                                        Number(e.target.value) || 0,
+                                      ),
+                                    })
+                                  }
+                                  className="w-full bg-black/50 border border-white/15 rounded px-1 py-1 text-center tabular-nums text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                                />
+                              </td>
+                              <td className="px-1 py-1 align-top">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={line.qtyDipakai}
+                                  onChange={(e) =>
+                                    patchDetailLine(line.lineId, {
+                                      qtyDipakai: Math.max(
+                                        0,
+                                        Number(e.target.value) || 0,
+                                      ),
+                                    })
+                                  }
+                                  className="w-full bg-black/50 border border-white/15 rounded px-1 py-1 text-center tabular-nums text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                                />
+                              </td>
+                              <td className="px-1 py-1 align-top">
+                                <select
+                                  suppressHydrationWarning
+                                  value={line.tipe}
+                                  onChange={(e) =>
+                                    patchDetailLine(line.lineId, {
+                                      tipe: e.target
+                                        .value as PemakaianLine["tipe"],
+                                    })
+                                  }
+                                  className="w-full bg-black/50 border border-white/15 rounded px-0.5 py-1 text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                                >
+                                  <option value="BARU">BARU</option>
+                                  <option value="REUSE">REUSE</option>
+                                </select>
+                              </td>
+                              <td className="px-1 py-1 align-middle text-center">
+                                <button
+                                  suppressHydrationWarning
+                                  type="button"
+                                  onClick={() => removeDetailLine(line.lineId)}
+                                  className="inline-flex items-center gap-0.5 rounded-lg border border-rose-500/50 bg-rose-950/50 px-1.5 py-0.5 text-[9px] font-semibold text-rose-200 hover:bg-rose-900/60 focus:outline-none focus:ring-1 focus:ring-rose-400/50"
+                                  aria-label={`Hapus baris ${line.barang || line.lineId}`}
+                                  title="Hapus baris"
+                                >
+                                  <Trash2
+                                    className="h-3 w-3 shrink-0"
+                                    aria-hidden
+                                  />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </RincianBarangTemplateTabs>
                 </div>
                 <div>
@@ -2214,8 +2349,7 @@ export default function PemakaianPage() {
                           d
                             ? {
                                 ...d,
-                                status: e.target
-                                  .value as PemakaianStatus,
+                                status: e.target.value as PemakaianStatus,
                               }
                             : d,
                         )
@@ -2472,7 +2606,10 @@ export default function PemakaianPage() {
                                   patchDrawerLine(line.lineId, { barang: nama })
                                 }
                                 onPickVariant={(v) => {
-                                  const h = hargaFromPickRow(v, barangVariantList);
+                                  const h = hargaFromPickRow(
+                                    v,
+                                    barangVariantList,
+                                  );
                                   patchDrawerLine(line.lineId, {
                                     barang: v.nama.trim(),
                                     distributor:
@@ -2871,11 +3008,10 @@ export default function PemakaianPage() {
                   qtyDipakai: l.qtyDipakai,
                   tipe: l.tipe,
                 })),
-                templateInputBarang:
-                  detailDraft.templateInputBarang ?? {
-                    obatAlkes: {},
-                    komponen: {},
-                  },
+                templateInputBarang: detailDraft.templateInputBarang ?? {
+                  obatAlkes: {},
+                  komponen: {},
+                },
                 templateRowsObatAlkes: templateRowsObat,
                 templateRowsKomponen: templateRowsKomponen,
               }}

@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import ModalWrapper from "@/components/global/ModalWrapper";
 import type { Pasien } from "../types/pasien";
 import { addPatientAction, editPatientAction } from "../actions/clientBridge";
 import { usePasien, usePasienDispatch } from "../contexts/PasienHooks";
-import { formatTanggalLahirFromDb, pasienSchema } from "../data/pasienSchema";
+import { formatTanggalLahirFromDb } from "../data/pasienSchema";
+import { pasienSchema } from "../data/pasienValidation";
 import { hitungUsia } from "../utils/formatUsia";
 import {
   normalizeNamaPasien,
@@ -16,7 +16,7 @@ import { formatPasienApiValidationError } from "../utils/pasienValidationMessage
 
 /*───────────────────────────────────────────────
  🧠 PasienModalForm – Add/Edit Modal (Stable v5.6.6)
-   🔹 Aman React 19 + Framer Motion
+   🔹 Aman React 19
    🔹 Bridge Supabase
    🔹 Desain Gold-Cyan Hybrid
 ───────────────────────────────────────────────*/
@@ -165,18 +165,13 @@ export default function PasienModalForm({
   if (!mode) return null;
 
   return (
-    <AnimatePresence>
-      <ModalWrapper onClose={onClose} className="w-full max-w-lg">
-        {/* Safe wrapper agar Framer tidak meng-clone portal root */}
-        <div className="relative z-[310]">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="bg-gradient-to-br from-cyan-900/40 to-black/60 border border-cyan-500/40 
-                       shadow-[0_0_25px_rgba(0,255,255,0.3)] rounded-2xl p-6 text-cyan-100"
-          >
+    <ModalWrapper onClose={onClose} className="w-full max-w-lg">
+      <div className="relative z-[310]">
+        <div
+          className="bg-gradient-to-br from-cyan-900/40 to-black/60 border border-cyan-500/40 
+                     shadow-[0_0_25px_rgba(0,255,255,0.3)] rounded-2xl p-6 text-cyan-100
+                     animate-in fade-in zoom-in-95 duration-200"
+        >
             <h3 className="text-2xl font-semibold text-center mb-4 text-cyan-300">
               {isEdit ? "✏️ Edit Pasien" : "➕ Tambah Pasien"}
             </h3>
@@ -314,10 +309,9 @@ export default function PasienModalForm({
                 ✖ Batal
               </button>
             </div>
-          </motion.div>
         </div>
-      </ModalWrapper>
-    </AnimatePresence>
+      </div>
+    </ModalWrapper>
   );
 }
 

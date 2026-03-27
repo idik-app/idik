@@ -10,6 +10,7 @@ const DashboardMain = dynamic(() => import("@/app/dashboard/page")); // ✅ Serv
 const PasienPage = dynamic(() => import("@/app/dashboard/pasien/page"));
 const DokterPage = dynamic(() => import("@/app/dashboard/dokter/page"));
 const RuanganPage = dynamic(() => import("@/app/dashboard/ruangan/page"));
+const PerawatHubPage = dynamic(() => import("@/app/dashboard/perawat/page"));
 const InventarisPage = dynamic(() => import("@/app/dashboard/inventaris/page"));
 const PemakaianPage = dynamic(() => import("@/app/dashboard/pemakaian/page"));
 const MasterFarmasiPage = dynamic(
@@ -61,6 +62,8 @@ export default function TabContent() {
         return <DokterPage />;
       case "ruangan":
         return <RuanganPage />;
+      case "perawat":
+        return <PerawatHubPage />;
       case "inventaris":
         return <InventarisPage />;
       case "pemakaian":

@@ -20,6 +20,8 @@ import AuditViewer from "@/app/system/database/audit/AuditViewer";
 
 /** Mapping segment URL → id tab (harus sama dengan id di menuConfig) */
 const URL_SEGMENT_TO_TAB: Record<string, { id: string; label: string }> = {
+  perawat: { id: "perawat", label: "Beranda Perawat" },
+  tindakan: { id: "tindakan", label: "Tindakan Medis" },
   settings: { id: "pengaturan", label: "Pengaturan" },
   admin: { id: "admin", label: "Manajemen User" },
   laporan: { id: "report", label: "Report Generator" },

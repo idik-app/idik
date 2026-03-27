@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+// framer-motion dihapus untuk kurangi initial bundle
 import { DoorOpen, Plus } from "lucide-react";
 import { useRuangan } from "../contexts/RuanganContext";
 import RuanganTable from "./RuanganTable";
@@ -82,11 +82,7 @@ export default function RuanganContent() {
     );
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={baseCard}
-    >
+    <div className={`${baseCard} animate-in fade-in slide-in-from-top-2 duration-300`}>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
         <h2 className="text-2xl font-semibold text-cyan-400 flex items-center gap-2">
           <DoorOpen className="h-7 w-7" strokeWidth={2} />
@@ -133,6 +129,6 @@ export default function RuanganContent() {
           }}
         />
       )}
-    </motion.div>
+    </div>
   );
 }

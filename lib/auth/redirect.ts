@@ -14,8 +14,8 @@ export function getRedirectTargetForRole(role: unknown): string {
   const routeMap: Record<string, string> = {
     pasien: "/dashboard",
     dokter: "/dashboard/dokter",
-    perawat: "/dashboard/pasien",
-    staff: "/dashboard/pasien", // legacy (pre-migration)
+    perawat: "/dashboard/layanan/tindakan",
+    staff: "/dashboard/layanan/tindakan", // legacy (pre-migration) — selaras perawat
     it: "/system",
     radiografer: "/dashboard/layanan/hasil",
     casemix: "/dashboard/laporan",

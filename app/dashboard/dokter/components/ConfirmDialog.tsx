@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { motion } from "framer-motion";
 import { AlertTriangle, Loader2, Trash2, X } from "lucide-react";
 
 export interface ConfirmDeleteDoctorProps {
@@ -50,28 +49,21 @@ export default function ConfirmDialog({
   if (!mounted) return null;
 
   return createPortal(
-    <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[10000] flex items-center justify-center p-4 pointer-events-auto"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="confirm-delete-title"
-        aria-describedby="confirm-delete-desc"
-      >
+    <div
+      className="fixed inset-0 z-[10000] flex items-center justify-center p-4 pointer-events-auto bg-black/0"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="confirm-delete-title"
+      aria-describedby="confirm-delete-desc"
+    >
         <div
-          className="absolute inset-0 bg-black/70 backdrop-blur-md cursor-pointer"
+          className="absolute inset-0 bg-black/70 backdrop-blur-md cursor-pointer animate-in fade-in"
           aria-hidden
           onClick={() => !busy && onCancel()}
         />
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 8 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 8 }}
-          transition={{ type: "spring", damping: 26, stiffness: 320 }}
-          className="relative z-10 w-full max-w-md rounded-2xl border border-red-500/25 bg-gradient-to-b from-gray-900 via-[#0c1222] to-gray-950 shadow-[0_0_0_1px_rgba(239,68,68,0.12),0_24px_48px_rgba(0,0,0,0.55)] overflow-hidden"
+        <div
           onMouseDown={(e) => e.stopPropagation()}
+          className="relative z-10 w-full max-w-md rounded-2xl border border-red-500/25 bg-gradient-to-b from-gray-900 via-[#0c1222] to-gray-950 shadow-[0_0_0_1px_rgba(239,68,68,0.12),0_24px_48px_rgba(0,0,0,0.55)] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         >
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-500/40 to-transparent" />
 
@@ -159,8 +151,8 @@ export default function ConfirmDialog({
               )}
             </button>
           </div>
-        </motion.div>
-    </motion.div>,
+        </div>
+    </div>,
     document.body
   );
 }

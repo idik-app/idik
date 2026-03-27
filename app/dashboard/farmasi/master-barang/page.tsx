@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase/supabaseClient';
 import {
   Boxes,
   PackageSearch,
@@ -28,6 +26,23 @@ type MasterBarang = {
   aktif: boolean;
 };
 
+let supabasePromise: Promise<any> | null = null;
+async function ensureSupabase() {
+  if (!supabasePromise) {
+    supabasePromise = import('@/lib/supabase/supabaseClient').then(
+      (m) => m.supabase as any,
+    );
+  }
+  return supabasePromise;
+}
+
+function isPublicSupabaseConfigured() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+}
+
 export default function MasterBarangPage() {
   const [query, setQuery] = useState('');
   const [jenis, setJenis] = useState<'ALL' | JenisBarang>('ALL');
@@ -38,43 +53,59 @@ export default function MasterBarangPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      setError(
-        'Supabase belum dikonfigurasi. Set NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY.'
-      );
-      setItems([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    void Promise.resolve(
-      supabase
-        .from('master_barang')
-        .select('*')
-        .order('nama', { ascending: true })
-    ).then(({ data, error: err }) => {
-      if (err) {
-        setError(err.message);
+    const run = async () => {
+      if (!isPublicSupabaseConfigured()) {
+        setError(
+          'Supabase belum dikonfigurasi. Set NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY.',
+        );
         setItems([]);
+        setLoading(false);
         return;
       }
-      const mapped =
-        data?.map((row: Record<string, unknown>) => ({
-          id: String(row.id),
-          kode: String(row.kode ?? ''),
-          nama: String(row.nama ?? ''),
-          jenis: row.jenis as JenisBarang,
-          satuan: String(row.satuan ?? ''),
-          kategori: String(row.kategori ?? ''),
-          barcode: row.barcode ? String(row.barcode) : undefined,
-          distributor: row.distributor_id ? String(row.distributor_id) : undefined,
-          hargaPokok: Number(row.harga_pokok ?? 0),
-          hargaJual: Number(row.harga_jual ?? 0),
-          aktif: !!row.is_active,
-        })) ?? [];
-      setItems(mapped);
-    }).finally(() => setLoading(false));
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const sb: any = await ensureSupabase();
+        const { data, error: err } = await sb
+          .from('master_barang')
+          .select('*')
+          .order('nama', { ascending: true });
+
+        if (err) {
+          setError((err as any).message ?? 'Gagal memuat master_barang');
+          setItems([]);
+          return;
+        }
+
+        const mapped =
+          data?.map((row: Record<string, unknown>) => ({
+            id: String(row.id),
+            kode: String(row.kode ?? ''),
+            nama: String(row.nama ?? ''),
+            jenis: row.jenis as JenisBarang,
+            satuan: String(row.satuan ?? ''),
+            kategori: String(row.kategori ?? ''),
+            barcode: row.barcode ? String(row.barcode) : undefined,
+            distributor: row.distributor_id
+              ? String(row.distributor_id)
+              : undefined,
+            hargaPokok: Number(row.harga_pokok ?? 0),
+            hargaJual: Number(row.harga_jual ?? 0),
+            aktif: !!row.is_active,
+          })) ?? [];
+
+        setItems(mapped);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Gagal memuat data');
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void run();
   }, []);
 
   const filtered = items.filter((b) => {
@@ -95,11 +126,8 @@ export default function MasterBarangPage() {
 
   return (
     <div className="p-6 text-cyan-200 space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex flex-wrap items-center justify-between gap-3"
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300"
       >
         <div className="flex items-center gap-3">
           <Boxes size={26} className="text-[#D4AF37]" />
@@ -133,7 +161,7 @@ export default function MasterBarangPage() {
             Tambah Barang
           </button>
         </div>
-      </motion.div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <SummaryCard
@@ -153,12 +181,9 @@ export default function MasterBarangPage() {
         />
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+      <div
         className="bg-gradient-to-r from-[#020617]/90 via-[#020617]/80 to-[#020617]/90
-                   border border-cyan-800/70 rounded-2xl px-4 py-3 flex flex-wrap gap-3 items-center text-xs"
+                   border border-cyan-800/70 rounded-2xl px-4 py-3 flex flex-wrap gap-3 items-center text-xs animate-in fade-in duration-300"
       >
         <div className="flex items-center gap-2 text-cyan-300">
           <Filter size={14} className="text-cyan-400" />
@@ -190,7 +215,7 @@ export default function MasterBarangPage() {
           />
           Hanya tampilkan yang aktif
         </label>
-      </motion.div>
+      </div>
 
       {error && (
         <div className="text-xs text-amber-300 bg-amber-900/40 border border-amber-500/60 rounded-lg px-3 py-2">
@@ -198,10 +223,7 @@ export default function MasterBarangPage() {
         </div>
       )}
 
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+      <div
         className="bg-gradient-to-br from-[#0B0F15]/90 to-[#111B26]/90 border border-[#0EA5E9]/40 rounded-2xl p-4 backdrop-blur-md overflow-hidden"
       >
         <div className="flex items-center justify-between mb-3">
@@ -287,16 +309,11 @@ export default function MasterBarangPage() {
             </tbody>
           </table>
         </div>
-      </motion.div>
+      </div>
 
       {isDrawerOpen && (
         <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/60">
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 40 }}
-            className="w-full sm:max-w-2xl max-h-[90vh] bg-slate-950/95 border border-cyan-700/70 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
-          >
+          <div className="w-full sm:max-w-2xl max-h-[90vh] bg-slate-950/95 border border-cyan-700/70 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in duration-200">
             <div className="px-4 py-3 border-b border-slate-800/80 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-cyan-100">
@@ -421,7 +438,7 @@ export default function MasterBarangPage() {
                 Simpan Master Barang
               </button>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
     </div>
@@ -431,14 +448,7 @@ export default function MasterBarangPage() {
 function SummaryCard(props: { title: string; value: number; subtitle: string }) {
   const { title, value, subtitle } = props;
   return (
-    <motion.div
-      animate={{
-        boxShadow: [
-          '0 0 10px rgba(212,175,55,0.25), 0 0 20px rgba(0,224,255,0.1)',
-          '0 0 18px rgba(212,175,55,0.45), 0 0 25px rgba(0,224,255,0.2)',
-        ],
-      }}
-      transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+    <div
       className="bg-gradient-to-br from-[#0B0F15]/95 to-[#101A24]/95 border border-[#D4AF37]/70 rounded-2xl p-4 backdrop-blur-md"
     >
       <div className="flex items-center gap-3">
@@ -449,7 +459,7 @@ function SummaryCard(props: { title: string; value: number; subtitle: string }) 
           <p className="text-[11px] text-cyan-300/80 mt-0.5">{subtitle}</p>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 

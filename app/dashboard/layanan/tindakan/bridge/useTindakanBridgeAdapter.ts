@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 
 import { useTindakanEventBridge } from "./useTindakanEventBridge";
 import { mapToDetail } from "./mapToDetail";
@@ -24,13 +24,19 @@ import { TindakanJoinResult } from "./mapping.types";
 // Domain hooks
 import { useTindakanData } from "../hooks/useTindakanData";
 import { useTindakanCrud } from "../hooks/useTindakanCrud";
-import { useTindakanRealtime } from "../hooks/useTindakanRealtime";
+
+function findTindakanRow(list: unknown[], id: string) {
+  return (list as any[]).find(
+    (r: any) => r != null && String(r.id ?? "") === String(id)
+  );
+}
 
 export function useTindakanBridgeAdapter() {
   // --------------------------------------------------------------------
   // BRIDGE SYSTEM
   // --------------------------------------------------------------------
   const bridge = useTindakanEventBridge();
+  const [detailOpenId, setDetailOpenId] = useState<string | null>(null);
 
   // --------------------------------------------------------------------
   // DOMAIN HOOKS (selalu aman → default fallback)
@@ -42,8 +48,7 @@ export function useTindakanBridgeAdapter() {
     reload,
   } = useTindakanData();
 
-  const { updateOne, deleteOne } = useTindakanCrud();
-  useTindakanRealtime(); // realtime → update otomatis
+  const { createOne, updateOne, deleteOne } = useTindakanCrud();
 
   // --------------------------------------------------------------------
   // TABLE ROW (NULL SAFE)
@@ -51,7 +56,7 @@ export function useTindakanBridgeAdapter() {
   const tableRows = useMemo(() => {
     if (!Array.isArray(tindakanList)) return [];
     return tindakanList.map((item: TindakanJoinResult, i: number) =>
-      mapToTableRow(item, i)
+      mapToTableRow(item, i),
     );
   }, [tindakanList]);
 
@@ -78,6 +83,13 @@ export function useTindakanBridgeAdapter() {
     reload();
   };
 
+  const createRecord = async (payload: any) => {
+    const created = await createOne(payload);
+    bridge.emitEdited({ id: String(created?.id ?? ""), created: true });
+    reload();
+    return created;
+  };
+
   // --------------------------------------------------------------------
   // DELETE
   // --------------------------------------------------------------------
@@ -95,11 +107,20 @@ export function useTindakanBridgeAdapter() {
     return () => unsub();
   }, [bridge, reload]);
 
+  useEffect(() => {
+    const unsub = bridge.on(TINDAKAN_OPEN_DETAIL, (p: { id?: string }) => {
+      if (p?.id) setDetailOpenId(String(p.id));
+    });
+    return () => unsub();
+  }, [bridge]);
+
+  const closeDetailDrawer = useCallback(() => setDetailOpenId(null), []);
+
   // --------------------------------------------------------------------
   // DETAIL PANEL STATE BUILDER
   // --------------------------------------------------------------------
   const getDetailView = (id: string) => {
-    const row = tindakanList.find((r: any) => String(r.no_rm) === id);
+    const row = findTindakanRow(tindakanList, id);
     if (!row) return null;
     return mapToDetail(row);
   };
@@ -108,16 +129,24 @@ export function useTindakanBridgeAdapter() {
   // EDITOR PANEL STATE BUILDER
   // --------------------------------------------------------------------
   const getEditorState = (id: string) => {
-    const row = tindakanList.find((r: any) => String(r.no_rm) === id);
+    const row = findTindakanRow(tindakanList, id);
     if (!row) return null;
     return mapToEditor(row);
   };
+
+  const selectedRecord = useMemo(
+    () =>
+      detailOpenId ? findTindakanRow(tindakanList, detailOpenId) : null,
+    [tindakanList, detailOpenId]
+  );
 
   // --------------------------------------------------------------------
   // FINAL RETURN (CLEAN)
   // --------------------------------------------------------------------
   return {
     tableRows,
+    /** Baris mentah Supabase — untuk tampilan tab / kartu (tanpa spreadsheet) */
+    tindakanList,
     loading,
     error,
 
@@ -125,11 +154,16 @@ export function useTindakanBridgeAdapter() {
     openDetail,
     openEditor,
     saveEditor,
+    createRecord,
     deleteRecord,
     refresh: reload,
 
     // mapping
     getDetailView,
     getEditorState,
+
+    detailOpenId,
+    closeDetailDrawer,
+    selectedRecord,
   };
 }

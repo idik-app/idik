@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { createClient } from "@/lib/supabase/server-";
-import { pasienSchema } from "@/app/dashboard/pasien/data/pasienSchema";
+import { pasienSchema } from "@/app/dashboard/pasien/data/pasienValidation";
 import { mapSheetRowToPasien } from "@/app/dashboard/pasien/data/pasienImportMap";
 import { mapToSupabase } from "@/app/dashboard/pasien/data/pasienSchema";
 import { logPasienAudit } from "@/lib/audit/logPasien";

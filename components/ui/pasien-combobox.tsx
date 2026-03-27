@@ -13,7 +13,9 @@ export type PasienOption = {
   created_at: string | null;
 };
 
-export function formatPasienLabel(p: Pick<PasienOption, "nama" | "no_rm">): string {
+export function formatPasienLabel(
+  p: Pick<PasienOption, "nama" | "no_rm">,
+): string {
   const nama = (p.nama ?? "").trim();
   const rm = (p.no_rm ?? "").trim();
   if (nama && rm) return `${nama} (${rm})`;
@@ -27,6 +29,7 @@ function normalize(s: string): string {
 export function PasienCombobox({
   value,
   onChange,
+  onSelectOption,
   options,
   loading,
   className,
@@ -34,6 +37,8 @@ export function PasienCombobox({
 }: {
   value: string;
   onChange: (label: string) => void;
+  /** Dipanggil hanya saat user memilih dari list (klik). */
+  onSelectOption?: (opt: PasienOption) => void;
   options: PasienOption[];
   loading?: boolean;
   className?: string;
@@ -46,9 +51,7 @@ export function PasienCombobox({
     const q = normalize(value);
     if (!q) return options;
     return options.filter((p) => {
-      const hay = normalize(
-        `${p.nama ?? ""} ${p.no_rm ?? ""}`
-      );
+      const hay = normalize(`${p.nama ?? ""} ${p.no_rm ?? ""}`);
       return hay.includes(q);
     });
   }, [options, value]);
@@ -56,10 +59,7 @@ export function PasienCombobox({
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (
-        wrapRef.current &&
-        !wrapRef.current.contains(e.target as Node)
-      ) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
@@ -110,6 +110,7 @@ export function PasienCombobox({
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     onChange(label);
+                    onSelectOption?.(p);
                     setOpen(false);
                   }}
                 >

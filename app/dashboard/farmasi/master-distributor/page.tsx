@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { Building2, Filter, PhoneCall, UserCircle, PlusCircle } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase/supabaseClient';
 import type { MasterDistributorRow } from '@/lib/database.types';
 
 type Distributor = {
@@ -28,6 +26,23 @@ function mapDistributorRow(row: MasterDistributorRow): Distributor {
   };
 }
 
+let supabasePromise: Promise<any> | null = null;
+async function ensureSupabase() {
+  if (!supabasePromise) {
+    supabasePromise = import('@/lib/supabase/supabaseClient').then(
+      (m) => m.supabase as any,
+    );
+  }
+  return supabasePromise;
+}
+
+function isPublicSupabaseConfigured() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+}
+
 export default function MasterDistributorPage() {
   const [query, setQuery] = useState('');
   const [onlyActive, setOnlyActive] = useState(true);
@@ -36,29 +51,42 @@ export default function MasterDistributorPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      setError(
-        'Supabase belum dikonfigurasi. Set NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY.'
-      );
-      setItems([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    void Promise.resolve(
-      supabase
-        .from('master_distributor')
-        .select('*')
-        .order('nama_pt', { ascending: true })
-    ).then(({ data, error: err }) => {
-      if (err) {
-        setError(err.message);
+    const run = async () => {
+      if (!isPublicSupabaseConfigured()) {
+        setError(
+          'Supabase belum dikonfigurasi. Set NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY.',
+        );
         setItems([]);
+        setLoading(false);
         return;
       }
-      setItems((data ?? []).map((r) => mapDistributorRow(r as MasterDistributorRow)));
-    }).finally(() => setLoading(false));
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const sb: any = await ensureSupabase();
+        const { data, error: err } = await sb
+          .from('master_distributor')
+          .select('*')
+          .order('nama_pt', { ascending: true });
+
+        if (err) {
+          setError((err as any).message ?? 'Gagal memuat master_distributor');
+          setItems([]);
+          return;
+        }
+
+        setItems((data ?? []).map((r) => mapDistributorRow(r as MasterDistributorRow)));
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : 'Gagal memuat data');
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void run();
   }, []);
 
   const filtered = items.filter((d) => {
@@ -74,11 +102,8 @@ export default function MasterDistributorPage() {
 
   return (
     <div className="p-6 text-cyan-200 space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex flex-wrap items-center justify-between gap-3"
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300"
       >
         <div className="flex items-center gap-3">
           <Building2 size={26} className="text-[#D4AF37]" />
@@ -101,14 +126,11 @@ export default function MasterDistributorPage() {
           <PlusCircle size={16} />
           Tambah Distributor
         </button>
-      </motion.div>
+      </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+      <div
         className="bg-gradient-to-r from-[#020617]/90 via-[#020617]/80 to-[#020617]/90
-                   border border-cyan-800/70 rounded-2xl px-4 py-3 flex flex-wrap gap-3 items-center text-xs"
+                   border border-cyan-800/70 rounded-2xl px-4 py-3 flex flex-wrap gap-3 items-center text-xs animate-in fade-in duration-300"
       >
         <div className="flex items-center gap-2 text-cyan-300">
           <Filter size={14} className="text-cyan-400" />
@@ -128,7 +150,7 @@ export default function MasterDistributorPage() {
           />
           Hanya tampilkan yang aktif
         </label>
-      </motion.div>
+      </div>
 
       {error && (
         <div className="text-xs text-amber-300 bg-amber-900/40 border border-amber-500/60 rounded-lg px-3 py-2">
@@ -136,10 +158,7 @@ export default function MasterDistributorPage() {
         </div>
       )}
 
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+      <div
         className="bg-gradient-to-br from-[#0B0F15]/90 to-[#111B26]/90 border border-[#0EA5E9]/40 rounded-2xl p-4 backdrop-blur-md overflow-hidden"
       >
         <div className="flex items-center justify-between mb-3">
@@ -216,7 +235,7 @@ export default function MasterDistributorPage() {
             </tbody>
           </table>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

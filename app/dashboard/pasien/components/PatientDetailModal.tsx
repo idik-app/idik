@@ -1,6 +1,5 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { Pasien } from "../types/pasien";
 import { formatKelasPerawatanDisplay } from "../utils/formatKelasPerawatan";
@@ -24,18 +23,13 @@ export function PatientDetailModalContent({
   if (!patient) return null;
 
   return (
-    <AnimatePresence>
-      <ModalWrapper onClose={onClose}>
-        <motion.div
-          key="modal"
-          initial={{ y: 60, opacity: 0, scale: 0.95 }}
-          animate={{ y: 0, opacity: 1, scale: 1 }}
-          exit={{ y: 60, opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
-          className="relative overflow-hidden bg-gradient-to-br from-cyan-900/40 to-black/70
-                     border border-cyan-400/50 rounded-2xl p-6 w-full max-w-lg
-                     text-cyan-100 shadow-[0_0_40px_rgba(0,255,255,0.5)]"
-        >
+    <ModalWrapper onClose={onClose}>
+      <div
+        className="relative overflow-hidden bg-gradient-to-br from-cyan-900/40 to-black/70
+                   border border-cyan-400/50 rounded-2xl p-6 w-full max-w-lg
+                   text-cyan-100 shadow-[0_0_40px_rgba(0,255,255,0.5)]
+                   animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-300"
+      >
           {/* Tombol Tutup */}
           <button
             onClick={onClose}
@@ -92,9 +86,8 @@ export function PatientDetailModalContent({
               ✖ Tutup
             </button>
           </div>
-        </motion.div>
-      </ModalWrapper>
-    </AnimatePresence>
+      </div>
+    </ModalWrapper>
   );
 }
 

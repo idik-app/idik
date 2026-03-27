@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
 import { Trash2 } from "lucide-react";
 import { useRuangan, type RuanganRow } from "../contexts/RuanganContext";
 
@@ -280,37 +279,26 @@ export default function RuanganTable({
 }: RuanganTableProps) {
   if (noMatch) {
     return (
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="text-center text-cyan-400 py-8 px-2"
-      >
+      <p className="text-center text-cyan-400 py-8 px-2 animate-in fade-in duration-200">
         Tidak ada ruangan yang cocok dengan pencarian atau filter. Ubah kata
         kunci atau reset filter.
-      </motion.p>
+      </p>
     );
   }
 
   if (!rows || rows.length === 0) {
     return (
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="text-center text-cyan-400 py-6"
-      >
+      <p className="text-center text-cyan-400 py-6 animate-in fade-in duration-200">
         Belum ada data ruangan. Gunakan tombol Tambah untuk menambahkan.
-      </motion.p>
+      </p>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
+    <div
       className="relative overflow-x-auto rounded-xl border border-cyan-700/40 
                  bg-gradient-to-br from-cyan-900/10 to-black/60 
-                 shadow-[0_0_15px_rgba(0,255,255,0.1)] backdrop-blur-md"
+                 shadow-[0_0_15px_rgba(0,255,255,0.1)] backdrop-blur-md animate-in fade-in duration-300"
     >
       <div
         className="absolute inset-0 bg-gradient-to-br 
@@ -334,11 +322,8 @@ export default function RuanganTable({
 
         <tbody>
           {rows.map((r, i) => (
-            <motion.tr
+            <tr
               key={r.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.02 }}
               className="border-t border-cyan-600/20 hover:bg-cyan-400/10 transition-all"
             >
               <td className="px-3 py-2 align-top">
@@ -390,10 +375,10 @@ export default function RuanganTable({
                   <Trash2 size={16} />
                 </button>
               </td>
-            </motion.tr>
+            </tr>
           ))}
         </tbody>
       </table>
-    </motion.div>
+    </div>
   );
 }

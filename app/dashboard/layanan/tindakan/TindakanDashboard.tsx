@@ -3,128 +3,78 @@
 import { useEffect, useRef, useState } from "react";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { useTindakanStats } from "./hooks/useTindakanStats";
-import { useTindakanRealtime } from "./hooks/useTindakanRealtime";
+import { useTindakanBridgeAdapter } from "./bridge/useTindakanBridgeAdapter";
+import type { TindakanJoinResult } from "./bridge/mapping.types";
 import TindakanHeader from "./components/TindakanHeader";
 import TindakanSummary from "./components/TindakanSummary";
 import TindakanTable from "./components/TindakanTable";
+import TindakanDetailDrawer from "./components/TindakanDetailDrawer";
 
-import DiagnosticsHUD from "@/app/dashboard/ui/DiagnosticsHUD";
+type ThemeTone = "cyan" | "emerald";
 
-/** 💠 TindakanDashboard v8.5.1 — Toolbar & Charts Removed */
+/** Tindakan medis — wireframe: daftar ringkas + drawer bertab + jembatan Pemakaian */
 export default function TindakanDashboard() {
   const { show } = useNotification();
   const { stats, refreshStats, loading } = useTindakanStats();
-  const { eventCount } = useTindakanRealtime();
+  const adapter = useTindakanBridgeAdapter();
 
   const hasMounted = useRef(false);
   const tableRef = useRef<HTMLDivElement | null>(null);
-  const scrollAnchor = useRef<number>(0);
-  const [isLive, setIsLive] = useState(false);
-
+  const [themeTone, setThemeTone] = useState<ThemeTone>("cyan");
   /** 🔄 Refresh awal */
   useEffect(() => {
     if (!hasMounted.current) {
       hasMounted.current = true;
       refreshStats();
-      setIsLive(true);
     }
   }, [refreshStats]);
 
-  /** 🧠 Realtime listener + fokus ke data baru */
-  useEffect(() => {
-    if (eventCount > 0) {
-      show({
-        type: "info",
-        message: `Realtime update: ${eventCount} event${
-          eventCount > 1 ? "s" : ""
-        } baru`,
-        duration: 2500,
-      });
-      refreshStats();
+  // Realtime listener removed (manual refresh mode).
 
-      if (tableRef.current) {
-        tableRef.current.scrollTo({
-          top: tableRef.current.scrollHeight,
-          behavior: "smooth",
-        });
-      }
-
-      setIsLive(true);
-      const t = setTimeout(() => setIsLive(false), 2500);
-      return () => clearTimeout(t);
-    }
-  }, [eventCount, show, refreshStats]);
-
-  /** 💾 Refresh manual dengan posisi scroll terjaga (masih dipakai internal) */
-  const handleRefreshWithAnchor = async () => {
-    if (tableRef.current) scrollAnchor.current = tableRef.current.scrollTop;
-    await refreshStats();
-    requestAnimationFrame(() => {
-      if (tableRef.current) {
-        tableRef.current.scrollTo({
-          top: scrollAnchor.current,
-          behavior: "smooth",
-        });
-      }
-    });
-  };
-
-  /** Smooth fade */
-  const fadeUp = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-  };
+  const drawerOpen = Boolean(adapter.detailOpenId && adapter.selectedRecord);
 
   return (
     <div
       key="tindakan-dashboard"
-      className="relative min-h-screen bg-gradient-to-br from-black via-gray-900 to-cyan-950 text-white overflow-hidden"
+      className={`relative min-h-screen overflow-x-hidden overflow-y-auto text-white ${
+        themeTone === "emerald"
+          ? "bg-gradient-to-br from-slate-950 via-black to-emerald-950"
+          : "bg-gradient-to-br from-slate-950 via-black to-cyan-950"
+      }`}
     >
-      {/* ✴️ HEADER */}
-      <header className="sticky top-0 z-30 backdrop-blur-md bg-black/40 border-b border-cyan-900/40 p-6 animate-in fade-in slide-in-from-top-2 duration-300">
-        <div className="space-y-2">
-          <TindakanHeader />
-          <div className="text-xs font-mono text-cyan-400/80">v8.5.1</div>
-        </div>
+      <header
+        className={`sticky top-0 z-30 bg-black/45 p-4 backdrop-blur-md md:p-6 ${
+          themeTone === "emerald"
+            ? "border-b border-emerald-900/35"
+            : "border-b border-cyan-900/35"
+        }`}
+      >
+        <TindakanHeader themeTone={themeTone} onThemeToneChange={setThemeTone} />
       </header>
 
-      {/* 🌌 KONTEN UTAMA */}
-      <main className="relative overflow-y-auto max-h-[calc(100vh-160px)] px-6 pt-6 pb-28 space-y-10 scrollbar-thin scrollbar-thumb-cyan-800/60 scrollbar-track-transparent">
-        {/* 🧩 Summary tetap */}
-        <section>
-          <TindakanSummary stats={stats} loading={loading} />
+      <main className="relative space-y-8 px-4 pb-24 pt-5 md:px-6 md:pt-6">
+        <section className="sticky top-2 z-10 rounded-2xl border border-white/5 bg-black/20 p-2 backdrop-blur-sm">
+          <TindakanSummary stats={stats} loading={loading} themeTone={themeTone} />
         </section>
 
-        {/* 🧾 Tabel */}
         <section
           ref={tableRef}
-          className="relative rounded-xl border border-cyan-900/50 bg-black/30 backdrop-blur-md shadow-inner shadow-cyan-900/20 overflow-y-auto max-h-[70vh] scrollbar-thin scrollbar-thumb-cyan-800/60 scrollbar-track-transparent"
+          className={`relative rounded-2xl border bg-black/30 shadow-[0_20px_60px_rgba(8,47,73,0.25)] backdrop-blur-md ${
+            themeTone === "emerald" ? "border-emerald-900/45" : "border-cyan-900/45"
+          }`}
           id="tindakan-table-section"
         >
-          {/* 🔴 LIVE Indicator */}
-          <div className="absolute top-3 right-4 flex items-center gap-2 z-20">
-            <div
-              className={`w-3 h-3 rounded-full ${
-                isLive ? "bg-cyan-400 animate-pulse" : "bg-gray-600"
-              }`}
-            />
-            <span
-              className={`text-xs font-mono ${
-                isLive ? "text-cyan-300" : "text-gray-500"
-              }`}
-            >
-              {isLive ? "LIVE" : "IDLE"}
-            </span>
-          </div>
-
-          <TindakanTable />
+          <TindakanTable
+            adapter={adapter}
+          />
         </section>
       </main>
 
-      {/* 🧠 DiagnosticsHUD */}
-      <div className="fixed bottom-4 right-4 z-50 animate-in fade-in duration-300 delay-2000">
-        <DiagnosticsHUD />
-      </div>
+      <TindakanDetailDrawer
+        open={drawerOpen}
+        record={(adapter.selectedRecord as TindakanJoinResult | null) ?? null}
+        onClose={adapter.closeDetailDrawer}
+      />
     </div>
   );
 }

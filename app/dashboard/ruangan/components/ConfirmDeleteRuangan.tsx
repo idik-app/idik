@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { motion } from "framer-motion";
 import { DoorOpen, Loader2, Trash2, X } from "lucide-react";
 
 export interface ConfirmDeleteRuanganProps {
@@ -49,11 +48,8 @@ export default function ConfirmDeleteRuangan({
   if (!mounted) return null;
 
   return createPortal(
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[10000] flex items-center justify-center p-4 pointer-events-auto"
+    <div
+      className="fixed inset-0 z-[10000] flex items-center justify-center p-4 pointer-events-auto animate-in fade-in duration-200"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="confirm-ruangan-title"
@@ -64,12 +60,8 @@ export default function ConfirmDeleteRuangan({
         aria-hidden
         onClick={() => !busy && onCancel()}
       />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 10 }}
-        transition={{ type: "spring", damping: 26, stiffness: 320 }}
-        className="relative z-10 w-full max-w-md rounded-2xl border border-cyan-500/35 bg-gradient-to-b from-[#0a1628] via-[#060d18] to-[#03070c] shadow-[0_0_0_1px_rgba(34,211,238,0.12),0_24px_56px_rgba(0,0,0,0.65),0_0_40px_rgba(34,211,238,0.08)] overflow-hidden"
+      <div
+        className="relative z-10 w-full max-w-md rounded-2xl border border-cyan-500/35 bg-gradient-to-b from-[#0a1628] via-[#060d18] to-[#03070c] shadow-[0_0_0_1px_rgba(34,211,238,0.12),0_24px_56px_rgba(0,0,0,0.65),0_0_40px_rgba(34,211,238,0.08)] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
@@ -159,8 +151,8 @@ export default function ConfirmDeleteRuangan({
             )}
           </button>
         </div>
-      </motion.div>
-    </motion.div>,
+      </div>
+    </div>,
     document.body
   );
 }

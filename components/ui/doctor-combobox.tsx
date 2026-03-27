@@ -27,6 +27,7 @@ function normalize(s: string): string {
 export function DoctorCombobox({
   value,
   onChange,
+  onSelectOption,
   options,
   loading,
   className,
@@ -35,6 +36,8 @@ export function DoctorCombobox({
 }: {
   value: string;
   onChange: (label: string) => void;
+  /** Dipanggil hanya saat user memilih dari list (klik). */
+  onSelectOption?: (opt: DoctorOption) => void;
   options: DoctorOption[];
   loading?: boolean;
   className?: string;
@@ -111,6 +114,7 @@ export function DoctorCombobox({
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     onChange(label);
+                    onSelectOption?.(d);
                     setOpen(false);
                   }}
                 >

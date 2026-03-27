@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
 import {
   Boxes,
   Building2,
@@ -13,7 +12,6 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase/supabaseClient';
 import type { MasterDistributorRow } from '@/lib/database.types';
 
 type JenisBarang = 'OBAT' | 'ALKES';
@@ -54,6 +52,23 @@ function mapDistributorRow(row: MasterDistributorRow): Distributor {
   };
 }
 
+let supabasePromise: Promise<any> | null = null;
+async function ensureSupabase() {
+  if (!supabasePromise) {
+    supabasePromise = import('@/lib/supabase/supabaseClient').then(
+      (m) => (m as any).supabase as any,
+    );
+  }
+  return supabasePromise;
+}
+
+function isPublicSupabaseConfigured() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
+}
+
 type TabKey = 'BARANG' | 'ALKES' | 'DISTRIBUTOR';
 
 const ALKES_KATEGORI_OPTIONS = [
@@ -71,12 +86,7 @@ export default function MasterFarmasiPage() {
 
   return (
     <div className="p-6 text-cyan-200 space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex flex-wrap items-center justify-between gap-3"
-      >
+      <div className="flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
         <div className="flex items-center gap-3">
           <Boxes size={26} className="text-[#D4AF37]" />
           <div>
@@ -109,7 +119,7 @@ export default function MasterFarmasiPage() {
             </button>
           ))}
         </div>
-      </motion.div>
+      </div>
 
       {tab === 'BARANG' && <BarangPanel />}
       {tab === 'ALKES' && <AlkesPanel />}
@@ -131,49 +141,66 @@ function BarangPanel() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      setError(
-        'Supabase belum dikonfigurasi. Set NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY.'
-      );
-      return;
-    }
-    setLoading(true);
-    setError(null);
-
-    const loadObat = supabase
-      .from('master_barang')
-      .select('*')
-      .eq('jenis', 'OBAT')
-      .order('nama', { ascending: true });
-
-    const loadAlkesCount = supabase
-      .from('master_barang')
-      .select('*', { count: 'exact', head: true })
-      .eq('jenis', 'ALKES');
-
-    void Promise.all([loadObat, loadAlkesCount]).then(([obatRes, alkesRes]) => {
-      if (obatRes.error) {
-        setError(obatRes.error.message);
-        setItems([]);
-      } else {
-        const mapped =
-          obatRes.data?.map((row: any) => ({
-            id: row.id,
-            kode: row.kode,
-            nama: row.nama,
-            jenis: row.jenis,
-            satuan: row.satuan ?? '',
-            kategori: row.kategori ?? '',
-            barcode: row.barcode ?? undefined,
-            distributor: row.distributor_id ? String(row.distributor_id) : undefined,
-            hargaPokok: Number(row.harga_pokok ?? 0),
-            hargaJual: Number(row.harga_jual ?? 0),
-            aktif: !!row.is_active,
-          })) ?? [];
-        setItems(mapped);
+    void (async () => {
+      if (!isPublicSupabaseConfigured()) {
+        setError(
+          'Supabase belum dikonfigurasi. Set NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY.',
+        );
+        setLoading(false);
+        return;
       }
-      setAlkesCount(alkesRes.count ?? 0);
-    }).finally(() => setLoading(false));
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const sb: any = await ensureSupabase();
+
+        const [obatRes, alkesRes] = await Promise.all([
+          sb
+            .from('master_barang')
+            .select('*')
+            .eq('jenis', 'OBAT')
+            .order('nama', { ascending: true }),
+          sb
+            .from('master_barang')
+            .select('*', { count: 'exact', head: true })
+            .eq('jenis', 'ALKES'),
+        ]);
+
+        if (obatRes.error) {
+          setError(obatRes.error.message);
+          setItems([]);
+        } else {
+          const mapped =
+            obatRes.data?.map((row: any) => ({
+              id: row.id,
+              kode: row.kode,
+              nama: row.nama,
+              jenis: row.jenis,
+              satuan: row.satuan ?? '',
+              kategori: row.kategori ?? '',
+              barcode: row.barcode ?? undefined,
+              distributor: row.distributor_id
+                ? String(row.distributor_id)
+                : undefined,
+              hargaPokok: Number(row.harga_pokok ?? 0),
+              hargaJual: Number(row.harga_jual ?? 0),
+              aktif: !!row.is_active,
+            })) ?? [];
+          setItems(mapped);
+        }
+
+        setAlkesCount(alkesRes.count ?? 0);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
+        setItems([]);
+        setAlkesCount(0);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   const filtered = items.filter((b) => {
@@ -211,12 +238,10 @@ function BarangPanel() {
         />
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+      <div
         className="bg-gradient-to-r from-[#020617]/90 via-[#020617]/80 to-[#020617]/90
-                   border border-cyan-800/70 rounded-2xl px-4 py-3 flex flex-wrap gap-3 items-center text-xs"
+                   border border-cyan-800/70 rounded-2xl px-4 py-3 flex flex-wrap gap-3 items-center text-xs
+                   animate-in fade-in slide-in-from-top-1 duration-300"
       >
         <div className="flex items-center gap-2 text-cyan-300">
           <Filter size={14} className="text-cyan-400" />
@@ -236,7 +261,7 @@ function BarangPanel() {
           />
           Hanya tampilkan yang aktif
         </label>
-      </motion.div>
+      </div>
 
       {error && (
         <div className="text-xs text-amber-300 bg-amber-900/40 border border-amber-500/60 rounded-lg px-3 py-2">
@@ -244,11 +269,9 @@ function BarangPanel() {
         </div>
       )}
 
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="bg-gradient-to-br from-[#0B0F15]/90 to-[#111B26]/90 border border-[#0EA5E9]/40 rounded-2xl p-4 backdrop-blur-md overflow-hidden"
+      <div
+        className="bg-gradient-to-br from-[#0B0F15]/90 to-[#111B26]/90 border border-[#0EA5E9]/40 rounded-2xl p-4 backdrop-blur-md overflow-hidden
+                   animate-in fade-in slide-in-from-top-2 duration-300"
       >
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -375,10 +398,11 @@ function BarangPanel() {
                           onClick={async (e) => {
                             e.stopPropagation();
                             if (!confirm(`Hapus obat "${b.nama}"? Data tidak dapat dikembalikan.`)) return;
-                            if (!isSupabaseConfigured()) return;
+                            if (!isPublicSupabaseConfigured()) return;
                             setDeletingId(b.id);
                             try {
-                              const { error } = await supabase
+                              const sb: any = await ensureSupabase();
+                              const { error } = await sb
                                 .from('master_barang')
                                 .delete()
                                 .eq('id', b.id);
@@ -405,7 +429,7 @@ function BarangPanel() {
             </tbody>
           </table>
         </div>
-      </motion.div>
+      </div>
 
       {barangModalOpen && (
         <BarangModal
@@ -422,9 +446,11 @@ function BarangPanel() {
               alert('Nama obat wajib diisi.');
               return;
             }
-            if (!isSupabaseConfigured()) return;
+            if (!isPublicSupabaseConfigured()) return;
             setSavingBarang(true);
             try {
+              const sb: any = await ensureSupabase();
+
               const kodeTrimmed = payload.kode?.trim();
               const kode =
                 kodeTrimmed ||
@@ -443,7 +469,7 @@ function BarangPanel() {
               };
 
               if (editingBarang) {
-                const { data, error } = await supabase
+                const { data, error } = await sb
                   .from('master_barang')
                   // @ts-expect-error - master_barang row type from DB
                   .update(row)
@@ -471,7 +497,7 @@ function BarangPanel() {
 
                 setItems((prev) => prev.map((x) => (x.id === editingBarang.id ? mapped : x)));
               } else {
-                const { data, error } = await supabase
+                const { data, error } = await sb
                   .from('master_barang')
                   // @ts-expect-error - master_barang row type from DB
                   .insert(row)
@@ -606,12 +632,9 @@ function BarangModal(props: {
       className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/60"
       onClick={onClose}
     >
-      <motion.div
+      <div
         onClick={(e) => e.stopPropagation()}
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 40 }}
-        className="w-full sm:max-w-xl max-h-[90vh] bg-slate-950/95 border border-cyan-700/70 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        className="w-full sm:max-w-xl max-h-[90vh] bg-slate-950/95 border border-cyan-700/70 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
       >
         <div className="px-4 py-3 border-b border-slate-800/80 flex items-center justify-between">
           <div>
@@ -746,7 +769,7 @@ function BarangModal(props: {
           </button>
         </div>
         </form>
-      </motion.div>
+      </div>
     </div>
   );
 }
@@ -763,42 +786,57 @@ function AlkesPanel() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      setError(
-        'Supabase belum dikonfigurasi. Set NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY.'
-      );
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    void Promise.resolve(
-      supabase
-        .from('master_barang')
-        .select('*')
-        .eq('jenis', 'ALKES')
-        .order('nama', { ascending: true })
-    ).then(({ data, error: err }) => {
-      if (err) {
-        setError(err.message);
-        setItems([]);
+    void (async () => {
+      if (!isPublicSupabaseConfigured()) {
+        setError(
+          'Supabase belum dikonfigurasi. Set NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY.',
+        );
+        setLoading(false);
         return;
       }
-      const mapped =
-        data?.map((row: any) => ({
-          id: row.id,
-          kode: row.kode,
-          nama: row.nama,
-          jenis: row.jenis,
-          satuan: row.satuan ?? '',
-          kategori: row.kategori ?? '',
-          barcode: row.barcode ?? undefined,
-          distributor: row.distributor_id ? String(row.distributor_id) : undefined,
-          hargaPokok: Number(row.harga_pokok ?? 0),
-          hargaJual: Number(row.harga_jual ?? 0),
-          aktif: !!row.is_active,
-        })) ?? [];
-      setItems(mapped);
-    }).finally(() => setLoading(false));
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const sb: any = await ensureSupabase();
+        const { data, error: err } = await sb
+          .from('master_barang')
+          .select('*')
+          .eq('jenis', 'ALKES')
+          .order('nama', { ascending: true });
+
+        if (err) {
+          setError(err.message);
+          setItems([]);
+          return;
+        }
+
+        const mapped =
+          data?.map((row: any) => ({
+            id: row.id,
+            kode: row.kode,
+            nama: row.nama,
+            jenis: row.jenis,
+            satuan: row.satuan ?? '',
+            kategori: row.kategori ?? '',
+            barcode: row.barcode ?? undefined,
+            distributor: row.distributor_id
+              ? String(row.distributor_id)
+              : undefined,
+            hargaPokok: Number(row.harga_pokok ?? 0),
+            hargaJual: Number(row.harga_jual ?? 0),
+            aktif: !!row.is_active,
+          })) ?? [];
+        setItems(mapped);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   const filtered = items.filter((b) => {
@@ -822,12 +860,10 @@ function AlkesPanel() {
         subtitle="Hanya menampilkan barang jenis alkes dari Master Barang"
       />
 
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+      <div
         className="bg-gradient-to-r from-[#020617]/90 via-[#020617]/80 to-[#020617]/90
-                   border border-cyan-800/70 rounded-2xl px-4 py-3 flex flex-wrap gap-3 items-center text-xs"
+                   border border-cyan-800/70 rounded-2xl px-4 py-3 flex flex-wrap gap-3 items-center text-xs
+                   animate-in fade-in slide-in-from-top-1 duration-300"
       >
         <div className="flex items-center gap-2 text-cyan-300">
           <Filter size={14} className="text-cyan-400" />
@@ -847,7 +883,7 @@ function AlkesPanel() {
           />
           Hanya tampilkan yang aktif
         </label>
-      </motion.div>
+      </div>
 
       {error && (
         <div className="text-xs text-amber-300 bg-amber-900/40 border border-amber-500/60 rounded-lg px-3 py-2">
@@ -855,11 +891,9 @@ function AlkesPanel() {
         </div>
       )}
 
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="bg-gradient-to-br from-[#0B0F15]/90 to-[#111B26]/90 border border-[#0EA5E9]/40 rounded-2xl p-4 backdrop-blur-md overflow-hidden"
+      <div
+        className="bg-gradient-to-br from-[#0B0F15]/90 to-[#111B26]/90 border border-[#0EA5E9]/40 rounded-2xl p-4 backdrop-blur-md overflow-hidden
+                   animate-in fade-in slide-in-from-top-2 duration-300"
       >
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -965,10 +999,11 @@ function AlkesPanel() {
                           onClick={async (e) => {
                             e.stopPropagation();
                             if (!confirm(`Hapus alkes "${b.nama}"? Data tidak dapat dikembalikan.`)) return;
-                            if (!isSupabaseConfigured()) return;
+                            if (!isPublicSupabaseConfigured()) return;
                             setDeletingId(b.id);
                             try {
-                              const { error: err } = await supabase
+                              const sb: any = await ensureSupabase();
+                              const { error: err } = await sb
                                 .from('master_barang')
                                 .delete()
                                 .eq('id', b.id);
@@ -995,7 +1030,7 @@ function AlkesPanel() {
             </tbody>
           </table>
         </div>
-      </motion.div>
+      </div>
 
       {alkesModalOpen && (
         <AlkesModal
@@ -1008,9 +1043,11 @@ function AlkesPanel() {
             }
           }}
           onSave={async (payload) => {
-            if (!isSupabaseConfigured()) return;
+            if (!isPublicSupabaseConfigured()) return;
             setSavingAlkes(true);
             try {
+              const sb: any = await ensureSupabase();
+
               const kode =
                 (payload.kode && payload.kode.trim()) ||
                 `ALKES-${Date.now()}`;
@@ -1028,7 +1065,7 @@ function AlkesPanel() {
               };
 
               if (editingAlkes) {
-                const { data, error: err } = await supabase
+                const { data, error: err } = await sb
                   .from('master_barang')
                   // @ts-expect-error - master_barang row type from DB
                   .update(row)
@@ -1056,7 +1093,7 @@ function AlkesPanel() {
 
                 setItems((prev) => prev.map((x) => (x.id === editingAlkes.id ? mapped : x)));
               } else {
-                const { data, error: err } = await supabase
+                const { data, error: err } = await sb
                   .from('master_barang')
                   // @ts-expect-error - master_barang row type from DB
                   .insert(row)
@@ -1175,12 +1212,9 @@ function AlkesModal(props: {
       className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/60"
       onClick={onClose}
     >
-      <motion.div
+      <div
         onClick={(e) => e.stopPropagation()}
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 40 }}
-        className="w-full sm:max-w-xl max-h-[90vh] bg-slate-950/95 border border-cyan-700/70 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        className="w-full sm:max-w-xl max-h-[90vh] bg-slate-950/95 border border-cyan-700/70 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
       >
         <div className="px-4 py-3 border-b border-slate-800/80 flex items-center justify-between">
           <div>
@@ -1322,7 +1356,7 @@ function AlkesModal(props: {
           </button>
         </div>
         </form>
-      </motion.div>
+      </div>
     </div>
   );
 }
@@ -1338,28 +1372,40 @@ function DistributorPanel() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      setError(
-        'Supabase belum dikonfigurasi. Set NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY.'
-      );
-      return;
-    }
-    setLoading(true);
-    setError(null);
-
-    void Promise.resolve(
-      supabase
-        .from('master_distributor')
-        .select('*')
-        .order('nama_pt', { ascending: true })
-    ).then(({ data, error }) => {
-      if (error) {
-        setError(error.message);
-        setItems([]);
+    void (async () => {
+      if (!isPublicSupabaseConfigured()) {
+        setError(
+          'Supabase belum dikonfigurasi. Set NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY.',
+        );
+        setLoading(false);
         return;
       }
-      setItems((data ?? []).map(mapDistributorRow));
-    }).finally(() => setLoading(false));
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const sb: any = await ensureSupabase();
+        const { data, error } = await sb
+          .from('master_distributor')
+          .select('*')
+          .order('nama_pt', { ascending: true });
+
+        if (error) {
+          setError(error.message);
+          setItems([]);
+          return;
+        }
+
+        setItems((data ?? []).map(mapDistributorRow));
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setError(msg);
+        setItems([]);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   const filtered = items.filter((d) => {
@@ -1381,12 +1427,10 @@ function DistributorPanel() {
         subtitle="PT aktif/nonaktif yang terdaftar"
       />
 
-      <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+      <div
         className="bg-gradient-to-r from-[#020617]/90 via-[#020617]/80 to-[#020617]/90
-                   border border-cyan-800/70 rounded-2xl px-4 py-3 flex flex-wrap gap-3 items-center text-xs"
+                   border border-cyan-800/70 rounded-2xl px-4 py-3 flex flex-wrap gap-3 items-center text-xs
+                   animate-in fade-in slide-in-from-top-1 duration-300"
       >
         <div className="flex items-center gap-2 text-cyan-300">
           <Filter size={14} className="text-cyan-400" />
@@ -1406,7 +1450,7 @@ function DistributorPanel() {
           />
           Hanya tampilkan yang aktif
         </label>
-      </motion.div>
+      </div>
 
       {error && (
         <div className="text-xs text-amber-300 bg-amber-900/40 border border-amber-500/60 rounded-lg px-3 py-2">
@@ -1414,11 +1458,9 @@ function DistributorPanel() {
         </div>
       )}
 
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="bg-gradient-to-br from-[#0B0F15]/90 to-[#111B26]/90 border border-[#0EA5E9]/40 rounded-2xl p-4 backdrop-blur-md overflow-hidden"
+      <div
+        className="bg-gradient-to-br from-[#0B0F15]/90 to-[#111B26]/90 border border-[#0EA5E9]/40 rounded-2xl p-4 backdrop-blur-md overflow-hidden
+                   animate-in fade-in slide-in-from-top-2 duration-300"
       >
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -1513,7 +1555,7 @@ function DistributorPanel() {
             </tbody>
           </table>
         </div>
-      </motion.div>
+      </div>
 
       {modalOpen && (
         <DistributorModal
@@ -1523,11 +1565,13 @@ function DistributorPanel() {
             if (!saving) setModalOpen(false);
           }}
           onSave={async (payload) => {
-            if (!isSupabaseConfigured()) return;
+            if (!isPublicSupabaseConfigured()) return;
             setSaving(true);
             try {
+              const sb: any = await ensureSupabase();
+
               if (editing) {
-                const { error } = await supabase
+                const { error } = await sb
                   .from('master_distributor')
                   // @ts-expect-error - master_distributor row type from DB
                   .update({
@@ -1547,7 +1591,7 @@ function DistributorPanel() {
                   )
                 );
               } else {
-                const { data, error } = await supabase
+                const { data, error } = await sb
                   .from('master_distributor')
                   // @ts-expect-error - master_distributor row type from DB
                   .insert({
@@ -1607,12 +1651,9 @@ function DistributorModal(props: {
       className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/60"
       onClick={onClose}
     >
-      <motion.div
+      <div
         onClick={(e) => e.stopPropagation()}
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 40 }}
-        className="w-full sm:max-w-lg max-h-[90vh] bg-slate-950/95 border border-cyan-700/70 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        className="w-full sm:max-w-lg max-h-[90vh] bg-slate-950/95 border border-cyan-700/70 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
       >
         <div className="px-4 py-3 border-b border-slate-800/80 flex items-center justify-between">
           <div>
@@ -1717,7 +1758,7 @@ function DistributorModal(props: {
           </button>
         </div>
         </form>
-      </motion.div>
+      </div>
     </div>
   );
 }
@@ -1725,16 +1766,7 @@ function DistributorModal(props: {
 function SummaryCard(props: { title: string; value: number; subtitle: string }) {
   const { title, value, subtitle } = props;
   return (
-    <motion.div
-      animate={{
-        boxShadow: [
-          '0 0 10px rgba(212,175,55,0.25), 0 0 20px rgba(0,224,255,0.1)',
-          '0 0 18px rgba(212,175,55,0.45), 0 0 25px rgba(0,224,255,0.2)',
-        ],
-      }}
-      transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-      className="bg-gradient-to-br from-[#0B0F15]/95 to-[#101A24]/95 border border-[#D4AF37]/70 rounded-2xl p-4 backdrop-blur-md"
-    >
+    <div className="bg-gradient-to-br from-[#0B0F15]/95 to-[#101A24]/95 border border-[#D4AF37]/70 rounded-2xl p-4 backdrop-blur-md animate-in fade-in duration-300">
       <div className="flex items-center gap-3">
         <PackageSearch size={22} className="text-[#D4AF37]" />
         <div>
@@ -1743,7 +1775,7 @@ function SummaryCard(props: { title: string; value: number; subtitle: string }) 
           <p className="text-[11px] text-cyan-300/80 mt-0.5">{subtitle}</p>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 

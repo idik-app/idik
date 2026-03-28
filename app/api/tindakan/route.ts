@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guards";
 import { getServiceSupabaseAdmin } from "@/lib/auth/serviceSupabase";
+import {
+  coalesceNoRm,
+  enrichTindakanRowForApi,
+  toText,
+} from "@/lib/tindakan/tindakanDbMap";
+import {
+  enrichTindakanRowTarifFromMasterMap,
+  fetchMasterTarifLookupMap,
+} from "@/lib/tindakan/masterTarifTindakan";
 
 export const dynamic = "force-dynamic";
-
-function toText(v: unknown): string | null {
-  const s = String(v ?? "").trim();
-  return s ? s : null;
-}
 
 function mapLegacyTindakanMedikRow(
   row: Record<string, unknown>,
@@ -17,11 +21,7 @@ function mapLegacyTindakanMedikRow(
     tanggal: toText(row.tanggal),
     dokter: toText(row.dokter) ?? toText(row.operator),
     nama_pasien: toText(row.nama_pasien) ?? toText(row.nama),
-    no_rm:
-      toText(row.no_rm) ??
-      toText(row.rm) ??
-      toText(row.no_rekam_medis) ??
-      toText(row.nomor_rm),
+    no_rm: coalesceNoRm(row),
     tindakan: toText(row.tindakan) ?? toText(row.jenis) ?? toText(row.alkes_utama),
     kategori: toText(row.kategori),
     status: toText(row.status),
@@ -52,14 +52,19 @@ export async function GET(request: Request) {
       ? Math.min(Math.max(Math.trunc(limitRaw), 1), 20000)
       : 8000;
 
+    // Urutan: skema lengkap dulu. Proyeksi minimal di akhir — jika dipilih lebih dulu,
+    // baris tidak punya pasien_id / kategori / kolom Cathlab sehingga drawer detail kosong.
     const projections = [
+      "*",
       "id, tanggal, dokter, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, created_at",
       "id, tanggal, dokter, nama_pasien, tindakan, kategori, status, ruangan, pasien_id, created_at",
-      "*",
+      "id, tanggal, nama, dokter, tindakan, status, inserted_at, updated_at, ruangan, no_rm",
     ];
 
     let data: Record<string, unknown>[] | null = null;
     let lastError: { message?: string } | null = null;
+
+    const tarifMap = await fetchMasterTarifLookupMap(supabase);
 
     for (const projection of projections) {
       const res = await supabase
@@ -69,7 +74,15 @@ export async function GET(request: Request) {
         .limit(limit);
 
       if (!res.error) {
-        data = (res.data as Record<string, unknown>[] | null) ?? [];
+        const rows = Array.isArray(res.data)
+          ? (res.data as unknown as Record<string, unknown>[])
+          : [];
+        data = rows.map((row) => {
+          const enriched = enrichTindakanRowForApi(row);
+          const withTarif = enrichTindakanRowTarifFromMasterMap(enriched, tarifMap);
+          const noRm = coalesceNoRm(row);
+          return noRm ? { ...withTarif, no_rm: noRm } : withTarif;
+        });
         lastError = null;
         break;
       }
@@ -91,7 +104,12 @@ export async function GET(request: Request) {
         .order("id", { ascending: false })
         .limit(limit);
       if (!legacy.error && Array.isArray(legacy.data) && legacy.data.length > 0) {
-        data = (legacy.data as Record<string, unknown>[]).map(mapLegacyTindakanMedikRow);
+        data = (legacy.data as Record<string, unknown>[]).map((row) =>
+          enrichTindakanRowTarifFromMasterMap(
+            mapLegacyTindakanMedikRow(row),
+            tarifMap,
+          ),
+        );
       }
     }
 

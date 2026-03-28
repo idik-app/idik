@@ -1,7 +1,13 @@
 "use client";
-import React, { useRef } from "react";
+import React from "react";
 import dynamic from "next/dynamic";
-import { useTabs } from "@/contexts/TabContext";
+import { useTabs } from "@/app/contexts/TabContext";
+
+/** Cache modul-level: tetap hidup walau TabContent remount (keep-alive sejati). */
+const tabPanelCache: Record<
+  string,
+  { node: React.ReactNode; updatedAt: number }
+> = Object.create(null);
 
 /*───────────────────────────────────────────────
  ⚙️ Dynamic Imports – All Modules
@@ -18,6 +24,9 @@ const MasterFarmasiPage = dynamic(
 );
 const TindakanPage = dynamic(
   () => import("@/app/dashboard/layanan/tindakan/page")
+);
+const MasterTindakanPage = dynamic(
+  () => import("@/app/dashboard/layanan/master-tindakan/page")
 );
 const LaporanPage = dynamic(() => import("@/app/dashboard/laporan/page"));
 const MonitoringPage = dynamic(
@@ -50,7 +59,6 @@ const AdminPage = dynamic(() => import("@/app/dashboard/admin/page"));
 ───────────────────────────────────────────────*/
 export default function TabContent() {
   const { activeTab, tabs } = useTabs();
-  const cache = useRef<Record<string, { node: React.ReactNode; updatedAt: number }>>({});
 
   const createComponent = (id: string): React.ReactNode => {
     switch (id) {
@@ -92,6 +100,8 @@ export default function TabContent() {
         return <SystemPage />;
       case "tindakan":
         return <TindakanPage />;
+      case "master-tindakan":
+        return <MasterTindakanPage />;
       case "laporan":
       case "report":
         return <LaporanPage />;
@@ -126,14 +136,9 @@ export default function TabContent() {
   /* Selalu isi cache untuk activeTab agar konten tidak blank (race dengan tabs init) */
   if (activeTab) {
     const updatedAt = getUpdatedAt(activeTab);
-    const cached = cache.current[activeTab];
+    const cached = tabPanelCache[activeTab];
     if (!cached || cached.updatedAt !== updatedAt) {
-      if (!cached) {
-        console.log("🧠 [TabContent] Cache baru untuk tab:", activeTab);
-      } else {
-        console.log("🔄 [TabContent] Reload tab (data terbaru):", activeTab);
-      }
-      cache.current[activeTab] = {
+      tabPanelCache[activeTab] = {
         node: createComponent(activeTab),
         updatedAt,
       };
@@ -142,7 +147,7 @@ export default function TabContent() {
 
   /* Gabung tabIds + activeTab supaya tab aktif tetap di-render saat tabs masih kosong atau belum sinkron */
   const idsToRender = [...new Set([...tabIds, activeTab].filter(Boolean))];
-  const entriesToRender = idsToRender.filter((id) => cache.current[id]);
+  const entriesToRender = idsToRender.filter((id) => tabPanelCache[id]);
 
   return (
     <div className="relative w-full h-full min-h-0 overflow-hidden">
@@ -152,7 +157,7 @@ export default function TabContent() {
           hidden={activeTab !== id}
           className="absolute inset-0 w-full h-full"
         >
-          {cache.current[id].node}
+          {tabPanelCache[id].node}
         </div>
       ))}
     </div>

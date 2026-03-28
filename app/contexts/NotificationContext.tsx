@@ -1,6 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+} from "react";
 import dynamic from "next/dynamic";
 
 const NotificationPanel = dynamic(() => import("@/components/NotificationPanel"), {
@@ -150,17 +157,27 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     fetch("/api/notifications", { method: "DELETE" }).catch(() => {});
   }, []);
 
+  const contextValue = useMemo(
+    () => ({
+      show,
+      clear,
+      bellAlerts,
+      addBellAlert,
+      clearBellAlert,
+      clearAllBellAlerts,
+    }),
+    [
+      show,
+      clear,
+      bellAlerts,
+      addBellAlert,
+      clearBellAlert,
+      clearAllBellAlerts,
+    ]
+  );
+
   return (
-    <NotificationContext.Provider
-      value={{
-        show,
-        clear,
-        bellAlerts,
-        addBellAlert,
-        clearBellAlert,
-        clearAllBellAlerts,
-      }}
-    >
+    <NotificationContext.Provider value={contextValue}>
       {children}
       <div
         className="fixed z-50 right-4 top-4 flex flex-col gap-3 max-w-sm sm:right-6 sm:top-6

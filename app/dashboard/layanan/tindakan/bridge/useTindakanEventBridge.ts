@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect } from "react";
+import { useContext, useEffect, useCallback, useMemo } from "react";
 import { EventBridgeContext } from "@/contexts/EventBridgeContext";
 import {
   TINDAKAN_OPEN_DETAIL,
@@ -19,49 +19,75 @@ export function useTindakanEventBridge() {
     );
   }
 
-  // =============== EMITTERS (UI → EventBridge) ===============
-  const emitOpenDetail = (id: string) => {
-    bus.emit(TINDAKAN_OPEN_DETAIL, { id });
-  };
+  const emitOpenDetail = useCallback(
+    (id: string) => {
+      bus.emit(TINDAKAN_OPEN_DETAIL, { id });
+    },
+    [bus]
+  );
 
-  const emitOpenEditor = (id: string) => {
-    bus.emit(TINDAKAN_OPEN_EDITOR, { id });
-  };
+  const emitOpenEditor = useCallback(
+    (id: string) => {
+      bus.emit(TINDAKAN_OPEN_EDITOR, { id });
+    },
+    [bus]
+  );
 
-  const emitRefresh = () => {
+  const emitRefresh = useCallback(() => {
     bus.emit(TINDAKAN_REFRESH, { ts: Date.now() });
-  };
+  }, [bus]);
 
-  const emitEdited = (payload: any) => {
-    bus.emit(TINDAKAN_CHANGED, payload);
-  };
+  const emitEdited = useCallback(
+    (payload: unknown) => {
+      bus.emit(TINDAKAN_CHANGED, payload);
+    },
+    [bus]
+  );
 
-  const emitWarning = (msg: string) => {
-    bus.emit(TINDAKAN_WARNING, { message: msg });
-  };
+  const emitWarning = useCallback(
+    (msg: string) => {
+      bus.emit(TINDAKAN_WARNING, { message: msg });
+    },
+    [bus]
+  );
 
-  const emitDiagnostics = (payload: any) => {
-    bus.emit(TINDAKAN_DIAGNOSTICS, payload);
-  };
+  const emitDiagnostics = useCallback(
+    (payload: unknown) => {
+      bus.emit(TINDAKAN_DIAGNOSTICS, payload);
+    },
+    [bus]
+  );
 
-  // =============== LISTENERS (EventBridge → UI) ===============
-  const on = (eventName: string, callback: (payload: any) => void) => {
-    return bus.subscribe(eventName, callback);
-  };
+  const on = useCallback(
+    (eventName: string, callback: (payload: unknown) => void) => {
+      return bus.subscribe(eventName, callback);
+    },
+    [bus]
+  );
 
-  // optional logging
   useEffect(() => {
     const unsub = bus.subscribe("kernel:update", () => {});
     return () => unsub();
   }, [bus]);
 
-  return {
-    emitOpenDetail,
-    emitOpenEditor,
-    emitRefresh,
-    emitEdited,
-    emitWarning,
-    emitDiagnostics,
-    on,
-  };
+  return useMemo(
+    () => ({
+      emitOpenDetail,
+      emitOpenEditor,
+      emitRefresh,
+      emitEdited,
+      emitWarning,
+      emitDiagnostics,
+      on,
+    }),
+    [
+      emitOpenDetail,
+      emitOpenEditor,
+      emitRefresh,
+      emitEdited,
+      emitWarning,
+      emitDiagnostics,
+      on,
+    ]
+  );
 }

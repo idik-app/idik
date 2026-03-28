@@ -20,6 +20,8 @@ export interface TindakanJoinResult {
 
   no_rm: string | null;
   nama_pasien: string | null;
+  /** Denormalisasi / join pasien (jk, jenis_kelamin) bila ada di baris API */
+  jenis_kelamin?: string | null;
   tgl_lahir: string | null;
   umur: number | null;
   alamat: string | null;
@@ -56,6 +58,11 @@ export interface TindakanJoinResult {
   resume: string | null;
 
   pemakaian: string | null; // JSON, teks, atau summary
+
+  /** Metadata audit dari API/DB (opsional, tab Resume) */
+  created_at?: string | null;
+  updated_at?: string | null;
+  inserted_at?: string | null;
 }
 
 // =============================================================
@@ -83,7 +90,6 @@ export interface TindakanEditorState {
     status: string;
     ruangan: string;
     kelas_pembiayaan: string;
-    pembiayaan: string;
     tarif_tindakan: string;
   };
   mesin: {

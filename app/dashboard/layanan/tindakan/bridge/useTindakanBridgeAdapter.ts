@@ -12,12 +12,7 @@ import { mapToDetail } from "./mapToDetail";
 import { mapToEditor } from "./mapToEditor";
 import { mapToTableRow } from "./mapToTableRow";
 
-import {
-  TINDAKAN_OPEN_DETAIL,
-  TINDAKAN_OPEN_EDITOR,
-  TINDAKAN_REFRESH,
-  TINDAKAN_CHANGED,
-} from "./bridge.events";
+import { TINDAKAN_OPEN_DETAIL, TINDAKAN_REFRESH } from "./bridge.events";
 
 import { TindakanJoinResult } from "./mapping.types";
 
@@ -46,6 +41,8 @@ export function useTindakanBridgeAdapter() {
     loading = false,
     error = null,
     reload,
+    removeLocalById,
+    isSyncing = false,
   } = useTindakanData();
 
   const { createOne, updateOne, deleteOne } = useTindakanCrud();
@@ -60,50 +57,58 @@ export function useTindakanBridgeAdapter() {
     );
   }, [tindakanList]);
 
-  // --------------------------------------------------------------------
-  // OPEN DETAIL
-  // --------------------------------------------------------------------
-  const openDetail = (rowId: string) => {
-    bridge.emitOpenDetail(rowId);
-  };
+  const openDetail = useCallback(
+    (rowId: string) => {
+      bridge.emitOpenDetail(rowId);
+    },
+    [bridge]
+  );
 
-  // --------------------------------------------------------------------
-  // OPEN EDITOR
-  // --------------------------------------------------------------------
-  const openEditor = (rowId: string) => {
-    bridge.emitOpenEditor(rowId);
-  };
+  const openEditor = useCallback(
+    (rowId: string) => {
+      bridge.emitOpenEditor(rowId);
+    },
+    [bridge]
+  );
 
-  // --------------------------------------------------------------------
-  // SAVE EDITOR
-  // --------------------------------------------------------------------
-  const saveEditor = async (id: string, updatedData: any) => {
-    await updateOne(id, updatedData);
-    bridge.emitEdited({ id, updatedData });
-    reload();
-  };
+  const saveEditor = useCallback(
+    async (id: string, updatedData: unknown) => {
+      await updateOne(id, updatedData);
+      bridge.emitEdited({ id, updatedData });
+      await reload({ silent: true });
+    },
+    [bridge, reload, updateOne]
+  );
 
-  const createRecord = async (payload: any) => {
-    const created = await createOne(payload);
-    bridge.emitEdited({ id: String(created?.id ?? ""), created: true });
-    reload();
-    return created;
-  };
+  const createRecord = useCallback(
+    async (payload: unknown) => {
+      const created = await createOne(payload as Record<string, unknown>);
+      bridge.emitEdited({ id: String((created as { id?: string } | null)?.id ?? ""), created: true });
+      await reload({ silent: true });
+      return created;
+    },
+    [bridge, createOne, reload]
+  );
 
-  // --------------------------------------------------------------------
-  // DELETE
-  // --------------------------------------------------------------------
-  const deleteRecord = async (id: string) => {
-    await deleteOne(id);
-    bridge.emitEdited({ id, deleted: true });
-    reload();
-  };
+  const deleteRecord = useCallback(
+    async (id: string) => {
+      await deleteOne(id);
+      removeLocalById(id);
+      bridge.emitEdited({ id, deleted: true });
+      await reload({ silent: true });
+    },
+    [bridge, deleteOne, reload, removeLocalById],
+  );
+
+  const refresh = useCallback(() => reload({ silent: true }), [reload]);
 
   // --------------------------------------------------------------------
   // LISTENER: REFRESH SIGNAL
   // --------------------------------------------------------------------
   useEffect(() => {
-    const unsub = bridge.on(TINDAKAN_REFRESH, () => reload());
+    const unsub = bridge.on(TINDAKAN_REFRESH, () => {
+      void reload({ silent: true });
+    });
     return () => unsub();
   }, [bridge, reload]);
 
@@ -149,6 +154,7 @@ export function useTindakanBridgeAdapter() {
     tindakanList,
     loading,
     error,
+    isSyncing,
 
     // interactions
     openDetail,
@@ -156,7 +162,8 @@ export function useTindakanBridgeAdapter() {
     saveEditor,
     createRecord,
     deleteRecord,
-    refresh: reload,
+    /** Muat ulang data di latar tanpa layar loading (polling / sinkron). */
+    refresh,
 
     // mapping
     getDetailView,

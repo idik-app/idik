@@ -117,6 +117,8 @@ type PemakaianOrder = {
   id: string;
   tanggal: string;
   pasien: string;
+  /** Nomor RM (Supabase `no_rm`; fallback parsing dari sufiks "Nama (RM)" pada `pasien`). */
+  no_rm?: string;
   /** Ruangan / lokasi tindakan. */
   ruangan: string;
   dokter: string;
@@ -305,10 +307,14 @@ function mapCathlabOrderRow(r: Record<string, unknown>): PemakaianOrder | null {
     r.template_input_barang,
   );
 
+  const noRmCol =
+    typeof r.no_rm === "string" && r.no_rm.trim() ? r.no_rm.trim() : undefined;
+
   return {
     id,
     tanggal,
     pasien,
+    ...(noRmCol ? { no_rm: noRmCol } : {}),
     ruangan,
     dokter,
     depo,
@@ -317,6 +323,31 @@ function mapCathlabOrderRow(r: Record<string, unknown>): PemakaianOrder | null {
     ...(catatan ? { catatan } : {}),
     templateInputBarang,
   };
+}
+
+const PEMAKAIAN_RM_SUFFIX_RE = /\s+\(([^)]+)\)\s*$/;
+
+function parseRmFromPasienLabel(pasien: string): string | undefined {
+  const m = pasien.trim().match(PEMAKAIAN_RM_SUFFIX_RE);
+  const rm = m?.[1]?.trim();
+  return rm || undefined;
+}
+
+function orderNoRm(o: Pick<PemakaianOrder, "no_rm" | "pasien">): string {
+  const col = (o.no_rm ?? "").trim();
+  if (col) return col;
+  return parseRmFromPasienLabel(o.pasien) ?? "";
+}
+
+function orderPasienDisplayName(
+  o: Pick<PemakaianOrder, "no_rm" | "pasien">,
+): string {
+  const rm = orderNoRm(o);
+  if (!rm) return o.pasien;
+  const suf = ` (${rm})`;
+  const t = o.pasien.trim();
+  if (t.endsWith(suf)) return t.slice(0, -suf.length).trim();
+  return o.pasien;
 }
 
 function sumQtyRencana(o: PemakaianOrder): number {
@@ -658,8 +689,7 @@ export default function PemakaianPage() {
 
   const isDokterSession = role === ROLE_DOKTER;
 
-  const qpPasien =
-    searchParams.get("pasienId") || searchParams.get("rm");
+  const qpPasien = searchParams.get("pasienId") || searchParams.get("rm");
   const qpTindakanId = searchParams.get("tindakanId");
   const hasPemakaianDeepLink =
     Boolean(qpPasien) || Boolean(qpTindakanId?.trim());
@@ -777,9 +807,7 @@ export default function PemakaianPage() {
     if (!rm && !pid) return;
     const p = pid
       ? pasienList.find((x) => x.id === pid)
-      : pasienList.find(
-          (x) => (x.no_rm ?? "").trim() === (rm ?? "").trim(),
-        );
+      : pasienList.find((x) => (x.no_rm ?? "").trim() === (rm ?? "").trim());
     if (p) setDrawerPasien(formatPasienLabel(p));
   }, [isDrawerOpen, pasienList, pasienListLoading, searchParams]);
 
@@ -880,9 +908,7 @@ export default function PemakaianPage() {
       if (pasienList.length === 0) return;
       const p = pasienList.find((x) => x.id === pid);
       if (p) {
-        setDrawerPasien((prev) =>
-          prev.trim() ? prev : formatPasienLabel(p),
-        );
+        setDrawerPasien((prev) => (prev.trim() ? prev : formatPasienLabel(p)));
       }
     };
 
@@ -894,10 +920,10 @@ export default function PemakaianPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch(
-          `/api/tindakan/${encodeURIComponent(tid)}`,
-          { credentials: "include", cache: "no-store" },
-        );
+        const res = await fetch(`/api/tindakan/${encodeURIComponent(tid)}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
         const j = (await res.json()) as {
           ok?: boolean;
           data?: {
@@ -1079,6 +1105,10 @@ export default function PemakaianPage() {
           body: JSON.stringify({
             tanggal: detailDraft.tanggal,
             pasien: detailDraft.pasien,
+            no_rm:
+              parseRmFromPasienLabel(detailDraft.pasien)?.trim() ||
+              detailDraft.no_rm?.trim() ||
+              null,
             ruangan: detailDraft.ruangan,
             dokter: detailDraft.dokter,
             depo: detailDraft.depo,
@@ -1218,6 +1248,7 @@ export default function PemakaianPage() {
           mode,
           tanggal: drawerDateTime,
           pasien,
+          no_rm: parseRmFromPasienLabel(pasien)?.trim() || null,
           ruangan,
           dokter,
           depo,
@@ -1453,6 +1484,7 @@ export default function PemakaianPage() {
         o.id,
         o.tanggal,
         o.pasien,
+        orderNoRm(o),
         o.ruangan,
         o.dokter,
         o.depo,
@@ -1786,6 +1818,7 @@ export default function PemakaianPage() {
                 <tr>
                   <Th>ID</Th>
                   <Th>Tanggal</Th>
+                  <Th>RM</Th>
                   <Th>Pasien</Th>
                   <Th>Ruangan</Th>
                   <Th>Dokter</Th>
@@ -1798,7 +1831,7 @@ export default function PemakaianPage() {
                 {ordersLoading ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       className="px-4 py-8 text-center text-white/50 text-[11px]"
                     >
                       Memuat daftar order dari database…
@@ -1807,7 +1840,7 @@ export default function PemakaianPage() {
                 ) : filteredData.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       className="px-4 py-6 text-center text-white/45 text-[11px]"
                     >
                       {orders.length === 0
@@ -1838,7 +1871,14 @@ export default function PemakaianPage() {
                     >
                       <Td>{row.id}</Td>
                       <Td>{row.tanggal}</Td>
-                      <Td>{row.pasien}</Td>
+                      <Td className="tabular-nums whitespace-nowrap">
+                        {orderNoRm(row) ? (
+                          <span className="text-white/90">{orderNoRm(row)}</span>
+                        ) : (
+                          <span className="text-white/35">—</span>
+                        )}
+                      </Td>
+                      <Td>{orderPasienDisplayName(row)}</Td>
                       <Td className="max-w-[140px]">
                         {row.ruangan ? (
                           <span className="text-white/90">{row.ruangan}</span>
@@ -1877,7 +1917,10 @@ export default function PemakaianPage() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            void deleteOrder(row.id, row.pasien);
+                            void deleteOrder(
+                              row.id,
+                              orderPasienDisplayName(row) || row.pasien,
+                            );
                           }}
                           disabled={deletingOrderId === row.id}
                           className="inline-flex items-center gap-1 rounded-lg border border-rose-500/50 bg-rose-950/60 px-2 py-1 text-[10px] font-semibold text-rose-200 hover:bg-rose-900/70 hover:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-400/50 disabled:opacity-50 disabled:pointer-events-none"
@@ -2988,7 +3031,8 @@ export default function PemakaianPage() {
               order={{
                 id: detailDraft.id,
                 tanggal: detailDraft.tanggal,
-                pasien: detailDraft.pasien,
+                no_rm: orderNoRm(detailDraft),
+                pasien: orderPasienDisplayName(detailDraft),
                 ruangan: detailDraft.ruangan,
                 dokter: detailDraft.dokter,
                 depo: detailDraft.depo,
@@ -3061,6 +3105,9 @@ function PemakaianPrintTable({
               Tanggal
             </th>
             <th className="border border-gray-400 px-1.5 py-1 text-left font-semibold">
+              RM
+            </th>
+            <th className="border border-gray-400 px-1.5 py-1 text-left font-semibold">
               Pasien
             </th>
             <th className="border border-gray-400 px-1.5 py-1 text-left font-semibold">
@@ -3081,7 +3128,7 @@ function PemakaianPrintTable({
           {orders.length === 0 ? (
             <tr>
               <td
-                colSpan={7}
+                colSpan={8}
                 className="border border-gray-400 px-2 py-2 text-center text-gray-600"
               >
                 Tidak ada data
@@ -3094,8 +3141,11 @@ function PemakaianPrintTable({
                 <td className="border border-gray-400 px-1.5 py-0.5">
                   {o.tanggal}
                 </td>
+                <td className="border border-gray-400 px-1.5 py-0.5 tabular-nums">
+                  {orderNoRm(o) || "—"}
+                </td>
                 <td className="border border-gray-400 px-1.5 py-0.5">
-                  {o.pasien}
+                  {orderPasienDisplayName(o)}
                 </td>
                 <td className="border border-gray-400 px-1.5 py-0.5">
                   {o.ruangan || "—"}

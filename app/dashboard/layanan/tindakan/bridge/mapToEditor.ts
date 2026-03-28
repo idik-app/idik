@@ -2,7 +2,8 @@
 // 📌 mapToEditor.ts — Mapping JOIN → Modal Editor (4 TAB)
 // ========================================================================
 
-import { EDITOR_TABS } from "./bridge.constants";
+import { formatFluoroSecondsToHms } from "@/lib/tindakan/fluoroTimeFormat";
+import { formatWaktuDisplay } from "@/lib/tindakan/waktuRangeFormat";
 import { TindakanJoinResult, TindakanEditorState } from "./mapping.types";
 
 // Helper untuk mengubah nilai menjadi string & aman
@@ -25,7 +26,7 @@ export function mapToEditor(data: TindakanJoinResult): TindakanEditorState {
   const editor: TindakanEditorState = {
     info: {
       tanggal: toStr(data.tanggal),
-      waktu: toStr(data.waktu),
+      waktu: formatWaktuDisplay(data.waktu) || toStr(data.waktu),
       dokter: toStr(data.dokter),
       tindakan: toStr(data.tindakan),
       kategori: toStr(data.kategori),
@@ -33,12 +34,18 @@ export function mapToEditor(data: TindakanJoinResult): TindakanEditorState {
       status: toStr(data.status),
       ruangan: toStr(data.ruangan),
       kelas_pembiayaan: toStr(data.kelas_pembiayaan),
-      pembiayaan: toStr(data.pembiayaan),
       tarif_tindakan: toStr(data.tarif_tindakan),
     },
 
     mesin: {
-      fluoro_time: toStr(data.fluoro_time),
+      fluoro_time: (() => {
+        const v = data.fluoro_time;
+        if (v === null || v === undefined || v === "") return "";
+        const n =
+          typeof v === "number" ? v : Number(String(v).trim().replace(",", "."));
+        if (Number.isFinite(n)) return formatFluoroSecondsToHms(n);
+        return toStr(v);
+      })(),
       dose: toStr(data.dose),
       kv: toStr(data.kv),
       ma: toStr(data.ma),

@@ -132,13 +132,13 @@ export default function Sidebar() {
   }, []);
 
   const handleMenuClick = (item: MenuItem) => {
-    // Tambah tab tanpa memaksa override URL sync; aktivasi dilakukan eksplisit di bawah
-    addTab({ id: item.id, label: item.label }, { activate: false });
+    // skipActivate: hindari setActiveTab (loading + FX) — aktivasi lewat URL sync setelah navigate
+    addTab({ id: item.id, label: item.label }, { skipActivate: true });
     window.dispatchEvent(
       new CustomEvent("jarvis-neuralpulse", { detail: { tab: item.id } })
     ); // 🔗 send pulse
-    // URL harus jadi sumber kebenaran. Kalau ada href, cukup push; TabContext akan sync activeTab dari URL.
-    if (item.href) router.push(item.href);
+    // URL = sumber kebenaran; push + scroll:false mengurangi lompatan scroll
+    if (item.href) router.push(item.href, { scroll: false });
     else setActiveTab(item.id);
     if (isMobile) toggleSidebar();
   };

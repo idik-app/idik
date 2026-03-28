@@ -11,6 +11,8 @@ export type PasienOption = {
   nama: string;
   no_rm: string | null;
   created_at: string | null;
+  /** Dari kolom `jenis_kelamin` / `jk` di Supabase */
+  jenis_kelamin?: "L" | "P" | null;
 };
 
 export function formatPasienLabel(

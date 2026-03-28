@@ -22,7 +22,7 @@ export default function TindakanHeader({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border px-5 py-5 shadow-xl ${
+      className={`relative overflow-hidden rounded-xl border px-3 py-3 shadow-lg sm:px-4 sm:py-3 ${
         themeTone === "emerald"
           ? "border-emerald-800/45 bg-gradient-to-br from-emerald-950/35 via-black/50 to-slate-950/50 shadow-emerald-950/20"
           : "border-cyan-800/45 bg-gradient-to-br from-cyan-950/35 via-black/50 to-slate-950/50 shadow-cyan-950/20"
@@ -35,7 +35,7 @@ export default function TindakanHeader({
             : "bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.14),transparent_45%)]"
         }`}
       />
-      <div className="relative z-10 space-y-4">
+      <div className="relative z-10 space-y-2 sm:space-y-3">
         <Link
           href="/dashboard/perawat"
           className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
@@ -47,13 +47,13 @@ export default function TindakanHeader({
           <ChevronLeft size={14} />
           Beranda Perawat
         </Link>
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-cyan-50">
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between min-w-0">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl md:text-2xl font-semibold tracking-tight text-cyan-50 break-words">
               Tindakan Medis Cathlab
             </h1>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2 self-start">
+          <div className="flex flex-wrap items-center justify-end gap-2 self-stretch sm:self-start min-w-0">
             <div
               className={`inline-flex items-center gap-1 rounded-xl border bg-black/30 p-1 ${
                 themeTone === "emerald" ? "border-emerald-800/45" : "border-cyan-800/45"
@@ -83,7 +83,7 @@ export default function TindakanHeader({
               </button>
             </div>
             <div
-              className={`inline-flex items-center gap-2 rounded-xl border bg-black/35 px-3 py-2 ${
+              className={`inline-flex items-center gap-1.5 rounded-lg border bg-black/35 px-2.5 py-1.5 ${
                 themeTone === "emerald" ? "border-emerald-800/45" : "border-cyan-800/45"
               }`}
             >
@@ -93,9 +93,10 @@ export default function TindakanHeader({
                 }`}
               />
               <span
-                className={`text-xs ${
+                className={`text-[10px] sm:text-xs min-w-0 max-w-full sm:max-w-[20rem] md:max-w-none truncate ${
                   themeTone === "emerald" ? "text-emerald-100/85" : "text-cyan-100/85"
                 }`}
+                title={now}
               >
                 {now}
               </span>

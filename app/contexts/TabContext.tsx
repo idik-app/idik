@@ -10,8 +10,6 @@ import React, {
 } from "react";
 import { usePathname } from "next/navigation";
 import { useJarvisFX } from "@/contexts/JarvisFXContext";
-import DatabaseExplorer from "@/app/system/database/DatabaseExplorer";
-import AuditViewer from "@/app/system/database/audit/AuditViewer";
 
 /* ⚙️ Cathlab JARVIS TabContext v6.4 – Database-Ready Edition
    💠 Menambahkan dukungan modul Database & fallback otomatis
@@ -22,6 +20,10 @@ import AuditViewer from "@/app/system/database/audit/AuditViewer";
 const URL_SEGMENT_TO_TAB: Record<string, { id: string; label: string }> = {
   perawat: { id: "perawat", label: "Beranda Perawat" },
   tindakan: { id: "tindakan", label: "Tindakan Medis" },
+  "master-tindakan": {
+    id: "master-tindakan",
+    label: "Master jenis tindakan",
+  },
   settings: { id: "pengaturan", label: "Pengaturan" },
   admin: { id: "admin", label: "Manajemen User" },
   laporan: { id: "report", label: "Report Generator" },
@@ -38,11 +40,16 @@ export type Tab = {
   updatedAt?: number;
 };
 
+export type AddTabOptions = {
+  /** true = jangan panggil setActiveTab; biarkan URL sync / caller yang mengaktifkan (hindari “reload” palsu). */
+  skipActivate?: boolean;
+};
+
 type TabContextType = {
   tabs: Tab[];
   activeTab: string;
   setActiveTab: (id: string) => void;
-  addTab: (tab: Tab) => void;
+  addTab: (tab: Tab, options?: AddTabOptions) => void;
   closeTab: (id: string) => void;
   closeAllTabs: () => void;
   refreshTab: (id: string) => void;
@@ -72,32 +79,18 @@ export function TabProvider({ children }: { children: ReactNode }) {
 
   /* ⚡ Ganti tab aktif */
   const setActiveTab = (id: string) => {
-    console.log("🖱️ [TabContext] Request to activate tab:", id);
-    if (id === activeTab) {
-      console.log("⚠️ [TabContext] Tab", id, "sudah aktif, abaikan.");
-      return;
-    }
+    if (id === activeTab) return;
 
     _setActiveTab(id);
     setDirection(id > activeTab ? 1 : -1);
     setLoadingTab(true);
     triggerFX("scan-page");
 
-    console.log("✅ [TabContext] Active tab updated →", id);
-    console.log(
-      "💡 [TabContext] Direction →",
-      id > activeTab ? "Next" : "Prev"
-    );
-
-    setTimeout(() => {
-      console.log("⏱️ [TabContext] Loading selesai untuk tab:", id);
-      setLoadingTab(false);
-    }, 650);
+    window.setTimeout(() => setLoadingTab(false), 400);
   };
 
   /* 🔄 Refresh tab */
   const refreshTab = (id: string) => {
-    console.log("🔁 [TabContext] Refreshing tab:", id);
     setTabs((prev) =>
       prev.map((t) => (t.id === id ? { ...t, updatedAt: Date.now() } : t))
     );
@@ -105,25 +98,19 @@ export function TabProvider({ children }: { children: ReactNode }) {
   };
 
   /* ➕ Tambah tab baru dengan mapping komponen */
-  const addTab = (tab: Tab) => {
-    console.log("➕ [TabContext] Menambahkan tab:", tab.id);
+  const addTab = (tab: Tab, options?: AddTabOptions) => {
+    const skipActivate = options?.skipActivate === true;
 
     // daftar modul resmi (admin = dashboard utama untuk role admin)
+    /* Konten tab sebenarnya di-render oleh TabContent (dynamic import).
+       Jangan mount DatabaseExplorer/AuditViewer di sini — itu membesarkan bundle TabContext. */
     const components: Record<string, ReactNode> = {
       dashboard: <FixedDashboardContent />,
       admin: <FixedDashboardContent />,
-      database: <DatabaseExplorer />,
-      audit: (
-        <main className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-cyan-950 p-6">
-          <AuditViewer />
-        </main>
-      ),
     };
 
     setTabs((prev) => {
       const exists = prev.some((t) => t.id === tab.id);
-      console.log("🔍 [TabContext] Tab sudah ada?", exists);
-
       if (exists) return prev;
 
       const component = components[tab.id] || (
@@ -135,18 +122,18 @@ export function TabProvider({ children }: { children: ReactNode }) {
       return [...prev, { ...tab, component, updatedAt: Date.now() }];
     });
 
-    setActiveTab(tab.id);
+    if (!skipActivate) {
+      setActiveTab(tab.id);
+    }
   };
 
   /* ❌ Tutup tab (fallback active disinkronkan lewat useEffect) */
   const closeTab = (id: string) => {
-    console.log("❌ [TabContext] Menutup tab:", id);
     setTabs((prev) => prev.filter((t) => t.id !== id));
   };
 
   /* 🗑️ Tutup semua tab, sisakan hanya Dashboard (selalu lengkapi component agar tidak hilang) */
   const closeAllTabs = () => {
-    console.log("🗑️ [TabContext] Tutup semua tab");
     const fullDashboardTab: Tab = {
       id: "dashboard",
       label: "Dashboard Utama",
@@ -171,7 +158,6 @@ export function TabProvider({ children }: { children: ReactNode }) {
     const exists = tabs.some((t) => t.id === activeTab);
     if (!exists) {
       const fallback = tabs[tabs.length - 1]?.id || "dashboard";
-      console.log("↩️ [TabContext] ActiveTab tidak ada di list, fallback →", fallback);
       _setActiveTab(fallback);
     }
   }, [tabs, activeTab]);
@@ -180,9 +166,6 @@ export function TabProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!initialized.current) {
       initialized.current = true;
-      console.log(
-        "🚀 [TabContext] Inisialisasi pertama kali (Dashboard Default)"
-      );
       setTabs((prev) => {
         if (prev.some((t) => t.id === "dashboard")) return prev;
         return [
@@ -214,14 +197,8 @@ export function TabProvider({ children }: { children: ReactNode }) {
       if (prev.some((t) => t.id === tabId)) return prev;
       return [...prev, { id: tabId, label: tabLabel, updatedAt: Date.now() }];
     });
-    _setActiveTab(tabId);
-    console.log("🌐 [TabContext] URL → tab:", segment, "→", tabId);
+    _setActiveTab((prev) => (prev === tabId ? prev : tabId));
   }, [pathname]);
-
-  // log perubahan aktif
-  useEffect(() => {
-    console.log("🧭 [TabContext] ActiveTab berubah menjadi:", activeTab);
-  }, [activeTab]);
 
   /* ─────────────────────────────────────────────── */
   return (

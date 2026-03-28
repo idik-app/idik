@@ -34,6 +34,8 @@ function formatTemplateSlotsForPrint(raw: string | undefined, slots: number): st
 export type ConsumableAngiografiOrderPayload = {
   id: string;
   tanggal: string;
+  /** Nomor RM (opsional); kolom terpisah dari nama pasien. */
+  no_rm?: string;
   pasien: string;
   ruangan: string;
   dokter: string;
@@ -134,6 +136,9 @@ export function ConsumableAngiografiPrintTemplate({
               Tanggal
             </th>
             <th className="border border-gray-400 px-1.5 py-1 text-left font-semibold">
+              RM
+            </th>
+            <th className="border border-gray-400 px-1.5 py-1 text-left font-semibold">
               Pasien
             </th>
             <th className="border border-gray-400 px-1.5 py-1 text-left font-semibold">
@@ -155,6 +160,9 @@ export function ConsumableAngiografiPrintTemplate({
             <td className="border border-gray-400 px-1.5 py-0.5">{order.id}</td>
             <td className="border border-gray-400 px-1.5 py-0.5">
               {order.tanggal}
+            </td>
+            <td className="border border-gray-400 px-1.5 py-0.5 tabular-nums">
+              {(order.no_rm ?? "").trim() || "—"}
             </td>
             <td className="border border-gray-400 px-1.5 py-0.5">
               {order.pasien}

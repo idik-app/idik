@@ -2,6 +2,7 @@
 // 📌 mapToTableRow.ts — Mapping JOIN → Tabel Ringkas (12 kolom ideal)
 // ========================================================================
 
+import { formatWaktuDisplay } from "@/lib/tindakan/waktuRangeFormat";
 import { TindakanJoinResult, TindakanTableRow } from "./mapping.types";
 
 // Helper untuk fallback string
@@ -20,7 +21,7 @@ export function mapToTableRow(
   return {
     id: dbId ? String(dbId) : `${safe(data.no_rm)}-${index}`,
     tanggal: safe(data.tanggal),
-    waktu: safe(data.waktu),
+    waktu: safe(formatWaktuDisplay(data.waktu) || null),
     no_rm: safe(data.no_rm),
     nama_pasien: safe(data.nama_pasien),
     dokter: safe(data.dokter),

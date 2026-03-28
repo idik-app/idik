@@ -53,6 +53,7 @@ export async function POST(req: Request) {
   }
 
   const pasien = String(body.pasien ?? "").trim();
+  const no_rm_raw = String(body.no_rm ?? "").trim();
   const dokter = String(body.dokter ?? "").trim();
   const depo = String(body.depo ?? "").trim();
   const tanggalRaw = String(body.tanggal ?? "").trim();
@@ -64,6 +65,13 @@ export async function POST(req: Request) {
       : null;
   const ruangan =
     typeof body.ruangan === "string" ? body.ruangan.trim() : "";
+  const tindakanIdRaw =
+    typeof body.tindakanId === "string"
+      ? body.tindakanId
+      : typeof (body as { tindakan_id?: unknown }).tindakan_id === "string"
+        ? String((body as { tindakan_id?: string }).tindakan_id)
+        : "";
+  const tindakanId = tindakanIdRaw.trim() || null;
 
   if (!pasien || !dokter || !depo) {
     return NextResponse.json(
@@ -150,6 +158,7 @@ export async function POST(req: Request) {
     mode,
     tanggal,
     pasien,
+    no_rm: no_rm_raw || null,
     dokter,
     ruangan,
     depo,
@@ -159,6 +168,7 @@ export async function POST(req: Request) {
     template_input_barang: normalizeTemplateInputBarang(
       body.templateInputBarang,
     ),
+    ...(tindakanId ? { tindakan_id: tindakanId } : {}),
   };
 
   const { data, error } = await supabase
@@ -177,8 +187,8 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, order: data }, { status: 201 });
 }
 
-/** GET /api/pemakaian-orders — daftar order pemakaian/resep alkes (tabel cathlab_pemakaian_order). */
-export async function GET() {
+/** GET /api/pemakaian-orders — daftar order; `?tindakanId=` = filter per kasus tindakan. */
+export async function GET(request: Request) {
   const user = await requireUser();
   if (!user.ok) return user.response;
 
@@ -194,10 +204,19 @@ export async function GET() {
     );
   }
 
-  const { data, error } = await supabase
+  const { searchParams } = new URL(request.url);
+  const tindakanFilter = searchParams.get("tindakanId")?.trim() ?? "";
+
+  let query = supabase
     .from("cathlab_pemakaian_order")
     .select("*")
     .order("created_at", { ascending: false });
+
+  if (tindakanFilter) {
+    query = query.eq("tindakan_id", tindakanFilter);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json(

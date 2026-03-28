@@ -1,12 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useMemo } from "react";
 
-function isPublicSupabaseConfigured() {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  );
-}
+import type { TindakanJoinResult } from "../bridge/mapping.types";
 
 function todayWibYmd(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -17,49 +13,30 @@ function todayWibYmd(): string {
   }).format(new Date());
 }
 
-type Stats = Record<string, number>;
+function tanggalKey(raw: unknown): string {
+  if (raw == null || raw === "") return "";
+  return String(raw).slice(0, 10);
+}
 
-export function useTindakanStats() {
-  const [stats, setStats] = useState<Stats>({});
-  const [loading, setLoading] = useState(false);
-
-  const refreshStats = useCallback(async () => {
-    if (!isPublicSupabaseConfigured()) {
-      setStats({ Total: 0 });
-      return;
+/**
+ * Statistik ringkas dari snapshot daftar tindakan yang sama dengan tabel
+ * (menghindari query Supabase kedua dan selaras dengan limit API).
+ */
+export function useTindakanStatsFromList(
+  rows: readonly TindakanJoinResult[],
+  dataLoading: boolean,
+) {
+  const stats = useMemo(() => {
+    const today = todayWibYmd();
+    let hariIni = 0;
+    for (const r of rows) {
+      if (tanggalKey(r.tanggal) === today) hariIni += 1;
     }
-    setLoading(true);
-    try {
-      const mod = await import("@/lib/supabase/supabaseClient");
-      const sb: any = mod.supabase as any;
-      const today = todayWibYmd();
+    return {
+      Total: rows.length,
+      "Hari ini": hariIni,
+    } as Record<string, number>;
+  }, [rows]);
 
-      const { data, error } = await sb
-        .from("tindakan")
-        .select("status,tanggal");
-
-      if (error) throw error;
-      const rows = Array.isArray(data) ? data : [];
-      const todayRows = rows.filter((r: any) => {
-        const t = r?.tanggal;
-        if (t == null || t === "") return false;
-        const s = String(t).slice(0, 10);
-        return s === today;
-      });
-
-      setStats({
-        Total: rows.length,
-        "Hari ini": todayRows.length,
-      });
-    } catch {
-      setStats({ Total: 0 });
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    refreshStats();
-  }, [refreshStats]);
-
-  return { stats, refreshStats, loading };
+  return { stats, loading: dataLoading };
 }

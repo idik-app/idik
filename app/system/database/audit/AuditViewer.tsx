@@ -6,14 +6,46 @@
  * Menarik data dari endpoint /api/audit/log dan menampilkan 100 log terakhir.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, memo } from "react";
+
+const AuditLogRow = memo(function AuditLogRow({ log }: { log: Record<string, unknown> }) {
+  const meta = log.metadata;
+  const metaStr =
+    meta && typeof meta === "object"
+      ? JSON.stringify(meta, null, 2)
+      : String(meta ?? "");
+
+  return (
+    <div className="border border-cyan-700/10 bg-gray-800/40 rounded-lg p-3 flex justify-between hover:bg-gray-800/60 transition">
+      <div>
+        <span
+          className={`font-semibold ${
+            log.status === "success" ? "text-emerald-400" : "text-red-400"
+          }`}
+        >
+          {typeof log.action === "string" && log.action
+            ? log.action.toUpperCase()
+            : String(log.event_type ?? "")}
+        </span>
+        <pre className="text-gray-400 text-xs mt-1 whitespace-pre-wrap break-words max-w-[min(100vw-8rem,42rem)]">
+          {metaStr}
+        </pre>
+      </div>
+      <span className="text-gray-500 text-xs whitespace-nowrap ml-4 shrink-0">
+        {log.created_at
+          ? new Date(String(log.created_at)).toLocaleString("id-ID")
+          : ""}
+      </span>
+    </div>
+  );
+});
 
 export default function AuditViewer() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function fetchLogs() {
+  const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/audit/log", { cache: "no-store" });
@@ -40,11 +72,11 @@ export default function AuditViewer() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    fetchLogs();
-  }, []);
+    void fetchLogs();
+  }, [fetchLogs]);
 
   if (loading)
     return (
@@ -72,28 +104,9 @@ export default function AuditViewer() {
         </button>
       </header>
 
-      <div className="max-h-[480px] overflow-y-auto text-sm space-y-2">
+      <div className="max-h-[480px] overflow-y-auto text-sm space-y-2 overscroll-contain">
         {logs.map((log) => (
-          <div
-            key={log.id}
-            className="border border-cyan-700/10 bg-gray-800/40 rounded-lg p-3 flex justify-between hover:bg-gray-800/60 transition"
-          >
-            <div>
-              <span
-                className={`font-semibold ${
-                  log.status === "success" ? "text-emerald-400" : "text-red-400"
-                }`}
-              >
-                {log.action?.toUpperCase() || log.event_type}
-              </span>
-              <pre className="text-gray-400 text-xs mt-1">
-                {JSON.stringify(log.metadata || {}, null, 2)}
-              </pre>
-            </div>
-            <span className="text-gray-500 text-xs whitespace-nowrap ml-4">
-              {new Date(log.created_at).toLocaleString("id-ID")}
-            </span>
-          </div>
+          <AuditLogRow key={log.id} log={log as Record<string, unknown>} />
         ))}
       </div>
     </section>

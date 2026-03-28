@@ -25,8 +25,10 @@ export default function BottomNav() {
       className="fixed bottom-0 left-0 right-0 z-[60]
                  bg-[#04070d]/85 backdrop-blur-md
                  border-t border-cyan-700/30
-                 flex justify-around py-2 md:hidden
-                 text-xs text-cyan-300 shadow-[0_0_12px_rgba(0,255,255,0.15)]"
+                 flex justify-around gap-0.5 px-1
+                 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))] md:hidden
+                 text-[10px] text-cyan-300 shadow-[0_0_12px_rgba(0,255,255,0.15)]
+                 sm:text-xs"
     >
       {menus.map((menu) => {
         const isActive = pathname === menu.href;

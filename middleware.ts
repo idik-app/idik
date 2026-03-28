@@ -44,7 +44,9 @@ export async function middleware(req: NextRequest) {
 
   const token = req.cookies.get("session")?.value;
   if (!token) {
-    console.log(`${LOG_PREFIX} ${pathname} → redirect reason=missing (no session cookie)`);
+    console.log(
+      `${LOG_PREFIX} ${pathname} → redirect reason=missing (no session cookie)`,
+    );
     return redirectToHome(req, "missing");
   }
 
@@ -57,14 +59,19 @@ export async function middleware(req: NextRequest) {
       await jwtVerify(token, secretKey);
       return NextResponse.next();
     } catch (err) {
-      console.warn(`${LOG_PREFIX} ${pathname} → redirect reason=invalid (token verify failed):`, err);
+      console.warn(
+        `${LOG_PREFIX} ${pathname} → redirect reason=invalid (token verify failed):`,
+        err,
+      );
       return redirectToHome(req, "invalid");
     }
   }
 
   const secret = getSecret();
   if (!secret) {
-    console.log(`${LOG_PREFIX} ${pathname} → redirect reason=invalid (JWT_SECRET empty)`);
+    console.log(
+      `${LOG_PREFIX} ${pathname} → redirect reason=invalid (JWT_SECRET empty)`,
+    );
     return redirectToHome(req, "invalid");
   }
 
@@ -73,7 +80,9 @@ export async function middleware(req: NextRequest) {
     const { payload } = await jwtVerify(token, secretKey);
     const role =
       (payload as any)?.role != null
-        ? String((payload as any)?.role).trim().toLowerCase()
+        ? String((payload as any)?.role)
+            .trim()
+            .toLowerCase()
         : "pasien";
 
     // Portal distributor: allow distributor + admin tiers
@@ -88,7 +97,9 @@ export async function middleware(req: NextRequest) {
         "superadmin",
       ]);
       if (!allow.has(role)) {
-        console.warn(`${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`);
+        console.warn(
+          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
+        );
         return redirectToUnauthorized(req);
       }
       console.log(`${LOG_PREFIX} ${pathname} → ok role=${role}`);
@@ -106,7 +117,9 @@ export async function middleware(req: NextRequest) {
         "superadmin",
       ]);
       if (!allow.has(role)) {
-        console.warn(`${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`);
+        console.warn(
+          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
+        );
         return redirectToUnauthorized(req);
       }
       console.log(`${LOG_PREFIX} ${pathname} → ok role=${role}`);
@@ -116,27 +129,37 @@ export async function middleware(req: NextRequest) {
     // Rute sensitif: tier admin / administrator / superadmin (cek spesifik dulu)
     if (pathname.startsWith("/system/database/audit")) {
       if (!ADMINISTRATOR_ROLES.includes(role)) {
-        console.warn(`${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`);
+        console.warn(
+          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
+        );
         return redirectToUnauthorized(req);
       }
     } else if (pathname.startsWith("/system/database")) {
       if (!SUPERADMIN_ROLES.includes(role)) {
-        console.warn(`${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`);
+        console.warn(
+          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
+        );
         return redirectToUnauthorized(req);
       }
     } else if (pathname.startsWith("/dashboard/database")) {
       if (!SUPERADMIN_ROLES.includes(role)) {
-        console.warn(`${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`);
+        console.warn(
+          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
+        );
         return redirectToUnauthorized(req);
       }
     } else if (pathname.startsWith("/dashboard/audit")) {
       if (!ADMINISTRATOR_ROLES.includes(role)) {
-        console.warn(`${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`);
+        console.warn(
+          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
+        );
         return redirectToUnauthorized(req);
       }
     } else if (pathname.startsWith("/dashboard/admin")) {
       if (!ADMIN_ROLES.includes(role)) {
-        console.warn(`${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`);
+        console.warn(
+          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
+        );
         return redirectToUnauthorized(req);
       }
     }
@@ -144,7 +167,10 @@ export async function middleware(req: NextRequest) {
     console.log(`${LOG_PREFIX} ${pathname} → ok role=${role}`);
     return NextResponse.next();
   } catch (err) {
-    console.warn(`${LOG_PREFIX} ${pathname} → redirect reason=invalid (token verify failed):`, err);
+    console.warn(
+      `${LOG_PREFIX} ${pathname} → redirect reason=invalid (token verify failed):`,
+      err,
+    );
     return redirectToHome(req, "invalid");
   }
 }

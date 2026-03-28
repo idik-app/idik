@@ -1,14 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 export function useTindakanData() {
   const [tindakanList, setTindakanList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<any>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const silentInFlightRef = useRef(0);
 
-  const reload = useCallback(async () => {
-    setLoading(true);
+  const reload = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent);
+    if (!silent) {
+      setLoading(true);
+    } else {
+      silentInFlightRef.current += 1;
+      setIsSyncing(true);
+    }
 
     try {
       const res = await fetch("/api/tindakan?limit=8000", {
@@ -30,11 +38,31 @@ export function useTindakanData() {
       setTindakanList(nextRows);
     } catch (e: unknown) {
       console.error("Error load tindakan:", e);
-      setError(e);
-      setTindakanList([]);
+      if (!silent) {
+        setError(e);
+        setTindakanList([]);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      } else {
+        silentInFlightRef.current = Math.max(0, silentInFlightRef.current - 1);
+        if (silentInFlightRef.current === 0) {
+          setIsSyncing(false);
+        }
+      }
     }
+  }, []);
+
+  /** Langsung hilangkan baris di UI setelah hapus sukses — mengatasi gagal reload senyap / race. */
+  const removeLocalById = useCallback((id: string) => {
+    const idStr = String(id ?? "").trim();
+    if (!idStr) return;
+    setTindakanList((prev) =>
+      Array.isArray(prev)
+        ? prev.filter((r) => String(r?.id ?? "").trim() !== idStr)
+        : prev,
+    );
   }, []);
 
   useEffect(() => {
@@ -46,5 +74,8 @@ export function useTindakanData() {
     loading,
     error,
     reload,
+    removeLocalById,
+    /** True saat muat ulang senyap (polling / simpan) sedang berjalan. */
+    isSyncing,
   };
 }

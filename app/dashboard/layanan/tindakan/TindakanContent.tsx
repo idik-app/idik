@@ -23,7 +23,7 @@ export default function TindakanContent() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="relative min-h-screen bg-gradient-to-br from-black via-gray-900 to-cyan-950 p-6 space-y-6 overflow-hidden"
+      className="relative min-h-screen bg-gradient-to-br from-black via-gray-900 to-cyan-950 px-3 py-4 sm:px-4 sm:py-5 md:p-6 space-y-4 md:space-y-6 overflow-x-hidden min-w-0"
     >
       {/* 🩺 Toolbar Aksi */}
       <ToolbarTindakan onRefresh={onRefresh} isLoading={isLoading} />

@@ -62,7 +62,7 @@ export default function DiagnosticsHUD() {
       <button
         type="button"
         onClick={() => setMinimized(false)}
-        className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full border border-cyan-500/50 bg-black/70 px-3 py-1.5 text-[11px] text-cyan-200 shadow-[0_0_12px_rgba(0,255,255,0.4)] hover:border-cyan-300/80"
+        className="fixed z-[55] flex max-w-[calc(100vw-1.25rem)] items-center gap-1.5 rounded-full border border-cyan-500/50 bg-black/70 px-2.5 py-1.5 text-[10px] text-cyan-200 shadow-[0_0_12px_rgba(0,255,255,0.4)] hover:border-cyan-300/80 sm:gap-2 sm:px-3 sm:text-[11px] max-md:bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] max-md:right-3 md:bottom-4 md:right-4"
       >
         <Cpu size={14} className="text-cyan-300" />
         <span className="font-semibold">{JARVIS.hud.kernelTitle}</span>
@@ -75,12 +75,14 @@ export default function DiagnosticsHUD() {
   return (
     <div
       className="
-      fixed bottom-4 right-4 
+      fixed z-[55] flex flex-col gap-2
+      max-md:inset-x-3 max-md:bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] max-md:w-auto
+      md:inset-x-auto md:bottom-4 md:right-4 md:left-auto md:w-72
       bg-black/60 backdrop-blur-xl 
       border border-cyan-500/40 
-      rounded-xl p-3 text-xs text-cyan-200
+      rounded-xl p-2.5 sm:p-3 text-xs text-cyan-200
       shadow-[0_0_15px_rgba(0,255,255,0.4)]
-      w-72 max-h-[80vh] flex flex-col gap-2 z-50
+      max-h-[min(80vh,32rem)] md:max-h-[80vh]
     "
     >
       <div className="flex items-center justify-between gap-2 shrink-0">

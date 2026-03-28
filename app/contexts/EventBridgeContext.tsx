@@ -6,6 +6,7 @@ import React, {
   useRef,
   useCallback,
   useEffect,
+  useMemo,
 } from "react";
 
 type EventCallback = (data: any) => void;
@@ -52,7 +53,7 @@ export function EventBridgeProvider({
     console.log("%cEventBridge Ready", "color:#0ff");
   }, []);
 
-  const value = { subscribe, emit };
+  const value = useMemo(() => ({ subscribe, emit }), [subscribe, emit]);
 
   return (
     <EventBridgeContext.Provider value={value}>

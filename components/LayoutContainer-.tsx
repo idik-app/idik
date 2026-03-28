@@ -3,7 +3,6 @@
 import { motion, LazyMotion, domAnimation } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
 import { useUI } from "@/contexts/UIContext";
-import { useTabs } from "@/contexts/TabContext";
 import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
 import TabBar from "@/components/TabBar";
@@ -13,9 +12,8 @@ import JarvisLoader from "@/components/JarvisLoader";
 import useGlobalLoader from "@/components/useGlobalLoader";
 
 /* ⚙️ Cathlab JARVIS LayoutContainer v7.5 – Scroll-Blur Edition
-   💠 Scroll blur parallax effect for TabBar
-   ✅ Adaptive responsive height
-   ✅ Hook-safe & smooth animation
+   ⚠️ LEGACY / TIDAK DIPAKAI — gunakan `components/layout/LayoutContainer.tsx`.
+   Dulu: scroll main ke atas tiap `activeTab` → merusak keep-alive (terasa “refresh”).
 */
 
 export default function LayoutContainer({
@@ -24,19 +22,11 @@ export default function LayoutContainer({
   children: React.ReactNode;
 }) {
   const { motionX } = useUI();
-  const { activeTab } = useTabs();
   const loading = useGlobalLoader();
 
   /* 🧩 Mount state */
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-
-  /* 🔁 Scroll to top setiap kali tab berubah */
-  useEffect(() => {
-    if (!mounted) return;
-    const scrollArea = document.querySelector("main");
-    if (scrollArea) scrollArea.scrollTo({ top: 0, behavior: "smooth" });
-  }, [activeTab, mounted]);
 
   /* 📏 Hitung tinggi header (Topbar + TabBar) */
   const headerRef = useRef<HTMLDivElement>(null);

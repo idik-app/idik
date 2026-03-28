@@ -39,7 +39,7 @@ export async function addPatient(data: Omit<Pasien, "id">): Promise<Pasien> {
   await logPasienAudit(
     "CREATE",
     { patient_id: inserted?.id, no_rm: noRM, nama: payload.nama },
-    session.username
+    session.username,
   );
 
   return mapFromSupabase(inserted) as Pasien;

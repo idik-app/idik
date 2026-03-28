@@ -1,8 +1,21 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
-import Link from "next/link";
-import { ClipboardList, Plus, Trash2 } from "lucide-react";
+import {
+  Fragment,
+  useMemo,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ClipboardList,
+  Plus,
+  SquarePen,
+  Trash2,
+} from "lucide-react";
 
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { useAppDialog } from "@/contexts/AppDialogContext";
@@ -16,21 +29,52 @@ import {
   formatDoctorLabel,
   type DoctorOption,
 } from "@/components/ui/doctor-combobox";
+import {
+  RuanganCombobox,
+  formatRuanganLabel,
+  type RuanganOption,
+} from "@/components/ui/ruangan-combobox";
+import {
+  MasterTindakanCombobox,
+  formatMasterTindakanLabel,
+  type MasterTindakanOption,
+} from "@/components/ui/master-tindakan-combobox";
 
 import { useTindakanBridgeAdapter } from "../bridge/useTindakanBridgeAdapter";
 import TableContainer from "../components/TableContainer";
 import TableToolbar from "../components/TableToolbar";
 import TablePagination from "../components/TablePagination";
+import PemakaianAlkesModal from "./PemakaianAlkesModal";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import {
   displayNamaPasien,
   displayRm,
+  formatJenisKelaminDisplay,
+  normalizeJenisKelamin,
   parsePasienAktifFilter,
+  pickFirstString,
+  resolveJenisKelaminFromRow,
+  RM_FIELD_KEYS,
   rowMatchesPasienAktifFilter,
+  splitNamaDanRmDalamKurung,
 } from "../lib/displayTindakanRow";
-import { TINDAKAN_STATUS } from "../bridge/bridge.constants";
+import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
 
 type Adapter = ReturnType<typeof useTindakanBridgeAdapter>;
+
+function useDebouncedValue(value: string, ms: number): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebounced(value), ms);
+    return () => window.clearTimeout(id);
+  }, [value, ms]);
+  return debounced;
+}
+
+/** Cocokkan RM meski format beda (angka saja vs teks). */
+function normalizeDigitsOnly(v: unknown): string {
+  return String(v ?? "").replace(/\D/g, "");
+}
 
 function extractErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -46,12 +90,48 @@ function extractErrorMessage(err: unknown): string {
   return "Terjadi kesalahan yang tidak diketahui.";
 }
 
+/** Kolom teks yang dipakai pencarian — hindari JSON.stringify seluruh baris. */
 function recordSearchHaystack(r: TindakanJoinResult): string {
-  try {
-    return JSON.stringify(r).toLowerCase();
-  } catch {
-    return "";
-  }
+  const raw = r as unknown as Record<string, unknown>;
+  const parts: unknown[] = [
+    raw.id,
+    raw.tanggal,
+    raw.waktu,
+    raw.dokter,
+    raw.operator,
+    raw.nama_pasien,
+    raw.nama,
+    raw.pasien_nama,
+    raw.no_rm,
+    raw.rm,
+    raw.nomor_rm,
+    raw.no_rm_pasien,
+    raw.tindakan,
+    raw.jenis,
+    raw.alkes_utama,
+    raw.status,
+    raw.ruangan,
+    raw.kategori,
+    raw.pasien_id,
+    raw.diagnosa,
+    raw.asisten,
+    raw.sirkuler,
+  ];
+  return parts.map((p) => String(p ?? "").toLowerCase()).join(" ");
+}
+
+function rowSearchHaystack(
+  r: TindakanJoinResult,
+  pasienOptions: PasienOption[],
+): string {
+  const base = recordSearchHaystack(r);
+  const raw = r as unknown as Record<string, unknown>;
+  const p = resolvePasienFromRow(pasienOptions, raw);
+  const jk = resolveJenisKelaminFromRow(raw, p);
+  let extra = "";
+  if (jk === "L") extra = " laki-laki laki l";
+  else if (jk === "P") extra = " perempuan wanita p";
+  return (base + extra).toLowerCase();
 }
 
 function normalizeIdikToken(v: unknown): string {
@@ -101,24 +181,13 @@ function rowMatchesPasienDeepFallback(
   return false;
 }
 
-function pemakaianHrefForRow(rec: TindakanJoinResult): string {
-  const id = String(rec.id ?? "").trim();
-  const pid = rec.pasien_id ? String(rec.pasien_id).trim() : "";
-  const rm = String(rec.no_rm ?? "").trim();
-  const q = new URLSearchParams();
-  if (pid) q.set("pasienId", pid);
-  else if (rm) q.set("rm", rm);
-  if (id) q.set("tindakanId", id);
-  const s = q.toString();
-  return s ? `/dashboard/pemakaian?${s}` : "/dashboard/pemakaian";
-}
-
 function mapApiPasienRow(r: Record<string, unknown>): PasienOption | null {
   const rawId = r.id;
   if (rawId == null || rawId === "") return null;
   const id = String(rawId);
   const nama = typeof r.nama === "string" ? r.nama : String(r.nama ?? "");
-  const no_rm = r.no_rm == null || r.no_rm === "" ? null : String(r.no_rm);
+  const rmStr = pickFirstString(r, [...RM_FIELD_KEYS]);
+  const no_rm = rmStr === "" ? null : rmStr;
   const ca = r.created_at;
   const created_at =
     typeof ca === "string"
@@ -128,14 +197,211 @@ function mapApiPasienRow(r: Record<string, unknown>): PasienOption | null {
         : ca != null
           ? String(ca)
           : null;
-  return { id, nama, no_rm, created_at };
+  const jk = normalizeJenisKelamin(r.jenis_kelamin ?? r.jk);
+  return {
+    id,
+    nama,
+    no_rm,
+    created_at,
+    ...(jk ? { jenis_kelamin: jk } : {}),
+  };
 }
 
 function buildPasienLabelFromRow(raw: Record<string, unknown>): string {
-  const nama = String(raw.nama_pasien ?? raw.nama ?? "").trim();
-  const rm = String(raw.no_rm ?? raw.rm ?? raw.nomor_rm ?? "").trim();
+  const namaFull = pickFirstString(raw, [
+    "nama_pasien",
+    "nama",
+    "pasien_nama",
+  ]);
+  const rmCol = pickFirstString(raw, [...RM_FIELD_KEYS]);
+  const { baseNama, rmDalamKurung } = splitNamaDanRmDalamKurung(namaFull);
+  const nama = (baseNama || namaFull).trim();
+  const rm = rmCol || rmDalamKurung;
   if (nama || rm) return formatPasienLabel({ nama, no_rm: rm || null });
   return "";
+}
+
+/** yyyy-mm-dd dari teks tanggal baris / order (dukung ISO & 28-Mar-2024). */
+const CAL_MONTH: Record<string, string> = {
+  jan: "01",
+  feb: "02",
+  mar: "03",
+  apr: "04",
+  may: "05",
+  jun: "06",
+  jul: "07",
+  aug: "08",
+  sep: "09",
+  oct: "10",
+  nov: "11",
+  dec: "12",
+};
+
+function extractCalendarDateKey(raw: string): string | null {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})/i);
+  if (m) {
+    const day = m[1].padStart(2, "0");
+    const mon = CAL_MONTH[m[2].toLowerCase().slice(0, 3)];
+    const year = m[3];
+    if (mon) return `${year}-${mon}-${day}`;
+  }
+  return null;
+}
+
+/** Tampilan tanggal seperti 10-09-2021 (dari ISO atau teks baris). */
+function formatTanggalDdMmYyyy(raw: string): string {
+  const iso = extractCalendarDateKey(raw);
+  if (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [y, mo, d] = iso.split("-");
+    return `${d}-${mo}-${y}`;
+  }
+  const t = String(raw ?? "").trim();
+  return t || "—";
+}
+
+function resolveShownRmForRow(
+  rec: TindakanJoinResult,
+  pasienLabelByRowId: Record<string, string>,
+  pasienOptions: PasienOption[],
+): { digits: string; display: string } {
+  const raw = rec as unknown as Record<string, unknown>;
+  const id = String(raw.id ?? "").trim();
+  const stateKey = id || "";
+  const labelRm = extractRmFromLabel(pasienLabelByRowId[stateKey] ?? "");
+  const p = resolvePasienFromRow(pasienOptions, raw);
+  const rmFromOpt = String(p?.no_rm ?? "").trim();
+  const rowRmDisp = displayRm(raw);
+  const rowRm = rowRmDisp === "—" ? "" : rowRmDisp;
+  const display = (labelRm || rmFromOpt || rowRm).trim() || "—";
+  const digits = normalizeDigitsOnly(display);
+  return { digits: digits.length >= 3 ? digits : "", display };
+}
+
+/** RM + nama untuk dialog hapus — selaras dengan kolom tabel / combobox. */
+function resolveShownPasienForDeleteDialog(
+  rec: TindakanJoinResult,
+  pasienLabelByRowId: Record<string, string>,
+  pasienOptions: PasienOption[],
+): { noRm: string; nama: string } {
+  const raw = rec as unknown as Record<string, unknown>;
+  const stateKey = String(raw.id ?? "").trim();
+  const label = (pasienLabelByRowId[stateKey] ?? "").trim();
+  const labelRm = extractRmFromLabel(label);
+  const { baseNama } = splitNamaDanRmDalamKurung(label);
+  const namaFromLabel = label ? (baseNama || label).trim() : "";
+
+  const p = resolvePasienFromRow(pasienOptions, raw);
+  const rmFromOpt = String(p?.no_rm ?? "").trim();
+  const namaFromOpt = String(p?.nama ?? "").trim();
+
+  const rowRmDisp = displayRm(raw);
+  const rowRm = rowRmDisp === "—" ? "" : rowRmDisp;
+  const noRm = (labelRm || rmFromOpt || rowRm).trim() || "—";
+
+  const rowNamaDisp = displayNamaPasien(raw);
+  const rowNama = rowNamaDisp === "—" ? "" : rowNamaDisp;
+  const nama = (namaFromLabel || namaFromOpt || rowNama).trim() || "—";
+
+  return { noRm, nama };
+}
+
+function poolRowRmDigitKey(rec: TindakanJoinResult): string {
+  const raw = rec as unknown as Record<string, unknown>;
+  const d = normalizeDigitsOnly(displayRm(raw));
+  return d.length >= 3 ? d : "";
+}
+
+function rowTindakanLabel(rec: TindakanJoinResult): string {
+  const raw = rec as unknown as Record<string, unknown>;
+  return (
+    String(rec.tindakan ?? "").trim() ||
+    (typeof raw.alkes_utama === "string" ? String(raw.alkes_utama).trim() : "")
+  );
+}
+
+function isPlaceholderTindakanLabel(t: string): boolean {
+  const s = t.trim();
+  return !s || s === "—" || /^belum diisi/i.test(s);
+}
+
+type PriorTindakanEntry = {
+  tindakan: string;
+  tanggalDisp: string;
+  dokter: string;
+  sortKey: string;
+};
+
+function buildPriorTindakanListForRow(
+  rec: TindakanJoinResult,
+  byRm: Map<string, TindakanJoinResult[]>,
+  pasienLabelByRowId: Record<string, string>,
+  pasienOptions: PasienOption[],
+): PriorTindakanEntry[] {
+  const id = String(rec.id ?? "").trim();
+  const { digits } = resolveShownRmForRow(
+    rec,
+    pasienLabelByRowId,
+    pasienOptions,
+  );
+  if (!digits) return [];
+  const candidates = byRm.get(digits) ?? [];
+  const others = candidates.filter((row) => String(row.id ?? "").trim() !== id);
+  const enriched: PriorTindakanEntry[] = others.map((row) => {
+    const tRaw = String(row.tanggal ?? "").trim();
+    const iso = extractCalendarDateKey(tRaw) ?? "";
+    const sortKey = iso || tRaw;
+    return {
+      tindakan: rowTindakanLabel(row) || "—",
+      tanggalDisp: formatTanggalDdMmYyyy(tRaw),
+      dokter: String(row.dokter ?? "").trim() || "—",
+      sortKey,
+    };
+  });
+  enriched.sort((a, b) => {
+    const pa = isPlaceholderTindakanLabel(a.tindakan) ? 1 : 0;
+    const pb = isPlaceholderTindakanLabel(b.tindakan) ? 1 : 0;
+    if (pa !== pb) return pa - pb;
+    return b.sortKey.localeCompare(a.sortKey);
+  });
+  return enriched
+    .filter((e) => !isPlaceholderTindakanLabel(e.tindakan))
+    .slice(0, 12);
+}
+
+/**
+ * Cocokkan teks pasien di order (`cathlab_pemakaian_order.pasien`) dengan label baris kasus.
+ * Order lama sering tanpa `tindakan_id` — dipakai untuk menampilkan tombol edit.
+ */
+function orderPasienMatchesTindakanRowLabel(
+  orderPasien: string,
+  rowLabel: string,
+): boolean {
+  const oStr = orderPasien.trim();
+  const rStr = rowLabel.trim();
+  if (!oStr || !rStr) return false;
+
+  const oSplit = splitNamaDanRmDalamKurung(oStr);
+  const rSplit = splitNamaDanRmDalamKurung(rStr);
+
+  const oName = normalizeNamaPasien((oSplit.baseNama || oStr).trim())
+    .toLowerCase();
+  const rName = normalizeNamaPasien((rSplit.baseNama || rStr).trim())
+    .toLowerCase();
+  if (!oName || !rName) return false;
+  if (oName !== rName && !oName.includes(rName) && !rName.includes(oName)) {
+    return false;
+  }
+
+  const oRm =
+    normalizeDigitsOnly(oSplit.rmDalamKurung) || normalizeDigitsOnly(oStr);
+  const rRm =
+    normalizeDigitsOnly(rSplit.rmDalamKurung) || normalizeDigitsOnly(rStr);
+  if (oRm.length >= 3 && rRm.length >= 3 && oRm !== rRm) return false;
+  return true;
 }
 
 function resolvePasienFromLabel(
@@ -160,7 +426,24 @@ function resolvePasienFromRow(
     if (hit) return hit;
   }
   const label = buildPasienLabelFromRow(raw);
-  return label ? resolvePasienFromLabel(options, label) : null;
+  if (label) {
+    const byLabel = resolvePasienFromLabel(options, label);
+    if (byLabel) return byLabel;
+  }
+  const namaFull = pickFirstString(raw, [
+    "nama_pasien",
+    "nama",
+    "pasien_nama",
+  ]);
+  const { baseNama } = splitNamaDanRmDalamKurung(namaFull);
+  const namaForMatch = normalizeNamaPasien((baseNama || namaFull).trim());
+  if (namaForMatch) {
+    const hits = options.filter(
+      (p) => normalizeNamaPasien(p.nama ?? "") === namaForMatch,
+    );
+    if (hits.length === 1) return hits[0]!;
+  }
+  return null;
 }
 
 function extractRmFromLabel(label: string): string {
@@ -210,53 +493,57 @@ function resolveDoctorFromLabel(
   return null;
 }
 
-function EditableInlineCell({
+function EditableMasterTindakanCell({
   value,
-  placeholder = "—",
+  masterOptions,
+  loading,
+  listboxId,
   onCommit,
 }: {
   value: string;
-  placeholder?: string;
+  masterOptions: MasterTindakanOption[];
+  loading: boolean;
+  listboxId: string;
   onCommit: (next: string) => Promise<boolean>;
 }) {
-  const [draft, setDraft] = useState(value);
+  const pickerOptions = useMemo(() => {
+    const v = value.trim();
+    return masterOptions.filter(
+      (o) => o.aktif !== false || formatMasterTindakanLabel(o) === v,
+    );
+  }, [masterOptions, value]);
+
+  const [draft, setDraft] = useState(value.trim());
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!saving) setDraft(value);
+    if (!saving) setDraft(value.trim());
   }, [value, saving]);
 
-  const commit = useCallback(async () => {
-    if (saving) return;
-    const next = draft.trim();
+  const tryCommit = async (nextRaw: string) => {
     const cur = value.trim();
-    if (next === cur) return;
+    const next = nextRaw.trim();
+    if (next === cur || saving) return;
     setSaving(true);
     const ok = await onCommit(next);
     setSaving(false);
-    if (!ok) setDraft(value);
-  }, [draft, value, onCommit, saving]);
+    if (!ok) setDraft(cur);
+  };
 
   return (
-    <input
-      disabled={saving}
+    <MasterTindakanCombobox
+      listboxId={listboxId}
       value={draft}
-      placeholder={placeholder}
-      onChange={(e) => setDraft(e.target.value)}
-      onMouseDown={(e) => e.stopPropagation()}
-      onClick={(e) => e.stopPropagation()}
-      onBlur={() => void commit()}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          void commit();
-        }
-        if (e.key === "Escape") {
-          e.preventDefault();
-          setDraft(value);
-        }
+      onChange={setDraft}
+      onSelectOption={(o) => {
+        void tryCommit(formatMasterTindakanLabel(o));
       }}
-      className="w-full rounded border border-cyan-700/50 bg-black/40 px-2 py-1 text-xs text-cyan-100 focus:outline-none"
+      onInputBlur={(finalText) => {
+        void tryCommit(finalText);
+      }}
+      options={pickerOptions}
+      loading={loading || saving}
+      className="max-w-[14rem]"
     />
   );
 }
@@ -268,34 +555,38 @@ function EditableDateCell({
   value: string;
   onCommit: (next: string) => Promise<boolean>;
 }) {
-  const [draft, setDraft] = useState(value);
+  /** `type="date"` hanya menerima YYYY-MM-DD; tanggal dari DB sering "28-Jan-2023" → kalender error / tidak bisa navigasi. */
+  const normalizedValue =
+    extractCalendarDateKey(String(value ?? "").trim()) ?? "";
+  const [draft, setDraft] = useState(normalizedValue);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!saving) setDraft(value);
-  }, [value, saving]);
+    if (!saving) setDraft(normalizedValue);
+  }, [normalizedValue, saving]);
 
   const commit = useCallback(async () => {
     if (saving) return;
     const next = draft.trim();
-    const cur = value.trim();
-    if (next === cur) return;
+    const curIso = normalizedValue;
+    if (next === curIso) return;
     // Terima YYYY-MM-DD atau kosong.
     if (next && !/^\d{4}-\d{2}-\d{2}$/.test(next)) {
-      setDraft(value);
+      setDraft(normalizedValue);
       return;
     }
     setSaving(true);
     const ok = await onCommit(next);
     setSaving(false);
-    if (!ok) setDraft(value);
-  }, [draft, value, onCommit, saving]);
+    if (!ok) setDraft(normalizedValue);
+  }, [draft, normalizedValue, onCommit, saving]);
 
   return (
     <input
       type="date"
       disabled={saving}
       value={draft}
+      min="1900-01-01"
       onChange={(e) => setDraft(e.target.value)}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
@@ -307,7 +598,7 @@ function EditableDateCell({
         }
         if (e.key === "Escape") {
           e.preventDefault();
-          setDraft(value);
+          setDraft(normalizedValue);
         }
       }}
       className="w-full min-w-[8.5rem] rounded border border-cyan-700/50 bg-black/40 px-2 py-1 text-xs text-cyan-100 focus:outline-none [color-scheme:dark]"
@@ -315,53 +606,56 @@ function EditableDateCell({
   );
 }
 
-function EditableStatusCell({
+function EditableRuanganCell({
   value,
+  ruanganMaster,
+  loading,
+  listboxId,
   onCommit,
 }: {
   value: string;
+  ruanganMaster: RuanganOption[];
+  loading: boolean;
+  listboxId: string;
   onCommit: (next: string) => Promise<boolean>;
 }) {
   const [draft, setDraft] = useState(value.trim());
   const [saving, setSaving] = useState(false);
+  const draftRef = useRef(draft);
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
 
   useEffect(() => {
     if (!saving) setDraft(value.trim());
   }, [value, saving]);
 
+  const tryCommit = async (nextRaw: string) => {
+    const cur = value.trim();
+    const next = nextRaw.trim();
+    if (next === cur || saving) return;
+    setSaving(true);
+    const ok = await onCommit(next);
+    setSaving(false);
+    if (!ok) setDraft(cur);
+  };
+
   return (
-    <select
-      disabled={saving}
+    <RuanganCombobox
+      listboxId={listboxId}
       value={draft}
-      onMouseDown={(e) => e.stopPropagation()}
-      onClick={(e) => e.stopPropagation()}
-      onBlur={async () => {
-        const cur = value.trim();
-        const next = draft.trim();
-        if (next === cur || saving) return;
-        setSaving(true);
-        const ok = await onCommit(next);
-        setSaving(false);
-        if (!ok) setDraft(cur);
+      onChange={setDraft}
+      onSelectOption={(r) => {
+        void tryCommit(formatRuanganLabel(r));
       }}
-      onChange={async (e) => {
-        const next = e.target.value.trim();
-        setDraft(next);
-        if (saving) return;
-        setSaving(true);
-        const ok = await onCommit(next);
-        setSaving(false);
-        if (!ok) setDraft(value.trim());
+      onInputBlur={() => {
+        void tryCommit(draftRef.current);
       }}
-      className="w-full rounded border border-cyan-700/50 bg-black/40 px-2 py-1 text-xs text-cyan-100 focus:outline-none"
-    >
-      {!draft ? <option value="">Pilih status</option> : null}
-      {TINDAKAN_STATUS.map((s) => (
-        <option key={s} value={s}>
-          {s}
-        </option>
-      ))}
-    </select>
+      options={ruanganMaster}
+      loading={loading || saving}
+      className="max-w-[14rem]"
+    />
   );
 }
 
@@ -439,11 +733,13 @@ export default function TindakanTable({
     saveEditor,
     createRecord,
     error,
+    isSyncing,
   } = adapter;
   const { show: notify } = useNotification();
   const { confirm: appConfirm } = useAppDialog();
 
   const [search, setSearch] = useState("");
+  const debouncedSearchTrim = useDebouncedValue(search.trim(), 280);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [cathlabFallbackRows, setCathlabFallbackRows] = useState<
     TindakanJoinResult[]
@@ -451,11 +747,45 @@ export default function TindakanTable({
   const [page, setPage] = useState(1);
   const perPage = 15;
   const [filterDokter, setFilterDokter] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [filterRuangan, setFilterRuangan] = useState("");
   const [filterTanggalFrom, setFilterTanggalFrom] = useState("");
   const [filterTanggalTo, setFilterTanggalTo] = useState("");
   const [creatingForPasien, setCreatingForPasien] = useState(false);
   const [lastAutoCreateKey, setLastAutoCreateKey] = useState("");
+  /** Riwayat tindakan (RM duplikat): default tertutup; kunci = id baris / fallback key. */
+  const [rmHistoryOpenByRowKey, setRmHistoryOpenByRowKey] = useState<
+    Record<string, boolean>
+  >({});
+  const [pemakaianModalRow, setPemakaianModalRow] =
+    useState<TindakanJoinResult | null>(null);
+  /** Cache GET /api/pemakaian-orders (urutan API: created_at desc). */
+  const [pemakaianOrdersRaw, setPemakaianOrdersRaw] = useState<
+    Record<string, unknown>[]
+  >([]);
+
+  const refreshPemakaianOrderIndex = useCallback(async () => {
+    try {
+      const res = await fetch("/api/pemakaian-orders", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        orders?: Array<Record<string, unknown>>;
+      };
+      if (!res.ok || !j?.ok || !Array.isArray(j.orders)) {
+        setPemakaianOrdersRaw([]);
+        return;
+      }
+      setPemakaianOrdersRaw(j.orders);
+    } catch {
+      setPemakaianOrdersRaw([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshPemakaianOrderIndex();
+  }, [refreshPemakaianOrderIndex]);
 
   const [pasienOptions, setPasienOptions] = useState<PasienOption[]>([]);
   const [pasienLoading, setPasienLoading] = useState(false);
@@ -464,13 +794,101 @@ export default function TindakanTable({
     Record<string, string>
   >({});
 
+  const [ruanganMaster, setRuanganMaster] = useState<RuanganOption[]>([]);
+  const [ruanganLoading, setRuanganLoading] = useState(false);
+  const [ruanganError, setRuanganError] = useState<string | null>(null);
+
+  const refreshRuanganMaster = useCallback(async () => {
+    setRuanganLoading(true);
+    setRuanganError(null);
+    try {
+      const res = await fetch("/api/ruangan", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        ruangan?: RuanganOption[];
+        message?: string;
+      };
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.message || "Gagal mengambil master ruangan.");
+      }
+      const rows = Array.isArray(json.ruangan) ? json.ruangan : [];
+      setRuanganMaster(rows);
+    } catch (e) {
+      setRuanganMaster([]);
+      setRuanganError(extractErrorMessage(e));
+    } finally {
+      setRuanganLoading(false);
+    }
+  }, []);
+
+  const [doctorOptionsMaster, setDoctorOptionsMaster] = useState<
+    DoctorOption[]
+  >([]);
+  const [doctorLoading, setDoctorLoading] = useState(false);
+  const [doctorError, setDoctorError] = useState<string | null>(null);
+  const [doctorLabelByRowId, setDoctorLabelByRowId] = useState<
+    Record<string, string>
+  >({});
+
+  const [masterTindakanOptions, setMasterTindakanOptions] = useState<
+    MasterTindakanOption[]
+  >([]);
+  const [masterTindakanLoading, setMasterTindakanLoading] = useState(false);
+  const [masterTindakanError, setMasterTindakanError] = useState<string | null>(
+    null,
+  );
+
+  const refreshMasterTindakan = useCallback(async () => {
+    setMasterTindakanLoading(true);
+    setMasterTindakanError(null);
+    try {
+      const res = await fetch("/api/master-tindakan", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        masterTindakan?: MasterTindakanOption[];
+        message?: string;
+      };
+      if (!res.ok || !json?.ok) {
+        throw new Error(
+          json?.message || "Gagal mengambil master jenis tindakan.",
+        );
+      }
+      const rows = Array.isArray(json.masterTindakan)
+        ? json.masterTindakan
+        : [];
+      const mapped = rows
+        .map((r) =>
+          r && typeof r === "object" && "id" in r && "nama" in r
+            ? {
+                id: String((r as MasterTindakanOption).id),
+                nama: String((r as MasterTindakanOption).nama ?? "").trim(),
+                aktif: (r as MasterTindakanOption).aktif !== false,
+              }
+            : null,
+        )
+        .filter(Boolean) as MasterTindakanOption[];
+      setMasterTindakanOptions(mapped);
+    } catch (e) {
+      setMasterTindakanOptions([]);
+      setMasterTindakanError(extractErrorMessage(e));
+    } finally {
+      setMasterTindakanLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     setPasienLoading(true);
     setPasienError(null);
     (async () => {
       try {
-        const res = await fetch("/api/pasien", {
+        const res = await fetch("/api/pasien?compact=1", {
           credentials: "include",
           cache: "no-store",
         });
@@ -484,7 +902,9 @@ export default function TindakanTable({
         }
         const rows = Array.isArray(json.data) ? json.data : [];
         const mapped = rows
-          .map((r) => (r && typeof r === "object" ? mapApiPasienRow(r as any) : null))
+          .map((r) =>
+            r && typeof r === "object" ? mapApiPasienRow(r as any) : null,
+          )
           .filter(Boolean) as PasienOption[];
         if (!cancelled) setPasienOptions(mapped);
       } catch (e) {
@@ -501,14 +921,9 @@ export default function TindakanTable({
     };
   }, []);
 
-  const [doctorOptionsMaster, setDoctorOptionsMaster] = useState<DoctorOption[]>(
-    [],
-  );
-  const [doctorLoading, setDoctorLoading] = useState(false);
-  const [doctorError, setDoctorError] = useState<string | null>(null);
-  const [doctorLabelByRowId, setDoctorLabelByRowId] = useState<
-    Record<string, string>
-  >({});
+  useEffect(() => {
+    void refreshRuanganMaster();
+  }, [refreshRuanganMaster]);
 
   useEffect(() => {
     let cancelled = false;
@@ -530,7 +945,9 @@ export default function TindakanTable({
         }
         const rows = Array.isArray(json.doctors) ? json.doctors : [];
         const mapped = rows
-          .map((r) => (r && typeof r === "object" ? mapApiDoctorRow(r as any) : null))
+          .map((r) =>
+            r && typeof r === "object" ? mapApiDoctorRow(r as any) : null,
+          )
           .filter((d): d is DoctorOption => Boolean(d && d.nama_dokter));
         if (!cancelled) setDoctorOptionsMaster(mapped);
       } catch (e) {
@@ -547,23 +964,52 @@ export default function TindakanTable({
     };
   }, []);
 
+  useEffect(() => {
+    void refreshMasterTindakan();
+  }, [refreshMasterTindakan]);
+
+  const dokterSourceRows = useMemo((): TindakanJoinResult[] => {
+    if (tindakanList.length) return tindakanList as TindakanJoinResult[];
+    if (cathlabFallbackRows.length) return cathlabFallbackRows;
+    return [];
+  }, [tindakanList, cathlabFallbackRows]);
+
   const dokterOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const r of tindakanList.length ? tindakanList : cathlabFallbackRows) {
+    for (const r of dokterSourceRows) {
       const d = String(r.dokter ?? "").trim();
       if (d) set.add(d);
     }
     return [...set].sort((a, b) => a.localeCompare(b, "id"));
-  }, [tindakanList, cathlabFallbackRows]);
+  }, [dokterSourceRows]);
 
-  const statusOptions = useMemo(() => {
+  const doctorOptionsForPemakaianModal = useMemo(
+    () =>
+      doctorOptionsMaster.length
+        ? doctorOptionsMaster
+        : dokterOptions.map((nama, idx) => ({
+            id: `local:${idx}`,
+            nama_dokter: nama,
+            spesialis: null,
+            aktif: true,
+          })),
+    [doctorOptionsMaster, dokterOptions],
+  );
+
+  const ruanganFilterOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const r of tindakanList.length ? tindakanList : cathlabFallbackRows) {
-      const s = String(r.status ?? "").trim();
-      if (s) set.add(s);
+    for (const r of dokterSourceRows) {
+      const x = String(r.ruangan ?? "").trim();
+      if (x) set.add(x);
+    }
+    for (const opt of ruanganMaster) {
+      const label = formatRuanganLabel(opt).trim();
+      if (label) set.add(label);
+      const nama = String(opt.nama ?? "").trim();
+      if (nama) set.add(nama);
     }
     return [...set].sort((a, b) => a.localeCompare(b, "id"));
-  }, [tindakanList, cathlabFallbackRows]);
+  }, [dokterSourceRows, ruanganMaster]);
 
   useEffect(() => {
     const pasienActive = Boolean(filterPasienId.trim() || filterRm.trim());
@@ -621,11 +1067,127 @@ export default function TindakanTable({
     };
   }, [filterPasienId, filterRm]);
 
-  const filteredRecords = useMemo(() => {
+  /** Baris kasus untuk tautkan order pemakaian legacy tanpa tindakan_id. */
+  const rowsForPemakaianLink = useMemo(() => {
     const merged = [
       ...(tindakanList as TindakanJoinResult[]),
       ...cathlabFallbackRows,
     ];
+    const dedupByKey = new Map<string, TindakanJoinResult>();
+    for (let idx = 0; idx < merged.length; idx += 1) {
+      const row = merged[idx];
+      const id = String(row.id ?? "").trim();
+      const fallbackKey = [
+        String(row.pasien_id ?? "").trim(),
+        String(row.no_rm ?? "").trim(),
+        String(row.tanggal ?? "").trim(),
+        String(row.waktu ?? "").trim(),
+        String(row.dokter ?? "").trim(),
+        String(row.tindakan ?? "").trim(),
+        String(row.status ?? "").trim(),
+      ].join("|");
+      const key = id || `noid:${fallbackKey || idx}`;
+      if (!dedupByKey.has(key)) dedupByKey.set(key, row);
+    }
+    return Array.from(dedupByKey.values());
+  }, [tindakanList, cathlabFallbackRows]);
+
+  /** `tindakan.id` → id order terbaru (via tindakan_id DB atau fallback nama+RM+tanggal). */
+  const pemakaianOrderByTindakanId = useMemo(() => {
+    const next: Record<string, string> = {};
+    const orders = pemakaianOrdersRaw;
+
+    for (const o of orders) {
+      const tid = typeof o.tindakan_id === "string" ? o.tindakan_id.trim() : "";
+      const oid = typeof o.id === "string" ? o.id.trim() : "";
+      if (tid && oid && !next[tid]) next[tid] = oid;
+    }
+
+    const unlinked = orders.filter(
+      (o) => !String(o.tindakan_id ?? "").trim(),
+    );
+    let pool = unlinked.slice();
+
+    const sortedRows = rowsForPemakaianLink
+      .filter((row) => Boolean(String(row.id ?? "").trim()))
+      .sort((a, b) => {
+        const ta = String(a.tanggal ?? "").trim();
+        const tb = String(b.tanggal ?? "").trim();
+        const da = extractCalendarDateKey(ta) ?? ta;
+        const db = extractCalendarDateKey(tb) ?? tb;
+        const byDate = db.localeCompare(da);
+        if (byDate !== 0) return byDate;
+        return String(b.id ?? "").localeCompare(String(a.id ?? ""));
+      });
+
+    for (const row of sortedRows) {
+      const rowId = String(row.id ?? "").trim();
+      if (!rowId || next[rowId]) continue;
+      const raw = row as unknown as Record<string, unknown>;
+      const label =
+        pasienLabelByRowId[rowId] ?? buildPasienLabelFromRow(raw);
+      if (!label.trim()) continue;
+      const rowDate = extractCalendarDateKey(String(row.tanggal ?? ""));
+
+      const idx = pool.findIndex((o) => {
+        const op = String(o.pasien ?? "").trim();
+        if (!op) return false;
+        if (!orderPasienMatchesTindakanRowLabel(op, label)) return false;
+        const od = extractCalendarDateKey(String(o.tanggal ?? ""));
+        if (rowDate && od && rowDate !== od) return false;
+        return true;
+      });
+      if (idx < 0) continue;
+      const hit = pool[idx];
+      const hid = String(hit.id ?? "").trim();
+      if (!hid) continue;
+      next[rowId] = hid;
+      pool = pool.filter((_, i) => i !== idx);
+    }
+
+    return next;
+  }, [
+    pemakaianOrdersRaw,
+    rowsForPemakaianLink,
+    pasienLabelByRowId,
+  ]);
+
+  const pemakaianModalInitial = useMemo(() => {
+    if (!pemakaianModalRow) return null;
+    const id = String(pemakaianModalRow.id ?? "").trim();
+    const raw = pemakaianModalRow as unknown as Record<string, unknown>;
+    const tindakan = String(pemakaianModalRow.tindakan ?? "").trim();
+    const tanggal = String(pemakaianModalRow.tanggal ?? "").trim();
+    const catatan =
+      tindakan && tanggal
+        ? `Kasus tindakan: ${tindakan} (${tanggal}).`
+        : tindakan
+          ? `Kasus tindakan: ${tindakan}.`
+          : "";
+    const tindakanIdForApi = id || null;
+    const linkedOrderId =
+      tindakanIdForApi && pemakaianOrderByTindakanId[tindakanIdForApi]
+        ? pemakaianOrderByTindakanId[tindakanIdForApi]
+        : null;
+    return {
+      initialPasienLabel:
+        pasienLabelByRowId[id] ?? buildPasienLabelFromRow(raw),
+      initialDokter:
+        doctorLabelByRowId[id] ?? String(pemakaianModalRow.dokter ?? ""),
+      initialRuangan: String(pemakaianModalRow.ruangan ?? ""),
+      initialCatatan: catatan,
+      tindakanId: tindakanIdForApi,
+      initialPemakaianOrderId: linkedOrderId,
+    };
+  }, [
+    pemakaianModalRow,
+    pasienLabelByRowId,
+    doctorLabelByRowId,
+    pemakaianOrderByTindakanId,
+  ]);
+
+  const filteredRecords = useMemo(() => {
+    const merged = [...rowsForPemakaianLink];
     const dedupByKey = new Map<string, TindakanJoinResult>();
     for (let idx = 0; idx < merged.length; idx += 1) {
       const row = merged[idx];
@@ -675,8 +1237,10 @@ export default function TindakanTable({
     if (filterDokter) {
       list = list.filter((r) => String(r.dokter ?? "").trim() === filterDokter);
     }
-    if (filterStatus) {
-      list = list.filter((r) => String(r.status ?? "").trim() === filterStatus);
+    if (filterRuangan) {
+      list = list.filter(
+        (r) => String(r.ruangan ?? "").trim() === filterRuangan,
+      );
     }
     if (filterTanggalFrom.trim() || filterTanggalTo.trim()) {
       const from = filterTanggalFrom.trim();
@@ -689,9 +1253,9 @@ export default function TindakanTable({
         return true;
       });
     }
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearchTrim.toLowerCase();
     if (q) {
-      list = list.filter((r) => recordSearchHaystack(r).includes(q));
+      list = list.filter((r) => rowSearchHaystack(r, pasienOptions).includes(q));
     }
     if ((pasienId || rmOrQuery) && list.length === 0) {
       // Fallback: schema/kolom tindakan antar environment kadang berbeda.
@@ -706,41 +1270,99 @@ export default function TindakanTable({
         rowMatchesPasienDeepFallback(r, pasienId, rmOrQuery),
       );
     }
-    return list;
+    return [...list].sort((a, b) => {
+      const ta = String(a.tanggal ?? "").trim();
+      const tb = String(b.tanggal ?? "").trim();
+      const hasA = Boolean(ta);
+      const hasB = Boolean(tb);
+      if (hasA !== hasB) return hasA ? -1 : 1;
+      if (!hasA) return 0;
+      const byDate = tb.localeCompare(ta);
+      if (byDate !== 0) return byDate;
+      const wa = String(a.waktu ?? "").trim();
+      const wb = String(b.waktu ?? "").trim();
+      if (wa || wb) return wb.localeCompare(wa);
+      return String(b.id ?? "").localeCompare(String(a.id ?? ""));
+    });
   }, [
-    tindakanList,
+    rowsForPemakaianLink,
     filterPasienId,
     filterRm,
     filterDokter,
-    filterStatus,
+    filterRuangan,
     filterTanggalFrom,
     filterTanggalTo,
-    search,
-    cathlabFallbackRows,
+    pasienOptions,
+    debouncedSearchTrim,
   ]);
 
   useEffect(() => {
     setPage(1);
   }, [
     search,
+    debouncedSearchTrim,
     filterPasienId,
     filterRm,
     filterDokter,
-    filterStatus,
+    filterRuangan,
     filterTanggalFrom,
     filterTanggalTo,
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / perPage));
 
+  useEffect(() => {
+    setPage((p) => (p > totalPages ? totalPages : p));
+  }, [totalPages]);
+
   const pagedRecords = useMemo(() => {
     const start = (page - 1) * perPage;
     return filteredRecords.slice(start, start + perPage);
   }, [filteredRecords, page, perPage]);
 
+  const rmDuplicateCountInFiltered = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const rec of filteredRecords) {
+      const { digits } = resolveShownRmForRow(
+        rec,
+        pasienLabelByRowId,
+        pasienOptions,
+      );
+      if (!digits) continue;
+      m.set(digits, (m.get(digits) ?? 0) + 1);
+    }
+    return m;
+  }, [filteredRecords, pasienLabelByRowId, pasienOptions]);
+
+  /** Hanya untuk baris halaman aktif — hindari O(n) berat pada seluruh hasil filter. */
+  const priorTindakanForPagedRows = useMemo(() => {
+    const pool = rowsForPemakaianLink;
+    const byRm = new Map<string, TindakanJoinResult[]>();
+    for (const r of pool) {
+      const k = poolRowRmDigitKey(r);
+      if (!k) continue;
+      if (!byRm.has(k)) byRm.set(k, []);
+      byRm.get(k)!.push(r);
+    }
+    return pagedRecords.map((rec) =>
+      buildPriorTindakanListForRow(
+        rec,
+        byRm,
+        pasienLabelByRowId,
+        pasienOptions,
+      ),
+    );
+  }, [
+    rowsForPemakaianLink,
+    pagedRecords,
+    pasienLabelByRowId,
+    pasienOptions,
+  ]);
+
   const emptyMessage = useMemo(() => {
     const pasienActive = Boolean(filterPasienId.trim() || filterRm.trim());
-    const hasAnySourceRows = tindakanList.length > 0 || cathlabFallbackRows.length > 0;
+    const hasAnySourceRows =
+      tindakanList.length > 0 || cathlabFallbackRows.length > 0;
     if (!hasAnySourceRows) {
       return "Belum ada data tindakan di database.";
     }
@@ -748,13 +1370,20 @@ export default function TindakanTable({
       return "Pasien ini belum memiliki data tindakan.";
     }
     return "Tidak ada baris untuk filter ini.";
-  }, [filterPasienId, filterRm, tindakanList.length, cathlabFallbackRows.length]);
+  }, [
+    filterPasienId,
+    filterRm,
+    tindakanList.length,
+    cathlabFallbackRows.length,
+  ]);
 
   const createDraftForPasien = useCallback(
     async (p: { pasienId: string; rm: string; nama: string }) => {
       const pasienId = String(p.pasienId ?? "").trim();
       const rmResolved = String(p.rm ?? "").trim();
-      const namaResolved = String(p.nama ?? "").trim() || (rmResolved ? `Pasien ${rmResolved}` : "Pasien");
+      const namaResolved =
+        String(p.nama ?? "").trim() ||
+        (rmResolved ? `Pasien ${rmResolved}` : "Pasien");
       const payload: Record<string, unknown> = {
         tanggal: new Date().toISOString().slice(0, 10),
         pasien_id: pasienId || null,
@@ -853,12 +1482,17 @@ export default function TindakanTable({
   ]);
 
   const handleDelete = useCallback(
-    async (rowId: string) => {
+    async (rowId: string, rec: TindakanJoinResult) => {
       if (!rowId) return;
+      const { noRm, nama } = resolveShownPasienForDeleteDialog(
+        rec,
+        pasienLabelByRowId,
+        pasienOptions,
+      );
+
       const ok = await appConfirm({
         title: "Hapus kasus tindakan?",
-        message:
-          "Kasus ini akan dihapus permanen dari daftar. Data tidak dapat dikembalikan.",
+        message: `No. RM: ${noRm}\nNama: ${nama}\n\nKasus ini akan dihapus permanen dari daftar. Data tidak dapat dikembalikan.`,
         danger: true,
         confirmLabel: "Hapus",
         cancelLabel: "Batal",
@@ -867,6 +1501,9 @@ export default function TindakanTable({
       setDeletingId(rowId);
       try {
         await deleteRecord(rowId);
+        setCathlabFallbackRows((prev) =>
+          prev.filter((r) => String(r.id ?? "").trim() !== String(rowId).trim()),
+        );
         notify({
           type: "success",
           message: "Kasus tindakan dihapus.",
@@ -883,7 +1520,7 @@ export default function TindakanTable({
         setDeletingId(null);
       }
     },
-    [appConfirm, deleteRecord, notify],
+    [appConfirm, deleteRecord, notify, pasienLabelByRowId, pasienOptions],
   );
 
   const patchRowField = useCallback(
@@ -891,11 +1528,6 @@ export default function TindakanTable({
       if (!id) return false;
       try {
         await saveEditor(id, updates);
-        notify({
-          type: "success",
-          message: "Perubahan tindakan disimpan.",
-          duration: 2000,
-        });
         return true;
       } catch (e) {
         notify({
@@ -906,310 +1538,569 @@ export default function TindakanTable({
         return false;
       }
     },
-    [saveEditor, notify],
+    [notify, saveEditor],
+  );
+
+  const commitRuanganForRow = useCallback(
+    async (id: string, next: string) => {
+      const ok = await patchRowField(id, { ruangan: next || null });
+      if (ok && next.trim()) {
+        void refreshRuanganMaster();
+      }
+      return ok;
+    },
+    [patchRowField, refreshRuanganMaster],
+  );
+
+  const commitTindakanForRow = useCallback(
+    async (id: string, next: string) => {
+      const ok = await patchRowField(id, { tindakan: next || null });
+      const t = next.trim();
+      if (
+        ok &&
+        t &&
+        t.toLowerCase() !== "belum diisi"
+      ) {
+        void refreshMasterTindakan();
+      }
+      return ok;
+    },
+    [patchRowField, refreshMasterTindakan],
   );
 
   return (
     <TableContainer>
-      <div className="flex h-full min-h-[70vh] flex-col">
-      <TableToolbar
-        onSearch={setSearch}
-        onRefresh={refresh}
-        onCreateDraftForPasien={createDraftForPasien}
-        onFilter={(d, s, from, to) => {
-          setFilterDokter(d);
-          setFilterStatus(s);
-          setFilterTanggalFrom(String(from ?? ""));
-          setFilterTanggalTo(String(to ?? ""));
-        }}
-        onExport={() => {}}
-        dokterOptions={dokterOptions}
-        statusOptions={statusOptions}
-      />
+      <div className="flex h-full min-h-[min(60vh,26rem)] sm:min-h-[min(65vh,28rem)] flex-col min-w-0">
+        <TableToolbar
+          onSearch={setSearch}
+          onRefresh={refresh}
+          onCreateDraftForPasien={createDraftForPasien}
+          onFilter={(d, rg, from, to) => {
+            setFilterDokter(d);
+            setFilterRuangan(rg);
+            setFilterTanggalFrom(String(from ?? ""));
+            setFilterTanggalTo(String(to ?? ""));
+          }}
+          dokterOptions={dokterOptions}
+          ruanganOptions={ruanganFilterOptions}
+          isSyncing={isSyncing}
+        />
 
-      {error ? (
-        <div className="mb-3 rounded-xl border border-red-900/40 bg-red-950/25 px-4 py-3 text-sm text-red-200">
-          <div className="font-medium">Gagal memuat data tindakan</div>
-          <div className="mt-0.5 text-[12px] text-red-200/80">
-            {extractErrorMessage(error)}
+        {error ? (
+          <div className="mb-3 rounded-xl border border-red-900/40 bg-red-950/25 px-4 py-3 text-sm text-red-200">
+            <div className="font-medium">Gagal memuat data tindakan</div>
+            <div className="mt-0.5 text-[12px] text-red-200/80">
+              {extractErrorMessage(error)}
+            </div>
+            <div className="mt-2 text-[11px] text-red-200/70 font-mono">
+              Sumber: `GET /api/tindakan?limit=8000` (butuh login & Supabase
+              service role).
+            </div>
           </div>
-          <div className="mt-2 text-[11px] text-red-200/70 font-mono">
-            Sumber: `GET /api/tindakan?limit=8000` (butuh login & Supabase service role).
-          </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {loading ? (
-        <div className="flex-1 text-cyan-300 text-center py-10 px-6">
-          Memuat tindakan…
-        </div>
-      ) : (
-        <>
-          <div className="flex-1 min-h-[20rem] overflow-auto rounded-xl border border-cyan-900/35 bg-black/25">
-            <table className="w-full min-w-[980px] text-sm border-separate border-spacing-0">
-              <thead className="sticky top-0 z-10">
-                <tr className="border-b border-cyan-800/40 bg-black/80 text-left backdrop-blur">
-                  <th className="px-2 sm:px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
-                    Tanggal
-                  </th>
-                  <th className="px-2 sm:px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
-                    RM
-                  </th>
-                  <th className="px-2 sm:px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
-                    Nama pasien
-                  </th>
-                  <th className="px-2 sm:px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
-                    Dokter
-                  </th>
-                  <th className="px-2 sm:px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
-                    Tindakan
-                  </th>
-                  <th className="px-2 sm:px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
-                    Status
-                  </th>
-                  <th className="px-2 sm:px-4 py-3 font-mono text-[11px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap text-right">
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {pagedRecords.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      className="px-4 py-10 text-center text-cyan-500/70"
-                    >
-                      <div className="flex flex-col items-center gap-3">
-                        <span>{emptyMessage}</span>
-                        {Boolean(filterPasienId.trim() || filterRm.trim()) ? (
-                          <button
-                            type="button"
-                            onClick={() => void handleCreateForActivePasien()}
-                            disabled={creatingForPasien}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-cyan-700/50 bg-cyan-950/30 px-3 py-1.5 text-xs text-cyan-200 transition hover:bg-cyan-900/40 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            <Plus size={13} />
-                            {creatingForPasien
-                              ? "Membuat draft tindakan..."
-                              : "Tambah tindakan pasien aktif"}
-                          </button>
-                        ) : null}
-                      </div>
-                    </td>
+        {loading ? (
+          <div className="flex-1 text-cyan-300 text-center py-10 px-6">
+            Memuat tindakan…
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 min-h-[20rem] overflow-auto rounded-xl border border-cyan-900/35 bg-black/25">
+              <table className="w-full min-w-[1120px] text-sm border-separate border-spacing-0">
+                <thead className="sticky top-0 z-10">
+                  <tr className="border-b border-cyan-800/40 bg-black/80 text-center backdrop-blur">
+                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap w-10">
+                      No
+                    </th>
+                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
+                      Tanggal
+                    </th>
+                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
+                      RM
+                    </th>
+                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
+                      Nama pasien
+                    </th>
+                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
+                      Jenis kelamin
+                    </th>
+                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
+                      Dokter
+                    </th>
+                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
+                      Tindakan
+                    </th>
+                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
+                      Ruangan
+                    </th>
+                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
+                      Aksi
+                    </th>
                   </tr>
-                ) : (
-                  pagedRecords.map((rec, i) => {
-                    const raw = rec as unknown as Record<string, unknown>;
-                    const id = String(raw.id ?? "");
-                    const key = id || `row-${page}-${i}`;
-                    return (
-                      <tr
-                        key={key}
-                        onClick={(e) => {
-                          if (!id) return;
-                          const target = e.target as HTMLElement | null;
-                          if (
-                            target?.closest(
-                              'input,select,textarea,button,a,[data-no-row-click="true"]',
-                            )
-                          ) {
-                            return;
-                          }
-                          openDetail(id);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            if (id) openDetail(id);
-                          }
-                        }}
-                        role={id ? "button" : undefined}
-                        tabIndex={id ? 0 : undefined}
-                        className={`group border-b border-cyan-900/25 transition-all duration-200 ${
-                          id
-                            ? "cursor-pointer hover:bg-cyan-950/30 hover:shadow-[inset_2px_0_0_rgba(34,211,238,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500/50"
-                            : "opacity-60"
-                        }`}
+                </thead>
+                <tbody>
+                  {pagedRecords.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={9}
+                        className="px-4 py-10 text-center text-cyan-500/70"
                       >
-                        <td className="px-2 sm:px-4 py-2.5 text-cyan-200/95 whitespace-nowrap font-mono text-xs">
-                          <EditableDateCell
-                            value={String(rec.tanggal ?? "")}
-                            onCommit={async (next) =>
-                              patchRowField(id, { tanggal: next || null })
-                            }
-                          />
-                        </td>
-                        <td className="px-2 sm:px-4 py-2.5 text-cyan-100 font-mono text-xs">
-                          {(() => {
-                            const p = resolvePasienFromRow(pasienOptions, raw);
-                            const rm = String(p?.no_rm ?? "").trim();
-                            const labelRm = extractRmFromLabel(
-                              pasienLabelByRowId[id] ?? "",
-                            );
-                            return rm || labelRm || displayRm(raw);
-                          })()}
-                        </td>
-                        <td className="px-2 sm:px-4 py-2.5 text-cyan-100 max-w-[18rem]">
-                          <div
-                            data-no-row-click="true"
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onClick={(e) => e.stopPropagation()}
-                            className="min-w-[10rem] sm:min-w-[14rem]"
-                            title={pasienError ?? undefined}
-                          >
-                            <PasienCombobox
-                              listboxId={`tindakan-row-${key}-pasien`}
-                              value={
-                                pasienLabelByRowId[id] ??
-                                buildPasienLabelFromRow(raw) ??
-                                ""
-                              }
-                              onChange={(label) => {
-                                setPasienLabelByRowId((p) => ({
-                                  ...p,
-                                  [id]: label,
-                                }));
-                              }}
-                              onSelectOption={(picked) => {
-                                const canonical = formatPasienLabel(picked);
-                                setPasienLabelByRowId((p) => ({
-                                  ...p,
-                                  [id]: canonical,
-                                }));
-                                void patchRowField(id, {
-                                  pasien_id: picked.id,
-                                  no_rm: picked.no_rm,
-                                  nama_pasien: picked.nama,
-                                });
-                              }}
-                              options={pasienOptions}
-                              loading={pasienLoading}
-                              className="max-w-[18rem]"
-                            />
-                            {!pasienLoading && pasienOptions.length === 0 ? (
-                              <p className="mt-1 text-[10px] text-cyan-500/70">
-                                {pasienError
-                                  ? "Gagal memuat pasien."
-                                  : "Belum ada pasien di database."}
-                              </p>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td className="px-2 sm:px-4 py-2.5 text-cyan-300/90 max-w-[14rem]">
-                          <div
-                            data-no-row-click="true"
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onClick={(e) => e.stopPropagation()}
-                            className="min-w-[10rem] sm:min-w-[12rem]"
-                            title={doctorError ?? undefined}
-                          >
-                            <DoctorCombobox
-                              listboxId={`tindakan-row-${key}-doctor`}
-                              value={doctorLabelByRowId[id] ?? String(rec.dokter ?? "")}
-                              onChange={(label) => {
-                                setDoctorLabelByRowId((p) => ({
-                                  ...p,
-                                  [id]: label,
-                                }));
-                              }}
-                              onSelectOption={(picked) => {
-                                const canonical = formatDoctorLabel(picked);
-                                setDoctorLabelByRowId((p) => ({
-                                  ...p,
-                                  [id]: canonical,
-                                }));
-                                void patchRowField(id, {
-                                  dokter: picked.nama_dokter || null,
-                                });
-                              }}
-                              options={doctorOptionsMaster.length ? doctorOptionsMaster : dokterOptions.map((nama, idx) => ({
-                                id: `local:${idx}`,
-                                nama_dokter: nama,
-                                spesialis: null,
-                                aktif: true,
-                              }))}
-                              loading={doctorLoading}
-                              className="max-w-[14rem]"
-                            />
-                            {!doctorLoading && doctorOptionsMaster.length === 0 ? (
-                              <p className="mt-1 text-[10px] text-cyan-500/70">
-                                {doctorError
-                                  ? "Gagal memuat master dokter."
-                                  : "Belum ada dokter di master."}
-                              </p>
-                            ) : null}
-                          </div>
-                        </td>
-                        <td className="px-2 sm:px-4 py-2.5 text-cyan-200/95 max-w-[14rem]">
-                          <EditableInlineCell
-                            value={String(rec.tindakan ?? "")}
-                            onCommit={async (next) =>
-                              patchRowField(id, { tindakan: next || null })
-                            }
-                          />
-                        </td>
-                        <td className="px-2 sm:px-4 py-2.5 text-cyan-400/95 whitespace-nowrap text-xs">
-                          <EditableStatusCell
-                            value={String(rec.status ?? "")}
-                            onCommit={async (next) =>
-                              patchRowField(id, { status: next || null })
-                            }
-                          />
-                        </td>
-                        <td
-                          className="px-2 sm:px-4 py-2 align-middle"
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex flex-wrap items-center justify-end gap-1.5">
-                            <Link
-                              href={pemakaianHrefForRow(rec)}
-                              className="inline-flex items-center gap-1 rounded-md border border-cyan-800/50 bg-cyan-950/40 px-2 py-1 text-[11px] font-medium text-cyan-200/95 transition-all hover:-translate-y-0.5 hover:border-cyan-600/40 hover:bg-cyan-900/35"
-                              title="Input pemakaian barang"
-                              aria-label="Pemakaian"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <ClipboardList className="h-3.5 w-3.5 shrink-0 opacity-90" />
-                              <span className="hidden sm:inline">Pemakaian</span>
-                            </Link>
+                        <div className="flex flex-col items-center gap-3">
+                          <span>{emptyMessage}</span>
+                          {Boolean(filterPasienId.trim() || filterRm.trim()) ? (
                             <button
                               type="button"
-                              disabled={!id || deletingId === id}
-                              className="inline-flex items-center gap-1 rounded-md border border-red-900/45 bg-red-950/25 px-2 py-1 text-[11px] font-medium text-red-300/95 transition-all hover:-translate-y-0.5 hover:bg-red-950/45 disabled:pointer-events-none disabled:opacity-40"
-                              title="Hapus kasus tindakan"
-                              aria-label="Hapus"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleDelete(id);
-                              }}
+                              onClick={() => void handleCreateForActivePasien()}
+                              disabled={creatingForPasien}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-cyan-700/50 bg-cyan-950/30 px-3 py-1.5 text-xs text-cyan-200 transition hover:bg-cyan-900/40 disabled:cursor-not-allowed disabled:opacity-50"
                             >
-                              <Trash2 className="h-3.5 w-3.5 shrink-0 opacity-90" />
-                              <span className="hidden sm:inline">Hapus</span>
+                              <Plus size={13} />
+                              {creatingForPasien
+                                ? "Membuat draft tindakan..."
+                                : "Tambah tindakan pasien aktif"}
                             </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-          <p className="px-2 pt-2 text-[11px] text-cyan-600 font-mono">
-            Klik baris → drawer detail (6 tab domain + jembatan Pemakaian).
-            Pasien aktif difilter di toolbar daftar kasus.
-          </p>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    pagedRecords.map((rec, i) => {
+                      const raw = rec as unknown as Record<string, unknown>;
+                      const id = String(raw.id ?? "");
+                      const key = id || `row-${page}-${i}`;
+                      const stateKey = id || key;
+                      const rowNoDesc =
+                        filteredRecords.length - ((page - 1) * perPage + i);
+                      const { digits: dupRmDigits, display: rmDisplayForKet } =
+                        resolveShownRmForRow(
+                          rec,
+                          pasienLabelByRowId,
+                          pasienOptions,
+                        );
+                      const dupCount = dupRmDigits
+                        ? (rmDuplicateCountInFiltered.get(dupRmDigits) ?? 0)
+                        : 0;
+                      const isDuplicateRm = dupCount > 1;
+                      const priorList = priorTindakanForPagedRows[i] ?? [];
+                      const pKet = resolvePasienFromRow(pasienOptions, raw);
+                      const namaForKet =
+                        normalizeNamaPasien(displayNamaPasien(raw)) ||
+                        (pKet?.nama
+                          ? normalizeNamaPasien(pKet.nama)
+                          : "") ||
+                        "—";
+                      const rmLine =
+                        rmDisplayForKet !== "—"
+                          ? rmDisplayForKet
+                          : dupRmDigits || "—";
+                      return (
+                        <Fragment key={key}>
+                        <tr
+                          onClick={(e) => {
+                            if (!id) return;
+                            const target = e.target as HTMLElement | null;
+                            if (
+                              target?.closest(
+                                'input,select,textarea,button,a,[data-no-row-click="true"]',
+                              )
+                            ) {
+                              return;
+                            }
+                            openDetail(id);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              if (!id) return;
+                              openDetail(id);
+                            }
+                          }}
+                          role={id ? "button" : undefined}
+                          tabIndex={id ? 0 : undefined}
+                          className={`group border-b border-cyan-900/25 transition-all duration-200 ${
+                            isDuplicateRm
+                              ? "bg-amber-950/35 border-l-[3px] border-l-amber-500/65 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.14)] "
+                              : ""
+                          }${
+                            id
+                              ? isDuplicateRm
+                                ? "cursor-pointer hover:bg-amber-950/45 hover:shadow-[inset_2px_0_0_rgba(245,158,11,0.5)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500/50"
+                                : "cursor-pointer hover:bg-cyan-950/30 hover:shadow-[inset_2px_0_0_rgba(34,211,238,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500/50"
+                              : "opacity-60"
+                          }`}
+                        >
+                          <td className="px-2 sm:px-3 py-1.5 text-cyan-400/90 whitespace-nowrap font-mono text-xs text-center tabular-nums">
+                            {rowNoDesc}
+                          </td>
+                          <td className="px-2 sm:px-3 py-1.5 text-cyan-200/95 whitespace-nowrap font-mono text-xs text-center align-middle">
+                            <div className="mx-auto w-full max-w-[9.5rem]">
+                              <EditableDateCell
+                                value={String(rec.tanggal ?? "")}
+                                onCommit={async (next) =>
+                                  patchRowField(id, { tanggal: next || null })
+                                }
+                              />
+                            </div>
+                          </td>
+                          <td className="px-2 sm:px-3 py-1.5 text-cyan-100 font-mono text-xs text-center align-middle">
+                            {(() => {
+                              const labelRm = extractRmFromLabel(
+                                pasienLabelByRowId[stateKey] ?? "",
+                              );
+                              const p = resolvePasienFromRow(
+                                pasienOptions,
+                                raw,
+                              );
+                              const rmFromOpt = String(p?.no_rm ?? "").trim();
+                              const rowRmDisp = displayRm(raw);
+                              const rowRm = rowRmDisp === "—" ? "" : rowRmDisp;
+                              return labelRm || rmFromOpt || rowRm || "—";
+                            })()}
+                          </td>
+                          <td className="px-2 sm:px-3 py-1.5 text-cyan-100 max-w-[18rem] text-center align-middle">
+                            <div
+                              data-no-row-click="true"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mx-auto min-w-[10rem] sm:min-w-[14rem] max-w-[18rem]"
+                              title={pasienError ?? undefined}
+                            >
+                              <PasienCombobox
+                                listboxId={`tindakan-row-${key}-pasien`}
+                                value={
+                                  pasienLabelByRowId[stateKey] ??
+                                  buildPasienLabelFromRow(raw) ??
+                                  ""
+                                }
+                                onChange={(label) => {
+                                  setPasienLabelByRowId((p) => ({
+                                    ...p,
+                                    [stateKey]: label,
+                                  }));
+                                }}
+                                onSelectOption={(picked) => {
+                                  const canonical = formatPasienLabel(picked);
+                                  setPasienLabelByRowId((p) => ({
+                                    ...p,
+                                    [stateKey]: canonical,
+                                  }));
+                                  if (!id) return;
+                                  void patchRowField(id, {
+                                    pasien_id: picked.id,
+                                    no_rm: picked.no_rm,
+                                    nama_pasien: picked.nama,
+                                  });
+                                }}
+                                options={pasienOptions}
+                                loading={pasienLoading}
+                                className="max-w-[18rem]"
+                              />
+                              {!pasienLoading && pasienOptions.length === 0 ? (
+                                <p className="mt-1 text-[10px] text-cyan-500/70">
+                                  {pasienError
+                                    ? "Gagal memuat pasien."
+                                    : "Belum ada pasien di database."}
+                                </p>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="px-2 sm:px-3 py-1.5 text-cyan-100/95 text-xs text-center align-middle whitespace-nowrap">
+                            {formatJenisKelaminDisplay(
+                              resolveJenisKelaminFromRow(
+                                raw,
+                                resolvePasienFromRow(pasienOptions, raw),
+                              ),
+                            )}
+                          </td>
+                          <td className="px-2 sm:px-3 py-1.5 text-cyan-300/90 max-w-[14rem] text-center align-middle">
+                            <div
+                              data-no-row-click="true"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]"
+                              title={doctorError ?? undefined}
+                            >
+                              <DoctorCombobox
+                                listboxId={`tindakan-row-${key}-doctor`}
+                                value={
+                                  doctorLabelByRowId[stateKey] ??
+                                  String(rec.dokter ?? "")
+                                }
+                                onChange={(label) => {
+                                  setDoctorLabelByRowId((p) => ({
+                                    ...p,
+                                    [stateKey]: label,
+                                  }));
+                                }}
+                                onSelectOption={(picked) => {
+                                  const canonical = formatDoctorLabel(picked);
+                                  setDoctorLabelByRowId((p) => ({
+                                    ...p,
+                                    [stateKey]: canonical,
+                                  }));
+                                  if (!id) return;
+                                  void patchRowField(id, {
+                                    dokter: picked.nama_dokter || null,
+                                  });
+                                }}
+                                options={
+                                  doctorOptionsMaster.length
+                                    ? doctorOptionsMaster
+                                    : dokterOptions.map((nama, idx) => ({
+                                        id: `local:${idx}`,
+                                        nama_dokter: nama,
+                                        spesialis: null,
+                                        aktif: true,
+                                      }))
+                                }
+                                loading={doctorLoading}
+                                className="max-w-[14rem]"
+                              />
+                              {!doctorLoading &&
+                              doctorOptionsMaster.length === 0 ? (
+                                <p className="mt-1 text-[10px] text-cyan-500/70">
+                                  {doctorError
+                                    ? "Gagal memuat master dokter."
+                                    : "Belum ada dokter di master."}
+                                </p>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="px-2 sm:px-3 py-1.5 text-cyan-200/95 max-w-[14rem] text-center align-middle">
+                            <div
+                              data-no-row-click="true"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]"
+                              title={masterTindakanError ?? undefined}
+                            >
+                              <EditableMasterTindakanCell
+                                value={String(rec.tindakan ?? "")}
+                                masterOptions={masterTindakanOptions}
+                                loading={masterTindakanLoading}
+                                listboxId={`tindakan-row-${key}-tindakan`}
+                                onCommit={(next) =>
+                                  commitTindakanForRow(id, next)
+                                }
+                              />
+                              {!masterTindakanLoading &&
+                              masterTindakanOptions.length === 0 ? (
+                                <p className="mt-1 text-[10px] text-cyan-500/70">
+                                  {masterTindakanError
+                                    ? "Gagal memuat master tindakan."
+                                    : "Belum ada jenis tindakan di master."}
+                                </p>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td className="px-2 sm:px-3 py-1.5 text-cyan-300/90 max-w-[14rem] text-center align-middle">
+                            <div
+                              data-no-row-click="true"
+                              onMouseDown={(e) => e.stopPropagation()}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]"
+                              title={ruanganError ?? undefined}
+                            >
+                              <EditableRuanganCell
+                                value={String(rec.ruangan ?? "")}
+                                ruanganMaster={ruanganMaster}
+                                loading={ruanganLoading}
+                                listboxId={`tindakan-row-${key}-ruangan`}
+                                onCommit={(next) => commitRuanganForRow(id, next)}
+                              />
+                              {!ruanganLoading && ruanganMaster.length === 0 ? (
+                                <p className="mt-1 text-[10px] text-cyan-500/70">
+                                  {ruanganError
+                                    ? "Gagal memuat master ruangan."
+                                    : "Belum ada ruangan di master."}
+                                </p>
+                              ) : null}
+                            </div>
+                          </td>
+                          <td
+                            className="px-2 sm:px-3 py-1.5 align-middle text-center"
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex flex-wrap items-center justify-center gap-1.5">
+                              {id && pemakaianOrderByTindakanId[id] ? (
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-1 rounded-md border border-amber-800/50 bg-amber-950/35 px-2 py-1 text-[11px] font-medium text-amber-200/95 transition-all hover:-translate-y-0.5 hover:border-amber-600/45 hover:bg-amber-900/30"
+                                  title="Edit pemakaian alkes (order sudah ada)"
+                                  aria-label="Edit pemakaian"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPemakaianModalRow(rec);
+                                  }}
+                                >
+                                  <SquarePen className="h-3.5 w-3.5 shrink-0 opacity-90" />
+                                  <span className="hidden sm:inline">
+                                    Edit pemakaian
+                                  </span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-1 rounded-md border border-cyan-800/50 bg-cyan-950/40 px-2 py-1 text-[11px] font-medium text-cyan-200/95 transition-all hover:-translate-y-0.5 hover:border-cyan-600/40 hover:bg-cyan-900/35"
+                                  title="Input pemakaian barang"
+                                  aria-label="Pemakaian"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPemakaianModalRow(rec);
+                                  }}
+                                >
+                                  <ClipboardList className="h-3.5 w-3.5 shrink-0 opacity-90" />
+                                  <span className="hidden sm:inline">
+                                    Pemakaian
+                                  </span>
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                disabled={!id || deletingId === id}
+                                className="inline-flex items-center gap-1 rounded-md border border-red-900/45 bg-red-950/25 px-2 py-1 text-[11px] font-medium text-red-300/95 transition-all hover:-translate-y-0.5 hover:bg-red-950/45 disabled:pointer-events-none disabled:opacity-40"
+                                title="Hapus kasus tindakan"
+                                aria-label="Hapus"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleDelete(id, rec);
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5 shrink-0 opacity-90" />
+                                <span className="hidden sm:inline">Hapus</span>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {isDuplicateRm && priorList.length > 0 ? (
+                          <tr className="border-b border-amber-900/30 bg-amber-950/15">
+                            <td
+                              colSpan={9}
+                              className="px-3 py-1.5 align-top text-left"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            >
+                              <div className="max-w-3xl text-[11px] leading-snug text-amber-100/90">
+                                <button
+                                  type="button"
+                                  data-no-row-click="true"
+                                  aria-expanded={Boolean(
+                                    rmHistoryOpenByRowKey[key],
+                                  )}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setRmHistoryOpenByRowKey((p) => ({
+                                      ...p,
+                                      [key]: !p[key],
+                                    }));
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-md border border-amber-800/35 bg-black/25 px-2.5 py-1.5 text-left transition hover:bg-amber-950/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500/45"
+                                >
+                                  {rmHistoryOpenByRowKey[key] ? (
+                                    <ChevronDown
+                                      className="h-4 w-4 shrink-0 text-amber-400/90"
+                                      aria-hidden
+                                    />
+                                  ) : (
+                                    <ChevronRight
+                                      className="h-4 w-4 shrink-0 text-amber-400/90"
+                                      aria-hidden
+                                    />
+                                  )}
+                                  <span className="font-mono text-[11px] text-amber-200/95">
+                                    Riwayat tindakan lain ({priorList.length})
+                                  </span>
+                                  <span className="text-amber-500/70 font-normal">
+                                    · RM {rmLine}
+                                  </span>
+                                </button>
+                                {rmHistoryOpenByRowKey[key] ? (
+                                  <div className="mt-2 space-y-2 pl-1">
+                                    <div>
+                                      <div className="font-mono text-amber-200/95">
+                                        RM {rmLine}
+                                      </div>
+                                      <div className="mt-0.5 text-amber-50/88">
+                                        · {namaForKet}
+                                      </div>
+                                    </div>
+                                    {priorList.map((e, j) => (
+                                      <div
+                                        key={`${e.sortKey}-${j}-${e.tindakan}`}
+                                        className="rounded-md border border-amber-800/40 bg-black/35 px-3 py-2"
+                                      >
+                                        <div className="text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
+                                          Pernah dilakukan
+                                        </div>
+                                        <div className="mt-0.5 text-amber-100/95">
+                                          · {e.tindakan}
+                                        </div>
+                                        <div className="mt-2 text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
+                                          Tanggal tindakan
+                                        </div>
+                                        <div>{e.tanggalDisp}</div>
+                                        <div className="mt-2 text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
+                                          Dokter
+                                        </div>
+                                        <div className="text-amber-100/95">
+                                          · {e.dokter}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
+                        </Fragment>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <p className="px-2 pt-2 text-[11px] text-cyan-600 font-mono">
+              Klik baris → drawer detail (6 tab domain). Tombol Pemakaian / Edit
+              pemakaian membuka form alkes tanpa pindah halaman. Pasien aktif
+              difilter di toolbar daftar kasus.
+            </p>
 
-          {filteredRecords.length > perPage && (
-            <TablePagination
-              currentPage={page}
-              totalPages={totalPages}
-              onPageChange={setPage}
-            />
-          )}
-        </>
-      )}
+            {filteredRecords.length > perPage && (
+              <TablePagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+              />
+            )}
+          </>
+        )}
       </div>
+
+      {pemakaianModalInitial ? (
+        <PemakaianAlkesModal
+          key={
+            pemakaianModalInitial.tindakanId ??
+            String(pemakaianModalRow?.id ?? "pemakaian")
+          }
+          open
+          onClose={() => setPemakaianModalRow(null)}
+          onSaved={() => void refreshPemakaianOrderIndex()}
+          pasienOptions={pasienOptions}
+          doctorOptions={doctorOptionsForPemakaianModal}
+          pasienLoading={pasienLoading}
+          doctorLoading={doctorLoading}
+          initialPasienLabel={pemakaianModalInitial.initialPasienLabel}
+          initialDokter={pemakaianModalInitial.initialDokter}
+          initialRuangan={pemakaianModalInitial.initialRuangan}
+          initialCatatan={pemakaianModalInitial.initialCatatan}
+          tindakanId={pemakaianModalInitial.tindakanId}
+          initialPemakaianOrderId={
+            pemakaianModalInitial.initialPemakaianOrderId
+          }
+        />
+      ) : null}
     </TableContainer>
   );
 }

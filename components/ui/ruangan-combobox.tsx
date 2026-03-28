@@ -29,6 +29,8 @@ function normalize(s: string): string {
 export function RuanganCombobox({
   value,
   onChange,
+  onSelectOption,
+  onInputBlur,
   options,
   loading,
   className,
@@ -36,6 +38,10 @@ export function RuanganCombobox({
 }: {
   value: string;
   onChange: (label: string) => void;
+  /** Dipanggil hanya saat user memilih dari list (klik). */
+  onSelectOption?: (opt: RuanganOption) => void;
+  /** Dipanggil saat input kehilangan fokus (commit nilai ketikan manual). */
+  onInputBlur?: () => void;
   options: RuanganOption[];
   loading?: boolean;
   className?: string;
@@ -43,6 +49,8 @@ export function RuanganCombobox({
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  /** Hindari commit blur saat klik item list (input kehilangan fokus sebelum onClick). */
+  const skipBlurRef = useRef(false);
 
   const filtered = useMemo(() => {
     const q = normalize(value);
@@ -78,6 +86,13 @@ export function RuanganCombobox({
             onChange(e.target.value);
             setOpen(true);
           }}
+          onBlur={() => {
+            if (skipBlurRef.current) {
+              skipBlurRef.current = false;
+              return;
+            }
+            onInputBlur?.();
+          }}
           onFocus={() => setOpen(true)}
           autoComplete="off"
           placeholder={
@@ -99,6 +114,9 @@ export function RuanganCombobox({
         <ul
           id={listboxId}
           role="listbox"
+          onMouseDown={() => {
+            skipBlurRef.current = true;
+          }}
           className="absolute left-0 right-0 top-full z-[60] mt-1 max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl"
         >
           {filtered.map((r) => {
@@ -113,6 +131,7 @@ export function RuanganCombobox({
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     onChange(label);
+                    onSelectOption?.(r);
                     setOpen(false);
                   }}
                 >

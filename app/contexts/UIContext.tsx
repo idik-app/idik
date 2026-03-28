@@ -42,6 +42,8 @@ export const UIProvider = ({ children }: { children: React.ReactNode }) => {
   const collapsedWidth = 80;
   const motionX = useMotionValue(80);
   const [isMobile, setIsMobile] = useState(false);
+  /** Lebar viewport untuk membatasi drawer sidebar di HP */
+  const [winW, setWinW] = useState(1024);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
   const [transitionMode, setTransitionMode] =
     useState<TransitionMode>("smooth");
@@ -52,10 +54,21 @@ export const UIProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Responsif otomatis
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleResize = () => {
+      const w = window.innerWidth;
+      setIsMobile(w < 768);
+      setWinW(w);
+    };
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // HP: mulai dengan drawer tertutup agar konten utama terlihat (bukan layar penuh menu)
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
   }, []);
 
   // Persist & load preferensi
@@ -70,14 +83,18 @@ export const UIProvider = ({ children }: { children: React.ReactNode }) => {
     localStorage.setItem("idik_transition", transitionMode);
   }, [themeMode, transitionMode]);
 
-  // Sinkronisasi animasi motionX — desktop: collapsed = icon-only (80px), expanded = 288px
+  // Sinkronisasi motionX — desktop: collapsed 80px / expanded 288px; HP: terbuka = drawer lebar (bukan 80px)
   useEffect(() => {
     const from = motionX.get();
-    const to = isSidebarOpen
-      ? collapsed
-        ? collapsedWidth
-        : sidebarWidth
-      : collapsedWidth;
+    let to: number;
+    if (!isSidebarOpen) {
+      to = collapsedWidth;
+    } else if (isMobile) {
+      const maxDrawer = Math.max(220, Math.min(sidebarWidth, winW - 16));
+      to = maxDrawer;
+    } else {
+      to = collapsed ? collapsedWidth : sidebarWidth;
+    }
 
     const controls = animate(from, to, {
       duration:
@@ -91,7 +108,7 @@ export const UIProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     return () => controls.stop();
-  }, [isSidebarOpen, collapsed, motionX, transitionMode]);
+  }, [isSidebarOpen, collapsed, motionX, transitionMode, isMobile, winW, sidebarWidth]);
 
   // Toggle functions (memoized)
   const toggleSidebar = useCallback(() => {

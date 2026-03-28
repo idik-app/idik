@@ -22,7 +22,7 @@ import LayoutLoader from "./LayoutLoader";
    🔹 Stealth mode (hilang 10 dtk idle)
 ───────────────────────────────────────────────*/
 export default function LayoutContainer() {
-  const { isSidebarOpen, motionX, sidebarWidth, collapsed } = useUI();
+  const { isSidebarOpen, motionX, sidebarWidth, collapsed, isMobile } = useUI();
   const { role, lastRefresh, setSession } = useSession();
 
   const [blink, setBlink] = useState(false);
@@ -32,11 +32,15 @@ export default function LayoutContainer() {
 
   const SIDEBAR_OPEN = sidebarWidth;
   const SIDEBAR_COLLAPSED = 80;
-  const contentMargin = isSidebarOpen
-    ? collapsed
+  /** HP: drawer overlay; margin tetap rail 80px. Desktop: ikuti collapsed / expanded. */
+  const contentMargin =
+    !isSidebarOpen
       ? SIDEBAR_COLLAPSED
-      : SIDEBAR_OPEN
-    : SIDEBAR_COLLAPSED;
+      : isMobile
+        ? SIDEBAR_COLLAPSED
+        : collapsed
+          ? SIDEBAR_COLLAPSED
+          : SIDEBAR_OPEN;
 
   /* ⚙️ Sinkronisasi margin sidebar */
   useEffect(() => {
@@ -152,7 +156,7 @@ export default function LayoutContainer() {
         <AnimatePresence>
           {visible && (
             <motion.div
-              className="fixed bottom-4 right-4 z-[9999] flex flex-col items-end gap-1"
+              className="fixed z-[9999] flex flex-col gap-1 max-md:bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] max-md:left-3 max-md:right-auto max-md:items-start md:bottom-4 md:right-4 md:left-auto md:items-end"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}

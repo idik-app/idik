@@ -176,10 +176,11 @@ export default function Topbar() {
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className={`relative z-[350] flex items-center justify-between px-5 py-3
+        className={`relative z-[350] flex items-center justify-between gap-2 min-w-0
+          px-2.5 py-2 sm:px-4 sm:py-2.5 md:px-5 md:py-3
           border-b border-cyan-500/30 bg-gradient-to-r ${gradientClass}
           backdrop-blur-2xl text-gray-200 ${themeGlow}
-          transition-all duration-500 ease-in-out select-none overflow-visible`}
+          transition-all duration-500 ease-in-out select-none overflow-hidden md:overflow-visible`}
       >
         {/* ✨ Portal Sweep */}
         <motion.div
@@ -234,14 +235,14 @@ export default function Topbar() {
         </div>
 
         {/* ⏱ Info Waktu + User + Settings */}
-        <div className="flex items-center gap-4">
-          <div className="text-right leading-tight relative">
-            <p className="text-cyan-400 font-semibold text-sm">
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 min-w-0 max-w-[48%] sm:max-w-none">
+          <div className="text-right leading-tight relative hidden min-[400px]:block min-w-0">
+            <p className="text-cyan-400 font-semibold text-[11px] sm:text-xs md:text-sm truncate max-w-[9rem] sm:max-w-none">
               {`${day}, ${date}`}
             </p>
-            <p className="text-gray-300 font-mono text-sm">{time}</p>
+            <p className="text-gray-300 font-mono text-[11px] sm:text-xs md:text-sm">{time}</p>
             <span
-              className={`absolute -right-4 top-1.5 w-2.5 h-2.5 rounded-full ${
+              className={`absolute -right-3 top-1 sm:-right-4 sm:top-1.5 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${
                 isOnline
                   ? "bg-emerald-400 animate-pulse"
                   : "bg-red-500 animate-ping"
@@ -249,10 +250,17 @@ export default function Topbar() {
               aria-hidden="true"
             />
           </div>
+          {/* Waktu ringkas di layar sangat sempit */}
+          <div className="text-right leading-none min-[400px]:hidden sm:hidden flex-shrink-0">
+            <p className="text-gray-300 font-mono text-[10px] text-cyan-200/90">{time}</p>
+          </div>
 
-          <div className="flex items-center gap-3 border-l border-cyan-700/40 pl-4">
+          <div className="flex items-center gap-1 sm:gap-2 md:gap-3 border-l border-cyan-700/40 pl-1.5 sm:pl-3 md:pl-4 min-w-0">
             <ToolbarNotificationBell />
-            <span className="font-semibold tracking-wide text-sm text-cyan-300">
+            <span
+              className="font-semibold tracking-wide text-[11px] sm:text-xs md:text-sm text-cyan-300 truncate max-w-[4.5rem] min-[380px]:max-w-[6rem] sm:max-w-[10rem] md:max-w-[14rem]"
+              title={username}
+            >
               {username}
             </span>
 

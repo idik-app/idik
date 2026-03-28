@@ -107,6 +107,54 @@ function normalizeTanggal(raw: string): string {
   return tanggalRaw;
 }
 
+/** GET /api/pemakaian-orders/[id] — satu order (modal edit dari modul Tindakan, dll.). */
+export async function GET(_req: Request, { params }: Params) {
+  const user = await requireUser();
+  if (!user.ok) return user.response;
+
+  const { id: raw } = await params;
+  const id = decodeURIComponent(raw ?? "").trim();
+  if (!id) {
+    return NextResponse.json(
+      { ok: false, message: "ID order tidak valid." },
+      { status: 400 },
+    );
+  }
+
+  const supabase = getServiceSupabaseAdmin();
+  if (!supabase) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message:
+          "Server tidak dikonfigurasi (NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY).",
+      },
+      { status: 503 },
+    );
+  }
+
+  const { data, error } = await supabase
+    .from("cathlab_pemakaian_order")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    return NextResponse.json(
+      { ok: false, message: error.message },
+      { status: 500 },
+    );
+  }
+  if (!data) {
+    return NextResponse.json(
+      { ok: false, message: "Order tidak ditemukan." },
+      { status: 404 },
+    );
+  }
+
+  return NextResponse.json({ ok: true, order: data });
+}
+
 /** PATCH /api/pemakaian-orders/[id] — perbarui order (status, barang, header, dll.). */
 export async function PATCH(req: Request, { params }: Params) {
   const user = await requireUser();
@@ -188,6 +236,10 @@ export async function PATCH(req: Request, { params }: Params) {
 
   if (body.pasien !== undefined) {
     patch.pasien = String(body.pasien ?? "").trim();
+  }
+  if (body.no_rm !== undefined) {
+    const n = String(body.no_rm ?? "").trim();
+    patch.no_rm = n || null;
   }
   if (body.ruangan !== undefined) {
     patch.ruangan = String(body.ruangan ?? "").trim();

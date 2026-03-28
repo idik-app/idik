@@ -37,7 +37,7 @@ export default function TableContainer({
     <div
       ref={ref}
       data-table="tindakan"
-      className={`relative rounded-2xl border border-cyan-800/50 bg-black/30 backdrop-blur-md overflow-hidden ${
+      className={`relative rounded-2xl border border-cyan-800/50 bg-black/30 backdrop-blur-md overflow-hidden min-w-0 max-w-full ${
         isFullscreen ? "fixed inset-0 z-[9999] p-3 md:p-4 bg-black/90" : ""
       }`}
     >

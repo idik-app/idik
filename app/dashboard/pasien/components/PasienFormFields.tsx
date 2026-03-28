@@ -12,7 +12,7 @@ interface Props {
 export default function PasienFormFields({ form, handleChange }: Props) {
   return (
     <>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <input
           name="noRM"
           placeholder="No. RM"
@@ -82,7 +82,7 @@ export default function PasienFormFields({ form, handleChange }: Props) {
         className="w-full rounded-md px-3 py-2 bg-gray-900/60 border border-cyan-800 focus:outline-none"
       />
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <select
           name="jenisPembiayaan"
           value={form.jenisPembiayaan}

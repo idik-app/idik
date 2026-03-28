@@ -745,7 +745,7 @@ export default function TindakanTable({
     TindakanJoinResult[]
   >([]);
   const [page, setPage] = useState(1);
-  const perPage = 15;
+  const [perPage, setPerPage] = useState(15);
   const [filterDokter, setFilterDokter] = useState("");
   const [filterRuangan, setFilterRuangan] = useState("");
   const [filterTanggalFrom, setFilterTanggalFrom] = useState("");
@@ -1307,6 +1307,7 @@ export default function TindakanTable({
     filterRuangan,
     filterTanggalFrom,
     filterTanggalTo,
+    perPage,
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRecords.length / perPage));
@@ -1570,7 +1571,7 @@ export default function TindakanTable({
 
   return (
     <TableContainer>
-      <div className="flex h-full min-h-[min(60vh,26rem)] sm:min-h-[min(65vh,28rem)] flex-col min-w-0">
+      <div className="flex h-full min-h-0 max-h-full flex-1 flex-col min-w-0">
         <TableToolbar
           onSearch={setSearch}
           onRefresh={refresh}
@@ -1600,40 +1601,40 @@ export default function TindakanTable({
         ) : null}
 
         {loading ? (
-          <div className="flex-1 text-cyan-300 text-center py-10 px-6">
+          <div className="flex min-h-0 flex-1 items-center justify-center py-6 text-cyan-300 text-sm">
             Memuat tindakan…
           </div>
         ) : (
           <>
-            <div className="flex-1 min-h-[20rem] overflow-auto rounded-xl border border-cyan-900/35 bg-black/25">
+            <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-cyan-900/35 bg-black/25">
               <table className="w-full min-w-[1120px] text-sm border-separate border-spacing-0">
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-cyan-800/40 bg-black/80 text-center backdrop-blur">
-                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap w-10">
+                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap w-10">
                       No
                     </th>
-                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
+                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
                       Tanggal
                     </th>
-                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
+                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
                       RM
                     </th>
-                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
+                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
                       Nama pasien
                     </th>
-                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
+                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
                       Jenis kelamin
                     </th>
-                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
+                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
                       Dokter
                     </th>
-                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
+                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
                       Tindakan
                     </th>
-                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
+                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
                       Ruangan
                     </th>
-                    <th className="px-2 sm:px-3 py-2 font-mono text-[10px] sm:text-[11px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
+                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
                       Aksi
                     </th>
                   </tr>
@@ -1729,10 +1730,10 @@ export default function TindakanTable({
                               : "opacity-60"
                           }`}
                         >
-                          <td className="px-2 sm:px-3 py-1.5 text-cyan-400/90 whitespace-nowrap font-mono text-xs text-center tabular-nums">
+                          <td className="px-2 sm:px-2.5 py-1 text-cyan-400/90 whitespace-nowrap font-mono text-[11px] text-center tabular-nums">
                             {rowNoDesc}
                           </td>
-                          <td className="px-2 sm:px-3 py-1.5 text-cyan-200/95 whitespace-nowrap font-mono text-xs text-center align-middle">
+                          <td className="px-2 sm:px-2.5 py-1 text-cyan-200/95 whitespace-nowrap font-mono text-[11px] text-center align-middle">
                             <div className="mx-auto w-full max-w-[9.5rem]">
                               <EditableDateCell
                                 value={String(rec.tanggal ?? "")}
@@ -1742,7 +1743,7 @@ export default function TindakanTable({
                               />
                             </div>
                           </td>
-                          <td className="px-2 sm:px-3 py-1.5 text-cyan-100 font-mono text-xs text-center align-middle">
+                          <td className="px-2 sm:px-2.5 py-1 text-cyan-100 font-mono text-[11px] text-center align-middle">
                             {(() => {
                               const labelRm = extractRmFromLabel(
                                 pasienLabelByRowId[stateKey] ?? "",
@@ -1757,7 +1758,7 @@ export default function TindakanTable({
                               return labelRm || rmFromOpt || rowRm || "—";
                             })()}
                           </td>
-                          <td className="px-2 sm:px-3 py-1.5 text-cyan-100 max-w-[18rem] text-center align-middle">
+                          <td className="px-2 sm:px-2.5 py-1 text-cyan-100 max-w-[18rem] text-center align-middle">
                             <div
                               data-no-row-click="true"
                               onMouseDown={(e) => e.stopPropagation()}
@@ -1795,8 +1796,10 @@ export default function TindakanTable({
                                 loading={pasienLoading}
                                 className="max-w-[18rem]"
                               />
-                              {!pasienLoading && pasienOptions.length === 0 ? (
-                                <p className="mt-1 text-[10px] text-cyan-500/70">
+                              {!pasienLoading &&
+                              pasienOptions.length === 0 &&
+                              i === 0 ? (
+                                <p className="mt-0.5 text-[9px] leading-tight text-cyan-500/70">
                                   {pasienError
                                     ? "Gagal memuat pasien."
                                     : "Belum ada pasien di database."}
@@ -1804,7 +1807,7 @@ export default function TindakanTable({
                               ) : null}
                             </div>
                           </td>
-                          <td className="px-2 sm:px-3 py-1.5 text-cyan-100/95 text-xs text-center align-middle whitespace-nowrap">
+                          <td className="px-2 sm:px-2.5 py-1 text-cyan-100/95 text-[11px] text-center align-middle whitespace-nowrap">
                             {formatJenisKelaminDisplay(
                               resolveJenisKelaminFromRow(
                                 raw,
@@ -1812,7 +1815,7 @@ export default function TindakanTable({
                               ),
                             )}
                           </td>
-                          <td className="px-2 sm:px-3 py-1.5 text-cyan-300/90 max-w-[14rem] text-center align-middle">
+                          <td className="px-2 sm:px-2.5 py-1 text-cyan-300/90 max-w-[14rem] text-center align-middle">
                             <div
                               data-no-row-click="true"
                               onMouseDown={(e) => e.stopPropagation()}
@@ -1857,8 +1860,9 @@ export default function TindakanTable({
                                 className="max-w-[14rem]"
                               />
                               {!doctorLoading &&
-                              doctorOptionsMaster.length === 0 ? (
-                                <p className="mt-1 text-[10px] text-cyan-500/70">
+                              doctorOptionsMaster.length === 0 &&
+                              i === 0 ? (
+                                <p className="mt-0.5 text-[9px] leading-tight text-cyan-500/70">
                                   {doctorError
                                     ? "Gagal memuat master dokter."
                                     : "Belum ada dokter di master."}
@@ -1866,7 +1870,7 @@ export default function TindakanTable({
                               ) : null}
                             </div>
                           </td>
-                          <td className="px-2 sm:px-3 py-1.5 text-cyan-200/95 max-w-[14rem] text-center align-middle">
+                          <td className="px-2 sm:px-2.5 py-1 text-cyan-200/95 max-w-[14rem] text-center align-middle">
                             <div
                               data-no-row-click="true"
                               onMouseDown={(e) => e.stopPropagation()}
@@ -1884,8 +1888,9 @@ export default function TindakanTable({
                                 }
                               />
                               {!masterTindakanLoading &&
-                              masterTindakanOptions.length === 0 ? (
-                                <p className="mt-1 text-[10px] text-cyan-500/70">
+                              masterTindakanOptions.length === 0 &&
+                              i === 0 ? (
+                                <p className="mt-0.5 text-[9px] leading-tight text-cyan-500/70">
                                   {masterTindakanError
                                     ? "Gagal memuat master tindakan."
                                     : "Belum ada jenis tindakan di master."}
@@ -1893,7 +1898,7 @@ export default function TindakanTable({
                               ) : null}
                             </div>
                           </td>
-                          <td className="px-2 sm:px-3 py-1.5 text-cyan-300/90 max-w-[14rem] text-center align-middle">
+                          <td className="px-2 sm:px-2.5 py-1 text-cyan-300/90 max-w-[14rem] text-center align-middle">
                             <div
                               data-no-row-click="true"
                               onMouseDown={(e) => e.stopPropagation()}
@@ -1908,8 +1913,10 @@ export default function TindakanTable({
                                 listboxId={`tindakan-row-${key}-ruangan`}
                                 onCommit={(next) => commitRuanganForRow(id, next)}
                               />
-                              {!ruanganLoading && ruanganMaster.length === 0 ? (
-                                <p className="mt-1 text-[10px] text-cyan-500/70">
+                              {!ruanganLoading &&
+                              ruanganMaster.length === 0 &&
+                              i === 0 ? (
+                                <p className="mt-0.5 text-[9px] leading-tight text-cyan-500/70">
                                   {ruanganError
                                     ? "Gagal memuat master ruangan."
                                     : "Belum ada ruangan di master."}
@@ -1918,15 +1925,15 @@ export default function TindakanTable({
                             </div>
                           </td>
                           <td
-                            className="px-2 sm:px-3 py-1.5 align-middle text-center"
+                            className="px-2 sm:px-2.5 py-1 align-middle text-center"
                             onClick={(e) => e.stopPropagation()}
                             onKeyDown={(e) => e.stopPropagation()}
                           >
-                            <div className="flex flex-wrap items-center justify-center gap-1.5">
+                            <div className="flex flex-wrap items-center justify-center gap-1">
                               {id && pemakaianOrderByTindakanId[id] ? (
                                 <button
                                   type="button"
-                                  className="inline-flex items-center gap-1 rounded-md border border-amber-800/50 bg-amber-950/35 px-2 py-1 text-[11px] font-medium text-amber-200/95 transition-all hover:-translate-y-0.5 hover:border-amber-600/45 hover:bg-amber-900/30"
+                                  className="inline-flex items-center gap-1 rounded-md border border-amber-800/50 bg-amber-950/35 px-1.5 py-0.5 text-[10px] font-medium text-amber-200/95 transition-all hover:border-amber-600/45 hover:bg-amber-900/30"
                                   title="Edit pemakaian alkes (order sudah ada)"
                                   aria-label="Edit pemakaian"
                                   onClick={(e) => {
@@ -1942,7 +1949,7 @@ export default function TindakanTable({
                               ) : (
                                 <button
                                   type="button"
-                                  className="inline-flex items-center gap-1 rounded-md border border-cyan-800/50 bg-cyan-950/40 px-2 py-1 text-[11px] font-medium text-cyan-200/95 transition-all hover:-translate-y-0.5 hover:border-cyan-600/40 hover:bg-cyan-900/35"
+                                  className="inline-flex items-center gap-1 rounded-md border border-cyan-800/50 bg-cyan-950/40 px-1.5 py-0.5 text-[10px] font-medium text-cyan-200/95 transition-all hover:border-cyan-600/40 hover:bg-cyan-900/35"
                                   title="Input pemakaian barang"
                                   aria-label="Pemakaian"
                                   onClick={(e) => {
@@ -1959,7 +1966,7 @@ export default function TindakanTable({
                               <button
                                 type="button"
                                 disabled={!id || deletingId === id}
-                                className="inline-flex items-center gap-1 rounded-md border border-red-900/45 bg-red-950/25 px-2 py-1 text-[11px] font-medium text-red-300/95 transition-all hover:-translate-y-0.5 hover:bg-red-950/45 disabled:pointer-events-none disabled:opacity-40"
+                                className="inline-flex items-center gap-1 rounded-md border border-red-900/45 bg-red-950/25 px-1.5 py-0.5 text-[10px] font-medium text-red-300/95 transition-all hover:bg-red-950/45 disabled:pointer-events-none disabled:opacity-40"
                                 title="Hapus kasus tindakan"
                                 aria-label="Hapus"
                                 onClick={(e) => {
@@ -2061,19 +2068,22 @@ export default function TindakanTable({
                 </tbody>
               </table>
             </div>
-            <p className="px-2 pt-2 text-[11px] text-cyan-600 font-mono">
-              Klik baris → drawer detail (6 tab domain). Tombol Pemakaian / Edit
-              pemakaian membuka form alkes tanpa pindah halaman. Pasien aktif
-              difilter di toolbar daftar kasus.
-            </p>
-
-            {filteredRecords.length > perPage && (
-              <TablePagination
-                currentPage={page}
-                totalPages={totalPages}
-                onPageChange={setPage}
-              />
-            )}
+            <div className="shrink-0 space-y-0 border-t border-cyan-900/25 bg-black/20">
+              {filteredRecords.length > 0 ? (
+                <TablePagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  totalItems={filteredRecords.length}
+                  pageSize={perPage}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPerPage}
+                />
+              ) : null}
+              <p className="px-2 pb-1.5 pt-0 text-[10px] leading-snug text-cyan-600/75 font-mono">
+                Klik baris: drawer detail. Pemakaian / Edit: form alkes di
+                halaman ini. Pasien aktif lewat toolbar.
+              </p>
+            </div>
           </>
         )}
       </div>

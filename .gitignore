@@ -29,6 +29,9 @@
 Thumbs.db
 desktop.ini
 
+# ekspor CSV sheet besar (impor lokal)
+scripts/sheet-export*.csv
+
 # database dumps (backup schema/data, bisa berisi data sensitif)
 dump.sql
 *.dump.sql

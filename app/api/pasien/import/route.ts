@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     if (!file || !(file instanceof File)) {
       return NextResponse.json(
         { ok: false, error: "File tidak ditemukan. Gunakan field 'file'." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -40,10 +40,9 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           ok: false,
-          error:
-            "Format file tidak didukung. Gunakan .xlsx, .xls, atau .csv.",
+          error: "Format file tidak didukung. Gunakan .xlsx, .xls, atau .csv.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -55,7 +54,7 @@ export async function POST(req: Request) {
     if (!firstSheet) {
       return NextResponse.json(
         { ok: false, error: "Sheet kosong atau tidak terbaca." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -66,8 +65,14 @@ export async function POST(req: Request) {
 
     if (rows.length === 0) {
       return NextResponse.json(
-        { ok: true, imported: 0, failed: 0, errors: [], message: "Tidak ada baris data." },
-        { status: 200 }
+        {
+          ok: true,
+          imported: 0,
+          failed: 0,
+          errors: [],
+          message: "Tidak ada baris data.",
+        },
+        { status: 200 },
       );
     }
 
@@ -77,7 +82,7 @@ export async function POST(req: Request) {
           ok: false,
           error: `Maksimal ${MAX_ROWS} baris per import. File Anda: ${rows.length} baris.`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -112,7 +117,7 @@ export async function POST(req: Request) {
           errors: errors.slice(0, 50),
           message: "Tidak ada baris yang valid. Perbaiki data lalu coba lagi.",
         },
-        { status: 200 }
+        { status: 200 },
       );
     }
 
@@ -126,7 +131,7 @@ export async function POST(req: Request) {
       console.error("❌ Supabase bulk insert error:", error);
       return NextResponse.json(
         { ok: false, error: error.message ?? "Gagal menyimpan ke database." },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -138,7 +143,7 @@ export async function POST(req: Request) {
         failed: errors.length,
         source: "spreadsheet",
       },
-      userId
+      userId,
     );
 
     return NextResponse.json(
@@ -152,14 +157,12 @@ export async function POST(req: Request) {
             ? `${inserted?.length ?? 0} pasien berhasil diimpor, ${errors.length} baris gagal validasi.`
             : `${inserted?.length ?? 0} pasien berhasil diimpor ke Supabase.`,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Terjadi kesalahan server.";
+    const message =
+      err instanceof Error ? err.message : "Terjadi kesalahan server.";
     console.error("❌ Import pasien error:", err);
-    return NextResponse.json(
-      { ok: false, error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 }

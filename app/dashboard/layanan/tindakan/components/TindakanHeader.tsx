@@ -22,7 +22,7 @@ export default function TindakanHeader({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border px-3 py-3 shadow-lg sm:px-4 sm:py-3 ${
+      className={`relative overflow-hidden rounded-xl border px-2.5 py-2 shadow-lg sm:px-3 sm:py-2.5 ${
         themeTone === "emerald"
           ? "border-emerald-800/45 bg-gradient-to-br from-emerald-950/35 via-black/50 to-slate-950/50 shadow-emerald-950/20"
           : "border-cyan-800/45 bg-gradient-to-br from-cyan-950/35 via-black/50 to-slate-950/50 shadow-cyan-950/20"
@@ -35,7 +35,7 @@ export default function TindakanHeader({
             : "bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,0.14),transparent_45%)]"
         }`}
       />
-      <div className="relative z-10 space-y-2 sm:space-y-3">
+      <div className="relative z-10 space-y-1.5 sm:space-y-2">
         <Link
           href="/dashboard/perawat"
           className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
@@ -49,7 +49,7 @@ export default function TindakanHeader({
         </Link>
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between min-w-0">
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-xl md:text-2xl font-semibold tracking-tight text-cyan-50 break-words">
+            <h1 className="text-base sm:text-lg md:text-xl font-semibold tracking-tight text-cyan-50 break-words">
               Tindakan Medis Cathlab
             </h1>
           </div>

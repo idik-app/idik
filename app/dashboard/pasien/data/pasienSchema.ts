@@ -30,7 +30,9 @@ export function formatTanggalLahirFromDb(raw: unknown): string {
 }
 
 /** Nilai aman untuk kolom Postgres `date` — jangan kirim string kosong */
-export function toPgDateFromForm(tanggalLahir: string | undefined | null): string | null {
+export function toPgDateFromForm(
+  tanggalLahir: string | undefined | null,
+): string | null {
   const n = formatTanggalLahirFromDb(tanggalLahir ?? "");
   return /^\d{4}-\d{2}-\d{2}$/.test(n) ? n : null;
 }
@@ -66,23 +68,21 @@ export const mapFromSupabase = (p: any) => {
   const rawPembiayaan = jp || legacy || "Umum";
 
   return {
-  id: String(p.id),
-  noRM: p.no_rm ?? "",
-  nama: p.nama ?? "",
-  // dukung beberapa variasi kolom yang pernah dipakai di repo/view
-  jenisKelamin: p.jenis_kelamin ?? p.jk ?? "L",
-  tanggalLahir: formatTanggalLahirFromDb(p.tgl_lahir ?? p.tanggal_lahir),
-  alamat: p.alamat ?? "",
-  noHP: p.no_telp ?? p.no_hp ?? "",
-  jenisPembiayaan: normalizeJenisPembiayaanFromDb(rawPembiayaan),
-  kelasPerawatan: normalizeKelasPerawatanFromDb(
-    p.kelas_perawatan ?? p.kelas
-  ),
-  asuransi: p.asuransi ?? "",
-  dokter: p.dokter_nama ?? p.nama_dokter ?? p.dokter ?? "",
-  created_at: p.created_at ?? "",
-  updated_at: p.updated_at ?? "",
-};
+    id: String(p.id),
+    noRM: p.no_rm ?? "",
+    nama: p.nama ?? "",
+    // dukung beberapa variasi kolom yang pernah dipakai di repo/view
+    jenisKelamin: p.jenis_kelamin ?? p.jk ?? "L",
+    tanggalLahir: formatTanggalLahirFromDb(p.tgl_lahir ?? p.tanggal_lahir),
+    alamat: p.alamat ?? "",
+    noHP: p.no_telp ?? p.no_hp ?? "",
+    jenisPembiayaan: normalizeJenisPembiayaanFromDb(rawPembiayaan),
+    kelasPerawatan: normalizeKelasPerawatanFromDb(p.kelas_perawatan ?? p.kelas),
+    asuransi: p.asuransi ?? "",
+    dokter: p.dokter_nama ?? p.nama_dokter ?? p.dokter ?? "",
+    created_at: p.created_at ?? "",
+    updated_at: p.updated_at ?? "",
+  };
 };
 
 export const mapToSupabase = (p: PasienFormData) => ({

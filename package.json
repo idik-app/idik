@@ -20,7 +20,8 @@
     "db:local:stop": "npx supabase stop",
     "db:local:status": "npx supabase status",
     "validate:menu": "node scripts/validate-menu-routes.cjs",
-    "check:auth-env": "node scripts/check-auth-env.mjs"
+    "check:auth-env": "node scripts/check-auth-env.mjs",
+    "import:tindakan-sheet": "node scripts/import-tindakan-google-sheet.mjs"
   },
   "dependencies": {
     "@ag-grid-community/styles": "^32.3.9",

@@ -122,10 +122,10 @@ export default function TableToolbar({
   }, []);
 
   return (
-    <div className="flex flex-col gap-2 px-2 py-2 sm:px-3 sm:py-2.5 md:px-4 bg-black/40 border-b border-cyan-800/40 backdrop-blur-sm min-w-0">
-      <div className="min-w-0">
-        <h3 className="text-cyan-300 font-semibold tracking-wide flex items-center gap-1.5 flex-wrap text-xs sm:text-sm">
-          <Activity size={15} className="text-cyan-400 shrink-0" />
+    <div className="flex shrink-0 flex-col gap-1.5 px-2 py-1.5 sm:px-3 sm:py-2 md:px-3 bg-black/40 border-b border-cyan-800/40 backdrop-blur-sm min-w-0">
+      <div className="flex min-w-0 flex-col gap-1.5 min-[520px]:flex-row min-[520px]:items-center min-[520px]:justify-between min-[520px]:gap-2">
+        <h3 className="text-cyan-300 font-semibold tracking-wide inline-flex items-center gap-1.5 flex-wrap text-[11px] sm:text-xs">
+          <Activity size={14} className="text-cyan-400 shrink-0" />
           <span>Daftar kasus tindakan</span>
           <span className="sr-only" aria-live="polite">
             {isSyncing ? "Memperbarui data di latar." : ""}
@@ -145,34 +145,33 @@ export default function TableToolbar({
             </span>
           ) : null}
         </h3>
-      </div>
-
-      {/* Baris 1: tambah pasien */}
-      <div className="flex flex-wrap min-w-0 gap-2">
         <button
           type="button"
           onClick={() => setAddPasienOpen(true)}
-          className="inline-flex h-[34px] shrink-0 items-center justify-center gap-1.5 rounded-md border border-cyan-500/30 px-3 text-xs text-cyan-200/90 hover:text-cyan-100 hover:bg-cyan-900/30 transition w-full min-[400px]:w-auto"
+          className="group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[hsl(var(--cyan)/0.85)] bg-[hsl(var(--cyan))] px-3 text-xs font-semibold text-black shadow-[0_0_18px_hsl(var(--cyan)/0.4)] transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--cyan))] focus-visible:ring-offset-2 focus-visible:ring-offset-black/60 w-full min-[520px]:w-auto"
           title="Tambah pasien (tanpa pindah halaman)"
         >
-          <Plus size={14} />
-          <span>Tambah Pasien</span>
+          <Plus
+            size={16}
+            strokeWidth={2.5}
+            className="shrink-0 text-black motion-safe:transition-transform group-hover:scale-110"
+          />
+          <span className="tracking-wide text-black">Tambah Pasien</span>
         </button>
       </div>
 
-      {/* Baris 2: cari + filter dokter/ruangan/tanggal (satu baris saat lebar cukup) */}
-      <div className="flex flex-wrap items-end gap-2 sm:gap-3 min-w-0">
+      <div className="flex flex-wrap items-end gap-1.5 sm:gap-2 min-w-0">
         <div className="relative min-w-0 w-full min-[480px]:w-auto min-[480px]:flex-1 min-[480px]:min-w-[12rem] min-[480px]:max-w-2xl">
           <Search
-            size={14}
-            className="absolute left-2 top-2.5 text-cyan-400 opacity-70 pointer-events-none"
+            size={13}
+            className="absolute left-2 top-1/2 -translate-y-1/2 text-cyan-400 opacity-70 pointer-events-none"
           />
           <input
             type="text"
             value={searchValue}
-            placeholder="Cari di semua kolom (RM, nama, jenis kelamin, dokter, tindakan, ruangan…)"
+            placeholder="Cari (RM, nama, JK, dokter, tindakan, ruangan…)"
             onChange={(e) => handleUserTyping(e.target.value)}
-            className="w-full pl-7 pr-3 py-1.5 text-sm rounded-md bg-black/40 border border-cyan-800/40 text-cyan-100 placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            className="w-full pl-7 pr-2.5 py-1 text-[13px] leading-snug rounded-md bg-black/40 border border-cyan-800/40 text-cyan-100 placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
           />
         </div>
         {/* Filter dokter — domain tab Dokter & tim (wireframe) */}
@@ -183,7 +182,7 @@ export default function TableToolbar({
             setDokter(v);
             onFilter(v, ruangan, tanggalFrom, tanggalTo);
           }}
-          className="text-sm px-2 py-1.5 rounded-md bg-black/40 border border-cyan-800/40 text-cyan-100 focus:outline-none min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem]"
+          className="text-[13px] px-2 py-1 rounded-md bg-black/40 border border-cyan-800/40 text-cyan-100 focus:outline-none min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem]"
         >
           <option value="">Semua dokter</option>
           {dokterOptions.map((d, idx) => (
@@ -201,7 +200,7 @@ export default function TableToolbar({
             setRuangan(v);
             onFilter(dokter, v, tanggalFrom, tanggalTo);
           }}
-          className="text-sm px-2 py-1.5 rounded-md bg-black/40 border border-cyan-800/40 text-cyan-100 focus:outline-none min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem]"
+          className="text-[13px] px-2 py-1 rounded-md bg-black/40 border border-cyan-800/40 text-cyan-100 focus:outline-none min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem]"
         >
           <option value="">Semua ruangan</option>
           {ruanganOptions.map((s, idx) => (
@@ -223,7 +222,7 @@ export default function TableToolbar({
               setTanggalFrom(v);
               onFilter(dokter, ruangan, v, tanggalTo);
             }}
-            className="cursor-pointer [color-scheme:dark] text-sm px-2 py-1.5 rounded-md bg-black/40 border border-cyan-800/40 text-cyan-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            className="cursor-pointer [color-scheme:dark] text-[13px] px-2 py-1 rounded-md bg-black/40 border border-cyan-800/40 text-cyan-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
             title="Tanggal dari"
             aria-label="Tanggal dari"
           />
@@ -238,7 +237,7 @@ export default function TableToolbar({
               setTanggalTo(v);
               onFilter(dokter, ruangan, tanggalFrom, v);
             }}
-            className="cursor-pointer [color-scheme:dark] text-sm px-2 py-1.5 rounded-md bg-black/40 border border-cyan-800/40 text-cyan-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            className="cursor-pointer [color-scheme:dark] text-[13px] px-2 py-1 rounded-md bg-black/40 border border-cyan-800/40 text-cyan-100 focus:outline-none focus:ring-1 focus:ring-cyan-500"
             title="Tanggal sampai"
             aria-label="Tanggal sampai"
           />

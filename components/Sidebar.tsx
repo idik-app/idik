@@ -172,8 +172,8 @@ export default function Sidebar() {
         )}
       </AnimatePresence>
 
-      {/* Saat sidebar tertutup: tampilkan strip minimal agar user bisa buka lagi */}
-      {!isSidebarOpen && (
+      {/* Desktop: strip minimal saat tertutup. HP: rail disembunyikan — buka lewat tombol topbar. */}
+      {!isSidebarOpen && !isMobile && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

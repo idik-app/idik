@@ -88,7 +88,7 @@ export const UIProvider = ({ children }: { children: React.ReactNode }) => {
     const from = motionX.get();
     let to: number;
     if (!isSidebarOpen) {
-      to = collapsedWidth;
+      to = isMobile ? 0 : collapsedWidth;
     } else if (isMobile) {
       const maxDrawer = Math.max(220, Math.min(sidebarWidth, winW - 16));
       to = maxDrawer;

@@ -33,14 +33,14 @@ export default function TindakanDashboard() {
   return (
     <div
       key="tindakan-dashboard"
-      className={`relative min-h-screen overflow-x-hidden overflow-y-auto text-white ${
+      className={`relative flex h-full min-h-0 flex-col overflow-hidden text-white ${
         themeTone === "emerald"
           ? "bg-gradient-to-br from-slate-950 via-black to-emerald-950"
           : "bg-gradient-to-br from-slate-950 via-black to-cyan-950"
       }`}
     >
       <header
-        className={`sticky top-0 z-30 bg-black/45 p-3 backdrop-blur-md sm:p-4 ${
+        className={`shrink-0 z-30 bg-black/45 p-2 backdrop-blur-md sm:p-3 ${
           themeTone === "emerald"
             ? "border-b border-emerald-900/35"
             : "border-b border-cyan-900/35"
@@ -49,8 +49,8 @@ export default function TindakanDashboard() {
         <TindakanHeader themeTone={themeTone} onThemeToneChange={setThemeTone} />
       </header>
 
-      <main className="relative space-y-3 px-3 pb-16 pt-3 sm:space-y-4 sm:px-4 sm:pt-4 md:px-5">
-        <section className="sticky top-1 z-10 rounded-xl border border-white/5 bg-black/20 px-2 py-1.5 backdrop-blur-sm sm:px-2.5 sm:py-2">
+      <main className="relative flex min-h-0 flex-1 flex-col gap-2 px-2 pb-3 pt-2 sm:gap-2.5 sm:px-3 sm:pb-4 sm:pt-2.5 md:px-4">
+        <section className="shrink-0 rounded-lg border border-white/5 bg-black/20 px-2 py-1 backdrop-blur-sm sm:px-2.5 sm:py-1.5">
           <TindakanSummary
             stats={stats}
             loading={statsLoading}
@@ -60,7 +60,7 @@ export default function TindakanDashboard() {
 
         <section
           ref={tableRef}
-          className={`relative rounded-2xl border bg-black/30 shadow-[0_20px_60px_rgba(8,47,73,0.25)] backdrop-blur-md ${
+          className={`relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border bg-black/30 shadow-[0_20px_60px_rgba(8,47,73,0.25)] backdrop-blur-md ${
             themeTone === "emerald" ? "border-emerald-900/45" : "border-cyan-900/45"
           }`}
           id="tindakan-table-section"

@@ -99,7 +99,7 @@ export default function TindakanSummary({
             return (
               <div
                 key={item.label}
-                className={`flex min-w-0 flex-1 basis-[10rem] items-center gap-2.5 rounded-lg border bg-gradient-to-br px-2.5 py-2 shadow-sm shadow-black/25 transition hover:border-white/10 sm:flex-initial sm:basis-auto ${item.tone}`}
+                className={`flex min-w-0 flex-1 basis-[10rem] items-center gap-2 rounded-lg border bg-gradient-to-br px-2 py-1.5 shadow-sm shadow-black/25 transition hover:border-white/10 sm:flex-initial sm:basis-auto ${item.tone}`}
               >
                 <div
                   className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${item.iconWrap}`}
@@ -110,7 +110,7 @@ export default function TindakanSummary({
                   <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-cyan-200/55">
                     {item.label}
                   </p>
-                  <p className="mt-0.5 text-lg font-semibold tabular-nums text-cyan-50 sm:text-xl">
+                  <p className="mt-0.5 text-base font-semibold tabular-nums text-cyan-50 sm:text-lg">
                     {item.value.toLocaleString("id-ID")}
                   </p>
                 </div>

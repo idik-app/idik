@@ -32,15 +32,14 @@ export default function LayoutContainer() {
 
   const SIDEBAR_OPEN = sidebarWidth;
   const SIDEBAR_COLLAPSED = 80;
-  /** HP: drawer overlay; margin tetap rail 80px. Desktop: ikuti collapsed / expanded. */
-  const contentMargin =
-    !isSidebarOpen
+  /** HP: sidebar overlay penuh lebar; tanpa rail saat tertutup. Desktop: ikuti collapsed / expanded. */
+  const contentMargin = isMobile
+    ? 0
+    : !isSidebarOpen
       ? SIDEBAR_COLLAPSED
-      : isMobile
+      : collapsed
         ? SIDEBAR_COLLAPSED
-        : collapsed
-          ? SIDEBAR_COLLAPSED
-          : SIDEBAR_OPEN;
+        : SIDEBAR_OPEN;
 
   /* ⚙️ Sinkronisasi margin sidebar */
   useEffect(() => {

@@ -306,14 +306,12 @@ export default function TambahPasienQuickModal({
     : "⏳ Menyimpan…";
 
   return (
-    <ModalWrapper onClose={onClose} className="w-full max-w-lg">
+    <ModalWrapper onClose={onClose}>
       <div className="relative z-[310]">
         <div
-          className="bg-gradient-to-br from-cyan-900/40 to-black/60 border border-cyan-500/40
-                     shadow-[0_0_25px_rgba(0,255,255,0.3)] rounded-2xl p-6 text-cyan-100
-                     animate-in fade-in zoom-in-95 duration-200"
+          className="animate-in fade-in zoom-in-95 duration-200 rounded-xl border border-cyan-500/40 bg-gradient-to-br from-cyan-900/40 to-black/60 p-3 text-cyan-100 shadow-[0_0_16px_rgba(0,255,255,0.22)] sm:rounded-2xl sm:p-6 sm:shadow-[0_0_25px_rgba(0,255,255,0.3)]"
         >
-          <h3 className="text-2xl font-semibold text-center mb-4 text-cyan-300">
+          <h3 className="mb-2 text-center text-lg font-semibold text-cyan-300 sm:mb-4 sm:text-2xl">
             ➕ Tambah Pasien
           </h3>
 
@@ -333,7 +331,7 @@ export default function TambahPasienQuickModal({
             </p>
           ) : null}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
             <div>
               <InputField
                 label="No. RM"
@@ -356,14 +354,14 @@ export default function TambahPasienQuickModal({
               autoComplete="name"
             />
 
-            <div className="col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="col-span-1 grid grid-cols-1 gap-2 sm:col-span-2 sm:grid-cols-3 sm:gap-3">
               <div>
-                <label className="text-sm text-cyan-300">Jenis Kelamin</label>
+                <label className="text-xs text-cyan-300 sm:text-sm">Jenis Kelamin</label>
                 <select
                   name="jenisKelamin"
                   value={formData.jenisKelamin}
                   onChange={handleChange}
-                  className="mt-1 w-full rounded-lg border border-cyan-600/50 bg-black/30 px-3 py-2 focus:outline-none focus:border-yellow-400"
+                  className="mt-1 w-full rounded-lg border border-cyan-600/50 bg-black/30 px-2.5 py-1.5 text-sm focus:border-yellow-400 focus:outline-none sm:px-3 sm:py-2 sm:text-base"
                 >
                   <option value="L">Laki-laki</option>
                   <option value="P">Perempuan</option>
@@ -381,12 +379,12 @@ export default function TambahPasienQuickModal({
               />
 
               <div>
-                <label className="text-sm text-cyan-300">Umur</label>
+                <label className="text-xs text-cyan-300 sm:text-sm">Umur</label>
                 <input
                   readOnly
                   tabIndex={-1}
                   value={umurTeks}
-                  className="mt-1 w-full cursor-default rounded-lg border border-cyan-600/30 bg-black/20 px-3 py-2 text-cyan-200"
+                  className="mt-1 w-full cursor-default rounded-lg border border-cyan-600/30 bg-black/20 px-2.5 py-1.5 text-sm text-cyan-200 sm:px-3 sm:py-2 sm:text-base"
                   aria-live="polite"
                 />
               </div>
@@ -410,12 +408,12 @@ export default function TambahPasienQuickModal({
             />
 
             <div>
-              <label className="text-sm text-cyan-300">Jenis Pembiayaan</label>
+              <label className="text-xs text-cyan-300 sm:text-sm">Jenis Pembiayaan</label>
               <select
                 name="jenisPembiayaan"
                 value={formData.jenisPembiayaan}
                 onChange={handleChange}
-                className="w-full px-3 py-2 mt-1 bg-black/30 border border-cyan-600/50 rounded-lg focus:outline-none focus:border-yellow-400"
+                className="mt-1 w-full rounded-lg border border-cyan-600/50 bg-black/30 px-2.5 py-1.5 text-sm focus:border-yellow-400 focus:outline-none sm:px-3 sm:py-2 sm:text-base"
               >
                 <option value="BPJS">BPJS</option>
                 <option value="NPBI">NPBI</option>
@@ -425,12 +423,12 @@ export default function TambahPasienQuickModal({
             </div>
 
             <div>
-              <label className="text-sm text-cyan-300">Kelas Perawatan</label>
+              <label className="text-xs text-cyan-300 sm:text-sm">Kelas Perawatan</label>
               <select
                 name="kelasPerawatan"
                 value={formData.kelasPerawatan}
                 onChange={handleChange}
-                className="w-full px-3 py-2 mt-1 bg-black/30 border border-cyan-600/50 rounded-lg focus:outline-none focus:border-yellow-400"
+                className="mt-1 w-full rounded-lg border border-cyan-600/50 bg-black/30 px-2.5 py-1.5 text-sm focus:border-yellow-400 focus:outline-none sm:px-3 sm:py-2 sm:text-base"
               >
                 <option value="Kelas 1">1</option>
                 <option value="Kelas 2">2</option>
@@ -449,25 +447,25 @@ export default function TambahPasienQuickModal({
 
           {error && (
             <p
-              className="text-red-300 text-sm mt-3 max-w-md mx-auto text-left whitespace-pre-line rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2"
+              className="mx-auto mt-3 max-w-full text-left text-sm whitespace-pre-line rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2 text-red-300 sm:max-w-md"
               role="alert"
             >
               {error}
             </p>
           )}
 
-          <div className="flex justify-center gap-4 mt-6">
+          <div className="mt-4 flex w-full flex-col-reverse gap-2 sm:mt-6 sm:flex-row sm:justify-center sm:gap-4">
             <button
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="px-6 py-2 rounded-lg bg-cyan-600/60 hover:bg-cyan-500/80 border border-cyan-400/50 shadow-[0_0_15px_rgba(0,255,255,0.5)] hover:shadow-[0_0_20px_rgba(0,255,255,0.8)] transition-all disabled:opacity-60"
+              className="w-full shrink-0 rounded-lg border border-cyan-400/50 bg-cyan-600/60 px-4 py-2.5 shadow-[0_0_15px_rgba(0,255,255,0.5)] transition-all hover:bg-cyan-500/80 hover:shadow-[0_0_20px_rgba(0,255,255,0.8)] disabled:opacity-60 sm:w-auto sm:px-6 sm:py-2"
             >
               {loading ? primaryLoadingLabel : primaryLabel}
             </button>
             <button
               onClick={onClose}
-              className="px-6 py-2 rounded-lg bg-transparent border border-yellow-400/50 text-yellow-400 hover:bg-yellow-400/20 hover:shadow-[0_0_10px_rgba(255,215,0,0.4)] transition-all"
+              className="w-full shrink-0 rounded-lg border border-yellow-400/50 bg-transparent px-4 py-2.5 text-yellow-400 transition-all hover:bg-yellow-400/20 hover:shadow-[0_0_10px_rgba(255,215,0,0.4)] sm:w-auto sm:px-6 sm:py-2"
             >
               ✖ Batal
             </button>
@@ -500,8 +498,8 @@ function InputField({
   autoComplete?: string;
 }) {
   return (
-    <div className={colSpan ? "col-span-2" : ""}>
-      <label className="text-sm text-cyan-300">{label}</label>
+    <div className={colSpan ? "col-span-1 sm:col-span-2" : ""}>
+      <label className="text-xs text-cyan-300 sm:text-sm">{label}</label>
       <input
         type={type}
         name={name}
@@ -510,7 +508,7 @@ function InputField({
         onBlur={onBlur}
         placeholder={placeholder}
         autoComplete={autoComplete}
-        className="w-full px-3 py-2 mt-1 bg-black/30 border border-cyan-600/50 rounded-lg focus:outline-none focus:border-yellow-400 [color-scheme:dark]"
+        className="mt-1 w-full rounded-lg border border-cyan-600/50 bg-black/30 px-2.5 py-1.5 text-sm focus:border-yellow-400 focus:outline-none [color-scheme:dark] sm:px-3 sm:py-2 sm:text-base"
       />
     </div>
   );

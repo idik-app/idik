@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useEventBridge } from "@/contexts/EventBridgeContext";
 import { useDiagnosticsHUD } from "@/contexts/DiagnosticsHUDContext";
 import { useDiagnosticsBridge } from "@/core/idik-autonomous/DiagnosticsBridge";
@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 
 const MAX_EVENTS_VISIBLE = 8;
+/** Panel penuh otomatis minimize jika pointer tidak di atas HUD selama ini (ms). */
+const AUTO_COLLAPSE_MS = 12_000;
 
 export default function DiagnosticsHUD() {
   const { events, clearEvents } = useDiagnosticsHUD();
@@ -32,6 +34,28 @@ export default function DiagnosticsHUD() {
   });
   const [showLog, setShowLog] = useState(false);
   const [minimized, setMinimized] = useState(false);
+  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearAutoCollapse = useCallback(() => {
+    if (collapseTimerRef.current) {
+      clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = null;
+    }
+  }, []);
+
+  const armAutoCollapse = useCallback(() => {
+    clearAutoCollapse();
+    collapseTimerRef.current = setTimeout(() => setMinimized(true), AUTO_COLLAPSE_MS);
+  }, [clearAutoCollapse]);
+
+  useEffect(() => {
+    if (minimized) {
+      clearAutoCollapse();
+      return;
+    }
+    armAutoCollapse();
+    return () => clearAutoCollapse();
+  }, [minimized, armAutoCollapse, clearAutoCollapse]);
 
   // Emit kernel:update saat jumlah event berubah; subscriber di bawah akan update meta
   useEffect(() => {
@@ -84,6 +108,8 @@ export default function DiagnosticsHUD() {
       shadow-[0_0_15px_rgba(0,255,255,0.4)]
       max-h-[min(80vh,32rem)] md:max-h-[80vh]
     "
+      onPointerEnter={clearAutoCollapse}
+      onPointerLeave={armAutoCollapse}
     >
       <div className="flex items-center justify-between gap-2 shrink-0">
         <div className="font-bold text-cyan-300 tracking-wide flex items-center gap-2">

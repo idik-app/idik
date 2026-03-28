@@ -47,10 +47,10 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const limitRaw = Number(searchParams.get("limit") ?? 8000);
+    const limitRaw = Number(searchParams.get("limit") ?? 20000);
     const limit = Number.isFinite(limitRaw)
       ? Math.min(Math.max(Math.trunc(limitRaw), 1), 20000)
-      : 8000;
+      : 20000;
 
     // Urutan: skema lengkap dulu. Proyeksi minimal di akhir — jika dipilih lebih dulu,
     // baris tidak punya pasien_id / kategori / kolom Cathlab sehingga drawer detail kosong.
@@ -70,6 +70,7 @@ export async function GET(request: Request) {
       const res = await supabase
         .from("tindakan")
         .select(projection)
+        .order("tanggal", { ascending: false, nullsFirst: false })
         .order("id", { ascending: false })
         .limit(limit);
 
@@ -101,6 +102,7 @@ export async function GET(request: Request) {
       const legacy = await supabase
         .from("tindakan_medik")
         .select("*")
+        .order("tanggal", { ascending: false, nullsFirst: false })
         .order("id", { ascending: false })
         .limit(limit);
       if (!legacy.error && Array.isArray(legacy.data) && legacy.data.length > 0) {

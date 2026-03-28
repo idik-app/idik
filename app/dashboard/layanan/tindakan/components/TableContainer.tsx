@@ -37,7 +37,7 @@ export default function TableContainer({
     <div
       ref={ref}
       data-table="tindakan"
-      className={`relative rounded-2xl border border-cyan-800/50 bg-black/30 backdrop-blur-md overflow-hidden min-w-0 max-w-full ${
+      className={`relative flex h-full min-h-0 flex-col rounded-2xl border border-cyan-800/50 bg-black/30 backdrop-blur-md overflow-hidden min-w-0 max-w-full ${
         isFullscreen ? "fixed inset-0 z-[9999] p-3 md:p-4 bg-black/90" : ""
       }`}
     >
@@ -54,7 +54,9 @@ export default function TableContainer({
         </div>
       )}
 
-      <div className="relative z-10 h-full min-h-0">{children}</div>
+      <div className="relative z-10 flex h-full min-h-0 flex-1 flex-col">
+        {children}
+      </div>
 
       {isFullscreen && (
         <div className="absolute bottom-3 right-4 z-20 scale-90 opacity-85">

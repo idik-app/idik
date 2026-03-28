@@ -19,7 +19,7 @@ export function useTindakanData() {
     }
 
     try {
-      const res = await fetch("/api/tindakan?limit=8000", {
+      const res = await fetch("/api/tindakan?limit=20000", {
         credentials: "include",
         cache: "no-store",
       });

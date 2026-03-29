@@ -11,6 +11,8 @@ import {
   normalizeNamaPasienInput,
 } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
 import { formatPasienApiValidationError } from "@/app/dashboard/pasien/utils/pasienValidationMessages";
+import { cn } from "@/lib/utils";
+import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 
 const RM_LOOKUP_DEBOUNCE_MS = 420;
 const RM_LOOKUP_MIN_LEN = 2;
@@ -96,6 +98,7 @@ export default function TambahPasienQuickModal({
   const [rmChecking, setRmChecking] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const isLight = useTindakanLightMode();
 
   const rmInputRef = useRef(formData.noRM);
   rmInputRef.current = formData.noRM;
@@ -309,22 +312,42 @@ export default function TambahPasienQuickModal({
     <ModalWrapper onClose={onClose}>
       <div className="relative z-[310]">
         <div
-          className="animate-in fade-in zoom-in-95 duration-200 rounded-xl border border-cyan-500/40 bg-gradient-to-br from-cyan-900/40 to-black/60 p-3 text-cyan-100 shadow-[0_0_16px_rgba(0,255,255,0.22)] sm:rounded-2xl sm:p-6 sm:shadow-[0_0_25px_rgba(0,255,255,0.3)]"
+          className={cn(
+            "animate-in fade-in zoom-in-95 duration-200 rounded-xl border p-3 sm:rounded-2xl sm:p-6",
+            isLight
+              ? "border-cyan-500/35 bg-gradient-to-br from-white to-cyan-50/80 text-slate-800 shadow-lg shadow-cyan-900/10"
+              : "border-cyan-500/40 bg-gradient-to-br from-cyan-900/40 to-black/60 text-cyan-100 shadow-[0_0_16px_rgba(0,255,255,0.22)] sm:shadow-[0_0_25px_rgba(0,255,255,0.3)]",
+          )}
         >
-          <h3 className="mb-2 text-center text-lg font-semibold text-cyan-300 sm:mb-4 sm:text-2xl">
+          <h3
+            className={cn(
+              "mb-2 text-center text-lg font-semibold sm:mb-4 sm:text-2xl",
+              isLight ? "text-cyan-900" : "text-cyan-300",
+            )}
+          >
             ➕ Tambah Pasien
           </h3>
 
           {matchedPatient ? (
             <p
-              className="text-xs text-amber-200/95 mb-3 rounded-lg border border-amber-500/35 bg-amber-950/35 px-3 py-2 leading-relaxed"
+              className={cn(
+                "text-xs mb-3 rounded-lg border px-3 py-2 leading-relaxed",
+                isLight
+                  ? "text-amber-950 border-amber-400/45 bg-amber-50"
+                  : "text-amber-200/95 border-amber-500/35 bg-amber-950/35",
+              )}
               role="status"
             >
               No. RM ini sudah ada di master pasien — formulir diisi otomatis. Anda
               boleh melengkapi atau mengoreksi data (misalnya No. HP, alamat) sebelum
               menyimpan; perubahan akan disimpan ke master pasien. Untuk kunjungan
               atau jenis tindakan baru, gunakan{" "}
-              <span className="font-medium text-amber-100">
+              <span
+                className={cn(
+                  "font-medium",
+                  isLight ? "text-amber-900" : "text-amber-100",
+                )}
+              >
                 Tambah kasus tindakan
               </span>{" "}
               (tidak membuat pasien ganda).
@@ -339,9 +362,15 @@ export default function TambahPasienQuickModal({
                 value={formData.noRM}
                 onChange={handleChange}
                 autoComplete="off"
+                isLight={isLight}
               />
               {rmChecking ? (
-                <p className="text-[10px] text-cyan-500/85 mt-0.5 font-mono">
+                <p
+                  className={cn(
+                    "text-[10px] mt-0.5 font-mono",
+                    isLight ? "text-cyan-800/85" : "text-cyan-500/85",
+                  )}
+                >
                   Memeriksa No. RM…
                 </p>
               ) : null}
@@ -352,16 +381,29 @@ export default function TambahPasienQuickModal({
               value={formData.nama}
               onChange={handleChange}
               autoComplete="name"
+              isLight={isLight}
             />
 
             <div className="col-span-1 grid grid-cols-1 gap-2 sm:col-span-2 sm:grid-cols-3 sm:gap-3">
               <div>
-                <label className="text-xs text-cyan-300 sm:text-sm">Jenis Kelamin</label>
+                <label
+                  className={cn(
+                    "text-xs sm:text-sm",
+                    isLight ? "text-cyan-900" : "text-cyan-300",
+                  )}
+                >
+                  Jenis Kelamin
+                </label>
                 <select
                   name="jenisKelamin"
                   value={formData.jenisKelamin}
                   onChange={handleChange}
-                  className="mt-1 w-full rounded-lg border border-cyan-600/50 bg-black/30 px-2.5 py-1.5 text-sm focus:border-yellow-400 focus:outline-none sm:px-3 sm:py-2 sm:text-base"
+                  className={cn(
+                    "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-sm focus:border-yellow-500 focus:outline-none sm:px-3 sm:py-2 sm:text-base",
+                    isLight
+                      ? "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]"
+                      : "border-cyan-600/50 bg-black/30",
+                  )}
                 >
                   <option value="L">Laki-laki</option>
                   <option value="P">Perempuan</option>
@@ -376,15 +418,28 @@ export default function TambahPasienQuickModal({
                 value={formData.tanggalLahir}
                 onChange={handleChange}
                 onBlur={handleTanggalLahirBlur}
+                isLight={isLight}
               />
 
               <div>
-                <label className="text-xs text-cyan-300 sm:text-sm">Umur</label>
+                <label
+                  className={cn(
+                    "text-xs sm:text-sm",
+                    isLight ? "text-cyan-900" : "text-cyan-300",
+                  )}
+                >
+                  Umur
+                </label>
                 <input
                   readOnly
                   tabIndex={-1}
                   value={umurTeks}
-                  className="mt-1 w-full cursor-default rounded-lg border border-cyan-600/30 bg-black/20 px-2.5 py-1.5 text-sm text-cyan-200 sm:px-3 sm:py-2 sm:text-base"
+                  className={cn(
+                    "mt-1 w-full cursor-default rounded-lg border px-2.5 py-1.5 text-sm sm:px-3 sm:py-2 sm:text-base",
+                    isLight
+                      ? "border-cyan-500/35 bg-slate-100 text-slate-700"
+                      : "border-cyan-600/30 bg-black/20 text-cyan-200",
+                  )}
                   aria-live="polite"
                 />
               </div>
@@ -397,6 +452,7 @@ export default function TambahPasienQuickModal({
               onChange={handleChange}
               colSpan
               autoComplete="street-address"
+              isLight={isLight}
             />
             <InputField
               label="No. HP"
@@ -405,15 +461,28 @@ export default function TambahPasienQuickModal({
               onChange={handleChange}
               colSpan
               autoComplete="tel"
+              isLight={isLight}
             />
 
             <div>
-              <label className="text-xs text-cyan-300 sm:text-sm">Jenis Pembiayaan</label>
+              <label
+                className={cn(
+                  "text-xs sm:text-sm",
+                  isLight ? "text-cyan-900" : "text-cyan-300",
+                )}
+              >
+                Jenis Pembiayaan
+              </label>
               <select
                 name="jenisPembiayaan"
                 value={formData.jenisPembiayaan}
                 onChange={handleChange}
-                className="mt-1 w-full rounded-lg border border-cyan-600/50 bg-black/30 px-2.5 py-1.5 text-sm focus:border-yellow-400 focus:outline-none sm:px-3 sm:py-2 sm:text-base"
+                className={cn(
+                  "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-sm focus:border-yellow-500 focus:outline-none sm:px-3 sm:py-2 sm:text-base",
+                  isLight
+                    ? "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]"
+                    : "border-cyan-600/50 bg-black/30",
+                )}
               >
                 <option value="BPJS">BPJS</option>
                 <option value="NPBI">NPBI</option>
@@ -423,12 +492,24 @@ export default function TambahPasienQuickModal({
             </div>
 
             <div>
-              <label className="text-xs text-cyan-300 sm:text-sm">Kelas Perawatan</label>
+              <label
+                className={cn(
+                  "text-xs sm:text-sm",
+                  isLight ? "text-cyan-900" : "text-cyan-300",
+                )}
+              >
+                Kelas Perawatan
+              </label>
               <select
                 name="kelasPerawatan"
                 value={formData.kelasPerawatan}
                 onChange={handleChange}
-                className="mt-1 w-full rounded-lg border border-cyan-600/50 bg-black/30 px-2.5 py-1.5 text-sm focus:border-yellow-400 focus:outline-none sm:px-3 sm:py-2 sm:text-base"
+                className={cn(
+                  "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-sm focus:border-yellow-500 focus:outline-none sm:px-3 sm:py-2 sm:text-base",
+                  isLight
+                    ? "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]"
+                    : "border-cyan-600/50 bg-black/30",
+                )}
               >
                 <option value="Kelas 1">1</option>
                 <option value="Kelas 2">2</option>
@@ -442,12 +523,18 @@ export default function TambahPasienQuickModal({
               value={formData.asuransi}
               onChange={handleChange}
               colSpan
+              isLight={isLight}
             />
           </div>
 
           {error && (
             <p
-              className="mx-auto mt-3 max-w-full text-left text-sm whitespace-pre-line rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2 text-red-300 sm:max-w-md"
+              className={cn(
+                "mx-auto mt-3 max-w-full text-left text-sm whitespace-pre-line rounded-lg border px-3 py-2 sm:max-w-md",
+                isLight
+                  ? "border-red-400/50 bg-red-50 text-red-900"
+                  : "border-red-500/40 bg-red-950/40 text-red-300",
+              )}
               role="alert"
             >
               {error}
@@ -459,13 +546,18 @@ export default function TambahPasienQuickModal({
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="w-full shrink-0 rounded-lg border border-cyan-400/50 bg-cyan-600/60 px-4 py-2.5 shadow-[0_0_15px_rgba(0,255,255,0.5)] transition-all hover:bg-cyan-500/80 hover:shadow-[0_0_20px_rgba(0,255,255,0.8)] disabled:opacity-60 sm:w-auto sm:px-6 sm:py-2"
+              className="w-full shrink-0 rounded-lg border border-cyan-400/50 bg-cyan-600/60 px-4 py-2.5 text-black shadow-[0_0_15px_rgba(0,255,255,0.5)] transition-all hover:bg-cyan-500/80 hover:shadow-[0_0_20px_rgba(0,255,255,0.8)] disabled:opacity-60 sm:w-auto sm:px-6 sm:py-2"
             >
               {loading ? primaryLoadingLabel : primaryLabel}
             </button>
             <button
               onClick={onClose}
-              className="w-full shrink-0 rounded-lg border border-yellow-400/50 bg-transparent px-4 py-2.5 text-yellow-400 transition-all hover:bg-yellow-400/20 hover:shadow-[0_0_10px_rgba(255,215,0,0.4)] sm:w-auto sm:px-6 sm:py-2"
+              className={cn(
+                "w-full shrink-0 rounded-lg border bg-transparent px-4 py-2.5 transition-all sm:w-auto sm:px-6 sm:py-2",
+                isLight
+                  ? "border-amber-600/50 text-amber-800 hover:bg-amber-100/80"
+                  : "border-yellow-400/50 text-yellow-400 hover:bg-yellow-400/20 hover:shadow-[0_0_10px_rgba(255,215,0,0.4)]",
+              )}
             >
               ✖ Batal
             </button>
@@ -486,6 +578,7 @@ function InputField({
   colSpan = false,
   placeholder,
   autoComplete,
+  isLight = false,
 }: {
   label: string;
   name: string;
@@ -496,10 +589,18 @@ function InputField({
   colSpan?: boolean;
   placeholder?: string;
   autoComplete?: string;
+  isLight?: boolean;
 }) {
   return (
     <div className={colSpan ? "col-span-1 sm:col-span-2" : ""}>
-      <label className="text-xs text-cyan-300 sm:text-sm">{label}</label>
+      <label
+        className={cn(
+          "text-xs sm:text-sm",
+          isLight ? "text-cyan-900" : "text-cyan-300",
+        )}
+      >
+        {label}
+      </label>
       <input
         type={type}
         name={name}
@@ -508,7 +609,12 @@ function InputField({
         onBlur={onBlur}
         placeholder={placeholder}
         autoComplete={autoComplete}
-        className="mt-1 w-full rounded-lg border border-cyan-600/50 bg-black/30 px-2.5 py-1.5 text-sm focus:border-yellow-400 focus:outline-none [color-scheme:dark] sm:px-3 sm:py-2 sm:text-base"
+        className={cn(
+          "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-sm focus:border-yellow-500 focus:outline-none sm:px-3 sm:py-2 sm:text-base",
+          isLight
+            ? "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]"
+            : "border-cyan-600/50 bg-black/30 [color-scheme:dark]",
+        )}
       />
     </div>
   );

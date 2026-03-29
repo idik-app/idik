@@ -31,6 +31,8 @@ import BiayaAutosaveField, {
   type BiayaAutosaveFieldKey,
 } from "./BiayaAutosaveField";
 import { buildResumeWhatsAppText } from "../lib/buildResumeWhatsAppText";
+import { cn } from "@/lib/utils";
+import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 
 type Props = {
   open: boolean;
@@ -66,7 +68,8 @@ function sortTindakanByTanggalDesc(
   });
 }
 
-const HEADER_TAB_ROW_PAD_X = 32; // px-4 kiri+kanan pada header modal
+/** Padding horizontal header modal (px-3 + scrollbar fudge) untuk hitung minWidth tab */
+const HEADER_TAB_ROW_PAD_X = 28;
 
 const RADIOLOGI_AUTOSAVE_FIELDS: RadiologiFieldKey[] = [
   "fluoro_time",
@@ -194,6 +197,7 @@ export default function TindakanDetailDrawer({
   );
   const [perawatMasterReloadToken, setPerawatMasterReloadToken] = useState(0);
   const [waCopied, setWaCopied] = useState(false);
+  const isLight = useTindakanLightMode();
 
   useEffect(() => {
     if (open) setTab("pasien");
@@ -367,8 +371,13 @@ export default function TindakanDetailDrawer({
 
     const update = () => {
       const vw = window.innerWidth;
-      const shellPad = 32; // padding overlay p-4 sm:p-6 → pakai margin aman
-      const maxUsable = Math.max(280, vw - shellPad);
+      const shellPad = 24;
+      const sidebarRaw = getComputedStyle(document.documentElement)
+        .getPropertyValue("--sidebar-width")
+        .trim();
+      const sidebarPx = Number.parseFloat(sidebarRaw);
+      const sidebar = Number.isFinite(sidebarPx) ? sidebarPx : 0;
+      const maxUsable = Math.max(280, vw - shellPad - sidebar);
       const needed = Math.ceil(row.scrollWidth + HEADER_TAB_ROW_PAD_X);
       setModalMinWidthPx(Math.min(needed, maxUsable));
     };
@@ -382,6 +391,19 @@ export default function TindakanDetailDrawer({
       window.removeEventListener("resize", update);
     };
   }, [open]);
+
+  /** Tab aktif tetap terlihat di strip horizontal (Pasien sering terpotong di kiri). */
+  useLayoutEffect(() => {
+    if (!open) return;
+    const row = tabRowMeasureRef.current;
+    if (!row) return;
+    const active = row.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    active?.scrollIntoView({
+      inline: "center",
+      block: "nearest",
+      behavior: "smooth",
+    });
+  }, [open, tab]);
 
   useEffect(() => {
     if (!open) return;
@@ -403,31 +425,50 @@ export default function TindakanDetailDrawer({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-[400]">
       <button
         type="button"
         aria-label="Tutup detail tindakan"
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className={cn(
+          "absolute inset-0",
+          isLight ? "bg-slate-900/40" : "bg-black/65",
+        )}
         onClick={onClose}
       />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="tindakan-detail-modal-title"
-        className="relative z-10 flex max-h-[min(90vh,720px)] w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-cyan-500/35 bg-gradient-to-b from-[#04070d] via-[#0a1018] to-black shadow-[0_0_48px_rgba(0,255,255,0.15)] max-w-[min(64rem,calc(100vw-2rem))]"
-        style={
-          modalMinWidthPx != null
+        className={cn(
+          "fixed top-1/2 z-[1] flex max-h-[min(92vh,760px)] min-w-0 w-[min(64rem,calc(100vw-var(--sidebar-width,0px)-1rem))] flex-col overflow-hidden rounded-xl border -translate-x-1/2 -translate-y-1/2 sm:w-[min(64rem,calc(100vw-var(--sidebar-width,0px)-2rem))]",
+          isLight
+            ? "border-cyan-500/30 bg-gradient-to-b from-white via-slate-50 to-cyan-50/40 shadow-[0_12px_40px_rgba(0,80,100,0.15)]"
+            : "border-cyan-800/40 bg-gradient-to-b from-[#04070d] via-[#0a1018] to-black shadow-[0_8px_32px_rgba(0,0,0,0.45)]",
+        )}
+        style={{
+          left: "calc(50% + (var(--sidebar-width, 0px) / 2))",
+          ...(modalMinWidthPx != null
             ? { minWidth: `${modalMinWidthPx}px` }
-            : undefined
-        }
+            : {}),
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="shrink-0 border-b border-cyan-500/20 bg-black/50 px-4 py-3 backdrop-blur-md">
-          <div className="flex items-start justify-between gap-3">
+        <div
+          className={cn(
+            "shrink-0 border-b px-3 py-2 sm:px-3.5",
+            isLight
+              ? "border-cyan-200/80 bg-white/95"
+              : "border-cyan-800/30 bg-black/40",
+          )}
+        >
+          <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p
                 id="tindakan-detail-modal-title"
-                className="text-sm font-semibold text-cyan-100 break-words"
+                className={cn(
+                  "text-[13px] font-bold leading-snug break-words sm:text-sm",
+                  isLight ? "text-slate-950" : "text-cyan-100",
+                )}
               >
                 {title}
               </p>
@@ -435,17 +476,29 @@ export default function TindakanDetailDrawer({
             <button
               type="button"
               onClick={onClose}
-              className="shrink-0 rounded-lg border border-cyan-500/30 p-2 text-cyan-300 hover:bg-cyan-500/10"
+              className={cn(
+                "shrink-0 rounded-md border p-1.5 transition-colors",
+                isLight
+                  ? "border-cyan-500/40 text-cyan-900 hover:bg-cyan-100"
+                  : "border-cyan-800/45 text-cyan-300 hover:bg-cyan-500/10",
+              )}
             >
-              <X size={18} />
+              <X size={17} />
             </button>
           </div>
 
-          <div className="mt-3 min-w-0">
-            <div className="-mx-1 overflow-x-auto overflow-y-hidden px-1 pb-1 scrollbar-thin scrollbar-thumb-cyan-800/60 scroll-smooth">
+          <div className="mt-2 min-w-0">
+            <div
+              className={cn(
+                "-mx-0.5 overflow-x-auto overflow-y-hidden px-0.5 pb-0.5 scrollbar-thin scroll-smooth",
+                isLight
+                  ? "scrollbar-thumb-cyan-400/50"
+                  : "scrollbar-thumb-cyan-800/60",
+              )}
+            >
               <div
                 ref={tabRowMeasureRef}
-                className="flex w-max min-w-0 flex-nowrap gap-2"
+                className="flex w-max min-w-0 flex-nowrap gap-1.5"
                 role="tablist"
                 aria-label="Bagian detail tindakan"
               >
@@ -456,11 +509,19 @@ export default function TindakanDetailDrawer({
                     role="tab"
                     aria-selected={tab === t.id}
                     onClick={() => setTab(t.id)}
-                    className={`shrink-0 rounded-lg px-2.5 py-1.5 text-left text-xs leading-snug whitespace-nowrap transition-[color,background-color,border-color,box-shadow,font-weight] duration-200 ease-out sm:px-3 sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070d14] ${
+                    className={cn(
+                      "shrink-0 rounded-md px-2 py-1 text-left text-[11px] font-semibold leading-snug whitespace-nowrap transition-[color,background-color,border-color,font-weight] duration-150 ease-out sm:px-2.5 sm:text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 focus-visible:ring-offset-1",
+                      isLight
+                        ? "focus-visible:ring-offset-white"
+                        : "focus-visible:ring-offset-[#070d14]",
                       tab === t.id
-                        ? "border border-cyan-400/45 bg-slate-900/95 font-semibold text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]"
-                        : "border border-transparent bg-transparent font-medium text-cyan-100/90 hover:bg-white/[0.07] hover:text-white"
-                    }`}
+                        ? isLight
+                          ? "border border-cyan-600/45 bg-cyan-100/90 font-bold text-cyan-950"
+                          : "border border-cyan-500/40 bg-black/50 font-bold text-cyan-50"
+                        : isLight
+                          ? "border border-transparent bg-transparent font-semibold text-slate-600 hover:bg-cyan-50 hover:text-cyan-950"
+                          : "border border-transparent bg-transparent font-medium text-cyan-200/80 hover:bg-white/[0.06] hover:text-cyan-50",
+                    )}
                   >
                     {t.label}
                   </button>
@@ -470,24 +531,58 @@ export default function TindakanDetailDrawer({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto px-3 py-2 sm:px-3 sm:py-2.5",
+            isLight ? "bg-slate-50/80" : "bg-transparent",
+          )}
+        >
           {!displayRecord ? (
-            <p className="text-sm text-gray-500">Tidak ada data baris.</p>
+            <p
+              className={cn(
+                "text-sm font-semibold",
+                isLight ? "text-slate-700" : "text-gray-500",
+              )}
+            >
+              Tidak ada data baris.
+            </p>
           ) : tab === "history" ? (
-            <div className="space-y-5">
+            <div className="space-y-3">
               <div>
-                <h3 className="text-xs font-mono uppercase tracking-wider text-cyan-500/80">
+                <h3
+                  className={cn(
+                    "text-xs font-mono font-bold uppercase tracking-wider",
+                    isLight ? "text-cyan-800" : "text-cyan-500/80",
+                  )}
+                >
                   Resume
                 </h3>
-                <p className="mt-1 text-xs text-gray-500">
+                <p
+                  className={cn(
+                    "mt-1 text-xs font-medium",
+                    isLight ? "text-slate-600" : "text-gray-500",
+                  )}
+                >
                   Ringkasan semua bagian ada di versi teks WhatsApp di bawah.
                   Lanjut: metadata sistem dan riwayat tindakan pasien yang sama.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-emerald-900/45 bg-emerald-950/20 p-3">
+              <div
+                className={cn(
+                  "rounded-xl border p-3",
+                  isLight
+                    ? "border-emerald-400/50 bg-emerald-50/90"
+                    : "border-emerald-900/45 bg-emerald-950/20",
+                )}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-300/90">
+                  <p
+                    className={cn(
+                      "text-[11px] font-bold uppercase tracking-wide",
+                      isLight ? "text-emerald-900" : "text-emerald-300/90",
+                    )}
+                  >
                     Versi teks WhatsApp
                   </p>
                   <button
@@ -503,17 +598,33 @@ export default function TindakanDetailDrawer({
                       }
                     }}
                     disabled={!resumeWhatsAppText}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1.5 text-xs font-medium text-emerald-100 hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50",
+                      isLight
+                        ? "border-emerald-600/40 bg-emerald-200/80 text-emerald-950 hover:bg-emerald-300/80"
+                        : "border-emerald-500/40 bg-emerald-500/15 text-emerald-100 hover:bg-emerald-500/25",
+                    )}
                   >
                     <Copy size={14} aria-hidden />
                     Salin untuk WA
                   </button>
                 </div>
-                <p className="mt-1 text-[10px] text-gray-500">
+                <p
+                  className={cn(
+                    "mt-1 text-[10px] font-medium",
+                    isLight ? "text-slate-600" : "text-gray-500",
+                  )}
+                >
                   Judul memakai *tebal* (format WA). Tempel langsung ke chat.
                 </p>
                 {waCopied ? (
-                  <p className="mt-2 text-xs text-emerald-300/90" role="status">
+                  <p
+                    className={cn(
+                      "mt-2 text-xs font-semibold",
+                      isLight ? "text-emerald-800" : "text-emerald-300/90",
+                    )}
+                    role="status"
+                  >
                     Tersalin — tempel di WhatsApp.
                   </p>
                 ) : null}
@@ -523,13 +634,30 @@ export default function TindakanDetailDrawer({
                     readOnly
                     value={resumeWhatsAppText}
                     rows={10}
-                    className="mt-1 w-full resize-y rounded-lg border border-emerald-900/50 bg-black/40 px-2.5 py-2 font-mono text-[11px] leading-relaxed text-emerald-50/95 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/35"
+                    className={cn(
+                      "mt-1 w-full resize-y rounded-lg border px-2.5 py-2 font-mono text-[11px] font-medium leading-relaxed outline-none focus-visible:ring-2",
+                      isLight
+                        ? "border-emerald-500/45 bg-white text-slate-900 focus-visible:ring-emerald-500/40"
+                        : "border-emerald-900/50 bg-black/40 text-emerald-50/95 focus-visible:ring-emerald-500/35",
+                    )}
                   />
                 </label>
               </div>
 
-              <div className="rounded-lg border border-cyan-900/35 bg-black/30 px-3 py-2.5">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+              <div
+                className={cn(
+                  "rounded-lg border px-3 py-2.5",
+                  isLight
+                    ? "border-cyan-300/60 bg-white"
+                    : "border-cyan-900/35 bg-black/30",
+                )}
+              >
+                <p
+                  className={cn(
+                    "text-[11px] font-bold uppercase tracking-wide",
+                    isLight ? "text-slate-600" : "text-gray-500",
+                  )}
+                >
                   Metadata sistem
                 </p>
                 <dl className="mt-2 grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
@@ -559,8 +687,20 @@ export default function TindakanDetailDrawer({
                         : formatFieldValue(key, raw);
                     return (
                       <div key={key}>
-                        <dt className="text-[10px] text-gray-500">{label}</dt>
-                        <dd className="mt-0.5 font-mono text-cyan-200/90">
+                        <dt
+                          className={cn(
+                            "text-[10px] font-semibold",
+                            isLight ? "text-slate-600" : "text-gray-500",
+                          )}
+                        >
+                          {label}
+                        </dt>
+                        <dd
+                          className={cn(
+                            "mt-0.5 font-mono font-semibold",
+                            isLight ? "text-slate-950" : "text-cyan-200/90",
+                          )}
+                        >
                           {display}
                         </dd>
                       </div>
@@ -571,10 +711,20 @@ export default function TindakanDetailDrawer({
 
               <section className="space-y-2">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-400/75">
+                  <p
+                    className={cn(
+                      "text-[11px] font-bold uppercase tracking-wide",
+                      isLight ? "text-cyan-900" : "text-cyan-400/75",
+                    )}
+                  >
                     Riwayat tindakan pasien
                   </p>
-                  <p className="text-[10px] text-gray-500">
+                  <p
+                    className={cn(
+                      "text-[10px] font-medium",
+                      isLight ? "text-slate-600" : "text-gray-500",
+                    )}
+                  >
                     {displayRecord.no_rm
                       ? `No. RM ${String(displayRecord.no_rm).trim()}`
                       : displayRecord.pasien_id
@@ -583,7 +733,14 @@ export default function TindakanDetailDrawer({
                   </p>
                 </div>
                 {riwayatPasienRows.length === 0 ? (
-                  <p className="rounded-lg border border-dashed border-cyan-900/45 bg-black/20 px-3 py-3 text-xs text-gray-500">
+                  <p
+                    className={cn(
+                      "rounded-lg border border-dashed px-3 py-3 text-xs font-medium",
+                      isLight
+                        ? "border-cyan-400/50 bg-white text-slate-700"
+                        : "border-cyan-900/45 bg-black/20 text-gray-500",
+                    )}
+                  >
                     Tidak ada baris lain yang cocok dengan RM / ID pasien ini
                     dalam snapshot data saat ini. Muat ulang daftar bila perlu.
                   </p>
@@ -597,14 +754,24 @@ export default function TindakanDetailDrawer({
                       return (
                         <li
                           key={rid || `peer-${idx}-${r.tanggal ?? ""}`}
-                          className={`rounded-xl border px-3 py-2.5 text-sm ${
+                          className={cn(
+                            "rounded-xl border px-3 py-2.5 text-sm font-semibold",
                             isCurrent
-                              ? "border-cyan-400/50 bg-cyan-950/35 shadow-[0_0_0_1px_rgba(34,211,238,0.12)]"
-                              : "border-cyan-900/40 bg-black/25"
-                          }`}
+                              ? isLight
+                                ? "border-cyan-500/50 bg-cyan-100/90 shadow-sm"
+                                : "border-cyan-400/50 bg-cyan-950/35 shadow-[0_0_0_1px_rgba(34,211,238,0.12)]"
+                              : isLight
+                                ? "border-cyan-200/80 bg-white"
+                                : "border-cyan-900/40 bg-black/25",
+                          )}
                         >
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-mono text-xs text-cyan-300/90">
+                            <span
+                              className={cn(
+                                "font-mono text-xs font-bold",
+                                isLight ? "text-cyan-900" : "text-cyan-300/90",
+                              )}
+                            >
                               {formatFieldValue(
                                 "tanggal_tindakan",
                                 getWireframeFieldValue(
@@ -614,32 +781,72 @@ export default function TindakanDetailDrawer({
                               )}
                             </span>
                             {isCurrent ? (
-                              <span className="rounded border border-cyan-500/40 bg-cyan-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-200">
+                              <span
+                                className={cn(
+                                  "rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                                  isLight
+                                    ? "border-cyan-600/40 bg-cyan-200/80 text-cyan-950"
+                                    : "border-cyan-500/40 bg-cyan-500/15 text-cyan-200",
+                                )}
+                              >
                                 Kasus ini
                               </span>
                             ) : null}
                           </div>
-                          <p className="mt-1 font-medium text-cyan-50/95">
+                          <p
+                            className={cn(
+                              "mt-1 font-bold",
+                              isLight ? "text-slate-950" : "text-cyan-50/95",
+                            )}
+                          >
                             {r.tindakan?.trim() || "—"}
                           </p>
-                          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-400">
+                          <div
+                            className={cn(
+                              "mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium",
+                              isLight ? "text-slate-700" : "text-gray-400",
+                            )}
+                          >
                             <span>
-                              <span className="text-gray-600">Dokter:</span>{" "}
+                              <span
+                                className={
+                                  isLight ? "text-slate-900" : "text-gray-600"
+                                }
+                              >
+                                Dokter:
+                              </span>{" "}
                               {r.dokter?.trim() || "—"}
                             </span>
                             <span>
-                              <span className="text-gray-600">Ruangan:</span>{" "}
+                              <span
+                                className={
+                                  isLight ? "text-slate-900" : "text-gray-600"
+                                }
+                              >
+                                Ruangan:
+                              </span>{" "}
                               {r.ruangan?.trim() || "—"}
                             </span>
                             {r.kategori?.trim() ? (
                               <span>
-                                <span className="text-gray-600">Kategori:</span>{" "}
+                                <span
+                                  className={
+                                    isLight ? "text-slate-900" : "text-gray-600"
+                                  }
+                                >
+                                  Kategori:
+                                </span>{" "}
                                 {r.kategori.trim()}
                               </span>
                             ) : null}
                           </div>
                           {rid ? (
-                            <p className="mt-1 font-mono text-[10px] text-gray-600">
+                            <p
+                              className={cn(
+                                "mt-1 font-mono text-[10px] font-semibold",
+                                isLight ? "text-slate-600" : "text-gray-600",
+                              )}
+                            >
                               ID {rid}
                             </p>
                           ) : null}
@@ -653,11 +860,16 @@ export default function TindakanDetailDrawer({
           ) : (
             <>
               {WIREFRAME_DRAWER_TABS.filter((x) => x.id === tab).map((def) => (
-                <div key={def.id} className="space-y-3">
-                  <h3 className="text-xs font-mono uppercase tracking-wider text-cyan-500/80">
+                <div key={def.id} className="space-y-1.5">
+                  <h3
+                    className={cn(
+                      "text-[10px] font-mono font-bold uppercase tracking-wider",
+                      isLight ? "text-cyan-800" : "text-cyan-500/75",
+                    )}
+                  >
                     {def.label}
                   </h3>
-                  <dl className="grid grid-cols-1 gap-3 text-sm">
+                  <dl className="grid grid-cols-1 gap-1.5 text-sm font-semibold">
                     {def.fields.map((key) => {
                       const rawVal = getWireframeFieldValue(
                         displayRecord as unknown as Record<string, unknown>,
@@ -702,12 +914,27 @@ export default function TindakanDetailDrawer({
                       return (
                         <div
                           key={key}
-                          className="rounded-lg border border-cyan-900/40 bg-black/30 px-3 py-2"
+                          className={cn(
+                            "rounded-md border px-2 py-1.5",
+                            isLight
+                              ? "border-cyan-200/80 bg-white shadow-sm"
+                              : "border-cyan-900/25 bg-black/25",
+                          )}
                         >
-                          <dt className="text-[11px] text-gray-500">
+                          <dt
+                            className={cn(
+                              "text-[10px] font-bold leading-tight",
+                              isLight ? "text-slate-600" : "text-gray-500",
+                            )}
+                          >
                             {FIELD_LABELS[key] ?? key}
                           </dt>
-                          <dd className="mt-0.5 text-cyan-100/95 break-words">
+                          <dd
+                            className={cn(
+                              "mt-0.5 text-[13px] font-semibold leading-snug break-words",
+                              isLight ? "text-slate-950" : "text-cyan-100/95",
+                            )}
+                          >
                             {isRadiologiEditable ? (
                               <RadiologiAutosaveField
                                 tindakanId={tindakanId}
@@ -734,7 +961,14 @@ export default function TindakanDetailDrawer({
                               !canPatchTindakan ? (
                               <div>
                                 <span>{formatFieldValue(key, rawVal)}</span>
-                                <p className="mt-1 text-[11px] text-amber-200/75">
+                                <p
+                                  className={cn(
+                                    "mt-1 text-[11px] font-medium",
+                                    isLight
+                                      ? "text-amber-900"
+                                      : "text-amber-200/75",
+                                  )}
+                                >
                                   Baris tanpa ID kasus yang valid — isian biaya
                                   tidak dapat disimpan dari sini.
                                 </p>
@@ -774,7 +1008,14 @@ export default function TindakanDetailDrawer({
                             ) : key === "kategori" && !tindakanId ? (
                               <div>
                                 <span>{formatFieldValue(key, rawVal)}</span>
-                                <p className="mt-1 text-[11px] text-amber-200/75">
+                                <p
+                                  className={cn(
+                                    "mt-1 text-[11px] font-medium",
+                                    isLight
+                                      ? "text-amber-900"
+                                      : "text-amber-200/75",
+                                  )}
+                                >
                                   Baris tanpa ID kasus — kategori tidak dapat
                                   disimpan dari sini.
                                 </p>

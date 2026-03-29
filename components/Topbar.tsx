@@ -7,8 +7,9 @@ import {
 } from "framer-motion";
 import { useUI } from "@/contexts/UIContext";
 import { useSession } from "@/contexts/SessionContext";
-import { LogOut, Loader2 } from "lucide-react";
+import { LogOut, Loader2, Sun, Moon } from "lucide-react";
 import HoloSettingsPanel from "@/components/HoloSettingsPanel";
+import { useTheme } from "@/contexts/ThemeContext";
 import { ToolbarNotificationBell } from "@/app/dashboard/pasien/components/toolbar/ToolbarNotificationBell";
 
 const LOGOUT_REDIRECT_PATH = "/";
@@ -40,7 +41,9 @@ export default function Topbar() {
     themeMode,
     setShowLogoutAnim,
   } = useUI();
+  const { theme, toggleTheme } = useTheme();
   const { username, resetSession } = useSession();
+  const isLight = theme === "light";
 
   const [mounted, setMounted] = useState(false);
   const [time, setTime] = useState("--:--:--");
@@ -156,9 +159,10 @@ export default function Topbar() {
     navigator.vibrate?.(25);
   };
 
-  /* 🎨 Theme Style */
-  const themeStyles =
-    THEME_STYLES[themeMode] ?? THEME_STYLES["dark-clinical"];
+  /* 🎨 Theme Style — mode siang pakai header terang; malam ikut themeMode (gold-cyan / dll.) */
+  const themeStyles = isLight
+    ? THEME_STYLES["neo-white"]
+    : THEME_STYLES[themeMode] ?? THEME_STYLES["dark-clinical"];
   const { glow: themeGlow, gradient: gradientClass } = themeStyles;
 
   if (!mounted)
@@ -178,8 +182,8 @@ export default function Topbar() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className={`relative z-[350] flex items-center justify-between gap-2 min-w-0
           px-2.5 py-2 sm:px-4 sm:py-2.5 md:px-5 md:py-3
-          border-b border-cyan-500/30 bg-gradient-to-r ${gradientClass}
-          backdrop-blur-2xl text-gray-200 ${themeGlow}
+          border-b ${isLight ? "border-cyan-600/25" : "border-cyan-500/30"} bg-gradient-to-r ${gradientClass}
+          backdrop-blur-2xl ${isLight ? "text-slate-800" : "text-gray-200"} ${themeGlow}
           transition-all duration-500 ease-in-out select-none overflow-hidden md:overflow-visible`}
       >
         {/* ✨ Portal Sweep */}
@@ -196,7 +200,11 @@ export default function Topbar() {
             whileHover={{ scale: 1.06 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleJarvisToggle}
-            className="p-2 relative rounded-lg border border-cyan-500/30 bg-black/10 hover:bg-cyan-500/10 transition flex-shrink-0"
+            className={`p-2 relative rounded-lg border transition flex-shrink-0 ${
+              isLight
+                ? "border-cyan-600/30 bg-white/50 hover:bg-cyan-100/60"
+                : "border-cyan-500/30 bg-black/10 hover:bg-cyan-500/10"
+            }`}
             title="Buka/tutup sidebar (JARVIS)"
             aria-label="Buka atau tutup sidebar"
           >
@@ -218,16 +226,36 @@ export default function Topbar() {
         {/* 🏥 Judul: IDIK di mobile, lengkap di desktop */}
         <div className="flex-1 text-center min-w-0">
           {isMobile ? (
-            <h1 className="font-bold tracking-widest text-cyan-300 text-base drop-shadow-[0_0_6px_#00e0ff]">
+            <h1
+              className={`font-bold tracking-widest text-base ${
+                isLight
+                  ? "text-cyan-800"
+                  : "text-cyan-300 drop-shadow-[0_0_6px_#00e0ff]"
+              }`}
+            >
               IDIK
             </h1>
           ) : (
             <>
-              <h1 className="font-bold tracking-wide text-cyan-300 text-sm md:text-base drop-shadow-[0_0_6px_#00e0ff]">
+              <h1
+                className={`font-extrabold tracking-wide text-sm md:text-base ${
+                  isLight
+                    ? "text-cyan-950"
+                    : "text-cyan-300 drop-shadow-[0_0_6px_#00e0ff]"
+                }`}
+              >
                 Instalasi Diagnostik Intervensi{" "}
-                <span className="text-amber-400">Kardiovaskular</span>
+                <span
+                  className={isLight ? "text-amber-800 font-extrabold" : "text-amber-400 font-extrabold"}
+                >
+                  Kardiovaskular
+                </span>
               </h1>
-              <p className="text-[10px] md:text-xs text-gray-400 font-semibold tracking-widest mt-0.5">
+              <p
+                className={`text-[10px] md:text-xs font-bold tracking-widest mt-0.5 ${
+                  isLight ? "text-slate-800" : "text-gray-400"
+                }`}
+              >
                 RSUD dr. M. Soewandhie – Surabaya
               </p>
             </>
@@ -237,10 +265,20 @@ export default function Topbar() {
         {/* ⏱ Info Waktu + User + Settings */}
         <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 min-w-0 max-w-[48%] sm:max-w-none">
           <div className="text-right leading-tight relative hidden min-[400px]:block min-w-0">
-            <p className="text-cyan-400 font-semibold text-[11px] sm:text-xs md:text-sm truncate max-w-[9rem] sm:max-w-none">
+            <p
+              className={`font-bold text-[11px] sm:text-xs md:text-sm truncate max-w-[9rem] sm:max-w-none ${
+                isLight ? "text-cyan-950" : "text-cyan-400"
+              }`}
+            >
               {`${day}, ${date}`}
             </p>
-            <p className="text-gray-300 font-mono text-[11px] sm:text-xs md:text-sm">{time}</p>
+            <p
+              className={`font-mono font-semibold text-[11px] sm:text-xs md:text-sm ${
+                isLight ? "text-slate-900" : "text-gray-300"
+              }`}
+            >
+              {time}
+            </p>
             <span
               className={`absolute -right-3 top-1 sm:-right-4 sm:top-1.5 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${
                 isOnline
@@ -252,13 +290,40 @@ export default function Topbar() {
           </div>
           {/* Waktu ringkas di layar sangat sempit */}
           <div className="text-right leading-none min-[400px]:hidden sm:hidden flex-shrink-0">
-            <p className="text-gray-300 font-mono text-[10px] text-cyan-200/90">{time}</p>
+            <p
+              className={`font-mono text-[10px] ${
+                isLight ? "text-slate-600" : "text-gray-300 text-cyan-200/90"
+              }`}
+            >
+              {time}
+            </p>
           </div>
 
-          <div className="flex items-center gap-1 sm:gap-2 md:gap-3 border-l border-cyan-700/40 pl-1.5 sm:pl-3 md:pl-4 min-w-0">
+          <div
+            className={`flex items-center gap-1 sm:gap-2 md:gap-3 border-l pl-1.5 sm:pl-3 md:pl-4 min-w-0 ${
+              isLight ? "border-cyan-600/30" : "border-cyan-700/40"
+            }`}
+          >
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={toggleTheme}
+              title={isLight ? "Mode malam" : "Mode siang"}
+              aria-label={isLight ? "Aktifkan mode malam" : "Aktifkan mode siang"}
+              className={`p-2 rounded-lg border transition flex-shrink-0 ${
+                isLight
+                  ? "border-cyan-600/35 bg-white/60 text-amber-600 hover:bg-amber-50"
+                  : "border-cyan-500/35 bg-cyan-500/10 text-amber-300 hover:bg-cyan-500/20"
+              }`}
+            >
+              {isLight ? <Moon size={18} /> : <Sun size={18} />}
+            </motion.button>
             <ToolbarNotificationBell />
             <span
-              className="font-semibold tracking-wide text-[11px] sm:text-xs md:text-sm text-cyan-300 truncate max-w-[4.5rem] min-[380px]:max-w-[6rem] sm:max-w-[10rem] md:max-w-[14rem]"
+              className={`font-bold tracking-wide text-[11px] sm:text-xs md:text-sm truncate max-w-[4.5rem] min-[380px]:max-w-[6rem] sm:max-w-[10rem] md:max-w-[14rem] ${
+                isLight ? "text-cyan-950" : "text-cyan-300"
+              }`}
               title={username}
             >
               {username}
@@ -271,7 +336,11 @@ export default function Topbar() {
               disabled={loggingOut}
               aria-label={loggingOut ? "Sedang logout…" : "Logout"}
               aria-busy={loggingOut}
-              className="p-2 rounded-full bg-cyan-600/20 hover:bg-gradient-to-r hover:from-cyan-500/30 hover:to-amber-400/30 text-cyan-300 shadow-[0_0_10px_rgba(0,255,255,0.3)] transition-all disabled:opacity-80"
+              className={`p-2 rounded-full transition-all disabled:opacity-80 ${
+                isLight
+                  ? "bg-cyan-600/15 hover:bg-cyan-600/25 text-cyan-800 shadow-sm"
+                  : "bg-cyan-600/20 hover:bg-gradient-to-r hover:from-cyan-500/30 hover:to-amber-400/30 text-cyan-300 shadow-[0_0_10px_rgba(0,255,255,0.3)]"
+              }`}
               title={loggingOut ? "Sedang logout…" : "Logout"}
             >
               {loggingOut ? (

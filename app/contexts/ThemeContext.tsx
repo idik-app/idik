@@ -16,22 +16,31 @@ interface ThemeContextProps {
 
 const ThemeContext = createContext<ThemeContextProps | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("light");
+function readThemeFromDocument(): Theme {
+  if (typeof document === "undefined") return "dark";
+  return document.documentElement.classList.contains("light")
+    ? "light"
+    : "dark";
+}
 
-  // Deteksi awal: dari localStorage atau preferensi OS
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  /** Selaras dengan skrip beforeInteractive di layout (class di elemen html). */
+  const [theme, setTheme] = useState<Theme>(() =>
+    typeof window === "undefined" ? "dark" : readThemeFromDocument()
+  );
+
   useEffect(() => {
-    const saved =
-      (localStorage.getItem("theme") as Theme) ||
-      (window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light");
-    setTheme(saved);
-    document.documentElement.classList.remove("light", "dark");
-    document.documentElement.classList.add(saved);
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== "theme" || !e.newValue) return;
+      if (e.newValue !== "light" && e.newValue !== "dark") return;
+      setTheme(e.newValue);
+      document.documentElement.classList.remove("light", "dark");
+      document.documentElement.classList.add(e.newValue);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  // Fungsi toggle
   const toggleTheme = () => {
     const newTheme: Theme = theme === "dark" ? "light" : "dark";
     setTheme(newTheme);

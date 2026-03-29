@@ -19,6 +19,8 @@ import {
 
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { useAppDialog } from "@/contexts/AppDialogContext";
+import { cn } from "@/lib/utils";
+import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 import {
   PasienCombobox,
   formatPasienLabel,
@@ -26,7 +28,10 @@ import {
 } from "@/components/ui/pasien-combobox";
 import {
   DoctorCombobox,
+  canonicalDoctorDisplayValue,
+  canonicalDoctorStoredValue,
   formatDoctorLabel,
+  resolveDoctorFromLooseInput,
   type DoctorOption,
 } from "@/components/ui/doctor-combobox";
 import {
@@ -123,6 +128,7 @@ function recordSearchHaystack(r: TindakanJoinResult): string {
 function rowSearchHaystack(
   r: TindakanJoinResult,
   pasienOptions: PasienOption[],
+  doctorOptions?: DoctorOption[],
 ): string {
   const base = recordSearchHaystack(r);
   const raw = r as unknown as Record<string, unknown>;
@@ -131,7 +137,15 @@ function rowSearchHaystack(
   let extra = "";
   if (jk === "L") extra = " laki-laki laki l";
   else if (jk === "P") extra = " perempuan wanita p";
-  return (base + extra).toLowerCase();
+  let docCanon = "";
+  if (doctorOptions?.length) {
+    const canon = canonicalDoctorDisplayValue(
+      doctorOptions,
+      String(r.dokter ?? ""),
+    );
+    if (canon) docCanon = ` ${canon.toLowerCase()}`;
+  }
+  return (base + docCanon + extra).toLowerCase();
 }
 
 function normalizeIdikToken(v: unknown): string {
@@ -340,6 +354,7 @@ function buildPriorTindakanListForRow(
   byRm: Map<string, TindakanJoinResult[]>,
   pasienLabelByRowId: Record<string, string>,
   pasienOptions: PasienOption[],
+  doctorMaster: DoctorOption[],
 ): PriorTindakanEntry[] {
   const id = String(rec.id ?? "").trim();
   const { digits } = resolveShownRmForRow(
@@ -354,10 +369,15 @@ function buildPriorTindakanListForRow(
     const tRaw = String(row.tanggal ?? "").trim();
     const iso = extractCalendarDateKey(tRaw) ?? "";
     const sortKey = iso || tRaw;
+    const dokterRaw = String(row.dokter ?? "").trim();
+    const dokterDisp =
+      doctorMaster.length > 0
+        ? canonicalDoctorDisplayValue(doctorMaster, dokterRaw)
+        : dokterRaw;
     return {
       tindakan: rowTindakanLabel(row) || "—",
       tanggalDisp: formatTanggalDdMmYyyy(tRaw),
-      dokter: String(row.dokter ?? "").trim() || "—",
+      dokter: dokterDisp || "—",
       sortKey,
     };
   });
@@ -476,23 +496,6 @@ function mapApiDoctorRow(r: Record<string, unknown>): DoctorOption | null {
   };
 }
 
-function resolveDoctorFromLabel(
-  options: DoctorOption[],
-  label: string,
-): DoctorOption | null {
-  const t = label.trim();
-  if (!t) return null;
-  // Exact label match first (Nama, Spesialis).
-  for (const d of options) {
-    if (formatDoctorLabel(d) === t) return d;
-  }
-  // Fallback: match by nama only.
-  for (const d of options) {
-    if (String(d.nama_dokter ?? "").trim() === t) return d;
-  }
-  return null;
-}
-
 function EditableMasterTindakanCell({
   value,
   masterOptions,
@@ -555,6 +558,7 @@ function EditableDateCell({
   value: string;
   onCommit: (next: string) => Promise<boolean>;
 }) {
+  const isLight = useTindakanLightMode();
   /** `type="date"` hanya menerima YYYY-MM-DD; tanggal dari DB sering "28-Jan-2023" → kalender error / tidak bisa navigasi. */
   const normalizedValue =
     extractCalendarDateKey(String(value ?? "").trim()) ?? "";
@@ -601,7 +605,12 @@ function EditableDateCell({
           setDraft(normalizedValue);
         }
       }}
-      className="w-full min-w-[8.5rem] rounded border border-cyan-700/50 bg-black/40 px-2 py-1 text-xs text-cyan-100 focus:outline-none [color-scheme:dark]"
+      className={cn(
+        "w-full min-w-[8.5rem] rounded border px-2 py-1 text-xs font-semibold focus:outline-none",
+        isLight
+          ? "border-cyan-400/55 bg-white text-slate-950 [color-scheme:light]"
+          : "border-cyan-700/50 bg-black/40 text-cyan-100 [color-scheme:dark]",
+      )}
     />
   );
 }
@@ -668,6 +677,7 @@ function EditableDokterCell({
   options: string[];
   onCommit: (next: string) => Promise<boolean>;
 }) {
+  const isLight = useTindakanLightMode();
   const [draft, setDraft] = useState(value.trim());
   const [saving, setSaving] = useState(false);
 
@@ -699,7 +709,12 @@ function EditableDokterCell({
         setSaving(false);
         if (!ok) setDraft(value.trim());
       }}
-      className="w-full rounded border border-cyan-700/50 bg-black/40 px-2 py-1 text-xs text-cyan-100 focus:outline-none"
+      className={cn(
+        "w-full rounded border px-2 py-1 text-xs font-semibold focus:outline-none",
+        isLight
+          ? "border-cyan-400/55 bg-white text-slate-950 [color-scheme:light]"
+          : "border-cyan-700/50 bg-black/40 text-cyan-100",
+      )}
     >
       {!draft ? <option value="">Pilih dokter</option> : null}
       {options.map((d) => (
@@ -737,6 +752,7 @@ export default function TindakanTable({
   } = adapter;
   const { show: notify } = useNotification();
   const { confirm: appConfirm } = useAppDialog();
+  const isLight = useTindakanLightMode();
 
   const [search, setSearch] = useState("");
   const debouncedSearchTrim = useDebouncedValue(search.trim(), 280);
@@ -976,12 +992,16 @@ export default function TindakanTable({
 
   const dokterOptions = useMemo(() => {
     const set = new Set<string>();
+    const master = doctorOptionsMaster;
     for (const r of dokterSourceRows) {
       const d = String(r.dokter ?? "").trim();
-      if (d) set.add(d);
+      if (!d) continue;
+      const canon =
+        master.length > 0 ? canonicalDoctorStoredValue(master, d) : d;
+      set.add(canon);
     }
     return [...set].sort((a, b) => a.localeCompare(b, "id"));
-  }, [dokterSourceRows]);
+  }, [dokterSourceRows, doctorOptionsMaster]);
 
   const doctorOptionsForPemakaianModal = useMemo(
     () =>
@@ -1173,7 +1193,11 @@ export default function TindakanTable({
       initialPasienLabel:
         pasienLabelByRowId[id] ?? buildPasienLabelFromRow(raw),
       initialDokter:
-        doctorLabelByRowId[id] ?? String(pemakaianModalRow.dokter ?? ""),
+        doctorLabelByRowId[id] ??
+        canonicalDoctorDisplayValue(
+          doctorOptionsMaster,
+          String(pemakaianModalRow.dokter ?? ""),
+        ),
       initialRuangan: String(pemakaianModalRow.ruangan ?? ""),
       initialCatatan: catatan,
       tindakanId: tindakanIdForApi,
@@ -1183,6 +1207,7 @@ export default function TindakanTable({
     pemakaianModalRow,
     pasienLabelByRowId,
     doctorLabelByRowId,
+    doctorOptionsMaster,
     pemakaianOrderByTindakanId,
   ]);
 
@@ -1235,7 +1260,16 @@ export default function TindakanTable({
       );
     }
     if (filterDokter) {
-      list = list.filter((r) => String(r.dokter ?? "").trim() === filterDokter);
+      const master = doctorOptionsMaster;
+      list = list.filter((r) => {
+        const rowD = String(r.dokter ?? "").trim();
+        if (rowD === filterDokter) return true;
+        if (!master.length) return false;
+        return (
+          canonicalDoctorStoredValue(master, rowD) ===
+          canonicalDoctorStoredValue(master, filterDokter)
+        );
+      });
     }
     if (filterRuangan) {
       list = list.filter(
@@ -1255,7 +1289,9 @@ export default function TindakanTable({
     }
     const q = debouncedSearchTrim.toLowerCase();
     if (q) {
-      list = list.filter((r) => rowSearchHaystack(r, pasienOptions).includes(q));
+      list = list.filter((r) =>
+        rowSearchHaystack(r, pasienOptions, doctorOptionsMaster).includes(q),
+      );
     }
     if ((pasienId || rmOrQuery) && list.length === 0) {
       // Fallback: schema/kolom tindakan antar environment kadang berbeda.
@@ -1294,6 +1330,7 @@ export default function TindakanTable({
     filterTanggalTo,
     pasienOptions,
     debouncedSearchTrim,
+    doctorOptionsMaster,
   ]);
 
   useEffect(() => {
@@ -1351,6 +1388,7 @@ export default function TindakanTable({
         byRm,
         pasienLabelByRowId,
         pasienOptions,
+        doctorOptionsMaster,
       ),
     );
   }, [
@@ -1358,6 +1396,7 @@ export default function TindakanTable({
     pagedRecords,
     pasienLabelByRowId,
     pasienOptions,
+    doctorOptionsMaster,
   ]);
 
   const emptyMessage = useMemo(() => {
@@ -1571,7 +1610,7 @@ export default function TindakanTable({
 
   return (
     <TableContainer>
-      <div className="flex h-full min-h-0 max-h-full flex-1 flex-col min-w-0">
+      <div className="relative z-10 flex h-full min-h-0 max-h-full flex-1 flex-col min-w-0">
         <TableToolbar
           onSearch={setSearch}
           onRefresh={refresh}
@@ -1588,12 +1627,29 @@ export default function TindakanTable({
         />
 
         {error ? (
-          <div className="mb-3 rounded-xl border border-red-900/40 bg-red-950/25 px-4 py-3 text-sm text-red-200">
-            <div className="font-medium">Gagal memuat data tindakan</div>
-            <div className="mt-0.5 text-[12px] text-red-200/80">
+          <div
+            className={cn(
+              "mb-3 rounded-xl border px-4 py-3 text-sm",
+              isLight
+                ? "border-red-300/70 bg-red-50 text-red-900"
+                : "border-red-900/40 bg-red-950/25 text-red-200",
+            )}
+          >
+            <div className="font-bold">Gagal memuat data tindakan</div>
+            <div
+              className={cn(
+                "mt-0.5 text-[12px]",
+                isLight ? "text-red-800/90" : "text-red-200/80",
+              )}
+            >
               {extractErrorMessage(error)}
             </div>
-            <div className="mt-2 text-[11px] text-red-200/70 font-mono">
+            <div
+              className={cn(
+                "mt-2 text-[11px] font-mono",
+                isLight ? "text-red-800/75" : "text-red-200/70",
+              )}
+            >
               Sumber: `GET /api/tindakan?limit=8000` (butuh login & Supabase
               service role).
             </div>
@@ -1601,40 +1657,102 @@ export default function TindakanTable({
         ) : null}
 
         {loading ? (
-          <div className="flex min-h-0 flex-1 items-center justify-center py-6 text-cyan-300 text-sm">
+          <div
+            className={cn(
+              "flex min-h-0 flex-1 items-center justify-center py-6 text-sm font-semibold",
+              isLight ? "text-cyan-950" : "text-cyan-300",
+            )}
+          >
             Memuat tindakan…
           </div>
         ) : (
           <>
-            <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-cyan-900/35 bg-black/25">
-              <table className="w-full min-w-[1120px] text-sm border-separate border-spacing-0">
+            <div
+              className={cn(
+                "min-h-0 flex-1 overflow-auto",
+                isLight ? "bg-white/85" : "bg-black/20",
+              )}
+            >
+              <table className="w-full min-w-[1120px] text-sm font-semibold border-separate border-spacing-0">
                 <thead className="sticky top-0 z-10">
-                  <tr className="border-b border-cyan-800/40 bg-black/80 text-center backdrop-blur">
-                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap w-10">
+                  <tr
+                    className={cn(
+                      "border-b text-center",
+                      isLight
+                        ? "border-cyan-200/70 bg-slate-100/95"
+                        : "border-cyan-800/40 bg-black/80",
+                    )}
+                  >
+                    <th
+                      className={cn(
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap w-10",
+                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                      )}
+                    >
                       No
                     </th>
-                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
+                    <th
+                      className={cn(
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                      )}
+                    >
                       Tanggal
                     </th>
-                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
+                    <th
+                      className={cn(
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                      )}
+                    >
                       RM
                     </th>
-                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
+                    <th
+                      className={cn(
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
+                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                      )}
+                    >
                       Nama pasien
                     </th>
-                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
+                    <th
+                      className={cn(
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                      )}
+                    >
                       Jenis kelamin
                     </th>
-                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
+                    <th
+                      className={cn(
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
+                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                      )}
+                    >
                       Dokter
                     </th>
-                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
+                    <th
+                      className={cn(
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
+                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                      )}
+                    >
                       Tindakan
                     </th>
-                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 min-w-[10rem]">
+                    <th
+                      className={cn(
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
+                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                      )}
+                    >
                       Ruangan
                     </th>
-                    <th className="px-2 sm:px-2.5 py-1.5 font-mono text-[9px] sm:text-[10px] uppercase tracking-wider text-cyan-500/90 whitespace-nowrap">
+                    <th
+                      className={cn(
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                      )}
+                    >
                       Aksi
                     </th>
                   </tr>
@@ -1644,7 +1762,10 @@ export default function TindakanTable({
                     <tr>
                       <td
                         colSpan={9}
-                        className="px-4 py-10 text-center text-cyan-500/70"
+                        className={cn(
+                          "px-4 py-10 text-center font-semibold",
+                          isLight ? "text-cyan-950/90" : "text-cyan-500/70",
+                        )}
                       >
                         <div className="flex flex-col items-center gap-3">
                           <span>{emptyMessage}</span>
@@ -1653,7 +1774,12 @@ export default function TindakanTable({
                               type="button"
                               onClick={() => void handleCreateForActivePasien()}
                               disabled={creatingForPasien}
-                              className="inline-flex items-center gap-1.5 rounded-md border border-cyan-700/50 bg-cyan-950/30 px-3 py-1.5 text-xs text-cyan-200 transition hover:bg-cyan-900/40 disabled:cursor-not-allowed disabled:opacity-50"
+                              className={cn(
+                                "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-50",
+                                isLight
+                                  ? "border-cyan-500/45 bg-cyan-100/90 text-cyan-900 hover:bg-cyan-200/80"
+                                  : "border-cyan-700/50 bg-cyan-950/30 text-cyan-200 hover:bg-cyan-900/40",
+                              )}
                             >
                               <Plus size={13} />
                               {creatingForPasien
@@ -1718,22 +1844,40 @@ export default function TindakanTable({
                           }}
                           role={id ? "button" : undefined}
                           tabIndex={id ? 0 : undefined}
-                          className={`group border-b border-cyan-900/25 transition-all duration-200 ${
-                            isDuplicateRm
-                              ? "bg-amber-950/35 border-l-[3px] border-l-amber-500/65 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.14)] "
-                              : ""
-                          }${
+                          className={cn(
+                            "group border-b transition-all duration-200",
+                            isLight
+                              ? "border-cyan-200/70"
+                              : "border-cyan-900/25",
+                            isDuplicateRm &&
+                              (isLight
+                                ? "bg-amber-100/75 border-l-[3px] border-l-amber-500 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.2)]"
+                                : "bg-amber-950/35 border-l-[3px] border-l-amber-500/65 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.14)]"),
                             id
                               ? isDuplicateRm
-                                ? "cursor-pointer hover:bg-amber-950/45 hover:shadow-[inset_2px_0_0_rgba(245,158,11,0.5)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500/50"
-                                : "cursor-pointer hover:bg-cyan-950/30 hover:shadow-[inset_2px_0_0_rgba(34,211,238,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500/50"
-                              : "opacity-60"
-                          }`}
+                                ? isLight
+                                  ? "cursor-pointer hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600/50"
+                                  : "cursor-pointer hover:bg-amber-950/45 hover:shadow-[inset_2px_0_0_rgba(245,158,11,0.5)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500/50"
+                                : isLight
+                                  ? "cursor-pointer hover:bg-cyan-50/90 hover:shadow-[inset_2px_0_0_rgba(6,182,212,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600/50"
+                                  : "cursor-pointer hover:bg-cyan-950/30 hover:shadow-[inset_2px_0_0_rgba(34,211,238,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500/50"
+                              : "opacity-60",
+                          )}
                         >
-                          <td className="px-2 sm:px-2.5 py-1 text-cyan-400/90 whitespace-nowrap font-mono text-[11px] text-center tabular-nums">
+                          <td
+                            className={cn(
+                              "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center tabular-nums",
+                              isLight ? "text-cyan-800" : "text-cyan-400/90",
+                            )}
+                          >
                             {rowNoDesc}
                           </td>
-                          <td className="px-2 sm:px-2.5 py-1 text-cyan-200/95 whitespace-nowrap font-mono text-[11px] text-center align-middle">
+                          <td
+                            className={cn(
+                              "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle",
+                              isLight ? "text-slate-900" : "text-cyan-200/95",
+                            )}
+                          >
                             <div className="mx-auto w-full max-w-[9.5rem]">
                               <EditableDateCell
                                 value={String(rec.tanggal ?? "")}
@@ -1743,7 +1887,12 @@ export default function TindakanTable({
                               />
                             </div>
                           </td>
-                          <td className="px-2 sm:px-2.5 py-1 text-cyan-100 font-mono text-[11px] text-center align-middle">
+                          <td
+                            className={cn(
+                              "px-2 sm:px-2.5 py-1 font-mono text-[11px] text-center align-middle",
+                              isLight ? "text-slate-950" : "text-cyan-100",
+                            )}
+                          >
                             {(() => {
                               const labelRm = extractRmFromLabel(
                                 pasienLabelByRowId[stateKey] ?? "",
@@ -1758,7 +1907,12 @@ export default function TindakanTable({
                               return labelRm || rmFromOpt || rowRm || "—";
                             })()}
                           </td>
-                          <td className="px-2 sm:px-2.5 py-1 text-cyan-100 max-w-[18rem] text-center align-middle">
+                          <td
+                            className={cn(
+                              "px-2 sm:px-2.5 py-1 max-w-[18rem] text-center align-middle",
+                              isLight ? "text-slate-950" : "text-cyan-100",
+                            )}
+                          >
                             <div
                               data-no-row-click="true"
                               onMouseDown={(e) => e.stopPropagation()}
@@ -1799,7 +1953,12 @@ export default function TindakanTable({
                               {!pasienLoading &&
                               pasienOptions.length === 0 &&
                               i === 0 ? (
-                                <p className="mt-0.5 text-[9px] leading-tight text-cyan-500/70">
+                                <p
+                                  className={cn(
+                                    "mt-0.5 text-[9px] leading-tight",
+                                    isLight ? "text-cyan-700/80" : "text-cyan-500/70",
+                                  )}
+                                >
                                   {pasienError
                                     ? "Gagal memuat pasien."
                                     : "Belum ada pasien di database."}
@@ -1807,7 +1966,12 @@ export default function TindakanTable({
                               ) : null}
                             </div>
                           </td>
-                          <td className="px-2 sm:px-2.5 py-1 text-cyan-100/95 text-[11px] text-center align-middle whitespace-nowrap">
+                          <td
+                            className={cn(
+                              "px-2 sm:px-2.5 py-1 text-[11px] text-center align-middle whitespace-nowrap",
+                              isLight ? "text-slate-800" : "text-cyan-100/95",
+                            )}
+                          >
                             {formatJenisKelaminDisplay(
                               resolveJenisKelaminFromRow(
                                 raw,
@@ -1815,7 +1979,12 @@ export default function TindakanTable({
                               ),
                             )}
                           </td>
-                          <td className="px-2 sm:px-2.5 py-1 text-cyan-300/90 max-w-[14rem] text-center align-middle">
+                          <td
+                            className={cn(
+                              "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
+                              isLight ? "text-slate-950" : "text-cyan-300/90",
+                            )}
+                          >
                             <div
                               data-no-row-click="true"
                               onMouseDown={(e) => e.stopPropagation()}
@@ -1827,13 +1996,39 @@ export default function TindakanTable({
                                 listboxId={`tindakan-row-${key}-doctor`}
                                 value={
                                   doctorLabelByRowId[stateKey] ??
-                                  String(rec.dokter ?? "")
+                                  canonicalDoctorDisplayValue(
+                                    doctorOptionsMaster,
+                                    String(rec.dokter ?? ""),
+                                  )
                                 }
                                 onChange={(label) => {
                                   setDoctorLabelByRowId((p) => ({
                                     ...p,
                                     [stateKey]: label,
                                   }));
+                                }}
+                                onInputBlur={(finalText) => {
+                                  if (!id) return;
+                                  const m = doctorOptionsMaster;
+                                  const resolved = m.length
+                                    ? resolveDoctorFromLooseInput(m, finalText)
+                                    : null;
+                                  const persisted = resolved
+                                    ? String(resolved.nama_dokter).trim()
+                                    : finalText.trim();
+                                  const display = resolved
+                                    ? formatDoctorLabel(resolved)
+                                    : finalText.trim();
+                                  const cur = String(rec.dokter ?? "").trim();
+                                  setDoctorLabelByRowId((p) => ({
+                                    ...p,
+                                    [stateKey]: display,
+                                  }));
+                                  if (persisted !== cur) {
+                                    void patchRowField(id, {
+                                      dokter: persisted || null,
+                                    });
+                                  }
                                 }}
                                 onSelectOption={(picked) => {
                                   const canonical = formatDoctorLabel(picked);
@@ -1862,7 +2057,12 @@ export default function TindakanTable({
                               {!doctorLoading &&
                               doctorOptionsMaster.length === 0 &&
                               i === 0 ? (
-                                <p className="mt-0.5 text-[9px] leading-tight text-cyan-500/70">
+                                <p
+                                  className={cn(
+                                    "mt-0.5 text-[9px] leading-tight",
+                                    isLight ? "text-cyan-700/80" : "text-cyan-500/70",
+                                  )}
+                                >
                                   {doctorError
                                     ? "Gagal memuat master dokter."
                                     : "Belum ada dokter di master."}
@@ -1870,7 +2070,12 @@ export default function TindakanTable({
                               ) : null}
                             </div>
                           </td>
-                          <td className="px-2 sm:px-2.5 py-1 text-cyan-200/95 max-w-[14rem] text-center align-middle">
+                          <td
+                            className={cn(
+                              "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
+                              isLight ? "text-slate-950" : "text-cyan-200/95",
+                            )}
+                          >
                             <div
                               data-no-row-click="true"
                               onMouseDown={(e) => e.stopPropagation()}
@@ -1890,7 +2095,12 @@ export default function TindakanTable({
                               {!masterTindakanLoading &&
                               masterTindakanOptions.length === 0 &&
                               i === 0 ? (
-                                <p className="mt-0.5 text-[9px] leading-tight text-cyan-500/70">
+                                <p
+                                  className={cn(
+                                    "mt-0.5 text-[9px] leading-tight",
+                                    isLight ? "text-cyan-700/80" : "text-cyan-500/70",
+                                  )}
+                                >
                                   {masterTindakanError
                                     ? "Gagal memuat master tindakan."
                                     : "Belum ada jenis tindakan di master."}
@@ -1898,7 +2108,12 @@ export default function TindakanTable({
                               ) : null}
                             </div>
                           </td>
-                          <td className="px-2 sm:px-2.5 py-1 text-cyan-300/90 max-w-[14rem] text-center align-middle">
+                          <td
+                            className={cn(
+                              "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
+                              isLight ? "text-slate-950" : "text-cyan-300/90",
+                            )}
+                          >
                             <div
                               data-no-row-click="true"
                               onMouseDown={(e) => e.stopPropagation()}
@@ -1916,7 +2131,12 @@ export default function TindakanTable({
                               {!ruanganLoading &&
                               ruanganMaster.length === 0 &&
                               i === 0 ? (
-                                <p className="mt-0.5 text-[9px] leading-tight text-cyan-500/70">
+                                <p
+                                  className={cn(
+                                    "mt-0.5 text-[9px] leading-tight",
+                                    isLight ? "text-cyan-700/80" : "text-cyan-500/70",
+                                  )}
+                                >
                                   {ruanganError
                                     ? "Gagal memuat master ruangan."
                                     : "Belum ada ruangan di master."}
@@ -1933,7 +2153,12 @@ export default function TindakanTable({
                               {id && pemakaianOrderByTindakanId[id] ? (
                                 <button
                                   type="button"
-                                  className="inline-flex items-center gap-1 rounded-md border border-amber-800/50 bg-amber-950/35 px-1.5 py-0.5 text-[10px] font-medium text-amber-200/95 transition-all hover:border-amber-600/45 hover:bg-amber-900/30"
+                                  className={cn(
+                                    "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-all",
+                                    isLight
+                                      ? "border-amber-600/45 bg-amber-100/90 text-amber-950 hover:bg-amber-200/80"
+                                      : "border-amber-800/50 bg-amber-950/35 text-amber-200/95 hover:border-amber-600/45 hover:bg-amber-900/30",
+                                  )}
                                   title="Edit pemakaian alkes (order sudah ada)"
                                   aria-label="Edit pemakaian"
                                   onClick={(e) => {
@@ -1949,7 +2174,12 @@ export default function TindakanTable({
                               ) : (
                                 <button
                                   type="button"
-                                  className="inline-flex items-center gap-1 rounded-md border border-cyan-800/50 bg-cyan-950/40 px-1.5 py-0.5 text-[10px] font-medium text-cyan-200/95 transition-all hover:border-cyan-600/40 hover:bg-cyan-900/35"
+                                  className={cn(
+                                    "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-all",
+                                    isLight
+                                      ? "border-cyan-600/45 bg-cyan-100/90 text-cyan-950 hover:bg-cyan-200/75"
+                                      : "border-cyan-800/50 bg-cyan-950/40 text-cyan-200/95 hover:border-cyan-600/40 hover:bg-cyan-900/35",
+                                  )}
                                   title="Input pemakaian barang"
                                   aria-label="Pemakaian"
                                   onClick={(e) => {
@@ -1966,7 +2196,12 @@ export default function TindakanTable({
                               <button
                                 type="button"
                                 disabled={!id || deletingId === id}
-                                className="inline-flex items-center gap-1 rounded-md border border-red-900/45 bg-red-950/25 px-1.5 py-0.5 text-[10px] font-medium text-red-300/95 transition-all hover:bg-red-950/45 disabled:pointer-events-none disabled:opacity-40"
+                                className={cn(
+                                  "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-all disabled:pointer-events-none disabled:opacity-40",
+                                  isLight
+                                    ? "border-red-400/55 bg-red-50 text-red-800 hover:bg-red-100"
+                                    : "border-red-900/45 bg-red-950/25 text-red-300/95 hover:bg-red-950/45",
+                                )}
                                 title="Hapus kasus tindakan"
                                 aria-label="Hapus"
                                 onClick={(e) => {
@@ -1981,14 +2216,26 @@ export default function TindakanTable({
                           </td>
                         </tr>
                         {isDuplicateRm && priorList.length > 0 ? (
-                          <tr className="border-b border-amber-900/30 bg-amber-950/15">
+                          <tr
+                            className={cn(
+                              "border-b",
+                              isLight
+                                ? "border-amber-300/50 bg-amber-50/80"
+                                : "border-amber-900/30 bg-amber-950/15",
+                            )}
+                          >
                             <td
                               colSpan={9}
                               className="px-3 py-1.5 align-top text-left"
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => e.stopPropagation()}
                             >
-                              <div className="max-w-3xl text-[11px] leading-snug text-amber-100/90">
+                              <div
+                                className={cn(
+                                  "max-w-3xl text-[11px] leading-snug",
+                                  isLight ? "text-amber-950" : "text-amber-100/90",
+                                )}
+                              >
                                 <button
                                   type="button"
                                   data-no-row-click="true"
@@ -2002,7 +2249,12 @@ export default function TindakanTable({
                                       [key]: !p[key],
                                     }));
                                   }}
-                                  className="flex w-full items-center gap-2 rounded-md border border-amber-800/35 bg-black/25 px-2.5 py-1.5 text-left transition hover:bg-amber-950/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500/45"
+                                  className={cn(
+                                    "flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500/45",
+                                    isLight
+                                      ? "border-amber-500/40 bg-white/90 hover:bg-amber-100/80"
+                                      : "border-amber-800/35 bg-black/25 hover:bg-amber-950/35",
+                                  )}
                                 >
                                   {rmHistoryOpenByRowKey[key] ? (
                                     <ChevronDown
@@ -2018,7 +2270,7 @@ export default function TindakanTable({
                                   <span className="font-mono text-[11px] text-amber-200/95">
                                     Riwayat tindakan lain ({priorList.length})
                                   </span>
-                                  <span className="text-amber-500/70 font-normal">
+                                  <span className="text-amber-500/70 font-semibold">
                                     · RM {rmLine}
                                   </span>
                                 </button>
@@ -2028,19 +2280,34 @@ export default function TindakanTable({
                                       <div className="font-mono text-amber-200/95">
                                         RM {rmLine}
                                       </div>
-                                      <div className="mt-0.5 text-amber-50/88">
+                                      <div
+                                        className={cn(
+                                          "mt-0.5",
+                                          isLight ? "text-amber-900/90" : "text-amber-50/88",
+                                        )}
+                                      >
                                         · {namaForKet}
                                       </div>
                                     </div>
                                     {priorList.map((e, j) => (
                                       <div
                                         key={`${e.sortKey}-${j}-${e.tindakan}`}
-                                        className="rounded-md border border-amber-800/40 bg-black/35 px-3 py-2"
+                                        className={cn(
+                                          "rounded-md border px-3 py-2",
+                                          isLight
+                                            ? "border-amber-400/50 bg-white/95"
+                                            : "border-amber-800/40 bg-black/35",
+                                        )}
                                       >
                                         <div className="text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
                                           Pernah dilakukan
                                         </div>
-                                        <div className="mt-0.5 text-amber-100/95">
+                                        <div
+                                          className={cn(
+                                            "mt-0.5",
+                                            isLight ? "text-amber-950" : "text-amber-100/95",
+                                          )}
+                                        >
                                           · {e.tindakan}
                                         </div>
                                         <div className="mt-2 text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
@@ -2050,7 +2317,11 @@ export default function TindakanTable({
                                         <div className="mt-2 text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
                                           Dokter
                                         </div>
-                                        <div className="text-amber-100/95">
+                                        <div
+                                          className={cn(
+                                            isLight ? "text-amber-950" : "text-amber-100/95",
+                                          )}
+                                        >
                                           · {e.dokter}
                                         </div>
                                       </div>
@@ -2068,7 +2339,12 @@ export default function TindakanTable({
                 </tbody>
               </table>
             </div>
-            <div className="shrink-0 space-y-0 border-t border-cyan-900/25 bg-black/20">
+            <div
+              className={cn(
+                "shrink-0 space-y-0",
+                isLight ? "bg-slate-50/80" : "bg-black/15",
+              )}
+            >
               {filteredRecords.length > 0 ? (
                 <TablePagination
                   currentPage={page}
@@ -2079,7 +2355,12 @@ export default function TindakanTable({
                   onPageSizeChange={setPerPage}
                 />
               ) : null}
-              <p className="px-2 pb-1.5 pt-0 text-[10px] leading-snug text-cyan-600/75 font-mono">
+              <p
+                className={cn(
+                  "px-2 pb-1.5 pt-0 text-[10px] font-semibold leading-snug font-mono",
+                  isLight ? "text-cyan-950/90" : "text-cyan-600/75",
+                )}
+              >
                 Klik baris: drawer detail. Pemakaian / Edit: form alkes di
                 halaman ini. Pasien aktif lewat toolbar.
               </p>

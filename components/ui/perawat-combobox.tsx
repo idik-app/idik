@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
+import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 
 export type PerawatOption = {
@@ -23,11 +24,15 @@ function normalize(s: string): string {
   return s.trim().toLowerCase();
 }
 
-const inputTone = {
-  drawer: "w-full bg-black/40 border border-cyan-900/50 rounded-md px-2 py-1.5 pr-8 text-sm text-cyan-100 placeholder:text-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/35",
+const inputToneDark = {
+  drawer:
+    "w-full bg-black/40 border border-cyan-900/50 rounded-md px-2 py-1.5 pr-8 text-sm font-semibold text-cyan-100 placeholder:text-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/35",
   default:
     "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40",
 } as const;
+
+const inputToneDrawerLight =
+  "w-full rounded-md border border-cyan-400/55 bg-white px-2 py-1.5 pr-8 text-sm font-semibold text-slate-950 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/35";
 
 export function PerawatCombobox({
   value,
@@ -51,8 +56,10 @@ export function PerawatCombobox({
   disabled?: boolean;
   className?: string;
   listboxId?: string;
-  tone?: keyof typeof inputTone;
+  tone?: keyof typeof inputToneDark;
 }) {
+  const { theme } = useTheme();
+  const drawerLight = tone === "drawer" && theme === "light";
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -76,13 +83,21 @@ export function PerawatCombobox({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  const listSurface =
+  const listSurface = cn(
+    "py-1 shadow-xl",
     tone === "drawer"
-      ? "border border-cyan-900/50 bg-[#070d14] py-1 shadow-xl"
-      : "border border-white/15 bg-[#0a1628] py-1 shadow-xl";
+      ? drawerLight
+        ? "border border-cyan-400/55 bg-white"
+        : "border border-cyan-900/50 bg-[#070d14]"
+      : "border border-white/15 bg-[#0a1628]",
+  );
 
   const spinColor =
-    tone === "drawer" ? "text-cyan-400/80" : "text-[#E8C547]/80";
+    tone === "drawer"
+      ? drawerLight
+        ? "text-cyan-600"
+        : "text-cyan-400/80"
+      : "text-[#E8C547]/80";
 
   return (
     <div ref={wrapRef} className={cn("relative w-full", className)}>
@@ -105,7 +120,11 @@ export function PerawatCombobox({
           placeholder={
             loading ? "Memuat master perawat…" : "Cari / pilih perawat…"
           }
-          className={inputTone[tone]}
+          className={
+            drawerLight
+              ? inputToneDrawerLight
+              : inputToneDark[tone]
+          }
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={listboxId}
@@ -139,7 +158,9 @@ export function PerawatCombobox({
                   className={cn(
                     "w-full px-2 py-1.5 text-left text-[11px] focus:outline-none sm:text-sm",
                     tone === "drawer"
-                      ? "text-cyan-100 hover:bg-cyan-500/15 focus:bg-cyan-500/20"
+                      ? drawerLight
+                        ? "text-slate-900 hover:bg-cyan-100/80 focus:bg-cyan-100"
+                        : "text-cyan-100 hover:bg-cyan-500/15 focus:bg-cyan-500/20"
                       : "text-white hover:bg-[#E8C547]/20 focus:bg-[#E8C547]/25",
                   )}
                   onMouseDown={(e) => e.preventDefault()}
@@ -151,19 +172,39 @@ export function PerawatCombobox({
                 >
                   <span
                     className={cn(
-                      "block font-medium",
-                      tone === "drawer" ? "text-cyan-50/95" : "text-white/95",
+                      "block font-semibold",
+                      tone === "drawer"
+                        ? drawerLight
+                          ? "text-slate-950"
+                          : "text-cyan-50/95"
+                        : "text-white/95",
                     )}
                   >
                     {p.nama_perawat}
                     {p.aktif === false ? (
-                      <span className="ml-1 font-normal text-amber-200/80">
+                      <span
+                        className={cn(
+                          "ml-1 font-normal",
+                          drawerLight
+                            ? "text-amber-800/90"
+                            : "text-amber-200/80",
+                        )}
+                      >
                         (nonaktif)
                       </span>
                     ) : null}
                   </span>
                   {p.bidang ? (
-                    <span className="block text-[10px] text-white/50">
+                    <span
+                      className={cn(
+                        "block text-[10px]",
+                        tone === "drawer"
+                          ? drawerLight
+                            ? "text-slate-600"
+                            : "text-white/50"
+                          : "text-white/50",
+                      )}
+                    >
                       {p.bidang}
                     </span>
                   ) : null}
@@ -178,7 +219,9 @@ export function PerawatCombobox({
           className={cn(
             "absolute left-0 right-0 top-full z-[60] mt-1 rounded-lg px-2 py-2 text-[10px]",
             tone === "drawer"
-              ? "border border-cyan-900/50 bg-[#070d14] text-cyan-200/60"
+              ? drawerLight
+                ? "border border-cyan-400/55 bg-white text-slate-600"
+                : "border border-cyan-900/50 bg-[#070d14] text-cyan-200/60"
               : "border border-white/15 bg-[#0a1628] text-white/55",
           )}
         >

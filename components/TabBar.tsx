@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, LayoutGroup } from "framer-motion";
 import { X, Trash2 } from "lucide-react";
 import { useTabContext } from "@/contexts/TabContext";
+import { useTheme } from "@/contexts/ThemeContext";
+import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { menuConfig } from "@/app/config/menuConfig";
 
@@ -17,6 +19,8 @@ import { menuConfig } from "@/app/config/menuConfig";
 
 export default function TabBar() {
   const { tabs, activeTab, setActiveTab, closeTab, addTab, closeAllTabs } = useTabContext();
+  const { theme } = useTheme();
+  const isLight = theme === "light";
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [glowLeft, setGlowLeft] = useState(false);
@@ -124,9 +128,12 @@ export default function TabBar() {
     >
       {/* 🔷 Main Tab Container — min-h agar tidak collapse saat banyak tab ditutup */}
       <div
-        className="relative flex items-center min-h-[48px] bg-[#04070d]/70 backdrop-blur-md
-                   border-b border-cyan-500/20
-                   shadow-[0_0_15px_rgba(0,255,255,0.25)]"
+        className={cn(
+          "relative flex items-center min-h-[48px] backdrop-blur-md border-b transition-colors duration-500",
+          isLight
+            ? "bg-slate-100/90 border-cyan-600/25 shadow-sm"
+            : "bg-[#04070d]/70 border-cyan-500/20 shadow-[0_0_15px_rgba(0,255,255,0.25)]"
+        )}
       >
         <LayoutGroup id="tabbar-tabs">
           <div
@@ -155,14 +162,18 @@ export default function TabBar() {
                         setActiveTab(tab.id);
                       }
                     }}
-                    className={`group relative flex items-center gap-1.5 px-2.5 py-1.5 sm:gap-2 sm:px-4 sm:py-2 rounded-full border transition-colors duration-200
-                    ${
+                    className={cn(
+                      "group relative flex items-center gap-1.5 px-2.5 py-1.5 sm:gap-2 sm:px-4 sm:py-2 rounded-full border transition-colors duration-200",
                       isActive
-                        ? "border-[#D4AF37]/70 bg-gradient-to-r from-[#0e141d]/90 to-[#16222e]/90 text-cyan-200 shadow-[0_0_12px_rgba(212,175,55,0.3),0_0_16px_rgba(0,255,255,0.25)]"
-                        : "border-transparent text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/5"
-                    }`}
+                        ? isLight
+                          ? "border-[#b8860b]/65 bg-gradient-to-r from-white to-cyan-50/95 text-cyan-900 shadow-sm"
+                          : "border-[#D4AF37]/70 bg-gradient-to-r from-[#0e141d]/90 to-[#16222e]/90 text-cyan-200 shadow-[0_0_12px_rgba(212,175,55,0.3),0_0_16px_rgba(0,255,255,0.25)]"
+                        : isLight
+                          ? "border-transparent text-slate-600 hover:text-cyan-800 hover:bg-cyan-500/10"
+                          : "border-transparent text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/5"
+                    )}
                   >
-                    <span className="font-medium whitespace-nowrap">
+                    <span className="font-bold whitespace-nowrap">
                       {tab.label}
                     </span>
 
@@ -199,7 +210,12 @@ export default function TabBar() {
             type="button"
             onClick={() => closeAllTabs()}
             disabled={tabs.length <= 1}
-            className="p-2 rounded-lg text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/10 border border-transparent hover:border-cyan-500/30 transition-colors duration-200 disabled:opacity-50 disabled:pointer-events-none"
+            className={cn(
+              "p-2 rounded-lg border border-transparent transition-colors duration-200 disabled:opacity-50 disabled:pointer-events-none",
+              isLight
+                ? "text-slate-600 hover:text-cyan-800 hover:bg-cyan-500/15 hover:border-cyan-600/25"
+                : "text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/10 hover:border-cyan-500/30"
+            )}
             title="Tutup semua tab"
             aria-label="Tutup semua tab"
           >

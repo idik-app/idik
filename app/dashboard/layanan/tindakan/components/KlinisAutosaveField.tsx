@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
+import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 
 export type KlinisFieldKey = "diagnosa" | "severity_level" | "hasil_lab_ppm";
 
@@ -45,6 +47,7 @@ export default function KlinisAutosaveField({
   value,
   onSaved,
 }: Props) {
+  const isLight = useTindakanLightMode();
   const [draft, setDraft] = useState(() => draftFromValue(value));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
@@ -110,8 +113,12 @@ export default function KlinisAutosaveField({
     void persist(draftRef.current);
   };
 
-  const inputClass =
-    "mt-0.5 w-full rounded-md border border-cyan-900/50 bg-black/40 px-2 py-1.5 text-sm text-cyan-100 placeholder:text-gray-600 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30";
+  const inputClass = cn(
+    "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",
+    isLight
+      ? "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500"
+      : "border-cyan-900/50 bg-black/40 text-cyan-100 placeholder:text-gray-600",
+  );
 
   const aria =
     field === "diagnosa"

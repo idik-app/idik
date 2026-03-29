@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
+import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 
 const DEBOUNCE_MS = 550;
 
@@ -84,6 +86,7 @@ export default function BiayaAutosaveField({
   value,
   onSaved,
 }: Props) {
+  const isLight = useTindakanLightMode();
   const [draft, setDraft] = useState(() => draftFromValue(field, value));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
@@ -187,8 +190,12 @@ export default function BiayaAutosaveField({
     void persist(draftRef.current);
   };
 
-  const inputClass =
-    "mt-0.5 w-full rounded-md border border-cyan-900/50 bg-black/40 px-2 py-1.5 text-sm text-cyan-100 placeholder:text-gray-600 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30";
+  const inputClass = cn(
+    "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",
+    isLight
+      ? "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500"
+      : "border-cyan-900/50 bg-black/40 text-cyan-100 placeholder:text-gray-600",
+  );
   const aria =
     field === "total"
       ? "Perolehan BPJS"
@@ -243,18 +250,33 @@ export default function BiayaAutosaveField({
   if (NUMERIC.has(field)) {
     return (
       <div
-        className="mt-0.5 flex max-w-[min(100%,18rem)] items-center gap-1.5 rounded-md border border-cyan-900/50 bg-black/40 px-2 py-1.5 focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/30"
+        className={cn(
+          "mt-0.5 flex max-w-[min(100%,18rem)] items-center gap-1.5 rounded-md border px-2 py-1.5 focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/30",
+          isLight
+            ? "border-cyan-400/55 bg-white"
+            : "border-cyan-900/50 bg-black/40",
+        )}
         role="group"
         aria-label={aria}
       >
-        <span className="shrink-0 text-sm font-medium text-cyan-500/90">
+        <span
+          className={cn(
+            "shrink-0 text-sm font-semibold",
+            isLight ? "text-cyan-700" : "text-cyan-500/90",
+          )}
+        >
           Rp
         </span>
         <input
           type="text"
           inputMode="decimal"
           autoComplete="off"
-          className="min-w-0 flex-1 border-0 bg-transparent p-0 font-mono text-sm text-cyan-100 placeholder:text-gray-600 focus:outline-none focus:ring-0"
+          className={cn(
+            "min-w-0 flex-1 border-0 bg-transparent p-0 font-mono text-sm font-semibold focus:outline-none focus:ring-0",
+            isLight
+              ? "text-slate-950 placeholder:text-slate-500"
+              : "text-cyan-100 placeholder:text-gray-600",
+          )}
           placeholder="0"
           value={draft}
           aria-label={`${aria} (angka)`}

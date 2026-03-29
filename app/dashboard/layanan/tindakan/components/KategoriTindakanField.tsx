@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useNotification } from "@/app/contexts/NotificationContext";
+import { cn } from "@/lib/utils";
+import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 
 type MasterItem = {
   id: string;
@@ -26,6 +28,7 @@ export default function KategoriTindakanField({
   value,
   onSaved,
 }: Props) {
+  const isLight = useTindakanLightMode();
   const { show } = useNotification();
   const listId = useId();
   const [items, setItems] = useState<MasterItem[]>([]);
@@ -255,7 +258,12 @@ export default function KategoriTindakanField({
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-0 flex-1">
           <input
-            className="mt-0.5 w-full rounded-md border border-cyan-900/50 bg-black/40 px-2 py-1.5 text-sm text-cyan-100 placeholder:text-gray-600 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
+            className={cn(
+              "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",
+              isLight
+                ? "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500"
+                : "border-cyan-900/50 bg-black/40 text-cyan-100 placeholder:text-gray-600",
+            )}
             list={listId}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -275,7 +283,12 @@ export default function KategoriTindakanField({
           title="Simpan teks ini ke daftar master"
           onClick={() => void addMasterFromDraft()}
           disabled={busyId !== null || savingRow}
-          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-cyan-700/40 bg-cyan-950/40 px-2 py-1.5 text-xs font-medium text-cyan-200 hover:bg-cyan-900/30 disabled:opacity-50"
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-semibold disabled:opacity-50",
+            isLight
+              ? "border-cyan-600/45 bg-cyan-100 text-cyan-900 hover:bg-cyan-200/80"
+              : "border-cyan-700/40 bg-cyan-950/40 text-cyan-200 hover:bg-cyan-900/30",
+          )}
         >
           <Plus size={14} />
           Master
@@ -286,15 +299,34 @@ export default function KategoriTindakanField({
             setManageOpen(true);
             void loadItems();
           }}
-          className="inline-flex shrink-0 items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-xs font-medium text-gray-200 hover:bg-white/10"
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-semibold",
+            isLight
+              ? "border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200/90"
+              : "border-white/10 bg-white/5 text-gray-200 hover:bg-white/10",
+          )}
         >
           Kelola daftar
         </button>
       </div>
       {savingRow ? (
-        <p className="text-[11px] text-cyan-500/80">Menyimpan…</p>
+        <p
+          className={cn(
+            "text-[11px] font-medium",
+            isLight ? "text-cyan-700" : "text-cyan-500/80",
+          )}
+        >
+          Menyimpan…
+        </p>
       ) : loadingList && items.length === 0 ? (
-        <p className="text-[11px] text-gray-500">Memuat saran…</p>
+        <p
+          className={cn(
+            "text-[11px]",
+            isLight ? "text-slate-600" : "text-gray-500",
+          )}
+        >
+          Memuat saran…
+        </p>
       ) : null}
 
       {manageOpen ? (
@@ -313,12 +345,34 @@ export default function KategoriTindakanField({
               setEditingId(null);
             }}
           />
-          <div className="relative z-10 flex max-h-[min(70vh,520px)] w-full max-w-md flex-col overflow-hidden rounded-xl border border-cyan-500/35 bg-[#070d14] shadow-xl">
-            <div className="border-b border-cyan-900/40 px-3 py-2">
-              <p className="text-sm font-semibold text-cyan-100">
+          <div
+            className={cn(
+              "relative z-10 flex max-h-[min(70vh,520px)] w-full max-w-md flex-col overflow-hidden rounded-xl border shadow-xl",
+              isLight
+                ? "border-slate-200 bg-white"
+                : "border-cyan-500/35 bg-[#070d14]",
+            )}
+          >
+            <div
+              className={cn(
+                "border-b px-3 py-2",
+                isLight ? "border-slate-200" : "border-cyan-900/40",
+              )}
+            >
+              <p
+                className={cn(
+                  "text-sm font-semibold",
+                  isLight ? "text-slate-900" : "text-cyan-100",
+                )}
+              >
                 Daftar kategori (master)
               </p>
-              <p className="text-[11px] text-gray-500">
+              <p
+                className={cn(
+                  "text-[11px]",
+                  isLight ? "text-slate-600" : "text-gray-500",
+                )}
+              >
                 Ubah / hapus entri di sini. Nilai pada kasus tidak ikut berubah
                 otomatis.
               </p>
@@ -328,18 +382,33 @@ export default function KategoriTindakanField({
                 {items.map((it) => (
                   <li
                     key={it.id}
-                    className="flex items-center gap-1 rounded-lg border border-white/5 bg-black/25 px-2 py-1.5"
+                    className={cn(
+                      "flex items-center gap-1 rounded-lg border px-2 py-1.5",
+                      isLight
+                        ? "border-slate-200 bg-slate-50"
+                        : "border-white/5 bg-black/25",
+                    )}
                   >
                     {editingId === it.id ? (
                       <>
                         <input
-                          className="min-w-0 flex-1 rounded border border-cyan-800/50 bg-black/40 px-2 py-1 text-xs text-cyan-100"
+                          className={cn(
+                            "min-w-0 flex-1 rounded border px-2 py-1 text-xs font-semibold",
+                            isLight
+                              ? "border-cyan-400/55 bg-white text-slate-950"
+                              : "border-cyan-800/50 bg-black/40 text-cyan-100",
+                          )}
                           value={editNama}
                           onChange={(e) => setEditNama(e.target.value)}
                         />
                         <button
                           type="button"
-                          className="rounded border border-emerald-800/50 px-2 py-1 text-[11px] text-emerald-200 hover:bg-emerald-900/20 disabled:opacity-50"
+                          className={cn(
+                            "rounded border px-2 py-1 text-[11px] font-medium disabled:opacity-50",
+                            isLight
+                              ? "border-emerald-600/40 text-emerald-800 hover:bg-emerald-100"
+                              : "border-emerald-800/50 text-emerald-200 hover:bg-emerald-900/20",
+                          )}
                           disabled={busyId === it.id}
                           onClick={() => void saveEdit(it.id)}
                         >
@@ -347,7 +416,12 @@ export default function KategoriTindakanField({
                         </button>
                         <button
                           type="button"
-                          className="rounded px-2 py-1 text-[11px] text-gray-400 hover:bg-white/5"
+                          className={cn(
+                            "rounded px-2 py-1 text-[11px] font-medium",
+                            isLight
+                              ? "text-slate-600 hover:bg-slate-200/80"
+                              : "text-gray-400 hover:bg-white/5",
+                          )}
                           onClick={() => setEditingId(null)}
                         >
                           Batal
@@ -355,13 +429,23 @@ export default function KategoriTindakanField({
                       </>
                     ) : (
                       <>
-                        <span className="min-w-0 flex-1 truncate text-xs text-cyan-100/95">
+                        <span
+                          className={cn(
+                            "min-w-0 flex-1 truncate text-xs font-medium",
+                            isLight ? "text-slate-900" : "text-cyan-100/95",
+                          )}
+                        >
                           {it.nama}
                         </span>
                         <button
                           type="button"
                           title="Ubah nama"
-                          className="shrink-0 rounded p-1 text-cyan-400 hover:bg-cyan-500/10 disabled:opacity-50"
+                          className={cn(
+                            "shrink-0 rounded p-1 disabled:opacity-50",
+                            isLight
+                              ? "text-cyan-700 hover:bg-cyan-100"
+                              : "text-cyan-400 hover:bg-cyan-500/10",
+                          )}
                           disabled={busyId !== null}
                           onClick={() => {
                             setEditingId(it.id);
@@ -373,7 +457,12 @@ export default function KategoriTindakanField({
                         <button
                           type="button"
                           title="Hapus dari master"
-                          className="shrink-0 rounded p-1 text-rose-400/90 hover:bg-rose-500/10 disabled:opacity-50"
+                          className={cn(
+                            "shrink-0 rounded p-1 disabled:opacity-50",
+                            isLight
+                              ? "text-rose-600 hover:bg-rose-100"
+                              : "text-rose-400/90 hover:bg-rose-500/10",
+                          )}
                           disabled={busyId !== null}
                           onClick={() => void removeMaster(it.id, it.nama)}
                         >
@@ -385,18 +474,38 @@ export default function KategoriTindakanField({
                 ))}
               </ul>
               {items.length === 0 && !loadingList ? (
-                <p className="px-2 py-4 text-center text-xs text-gray-500">
+                <p
+                  className={cn(
+                    "px-2 py-4 text-center text-xs",
+                    isLight ? "text-slate-600" : "text-gray-500",
+                  )}
+                >
                   Belum ada data. Tambah di bawah.
                 </p>
               ) : null}
             </div>
-            <div className="border-t border-cyan-900/40 p-2">
-              <p className="mb-1 text-[10px] uppercase tracking-wide text-gray-500">
+            <div
+              className={cn(
+                "border-t p-2",
+                isLight ? "border-slate-200" : "border-cyan-900/40",
+              )}
+            >
+              <p
+                className={cn(
+                  "mb-1 text-[10px] font-semibold uppercase tracking-wide",
+                  isLight ? "text-slate-500" : "text-gray-500",
+                )}
+              >
                 Tambah baru
               </p>
               <div className="flex gap-2">
                 <input
-                  className="min-w-0 flex-1 rounded-md border border-cyan-900/50 bg-black/40 px-2 py-1.5 text-xs text-cyan-100"
+                  className={cn(
+                    "min-w-0 flex-1 rounded-md border px-2 py-1.5 text-xs font-semibold",
+                    isLight
+                      ? "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500"
+                      : "border-cyan-900/50 bg-black/40 text-cyan-100",
+                  )}
                   value={newNama}
                   onChange={(e) => setNewNama(e.target.value)}
                   placeholder="Nama kategori"
@@ -409,7 +518,12 @@ export default function KategoriTindakanField({
                 />
                 <button
                   type="button"
-                  className="shrink-0 rounded-md border border-cyan-600/40 bg-cyan-950/50 px-3 py-1.5 text-xs font-medium text-cyan-100 hover:bg-cyan-900/30 disabled:opacity-50"
+                  className={cn(
+                    "shrink-0 rounded-md border px-3 py-1.5 text-xs font-semibold disabled:opacity-50",
+                    isLight
+                      ? "border-cyan-600/50 bg-cyan-600 text-white hover:bg-cyan-700"
+                      : "border-cyan-600/40 bg-cyan-950/50 text-cyan-100 hover:bg-cyan-900/30",
+                  )}
                   disabled={busyId !== null}
                   onClick={() => void addFromManage()}
                 >
@@ -417,10 +531,20 @@ export default function KategoriTindakanField({
                 </button>
               </div>
             </div>
-            <div className="border-t border-white/5 p-2 text-right">
+            <div
+              className={cn(
+                "border-t p-2 text-right",
+                isLight ? "border-slate-200" : "border-white/5",
+              )}
+            >
               <button
                 type="button"
-                className="rounded-md px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5"
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-xs font-medium",
+                  isLight
+                    ? "text-slate-700 hover:bg-slate-100"
+                    : "text-gray-300 hover:bg-white/5",
+                )}
                 onClick={() => {
                   setManageOpen(false);
                   setEditingId(null);

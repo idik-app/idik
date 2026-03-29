@@ -24,10 +24,98 @@ function normalize(s: string): string {
   return s.trim().toLowerCase();
 }
 
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function resolveDoctorExactMatch(
+  options: DoctorOption[],
+  label: string,
+): DoctorOption | null {
+  const t = label.trim();
+  if (!t) return null;
+  for (const d of options) {
+    if (formatDoctorLabel(d) === t) return d;
+  }
+  for (const d of options) {
+    const n = String(d.nama_dokter ?? "").trim();
+    if (n === t) return d;
+  }
+  const tl = t.toLowerCase();
+  for (const d of options) {
+    const n = String(d.nama_dokter ?? "").trim().toLowerCase();
+    if (n === tl) return d;
+  }
+  return null;
+}
+
+/** Token dari input: alfanumerik, tanpa prefiks dr. */
+function doctorQueryTokens(label: string): string[] {
+  const stripped = label
+    .trim()
+    .replace(/^dr\.?\s*/i, "")
+    .trim();
+  const parts = stripped.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  return parts.filter((p) => p.length >= 2);
+}
+
+function tokenMatchesDoctorHaystack(haystack: string, token: string): boolean {
+  if (token.length < 2) return false;
+  return new RegExp(`\\b${escapeRegex(token)}\\b`, "i").test(haystack);
+}
+
+/**
+ * Samakan panggilan / nama pendek dengan satu baris master dokter (hanya jika hasilnya tunggal).
+ */
+export function resolveDoctorFromLooseInput(
+  options: DoctorOption[],
+  input: string,
+): DoctorOption | null {
+  if (!options.length) return null;
+  const exact = resolveDoctorExactMatch(options, input);
+  if (exact) return exact;
+
+  const tokens = doctorQueryTokens(input);
+  if (tokens.length === 0) return null;
+
+  const candidates = options.filter((d) => {
+    const hay = `${String(d.nama_dokter ?? "")} ${String(d.spesialis ?? "")}`;
+    return tokens.every((tok) => tokenMatchesDoctorHaystack(hay, tok));
+  });
+
+  if (candidates.length === 1) return candidates[0]!;
+
+  return null;
+}
+
+/** Label tampilan (nama + spesialis) dari nilai tersimpan / input kasar. */
+export function canonicalDoctorDisplayValue(
+  options: DoctorOption[],
+  stored: string,
+): string {
+  const raw = String(stored ?? "").trim();
+  if (!raw || !options.length) return raw;
+  const r = resolveDoctorFromLooseInput(options, raw);
+  return r ? formatDoctorLabel(r) : raw;
+}
+
+/** Nilai untuk kolom `dokter` di DB (mengikuti `nama_dokter` master). */
+export function canonicalDoctorStoredValue(
+  options: DoctorOption[],
+  input: string,
+): string {
+  const raw = String(input ?? "").trim();
+  if (!raw) return "";
+  if (!options.length) return raw;
+  const r = resolveDoctorFromLooseInput(options, raw);
+  return r ? String(r.nama_dokter).trim() : raw;
+}
+
 export function DoctorCombobox({
   value,
   onChange,
   onSelectOption,
+  onInputBlur,
   options,
   loading,
   className,
@@ -38,6 +126,8 @@ export function DoctorCombobox({
   onChange: (label: string) => void;
   /** Dipanggil hanya saat user memilih dari list (klik). */
   onSelectOption?: (opt: DoctorOption) => void;
+  /** Dipanggil saat input kehilangan fokus (nilai ketikan manual). */
+  onInputBlur?: (finalText: string) => void;
   options: DoctorOption[];
   loading?: boolean;
   className?: string;
@@ -45,6 +135,8 @@ export function DoctorCombobox({
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  /** Hindari commit blur saat klik item list. */
+  const skipBlurRef = useRef(false);
 
   const filtered = useMemo(() => {
     const q = normalize(value);
@@ -80,6 +172,13 @@ export function DoctorCombobox({
             onChange(e.target.value);
             setOpen(true);
           }}
+          onBlur={() => {
+            if (skipBlurRef.current) {
+              skipBlurRef.current = false;
+              return;
+            }
+            onInputBlur?.(value.trim());
+          }}
           onFocus={() => setOpen(true)}
           autoComplete="off"
           placeholder={
@@ -101,6 +200,9 @@ export function DoctorCombobox({
         <ul
           id={listboxId}
           role="listbox"
+          onMouseDown={() => {
+            skipBlurRef.current = true;
+          }}
           className="absolute left-0 right-0 top-full z-[60] mt-1 max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl"
         >
           {filtered.map((d) => {

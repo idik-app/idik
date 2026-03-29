@@ -11,8 +11,8 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { TabProvider } from "@/contexts/TabContext";
 import { SessionProvider } from "@/contexts/SessionContext";
 
-import { Toaster } from "sonner";
 import UpdateBanner from "@/components/UpdateBanner";
+import ThemedToaster from "@/components/ThemedToaster";
 import ConnectionNotify from "@/components/ConnectionNotify";
 
 const AppDialogProvider = dynamic(
@@ -87,13 +87,13 @@ export default function Providers({ children }: { children: React.ReactNode }) {
                       </TabProvider>
                     </SessionProvider>
                   </UIProvider>
+                  <ThemedToaster />
                 </ThemeProvider>
               </AppDialogProvider>
             </NotificationProvider>
           </JarvisFXProvider>
         </AutonomousKernelProvider>
 
-        <Toaster position="bottom-right" theme="dark" />
       </DiagnosticsHUDProvider>
     </EventBridgeProvider>
   );

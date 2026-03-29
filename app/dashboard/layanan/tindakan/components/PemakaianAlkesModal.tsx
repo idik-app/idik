@@ -26,6 +26,9 @@ import {
 } from "@/components/ui/barang-variant-combobox";
 import {
   DoctorCombobox,
+  canonicalDoctorDisplayValue,
+  formatDoctorLabel,
+  resolveDoctorFromLooseInput,
   type DoctorOption,
 } from "@/components/ui/doctor-combobox";
 import {
@@ -284,6 +287,9 @@ export default function PemakaianAlkesModal({
 }: PemakaianAlkesModalProps) {
   const { alert: appAlert, confirm: appConfirm } = useAppDialog();
 
+  const doctorOptionsRef = useRef(doctorOptions);
+  doctorOptionsRef.current = doctorOptions;
+
   const [drawerPasien, setDrawerPasien] = useState("");
   const [drawerDokter, setDrawerDokter] = useState("");
   const [drawerDepo, setDrawerDepo] = useState(DEFAULT_DRAWER_DEPO);
@@ -341,6 +347,17 @@ export default function PemakaianAlkesModal({
 
   const bootstrapSeqRef = useRef(0);
 
+  /** Jika master dokter termuat setelah form terisi (panggilan/singkat → nama lengkap). */
+  useEffect(() => {
+    if (!open || doctorOptions.length === 0) return;
+    setDrawerDokter((prev) => {
+      const t = prev.trim();
+      if (!t) return prev;
+      const next = canonicalDoctorDisplayValue(doctorOptions, t);
+      return next !== t ? next : prev;
+    });
+  }, [open, doctorOptions]);
+
   useEffect(() => {
     if (!open) {
       setExistingOrderId(null);
@@ -356,7 +373,12 @@ export default function PemakaianAlkesModal({
       const oid = typeof first.id === "string" ? first.id.trim() : "";
       if (!oid) return false;
       setDrawerPasien(String(first.pasien ?? "").trim());
-      setDrawerDokter(String(first.dokter ?? "").trim());
+      setDrawerDokter(
+        canonicalDoctorDisplayValue(
+          doctorOptionsRef.current,
+          String(first.dokter ?? "").trim(),
+        ),
+      );
       setDrawerRuangan(String(first.ruangan ?? "").trim());
       setDrawerDepo(String(first.depo ?? "").trim() || DEFAULT_DRAWER_DEPO);
       setDrawerCatatan(
@@ -413,7 +435,12 @@ export default function PemakaianAlkesModal({
         if (seq !== bootstrapSeqRef.current || !j?.ok || !j.data) return;
         const d = j.data;
         setDrawerDokter((prev) =>
-          prev.trim() ? prev : String(d.dokter ?? "").trim(),
+          prev.trim()
+            ? prev
+            : canonicalDoctorDisplayValue(
+                doctorOptionsRef.current,
+                String(d.dokter ?? "").trim(),
+              ),
         );
         setDrawerRuangan((prev) =>
           prev.trim() ? prev : String(d.ruangan ?? "").trim(),
@@ -759,13 +786,23 @@ export default function PemakaianAlkesModal({
   async function submitDrawerPemakaian() {
     if (drawerSaving) return;
     const pasien = cleanFormText(drawerPasien);
-    const dokter = cleanFormText(drawerDokter);
+    const dokterRaw = cleanFormText(drawerDokter);
+    const dokterResolved =
+      doctorOptions.length > 0
+        ? resolveDoctorFromLooseInput(doctorOptions, dokterRaw)
+        : null;
+    const dokter = dokterResolved
+      ? String(dokterResolved.nama_dokter).trim()
+      : dokterRaw;
+    const dokterKonfirmasi = dokterResolved
+      ? formatDoctorLabel(dokterResolved)
+      : dokterRaw;
     let depo = cleanFormText(drawerDepo);
     if (!depo) depo = DEFAULT_DRAWER_DEPO;
 
     const missing: string[] = [];
     if (!pasien) missing.push("Pasien");
-    if (!dokter) missing.push("Dokter / Operator");
+    if (!dokterRaw) missing.push("Dokter / Operator");
     if (!depo) missing.push("Depo");
     if (missing.length > 0) {
       void appAlert({
@@ -799,13 +836,13 @@ export default function PemakaianAlkesModal({
       ? `Simpan perubahan order pemakaian?\n\n` +
         `• Pasien: ${pasien}\n` +
         (ruangan ? `• Ruangan: ${ruangan}\n` : "") +
-        `• Dokter: ${dokter}\n` +
+        `• Dokter: ${dokterKonfirmasi}\n` +
         `• Depo: ${depo}\n` +
         `• ${nBarang} jenis barang`
       : `Kirim order ke Depo Farmasi?\n\n` +
         `• Pasien: ${pasien}\n` +
         (ruangan ? `• Ruangan: ${ruangan}\n` : "") +
-        `• Dokter: ${dokter}\n` +
+        `• Dokter: ${dokterKonfirmasi}\n` +
         `• Depo: ${depo}\n` +
         `• ${nBarang} jenis barang\n\n` +
         `Status akan diset “menunggu validasi Depo”.`;
@@ -997,6 +1034,18 @@ export default function PemakaianAlkesModal({
                   listboxId="tindakan-pemakaian-modal-doctor"
                   value={drawerDokter}
                   onChange={setDrawerDokter}
+                  onInputBlur={(t) => {
+                    const resolved =
+                      doctorOptions.length > 0
+                        ? resolveDoctorFromLooseInput(doctorOptions, t)
+                        : null;
+                    setDrawerDokter(
+                      resolved ? formatDoctorLabel(resolved) : t.trim(),
+                    );
+                  }}
+                  onSelectOption={(picked) => {
+                    setDrawerDokter(formatDoctorLabel(picked));
+                  }}
                   options={doctorOptions}
                   loading={doctorLoading}
                 />

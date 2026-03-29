@@ -13,6 +13,50 @@ import {
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Banyak proyek Supabase (default PostgREST) memakai max_rows = 1000 per respons.
+ * `.limit(20000)` tidak melewati cap itu; ambil berurutan dengan `.range` hingga cukup.
+ */
+const POSTGREST_SAFE_CHUNK = 1000;
+
+async function fetchTableOrderedInChunks(
+  supabase: NonNullable<ReturnType<typeof getServiceSupabaseAdmin>>,
+  table: "tindakan" | "tindakan_medik",
+  projection: string,
+  maxRows: number,
+): Promise<{ data: Record<string, unknown>[]; error: { message?: string } | null }> {
+  const out: Record<string, unknown>[] = [];
+  let from = 0;
+
+  while (out.length < maxRows) {
+    const to = from + POSTGREST_SAFE_CHUNK - 1;
+    const res = await supabase
+      .from(table)
+      .select(projection)
+      .order("tanggal", { ascending: false, nullsFirst: false })
+      .order("id", { ascending: false })
+      .range(from, to);
+
+    if (res.error) {
+      return { data: out, error: res.error as { message?: string } };
+    }
+
+    const batch = Array.isArray(res.data)
+      ? (res.data as Record<string, unknown>[])
+      : [];
+
+    if (batch.length === 0) break;
+
+    const remaining = maxRows - out.length;
+    out.push(...batch.slice(0, remaining));
+
+    if (batch.length < POSTGREST_SAFE_CHUNK || out.length >= maxRows) break;
+    from += batch.length;
+  }
+
+  return { data: out, error: null };
+}
+
 function mapLegacyTindakanMedikRow(
   row: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -67,17 +111,11 @@ export async function GET(request: Request) {
     const tarifMap = await fetchMasterTarifLookupMap(supabase);
 
     for (const projection of projections) {
-      const res = await supabase
-        .from("tindakan")
-        .select(projection)
-        .order("tanggal", { ascending: false, nullsFirst: false })
-        .order("id", { ascending: false })
-        .limit(limit);
+      const { data: rawRows, error: chunkError } =
+        await fetchTableOrderedInChunks(supabase, "tindakan", projection, limit);
 
-      if (!res.error) {
-        const rows = Array.isArray(res.data)
-          ? (res.data as unknown as Record<string, unknown>[])
-          : [];
+      if (!chunkError) {
+        const rows = rawRows;
         data = rows.map((row) => {
           const enriched = enrichTindakanRowForApi(row);
           const withTarif = enrichTindakanRowTarifFromMasterMap(enriched, tarifMap);
@@ -87,7 +125,7 @@ export async function GET(request: Request) {
         lastError = null;
         break;
       }
-      lastError = (res.error as { message?: string } | null) ?? null;
+      lastError = (chunkError as { message?: string } | null) ?? null;
     }
 
     if (lastError) {
@@ -99,14 +137,10 @@ export async function GET(request: Request) {
 
     // Fallback legacy: sebagian instalasi menyimpan data di tabel tindakan_medik.
     if (!data || data.length === 0) {
-      const legacy = await supabase
-        .from("tindakan_medik")
-        .select("*")
-        .order("tanggal", { ascending: false, nullsFirst: false })
-        .order("id", { ascending: false })
-        .limit(limit);
-      if (!legacy.error && Array.isArray(legacy.data) && legacy.data.length > 0) {
-        data = (legacy.data as Record<string, unknown>[]).map((row) =>
+      const { data: legacyRows, error: legacyErr } =
+        await fetchTableOrderedInChunks(supabase, "tindakan_medik", "*", limit);
+      if (!legacyErr && legacyRows.length > 0) {
+        data = legacyRows.map((row) =>
           enrichTindakanRowTarifFromMasterMap(
             mapLegacyTindakanMedikRow(row),
             tarifMap,

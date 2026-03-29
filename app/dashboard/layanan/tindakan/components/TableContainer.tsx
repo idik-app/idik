@@ -3,6 +3,8 @@ import { useRef, useState, useEffect } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import JarvisScanner from "@/components/effects/JarvisScanner";
+import { cn } from "@/lib/utils";
+import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 
 const DiagnosticsHUD = dynamic(() => import("@/components/DiagnosticsHUD"), {
   ssr: false,
@@ -13,6 +15,7 @@ export default function TableContainer({
 }: {
   children: React.ReactNode;
 }) {
+  const isLight = useTindakanLightMode();
   const ref = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [scanner, setScanner] = useState(false);
@@ -37,13 +40,23 @@ export default function TableContainer({
     <div
       ref={ref}
       data-table="tindakan"
-      className={`relative flex h-full min-h-0 flex-col rounded-2xl border border-cyan-800/50 bg-black/30 backdrop-blur-md overflow-hidden min-w-0 max-w-full ${
-        isFullscreen ? "fixed inset-0 z-[9999] p-3 md:p-4 bg-black/90" : ""
-      }`}
+      className={cn(
+        "relative flex h-full min-h-0 flex-col overflow-hidden min-w-0 max-w-full transition-colors duration-500",
+        "bg-transparent",
+        isFullscreen &&
+          (isLight
+            ? "fixed inset-0 z-[9999] p-3 md:p-4 bg-slate-100/98"
+            : "fixed inset-0 z-[9999] p-3 md:p-4 bg-black/90"),
+      )}
     >
       <button
         onClick={toggleFullscreen}
-        className="absolute top-3 right-3 z-20 p-2 rounded-full bg-cyan-800/40 hover:bg-cyan-700/60 border border-cyan-500/30 text-cyan-300 hover:text-gold-300 transition"
+        className={cn(
+          "absolute top-2 right-2 z-20 p-1.5 rounded-full border transition",
+          isLight
+            ? "bg-cyan-100 hover:bg-cyan-200 border-cyan-500/40 text-cyan-900 hover:text-amber-800"
+            : "bg-cyan-800/40 hover:bg-cyan-700/60 border-cyan-500/30 text-cyan-300 hover:text-gold-300",
+        )}
       >
         {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
       </button>
@@ -54,9 +67,7 @@ export default function TableContainer({
         </div>
       )}
 
-      <div className="relative z-10 flex h-full min-h-0 flex-1 flex-col">
-        {children}
-      </div>
+      {children}
 
       {isFullscreen && (
         <div className="absolute bottom-3 right-4 z-20 scale-90 opacity-85">

@@ -29,6 +29,31 @@
     --ring: 190 90% 60%;
   }
 
+  /* ☀️ Mode siang — token untuk komponen yang pakai hsl(var(--*)) */
+  html.light {
+    --background: 210 35% 97%;
+    --foreground: 222 47% 11%;
+
+    --gold: 43 78% 40%;
+    --cyan: 192 75% 36%;
+    --accent: 188 70% 32%;
+
+    --muted: 210 28% 92%;
+    --muted-foreground: 215 18% 38%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --border: 214 28% 88%;
+    --ring: 192 75% 36%;
+  }
+
+  html.light body {
+    background-image: radial-gradient(
+      circle at 50% 120%,
+      rgba(0, 140, 170, 0.07),
+      transparent 70%
+    );
+  }
+
   body {
     @apply bg-[hsl(var(--background))] text-[hsl(var(--foreground))] antialiased;
     background-image: radial-gradient(

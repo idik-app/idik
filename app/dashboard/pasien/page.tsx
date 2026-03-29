@@ -15,9 +15,9 @@ export default function PasienPage() {
   return (
     <PasienProvider>
       <div
-        className="relative min-h-screen bg-gradient-to-br
+        className="relative min-h-full min-w-0 overflow-x-hidden bg-gradient-to-br
                    from-black via-gray-900 to-cyan-950
-                   p-6 space-y-6 overflow-hidden"
+                   p-6 space-y-6"
       >
         <div className="absolute inset-0 z-0 pointer-events-none">
           <JarvisScanner isActive={isActive} />

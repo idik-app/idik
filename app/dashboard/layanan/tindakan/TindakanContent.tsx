@@ -23,7 +23,7 @@ export default function TindakanContent() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="relative min-h-screen bg-gradient-to-br from-black via-gray-900 to-cyan-950 px-3 py-4 sm:px-4 sm:py-5 md:p-6 space-y-4 md:space-y-6 overflow-x-hidden min-w-0"
+      className="relative flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-x-hidden bg-gradient-to-br from-black via-gray-900 to-cyan-950 px-3 py-4 sm:px-4 sm:py-5 md:gap-6 md:p-6"
     >
       {/* 🩺 Toolbar Aksi */}
       <ToolbarTindakan onRefresh={onRefresh} isLoading={isLoading} />
@@ -31,8 +31,10 @@ export default function TindakanContent() {
       {/* 📊 Ringkasan Tindakan */}
       <SummaryCards />
 
-      {/* 📋 Spreadsheet View */}
-      <TindakanTable />
+      {/* 📋 Spreadsheet View — isi sisa tinggi area tab */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <TindakanTable />
+      </div>
 
       {/* 🧠 Diagnostics HUD */}
       <DiagnosticsHUD module="Tindakan" />

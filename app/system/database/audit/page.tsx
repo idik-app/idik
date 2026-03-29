@@ -10,7 +10,7 @@ import AuditViewer from "./AuditViewer";
 
 export default function DashboardAuditPage() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-cyan-950 p-6">
+    <main className="min-h-full min-w-0 bg-gradient-to-br from-black via-gray-900 to-cyan-950 p-6">
       <AuditViewer />
     </main>
   );

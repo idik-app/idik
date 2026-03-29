@@ -49,7 +49,7 @@ export default function DashboardMain() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-cyan-950 p-6 space-y-6">
+    <div className="min-h-full min-w-0 bg-gradient-to-br from-black via-gray-900 to-cyan-950 p-6 space-y-6">
       {/* 🌐 Sub-Navbar Lokal */}
       <div className="flex flex-wrap justify-center gap-6 mb-8 text-sm font-medium tracking-wide">
         {subNav.map((link) => {

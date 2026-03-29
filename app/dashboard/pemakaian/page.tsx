@@ -1565,7 +1565,7 @@ export default function PemakaianPage() {
 `,
         }}
       />
-      <div className="print:hidden min-h-full p-6 bg-[#000814] text-white space-y-6">
+      <div className="print:hidden min-h-full min-w-0 p-6 bg-[#000814] text-white space-y-6">
         {/* ── Header + Aksi Utama ── */}
         <div className="flex flex-wrap items-center gap-3 mb-2 justify-between animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="flex items-center gap-3">

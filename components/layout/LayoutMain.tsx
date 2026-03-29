@@ -34,7 +34,7 @@ export default function LayoutMain() {
       {/* Konten utama */}
       <main
         className={cn(
-          "relative z-10 flex-1 overflow-y-auto overflow-x-hidden h-full",
+          "relative z-10 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain",
           flushContent
             ? "p-0 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] md:p-0 md:pb-6"
             : "p-3 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] md:p-6 md:pb-6",
@@ -45,7 +45,11 @@ export default function LayoutMain() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.35, ease: "easeOut" }}
           className={cn(
-            "h-full min-h-0 flex flex-col overflow-hidden transition-colors duration-500",
+            "flex flex-col transition-colors duration-500",
+            /* Tab tindakan: rantai flex + overflow untuk tabel; lainnya: biarkan konten memanjang, scroll di <main>. */
+            flushContent
+              ? "h-full min-h-0 overflow-x-hidden overflow-hidden"
+              : "min-h-full min-w-0 overflow-x-hidden",
             flushContent
               ? "rounded-none border-0 bg-transparent p-0 shadow-none"
               : cn(
@@ -56,16 +60,19 @@ export default function LayoutMain() {
                 ),
           )}
         >
-          <div className="relative flex-1 min-h-0">
+          <div
+            className={cn(
+              "relative min-h-0",
+              flushContent ? "flex flex-1 flex-col" : "min-h-full",
+            )}
+          >
             <TabContent />
           </div>
         </motion.div>
       </main>
 
-      {/* Navigasi bawah (mobile only) */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 md:hidden">
-        <BottomNav />
-      </div>
+      {/* Navigasi bawah: fixed + z di BottomNav (hindari wrapper ganda). */}
+      <BottomNav />
     </>
   );
 }

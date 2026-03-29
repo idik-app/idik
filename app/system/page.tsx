@@ -110,7 +110,7 @@ export default function SystemPage() {
 
   return (
     <motion.div
-      className="p-6 min-h-screen text-cyan-100 
+      className="p-6 min-h-full min-w-0 text-cyan-100 
                  bg-gradient-to-b from-[#0a0f18] to-[#0d1c28]
                  backdrop-blur-lg border border-cyan-500/20 rounded-2xl 
                  shadow-[0_0_30px_rgba(0,255,255,0.1)] space-y-10"

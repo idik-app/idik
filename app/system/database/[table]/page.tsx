@@ -104,7 +104,7 @@ export default function TableDetailPage() {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="min-h-screen bg-gradient-to-b from-[#0a0f1e] to-[#0b1a2a] text-gray-200 p-6"
+      className="min-h-full min-w-0 bg-gradient-to-b from-[#0a0f1e] to-[#0b1a2a] text-gray-200 p-6"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-8 border-b border-cyan-700/30 pb-4">

@@ -9,7 +9,7 @@ export default function DepoMainLayout({
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center text-sm">
+        <div className="min-h-app min-w-0 bg-[#020617] text-white flex items-center justify-center text-sm">
           Memuat portal Depo Farmasi…
         </div>
       }

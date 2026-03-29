@@ -160,7 +160,7 @@ export default function DistributorLayoutClient({
   }, [adminView, distributors, header, selectedDistributorId]);
 
   return (
-    <div className="min-h-screen bg-[#020617] text-cyan-100">
+    <div className="min-h-app min-w-0 bg-[#020617] text-cyan-100">
       <div className="border-b border-cyan-900/60 bg-slate-950/60 backdrop-blur">
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between gap-3">
           <div className="min-w-0">

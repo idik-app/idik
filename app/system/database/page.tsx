@@ -33,7 +33,7 @@ export default function DatabasePage() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="min-h-screen bg-gradient-to-b from-[#0a0f1e] to-[#0b1a2a] text-gray-200 p-6"
+      className="min-h-full min-w-0 bg-gradient-to-b from-[#0a0f1e] to-[#0b1a2a] text-gray-200 p-6"
     >
       {/* =====================================================
           HEADER SECTION

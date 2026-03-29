@@ -51,7 +51,7 @@ export default function DepoLayoutClient({
 
   return (
     <div
-      className="min-h-screen bg-[#020617] text-white print:bg-white"
+      className="min-h-app min-w-0 bg-[#020617] text-white print:bg-white"
       suppressHydrationWarning
     >
       <div className="border-b border-emerald-900/60 bg-slate-950/60 backdrop-blur print:hidden">

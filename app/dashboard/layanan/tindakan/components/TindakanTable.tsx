@@ -211,7 +211,8 @@ function mapApiPasienRow(r: Record<string, unknown>): PasienOption | null {
         : ca != null
           ? String(ca)
           : null;
-  const jk = normalizeJenisKelamin(r.jenis_kelamin ?? r.jk);
+  /** Selaras `mapFromSupabase` (pasien): null di DB → fallback "L", supaya daftar tindakan = drawer detail. */
+  const jk = normalizeJenisKelamin(r.jenis_kelamin ?? r.jk ?? "L");
   return {
     id,
     nama,
@@ -455,13 +456,22 @@ function resolvePasienFromRow(
     "nama",
     "pasien_nama",
   ]);
-  const { baseNama } = splitNamaDanRmDalamKurung(namaFull);
+  const { baseNama, rmDalamKurung } = splitNamaDanRmDalamKurung(namaFull);
   const namaForMatch = normalizeNamaPasien((baseNama || namaFull).trim());
+  const rowRmDigits =
+    normalizeDigitsOnly(pickFirstString(raw, [...RM_FIELD_KEYS])) ||
+    normalizeDigitsOnly(rmDalamKurung);
   if (namaForMatch) {
     const hits = options.filter(
       (p) => normalizeNamaPasien(p.nama ?? "") === namaForMatch,
     );
     if (hits.length === 1) return hits[0]!;
+    if (hits.length > 1 && rowRmDigits.length >= 3) {
+      const byRm = hits.filter(
+        (p) => normalizeDigitsOnly(p.no_rm ?? "") === rowRmDigits,
+      );
+      if (byRm.length === 1) return byRm[0]!;
+    }
   }
   return null;
 }

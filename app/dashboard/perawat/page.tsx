@@ -207,7 +207,7 @@ export default function PerawatHubPage() {
   }
 
   return (
-    <div className="min-h-full overflow-y-auto bg-gradient-to-br from-black via-gray-900 to-cyan-950 p-4 md:p-6 space-y-6">
+    <div className="min-h-full min-w-0 bg-gradient-to-br from-black via-gray-900 to-cyan-950 p-4 md:p-6 space-y-6">
       <header className="space-y-1 border-b border-cyan-500/20 pb-4">
         <p className="text-xs font-mono uppercase tracking-widest text-cyan-500/80">
           Cathlab · Perawat

@@ -132,14 +132,14 @@ export default function LayoutContainer() {
     <LazyMotion features={domAnimation}>
       <motion.div
         className={cn(
-          "relative flex h-screen overflow-x-hidden transition-colors duration-500",
+          "relative flex min-h-app h-app overflow-x-hidden overflow-y-hidden transition-colors duration-500",
           isLight ? "bg-[#e8eef5] text-slate-800" : "bg-[#0b111a] text-gray-100"
         )}
       >
         {/* 🧩 Sidebar */}
         <motion.aside
           className={cn(
-            "fixed left-0 top-0 h-screen z-[40] overflow-hidden transition-colors duration-500",
+            "fixed left-0 top-0 min-h-app h-app z-[40] overflow-hidden transition-colors duration-500",
             isLight
               ? "bg-[#f0f5fa] border-r border-cyan-600/25"
               : "bg-[#0d141f] border-r border-cyan-900/40"
@@ -156,7 +156,7 @@ export default function LayoutContainer() {
             duration: 0.5,
             ease: [0.4, 0, 0.2, 1],
           }}
-          className="flex flex-col h-screen flex-grow relative z-[10]"
+          className="flex min-h-0 flex-1 flex-col relative z-[10] w-full min-w-0"
         >
           <LayoutHeader />
           <LayoutMain />

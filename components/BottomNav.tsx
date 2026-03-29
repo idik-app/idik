@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 /*───────────────────────────────────────────────
  ⚙️ BottomNav – Cathlab JARVIS Mode v3.5 (Final Fix)
-   🔹 Layer di bawah modal (z-index 60)
+   🔹 z-[50]: di atas konten/header, di bawah modal (z-[9999])
    🔹 Glow neon ringan agar konsisten dengan tema
    🔹 Responsif hanya muncul di mobile (md:hidden)
 ───────────────────────────────────────────────*/
@@ -22,7 +22,7 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-[60]
+      className="fixed bottom-0 left-0 right-0 z-50
                  bg-[#04070d]/85 backdrop-blur-md
                  border-t border-cyan-700/30
                  flex justify-around gap-0.5 px-1

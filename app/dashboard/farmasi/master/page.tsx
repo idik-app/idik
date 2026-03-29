@@ -85,7 +85,7 @@ export default function MasterFarmasiPage() {
   const [tab, setTab] = useState<TabKey>('BARANG');
 
   return (
-    <div className="p-6 text-cyan-200 space-y-6">
+    <div className="min-h-full min-w-0 p-6 text-cyan-200 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
         <div className="flex items-center gap-3">
           <Boxes size={26} className="text-[#D4AF37]" />

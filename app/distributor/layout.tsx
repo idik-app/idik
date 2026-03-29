@@ -9,7 +9,7 @@ export default function DistributorLayout({
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#020617] text-cyan-100 flex items-center justify-center text-cyan-500/80 text-sm">
+        <div className="min-h-app min-w-0 bg-[#020617] text-cyan-100 flex items-center justify-center text-cyan-500/80 text-sm">
           Memuat portal distributor…
         </div>
       }

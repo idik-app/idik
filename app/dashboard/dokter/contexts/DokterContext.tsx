@@ -103,24 +103,28 @@ export function DokterProvider({ children }: { children: React.ReactNode }) {
       };
     }
     if (!silent) setLoading(true);
-
-    const sb: any = await ensureSupabase();
-    const { data, error } = await sb
-      .from("doctor")
-      .select("*")
-      .order("nama_dokter");
-    if (data)
-      setDoctors(
-        data.map((d: { id: string; nama_dokter?: string; spesialis?: string; kontak?: string; status?: boolean }) => ({
-          id: d.id,
-          nama: d.nama_dokter ?? "",
-          spesialis: d.spesialis ?? undefined,
-          kontak: d.kontak ?? undefined,
-          status: d.status === true ? "aktif" : "nonaktif",
-        }))
-      );
-    if (!silent) setLoading(false);
-    return { error };
+    try {
+      const sb: any = await ensureSupabase();
+      const { data, error } = await sb
+        .from("doctor")
+        .select("*")
+        .order("nama_dokter");
+      if (data)
+        setDoctors(
+          data.map((d: { id: string; nama_dokter?: string; spesialis?: string; kontak?: string; status?: boolean }) => ({
+            id: d.id,
+            nama: d.nama_dokter ?? "",
+            spesialis: d.spesialis ?? undefined,
+            kontak: d.kontak ?? undefined,
+            status: d.status === true ? "aktif" : "nonaktif",
+          }))
+        );
+      return { error };
+    } catch (e) {
+      return { error: e };
+    } finally {
+      if (!silent) setLoading(false);
+    }
   }, []);
 
   const toDoctorPayload = (payload: Record<string, any>) => {

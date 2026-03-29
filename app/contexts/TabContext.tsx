@@ -18,6 +18,11 @@ import { useJarvisFX } from "@/contexts/JarvisFXContext";
 
 /** Mapping segment URL → id tab (harus sama dengan id di menuConfig) */
 const URL_SEGMENT_TO_TAB: Record<string, { id: string; label: string }> = {
+  dokter: { id: "dokter", label: "Dokter" },
+  pasien: { id: "pasien", label: "Pasien" },
+  ruangan: { id: "ruangan", label: "Ruangan" },
+  inventaris: { id: "inventaris", label: "Inventaris" },
+  pemakaian: { id: "pemakaian", label: "Pemakaian" },
   perawat: { id: "perawat", label: "Beranda Perawat" },
   tindakan: { id: "tindakan", label: "Tindakan Medis" },
   "master-tindakan": {
@@ -185,7 +190,8 @@ export function TabProvider({ children }: { children: ReactNode }) {
   /* 🔹 Sinkronisasi URL → Tab aktif + pastikan tab ada di list */
   useEffect(() => {
     if (!pathname) return;
-    const segment = pathname.split("/").pop() || "dashboard";
+    const parts = pathname.split("/").filter(Boolean);
+    const segment = parts[parts.length - 1] ?? "dashboard";
     const resolved = URL_SEGMENT_TO_TAB[segment] ?? {
       id: segment,
       label: segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " "),

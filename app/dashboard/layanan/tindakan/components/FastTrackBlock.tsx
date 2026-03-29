@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 import { FIELD_LABELS } from "../bridge/wireframeDrawerTabs";
+import { DatetimeLocalPicker } from "@/components/ui/datetime-local-picker";
 
 const DEBOUNCE_MS = 550;
 
@@ -23,20 +24,54 @@ function serverString(value: unknown): string | null {
   return t === "" ? null : t;
 }
 
-/** Ambil angka menit dari teks bebas (mis. "45", "45 menit", "30,5"). */
-export function parseFastTrackMinutesFromText(raw: string): number | null {
-  const t = String(raw ?? "").trim();
-  if (!t) return null;
-  const m = t.match(/(\d+(?:[.,]\d+)?)/);
-  if (!m) return null;
-  const n = Number(m[1].replace(",", "."));
-  return Number.isFinite(n) ? n : null;
+/** Nilai valid untuk input datetime-local: YYYY-MM-DDTHH:mm */
+function normalizeDatetimeLocalInput(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "";
+  const d = Date.parse(t);
+  if (!Number.isFinite(d)) return "";
+  const dt = new Date(d);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const y = dt.getFullYear();
+  const mo = pad(dt.getMonth() + 1);
+  const da = pad(dt.getDate());
+  const h = pad(dt.getHours());
+  const mi = pad(dt.getMinutes());
+  return `${y}-${mo}-${da}T${h}:${mi}`;
 }
 
-function formatTotalForDb(sum: number): string {
-  const rounded = Math.round(sum * 100) / 100;
+function parseToEpochMs(raw: string): number | null {
+  const t = raw.trim();
+  if (!t) return null;
+  const d = Date.parse(t);
+  return Number.isFinite(d) ? d : null;
+}
+
+/** Durasi menit dari waktu IGD → waktu balloon (D2B); wajib t_balloon >= t_igd. */
+function minutesFromIgdToBalloon(igdStr: string, balloonStr: string): number | null {
+  const t0 = parseToEpochMs(igdStr);
+  const t1 = parseToEpochMs(balloonStr);
+  if (t0 == null || t1 == null) return null;
+  const diff = t1 - t0;
+  if (diff < 0) return null;
+  return Math.round(diff / 60_000);
+}
+
+function formatTotalForDb(minutes: number): string {
+  const rounded = Math.round(minutes * 100) / 100;
   if (Number.isInteger(rounded)) return String(rounded);
   return String(rounded).replace(".", ",");
+}
+
+function formatWaktuDisplay(raw: string): string {
+  const t = raw.trim();
+  if (!t) return "—";
+  const ms = parseToEpochMs(t);
+  if (ms == null) return t;
+  return new Date(ms).toLocaleString("id-ID", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 }
 
 type Props = {
@@ -55,8 +90,12 @@ export default function FastTrackBlock({
   onSaved,
 }: Props) {
   const isLight = useTindakanLightMode();
-  const [igdDraft, setIgdDraft] = useState(() => draftFrom(pasienDatangValue));
-  const [d2bDraft, setD2bDraft] = useState(() => draftFrom(doorToBalloonValue));
+  const [igdDraft, setIgdDraft] = useState(() =>
+    normalizeDatetimeLocalInput(draftFrom(pasienDatangValue)),
+  );
+  const [d2bDraft, setD2bDraft] = useState(() =>
+    normalizeDatetimeLocalInput(draftFrom(doorToBalloonValue)),
+  );
   const igdDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const d2bDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const igdDraftRef = useRef(igdDraft);
@@ -70,10 +109,10 @@ export default function FastTrackBlock({
   }, [d2bDraft]);
 
   useEffect(() => {
-    setIgdDraft(draftFrom(pasienDatangValue));
+    setIgdDraft(normalizeDatetimeLocalInput(draftFrom(pasienDatangValue)));
   }, [pasienDatangValue, tindakanId]);
   useEffect(() => {
-    setD2bDraft(draftFrom(doorToBalloonValue));
+    setD2bDraft(normalizeDatetimeLocalInput(draftFrom(doorToBalloonValue)));
   }, [doorToBalloonValue, tindakanId]);
 
   useEffect(
@@ -84,21 +123,15 @@ export default function FastTrackBlock({
     [],
   );
 
-  const igdMin = parseFastTrackMinutesFromText(igdDraft);
-  const d2bMin = parseFastTrackMinutesFromText(d2bDraft);
-  const computedSum =
-    igdMin != null && d2bMin != null ? igdMin + d2bMin : null;
+  const computedMinutes = minutesFromIgdToBalloon(igdDraft, d2bDraft);
 
   const patchJson = async (body: Record<string, unknown>) => {
-    const res = await fetch(
-      `/api/tindakan/${encodeURIComponent(tindakanId)}`,
-      {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      },
-    );
+    const res = await fetch(`/api/tindakan/${encodeURIComponent(tindakanId)}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
     const json = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       message?: string;
@@ -110,12 +143,11 @@ export default function FastTrackBlock({
 
   const persistTotalFromDrafts = async (
     igdStr: string,
-    d2bStr: string,
+    balloonStr: string,
     currentTotalServer: unknown,
   ) => {
-    const a = parseFastTrackMinutesFromText(igdStr);
-    const b = parseFastTrackMinutesFromText(d2bStr);
-    const nextTotal = a != null && b != null ? formatTotalForDb(a + b) : null;
+    const mins = minutesFromIgdToBalloon(igdStr, balloonStr);
+    const nextTotal = mins != null ? formatTotalForDb(mins) : null;
     const serverT = serverString(currentTotalServer);
     if (nextTotal === serverT) return;
     await patchJson({ total_waktu_fast_track: nextTotal });
@@ -127,15 +159,11 @@ export default function FastTrackBlock({
     try {
       await patchJson({ pasien_datang_igd: payload });
     } catch (e) {
-      setIgdDraft(draftFrom(pasienDatangValue));
+      setIgdDraft(normalizeDatetimeLocalInput(draftFrom(pasienDatangValue)));
       throw e;
     }
     try {
-      await persistTotalFromDrafts(
-        draftNow,
-        d2bDraftRef.current,
-        totalValue,
-      );
+      await persistTotalFromDrafts(draftNow, d2bDraftRef.current, totalValue);
     } catch (e) {
       if (process.env.NODE_ENV === "development") {
         console.warn("[FastTrackBlock] total_waktu_fast_track", e);
@@ -150,15 +178,11 @@ export default function FastTrackBlock({
     try {
       await patchJson({ door_to_balloon: payload });
     } catch (e) {
-      setD2bDraft(draftFrom(doorToBalloonValue));
+      setD2bDraft(normalizeDatetimeLocalInput(draftFrom(doorToBalloonValue)));
       throw e;
     }
     try {
-      await persistTotalFromDrafts(
-        igdDraftRef.current,
-        draftNow,
-        totalValue,
-      );
+      await persistTotalFromDrafts(igdDraftRef.current, draftNow, totalValue);
     } catch (e) {
       if (process.env.NODE_ENV === "development") {
         console.warn("[FastTrackBlock] total_waktu_fast_track", e);
@@ -175,7 +199,7 @@ export default function FastTrackBlock({
         if (process.env.NODE_ENV === "development") {
           console.warn("[FastTrackBlock] pasien_datang_igd", e);
         }
-        setIgdDraft(draftFrom(pasienDatangValue));
+        setIgdDraft(normalizeDatetimeLocalInput(draftFrom(pasienDatangValue)));
       });
     }, DEBOUNCE_MS);
   };
@@ -188,43 +212,10 @@ export default function FastTrackBlock({
         if (process.env.NODE_ENV === "development") {
           console.warn("[FastTrackBlock] door_to_balloon", e);
         }
-        setD2bDraft(draftFrom(doorToBalloonValue));
+        setD2bDraft(normalizeDatetimeLocalInput(draftFrom(doorToBalloonValue)));
       });
     }, DEBOUNCE_MS);
   };
-
-  const flushIgd = () => {
-    if (igdDebounceRef.current) {
-      clearTimeout(igdDebounceRef.current);
-      igdDebounceRef.current = null;
-    }
-    void persistIgd(igdDraftRef.current).catch((e) => {
-      if (process.env.NODE_ENV === "development") {
-        console.warn("[FastTrackBlock] pasien_datang_igd blur", e);
-      }
-      setIgdDraft(draftFrom(pasienDatangValue));
-    });
-  };
-
-  const flushD2b = () => {
-    if (d2bDebounceRef.current) {
-      clearTimeout(d2bDebounceRef.current);
-      d2bDebounceRef.current = null;
-    }
-    void persistD2b(d2bDraftRef.current).catch((e) => {
-      if (process.env.NODE_ENV === "development") {
-        console.warn("[FastTrackBlock] door_to_balloon blur", e);
-      }
-      setD2bDraft(draftFrom(doorToBalloonValue));
-    });
-  };
-
-  const inputClass = cn(
-    "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",
-    isLight
-      ? "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500"
-      : "border-cyan-900/50 bg-black/40 text-cyan-100 placeholder:text-gray-600",
-  );
 
   const boxClass = cn(
     "rounded-md border px-2 py-1.5",
@@ -236,9 +227,16 @@ export default function FastTrackBlock({
   const canEdit = Boolean(tindakanId);
 
   const totalDisplay =
-    computedSum != null
-      ? `${computedSum.toLocaleString("id-ID")} menit (otomatis)`
+    computedMinutes != null
+      ? `${computedMinutes.toLocaleString("id-ID")} menit (otomatis)`
       : "—";
+
+  const invalidOrder =
+    igdDraft &&
+    d2bDraft &&
+    parseToEpochMs(igdDraft) != null &&
+    parseToEpochMs(d2bDraft) != null &&
+    parseToEpochMs(d2bDraft)! < parseToEpochMs(igdDraft)!;
 
   return (
     <dl className="grid grid-cols-1 gap-1.5 text-sm font-semibold">
@@ -249,23 +247,18 @@ export default function FastTrackBlock({
             isLight ? "text-slate-600" : "text-gray-500",
           )}
         >
-          {FIELD_LABELS.pasien_datang_igd ?? "Pasien datang di IGD"}
+          {FIELD_LABELS.pasien_datang_igd ?? "Waktu pasien tiba di IGD"}
         </dt>
-        <dd className="mt-0.5">
+        <dd className="mt-0.5 overflow-visible">
           {canEdit ? (
-            <input
-              type="text"
-              autoComplete="off"
-              className={inputClass}
-              placeholder="Menit (contoh: 25)"
-              aria-label="Pasien datang di IGD, menit"
+            <DatetimeLocalPicker
+              appearance="drawer"
+              isLight={isLight}
               value={igdDraft}
-              onChange={(e) => {
-                const v = e.target.value;
+              onChange={(v) => {
                 setIgdDraft(v);
                 scheduleIgd(v);
               }}
-              onBlur={flushIgd}
             />
           ) : (
             <span
@@ -274,7 +267,7 @@ export default function FastTrackBlock({
                 isLight ? "text-slate-950" : "text-cyan-100/95",
               )}
             >
-              {draftFrom(pasienDatangValue) || "—"}
+              {formatWaktuDisplay(draftFrom(pasienDatangValue))}
             </span>
           )}
         </dd>
@@ -287,23 +280,18 @@ export default function FastTrackBlock({
             isLight ? "text-slate-600" : "text-gray-500",
           )}
         >
-          {FIELD_LABELS.door_to_balloon ?? "Door to balloon"}
+          {FIELD_LABELS.door_to_balloon ?? "Waktu door-to-balloon (cathlab)"}
         </dt>
-        <dd className="mt-0.5">
+        <dd className="mt-0.5 overflow-visible">
           {canEdit ? (
-            <input
-              type="text"
-              autoComplete="off"
-              className={inputClass}
-              placeholder="Menit cathlab (contoh: 62)"
-              aria-label="Door to balloon, menit"
+            <DatetimeLocalPicker
+              appearance="drawer"
+              isLight={isLight}
               value={d2bDraft}
-              onChange={(e) => {
-                const v = e.target.value;
+              onChange={(v) => {
                 setD2bDraft(v);
                 scheduleD2b(v);
               }}
-              onBlur={flushD2b}
             />
           ) : (
             <span
@@ -312,7 +300,7 @@ export default function FastTrackBlock({
                 isLight ? "text-slate-950" : "text-cyan-100/95",
               )}
             >
-              {draftFrom(doorToBalloonValue) || "—"}
+              {formatWaktuDisplay(draftFrom(doorToBalloonValue))}
             </span>
           )}
         </dd>
@@ -333,7 +321,18 @@ export default function FastTrackBlock({
             isLight ? "text-slate-950" : "text-cyan-100/95",
           )}
         >
-          {totalDisplay}
+          {invalidOrder ? (
+            <span
+              className={cn(
+                "font-semibold",
+                isLight ? "text-amber-800" : "text-amber-200/95",
+              )}
+            >
+              Urutan waktu tidak valid (balloon sebelum tiba IGD)
+            </span>
+          ) : (
+            totalDisplay
+          )}
         </dd>
         <p
           className={cn(
@@ -341,8 +340,8 @@ export default function FastTrackBlock({
             isLight ? "text-slate-500" : "text-gray-500",
           )}
         >
-          Penjumlahan otomatis: waktu jalur IGD + door-to-balloon cathlab (kedua
-          isian harus berupa angka menit).
+          Total dihitung otomatis: selisih menit dari waktu tiba IGD hingga waktu
+          first device / balloon di cathlab (door-to-balloon).
         </p>
       </div>
 
@@ -355,7 +354,8 @@ export default function FastTrackBlock({
               : "border-amber-700/40 bg-amber-950/20 text-amber-200/85",
           )}
         >
-          Baris tanpa ID kasus — isian Fast-Track tidak dapat disimpan dari sini.
+          Baris tanpa ID kasus — isian Fast-Track tidak dapat disimpan dari
+          sini.
         </p>
       ) : null}
     </dl>

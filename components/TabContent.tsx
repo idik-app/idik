@@ -14,7 +14,13 @@ const tabPanelCache: Record<
 ───────────────────────────────────────────────*/
 const DashboardMain = dynamic(() => import("@/app/dashboard/page")); // ✅ Server dashboard utama
 const PasienPage = dynamic(() => import("@/app/dashboard/pasien/page"));
-const DokterPage = dynamic(() => import("@/app/dashboard/dokter/page"));
+const DokterPage = dynamic(() => import("@/app/dashboard/dokter/page"), {
+  loading: () => (
+    <div className="flex min-h-[12rem] items-center justify-center text-cyan-400/90 text-sm">
+      Memuat modul Dokter…
+    </div>
+  ),
+});
 const RuanganPage = dynamic(() => import("@/app/dashboard/ruangan/page"));
 const PerawatHubPage = dynamic(() => import("@/app/dashboard/perawat/page"));
 const InventarisPage = dynamic(() => import("@/app/dashboard/inventaris/page"));
@@ -150,12 +156,20 @@ export default function TabContent() {
   const entriesToRender = idsToRender.filter((id) => tabPanelCache[id]);
 
   return (
-    <div className="relative w-full h-full min-h-0 overflow-hidden">
+    <div className="relative w-full min-h-0">
+      {/*
+        Jangan pakai position:absolute + inset-0 untuk panel: jika rantai tinggi
+        (flex/%/overflow) tidak memberi tinggi pasti pada induk, area jadi 0px dan
+        modul (mis. Dokter) tampak kosong walau sudah ter-mount.
+        Keep-alive: tab non-aktif tetap di DOM dengan class hidden.
+      */}
       {entriesToRender.map((id) => (
         <div
           key={id}
-          hidden={activeTab !== id}
-          className="absolute inset-0 w-full h-full"
+          className={
+            activeTab === id ? "block w-full min-h-0" : "hidden"
+          }
+          aria-hidden={activeTab !== id}
         >
           {tabPanelCache[id].node}
         </div>

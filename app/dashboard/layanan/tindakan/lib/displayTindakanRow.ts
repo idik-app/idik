@@ -70,6 +70,23 @@ export function normalizeJenisKelamin(raw: unknown): JenisKelaminLp | null {
   return null;
 }
 
+/**
+ * Infer L/P dari sufiks gelar di kolom nama: ", TN" / ", TN." (Tuan) → L,
+ * ", NY" / ", NY." (Nyonya) → P. Contoh: `NAMA, TN. (919759)`.
+ */
+export function inferJenisKelaminFromNamaPasien(
+  nama: unknown,
+): JenisKelaminLp | null {
+  const s = String(nama ?? "").trim();
+  if (!s) return null;
+  const m = s.match(/,\s*(TN|NY)\.?\s*(?:\(|$)/i);
+  if (!m) return null;
+  const t = m[1].toUpperCase();
+  if (t === "TN") return "L";
+  if (t === "NY") return "P";
+  return null;
+}
+
 export function resolveJenisKelaminFromRow(
   raw: Record<string, unknown>,
   pasien: { jenis_kelamin?: JenisKelaminLp | null } | null | undefined,
@@ -80,7 +97,8 @@ export function resolveJenisKelaminFromRow(
   if (fromRow) return fromRow;
   const fromP = pasien?.jenis_kelamin;
   if (fromP === "L" || fromP === "P") return fromP;
-  return null;
+  const nama = pickFirstString(raw, [...NAMA_FIELD_KEYS]);
+  return inferJenisKelaminFromNamaPasien(nama);
 }
 
 export function formatJenisKelaminDisplay(

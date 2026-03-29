@@ -1,9 +1,11 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { useTabs } from "@/app/contexts/TabContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useUI } from "@/contexts/UIContext";
 import { cn } from "@/lib/utils";
 
 /*───────────────────────────────────────────────
@@ -25,12 +27,20 @@ const BottomNav = dynamic(() => import("@/components/BottomNav"), {
 export default function LayoutMain() {
   const { theme } = useTheme();
   const { activeTab } = useTabs();
+  const { uiZoomPercent } = useUI();
   const isLight = theme === "light";
   /** Tab tindakan: tanpa kartu ganda (blur/border/shadow) supaya tabel memakai penuh area. */
   const flushContent = activeTab === "tindakan";
 
   return (
-    <>
+    <div
+      className="flex min-h-0 flex-1 flex-col overflow-hidden antialiased [text-rendering:optimizeLegibility]"
+      style={
+        {
+          zoom: uiZoomPercent / 100,
+        } as CSSProperties
+      }
+    >
       {/* Konten utama */}
       <main
         className={cn(
@@ -73,6 +83,6 @@ export default function LayoutMain() {
 
       {/* Navigasi bawah: fixed + z di BottomNav (hindari wrapper ganda). */}
       <BottomNav />
-    </>
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * 8 tab ringkas — selaras docs/wireframe-dashboard-perawat.md (Fase 1).
+ * 9 tab ringkas — selaras docs/wireframe-dashboard-perawat.md (Fase 1).
  * Tab Biaya menyertakan jembatan ke modul Pemakaian (bukan embed penuh).
  */
 
@@ -12,6 +12,7 @@ import { formatWaktuDisplay } from "@/lib/tindakan/waktuRangeFormat";
 
 export type WireframeTabId =
   | "pasien"
+  | "fast_track"
   | "tindakan"
   | "lokasi"
   | "tim"
@@ -39,6 +40,13 @@ export const WIREFRAME_DRAWER_TABS: {
       "alamat",
       "no_telp",
     ],
+  },
+  {
+    id: "fast_track",
+    label: "Fast-Track",
+    short: "FT",
+    /** Isi di-render di `FastTrackBlock` (dua input + total otomatis). */
+    fields: [],
   },
   {
     id: "tindakan",
@@ -109,6 +117,9 @@ export const FIELD_LABELS: Record<string, string> = {
   umur: "Umur",
   alamat: "Alamat",
   no_telp: "No. telp",
+  pasien_datang_igd: "Pasien datang di IGD",
+  door_to_balloon: "Door to balloon (cathlab)",
+  total_waktu_fast_track: "Total waktu",
   ruangan: "Ruangan",
   cath: "Cathlab",
   dokter: "Dokter",

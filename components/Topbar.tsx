@@ -7,8 +7,9 @@ import {
 } from "framer-motion";
 import { useUI } from "@/contexts/UIContext";
 import { useSession } from "@/contexts/SessionContext";
-import { LogOut, Loader2, Sun, Moon } from "lucide-react";
+import { LogOut, Loader2, Sun, Moon, Settings } from "lucide-react";
 import HoloSettingsPanel from "@/components/HoloSettingsPanel";
+import UiZoomControl from "@/components/UiZoomControl";
 import { useTheme } from "@/contexts/ThemeContext";
 import { ToolbarNotificationBell } from "@/app/dashboard/pasien/components/toolbar/ToolbarNotificationBell";
 
@@ -40,6 +41,7 @@ export default function Topbar() {
     isMobile,
     themeMode,
     setShowLogoutAnim,
+    toggleSettings,
   } = useUI();
   const { theme, toggleTheme } = useTheme();
   const { username, resetSession } = useSession();
@@ -318,6 +320,22 @@ export default function Topbar() {
               }`}
             >
               {isLight ? <Moon size={18} /> : <Sun size={18} />}
+            </motion.button>
+            <UiZoomControl />
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={toggleSettings}
+              title="Pengaturan tampilan"
+              aria-label="Buka pengaturan tampilan"
+              className={`p-2 rounded-lg border transition flex-shrink-0 ${
+                isLight
+                  ? "border-cyan-600/35 bg-white/60 text-cyan-800 hover:bg-cyan-50"
+                  : "border-cyan-500/35 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/25"
+              }`}
+            >
+              <Settings size={18} />
             </motion.button>
             <ToolbarNotificationBell />
             <span

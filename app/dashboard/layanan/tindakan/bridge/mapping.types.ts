@@ -37,6 +37,11 @@ export interface TindakanJoinResult {
   diagnosa: string | null;
   severity_level: string | null;
 
+  /** Fast-Track STEMI / IGD (teks) */
+  pasien_datang_igd?: string | null;
+  door_to_balloon?: string | null;
+  total_waktu_fast_track?: string | null;
+
   asisten: string | null;
   sirkuler: string | null;
   logger: string | null;

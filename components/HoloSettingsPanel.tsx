@@ -1,6 +1,12 @@
 "use client";
 import { motion, AnimatePresence } from "framer-motion";
-import { useUI } from "@/contexts/UIContext";
+import {
+  useUI,
+  UI_ZOOM_MAX,
+  UI_ZOOM_MIN,
+  UI_ZOOM_STEP,
+  clampUiZoomPercent,
+} from "@/contexts/UIContext";
 import { X } from "lucide-react";
 
 type TransitionMode = "fast" | "smooth" | "cinematic";
@@ -13,6 +19,8 @@ export default function HoloSettingsPanel() {
     setTransitionMode,
     themeMode,
     setThemeMode,
+    uiZoomPercent,
+    setUiZoomPercent,
   } = useUI();
 
   return (
@@ -99,6 +107,54 @@ export default function HoloSettingsPanel() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Zoom tampilan */}
+            <div>
+              <h3 className="font-semibold text-cyan-400 mb-2 uppercase tracking-wider">
+                Zoom tampilan
+              </h3>
+              <p className="text-[11px] text-cyan-500/80 mb-2 leading-snug">
+                Memperbesar atau memperkecil isi halaman di bawah bar tab. Topbar,
+                tab menu, dan sidebar tidak ikut zoom. Disimpan di perangkat ini.
+              </p>
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="range"
+                  min={UI_ZOOM_MIN}
+                  max={UI_ZOOM_MAX}
+                  step={UI_ZOOM_STEP}
+                  value={uiZoomPercent}
+                  onChange={(e) =>
+                    setUiZoomPercent(clampUiZoomPercent(Number(e.target.value)))
+                  }
+                  className="flex-1 min-w-0 accent-cyan-400 cursor-pointer"
+                  aria-valuemin={UI_ZOOM_MIN}
+                  aria-valuemax={UI_ZOOM_MAX}
+                  aria-valuenow={uiZoomPercent}
+                />
+                <input
+                  type="number"
+                  min={UI_ZOOM_MIN}
+                  max={UI_ZOOM_MAX}
+                  step={UI_ZOOM_STEP}
+                  value={uiZoomPercent}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value, 10);
+                    if (!Number.isNaN(n)) setUiZoomPercent(clampUiZoomPercent(n));
+                  }}
+                  className="w-14 rounded-md border border-cyan-500/35 bg-cyan-950/50 px-1.5 py-1 text-center text-xs text-cyan-100 outline-none focus:border-cyan-400/60"
+                  aria-label="Persentase zoom"
+                />
+                <span className="text-[11px] text-cyan-400/90">%</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUiZoomPercent(100)}
+                className="w-full rounded-md border border-cyan-500/40 bg-cyan-950/40 py-1.5 text-xs text-cyan-200 hover:bg-cyan-900/50 transition"
+              >
+                Reset ke 100%
+              </button>
             </div>
 
             {/* Glow Intensity (Future Hook) */}

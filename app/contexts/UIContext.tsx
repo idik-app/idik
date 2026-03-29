@@ -12,6 +12,16 @@ import { animate, useMotionValue, MotionValue } from "framer-motion";
 type TransitionMode = "fast" | "smooth" | "cinematic";
 type ThemeMode = "gold-cyan" | "neo-white" | "dark-clinical";
 
+/** Zoom tampilan area konten dashboard (50–200%, langkah 5%). */
+export const UI_ZOOM_MIN = 50;
+export const UI_ZOOM_MAX = 200;
+export const UI_ZOOM_STEP = 5;
+
+export function clampUiZoomPercent(value: number): number {
+  const stepped = Math.round(value / UI_ZOOM_STEP) * UI_ZOOM_STEP;
+  return Math.min(UI_ZOOM_MAX, Math.max(UI_ZOOM_MIN, stepped));
+}
+
 interface UIContextType {
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
@@ -30,6 +40,10 @@ interface UIContextType {
   // 🔥 tambahan untuk animasi logout global
   showLogoutAnim: boolean;
   setShowLogoutAnim: React.Dispatch<React.SetStateAction<boolean>>;
+
+  /** Persentase zoom area konten (header + isi tab), bukan sidebar. */
+  uiZoomPercent: number;
+  setUiZoomPercent: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const UIContext = createContext<UIContextType | undefined>(undefined);
@@ -51,6 +65,17 @@ export const UIProvider = ({ children }: { children: React.ReactNode }) => {
 
   // 🧩 state logout global
   const [showLogoutAnim, setShowLogoutAnim] = useState(false);
+
+  const [uiZoomPercent, setUiZoomPercentRaw] = useState(100);
+  const setUiZoomPercent = useCallback(
+    (action: React.SetStateAction<number>) => {
+      setUiZoomPercentRaw((prev) => {
+        const next = typeof action === "function" ? action(prev) : action;
+        return clampUiZoomPercent(next);
+      });
+    },
+    [],
+  );
 
   // Responsif otomatis
   useEffect(() => {
@@ -75,13 +100,19 @@ export const UIProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const savedTheme = localStorage.getItem("idik_theme");
     const savedTrans = localStorage.getItem("idik_transition");
+    const savedZoom = localStorage.getItem("idik_ui_zoom");
     if (savedTheme) setThemeMode(savedTheme as ThemeMode);
     if (savedTrans) setTransitionMode(savedTrans as TransitionMode);
+    if (savedZoom) {
+      const z = parseInt(savedZoom, 10);
+      if (!Number.isNaN(z)) setUiZoomPercentRaw(clampUiZoomPercent(z));
+    }
   }, []);
   useEffect(() => {
     localStorage.setItem("idik_theme", themeMode);
     localStorage.setItem("idik_transition", transitionMode);
-  }, [themeMode, transitionMode]);
+    localStorage.setItem("idik_ui_zoom", String(uiZoomPercent));
+  }, [themeMode, transitionMode, uiZoomPercent]);
 
   // Sinkronisasi motionX — desktop: collapsed 80px / expanded 288px; HP: terbuka = drawer lebar (bukan 80px)
   useEffect(() => {
@@ -134,6 +165,8 @@ export const UIProvider = ({ children }: { children: React.ReactNode }) => {
       setThemeMode,
       showLogoutAnim,
       setShowLogoutAnim,
+      uiZoomPercent,
+      setUiZoomPercent,
     }),
     [
       isSidebarOpen,
@@ -144,6 +177,7 @@ export const UIProvider = ({ children }: { children: React.ReactNode }) => {
       transitionMode,
       themeMode,
       showLogoutAnim,
+      uiZoomPercent,
     ]
   );
 

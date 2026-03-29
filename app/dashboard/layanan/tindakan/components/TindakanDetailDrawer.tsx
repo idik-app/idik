@@ -30,6 +30,7 @@ import KlinisAutosaveField, {
 import BiayaAutosaveField, {
   type BiayaAutosaveFieldKey,
 } from "./BiayaAutosaveField";
+import FastTrackBlock from "./FastTrackBlock";
 import { buildResumeWhatsAppText } from "../lib/buildResumeWhatsAppText";
 import { cn } from "@/lib/utils";
 import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
@@ -435,24 +436,25 @@ export default function TindakanDetailDrawer({
         )}
         onClick={onClose}
       />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="tindakan-detail-modal-title"
-        className={cn(
-          "fixed top-1/2 z-[1] flex max-h-[min(92vh,760px)] min-w-0 w-[min(64rem,calc(100vw-var(--sidebar-width,0px)-1rem))] flex-col overflow-hidden rounded-xl border -translate-x-1/2 -translate-y-1/2 sm:w-[min(64rem,calc(100vw-var(--sidebar-width,0px)-2rem))]",
-          isLight
-            ? "border-cyan-500/30 bg-gradient-to-b from-white via-slate-50 to-cyan-50/40 shadow-[0_12px_40px_rgba(0,80,100,0.15)]"
-            : "border-cyan-800/40 bg-gradient-to-b from-[#04070d] via-[#0a1018] to-black shadow-[0_8px_32px_rgba(0,0,0,0.45)]",
-        )}
-        style={{
-          left: "calc(50% + (var(--sidebar-width, 0px) / 2))",
-          ...(modalMinWidthPx != null
-            ? { minWidth: `${modalMinWidthPx}px` }
-            : {}),
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
+      {/* Flex center (bukan translate -50%) agar teks tidak blur di subpiksel / Windows */}
+      <div className="absolute inset-0 z-[1] flex items-center justify-center pointer-events-none pl-[var(--sidebar-width,0px)] pr-2 sm:pr-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="tindakan-detail-modal-title"
+          className={cn(
+            "pointer-events-auto flex max-h-[min(92vh,760px)] min-w-0 w-full max-w-[min(64rem,calc(100vw-var(--sidebar-width,0px)-1rem))] flex-col overflow-hidden rounded-xl border antialiased [text-rendering:optimizeLegibility] sm:max-w-[min(64rem,calc(100vw-var(--sidebar-width,0px)-2rem))]",
+            isLight
+              ? "border-cyan-500/30 bg-gradient-to-b from-white via-slate-50 to-cyan-50/40 shadow-[0_12px_40px_rgba(0,80,100,0.15)]"
+              : "border-cyan-800/40 bg-gradient-to-b from-[#04070d] via-[#0a1018] to-black shadow-[0_8px_32px_rgba(0,0,0,0.45)]",
+          )}
+          style={
+            modalMinWidthPx != null
+              ? { minWidth: `${modalMinWidthPx}px` }
+              : undefined
+          }
+          onClick={(e) => e.stopPropagation()}
+        >
         <div
           className={cn(
             "shrink-0 border-b px-3 py-2 sm:px-3.5",
@@ -869,6 +871,24 @@ export default function TindakanDetailDrawer({
                   >
                     {def.label}
                   </h3>
+                  {def.id === "fast_track" ? (
+                    <FastTrackBlock
+                      tindakanId={String(displayRecord.id ?? "").trim()}
+                      pasienDatangValue={getWireframeFieldValue(
+                        displayRecord as unknown as Record<string, unknown>,
+                        "pasien_datang_igd",
+                      )}
+                      doorToBalloonValue={getWireframeFieldValue(
+                        displayRecord as unknown as Record<string, unknown>,
+                        "door_to_balloon",
+                      )}
+                      totalValue={getWireframeFieldValue(
+                        displayRecord as unknown as Record<string, unknown>,
+                        "total_waktu_fast_track",
+                      )}
+                      onSaved={onRecordPatch}
+                    />
+                  ) : (
                   <dl className="grid grid-cols-1 gap-1.5 text-sm font-semibold">
                     {def.fields.map((key) => {
                       const rawVal = getWireframeFieldValue(
@@ -1028,6 +1048,46 @@ export default function TindakanDetailDrawer({
                       );
                     })}
                   </dl>
+                  )}
+                  {def.id === "fast_track" ? (
+                    <div
+                      className={cn(
+                        "mt-3 rounded-xl border-2 px-3 py-3",
+                        isLight
+                          ? "border-rose-500/45 bg-rose-50/95 shadow-sm"
+                          : "border-rose-500/40 bg-rose-950/35 shadow-[0_0_24px_rgba(244,63,94,0.12)]",
+                      )}
+                      role="note"
+                    >
+                      <p
+                        className={cn(
+                          "text-[11px] font-extrabold uppercase tracking-wide",
+                          isLight ? "text-rose-900" : "text-rose-200/95",
+                        )}
+                      >
+                        Saran pamungkas — STEMI
+                      </p>
+                      <p
+                        className={cn(
+                          "mt-2 text-xs font-semibold leading-relaxed",
+                          isLight ? "text-rose-950" : "text-rose-50/95",
+                        )}
+                      >
+                        Infark miokard dengan elevasi ST memerlukan{" "}
+                        <span className="font-bold">tindakan secepat mungkin</span>
+                        : setiap penundaan berarti kehilangan miokardium
+                        irreversibel. Aktifkan jalur{" "}
+                        <span className="font-bold">Fast-Track IGD → lab → kathlab</span>
+                        — EKG dan triase dini, terapi antiplatelet/antikoagulan sesuai
+                        protokol rumah sakit, konsultasi kardiologi segera, dan
+                        dokumentasi waktu (kedatangan IGD, first medical contact,
+                        first device) untuk mengejar target{" "}
+                        <span className="font-bold">door-to-balloon</span> sesuai
+                        standar (umumnya ≤90 menit; ideal lebih singkat di pusat PCI
+                        primer). Hindari hambatan administratif yang tidak perlu.
+                      </p>
+                    </div>
+                  ) : null}
                   {def.id === "tim" ? (
                     <TambahKeMasterPerawatForm
                       onAdded={() => setPerawatMasterReloadToken((t) => t + 1)}
@@ -1037,6 +1097,7 @@ export default function TindakanDetailDrawer({
               ))}
             </>
           )}
+        </div>
         </div>
       </div>
     </div>

@@ -57,6 +57,12 @@ export default function TindakanDashboard() {
         <TindakanHeader
           themeTone={themeTone}
           onThemeToneChange={setThemeTone}
+          dashboardRows={
+            Array.isArray(adapter.tindakanList)
+              ? (adapter.tindakanList as TindakanJoinResult[])
+              : []
+          }
+          dashboardLoading={Boolean(adapter.loading)}
           summary={
             <TindakanSummary
               stats={stats}

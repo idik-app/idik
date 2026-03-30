@@ -47,6 +47,7 @@ export function mapToEditor(data: TindakanJoinResult): TindakanEditorState {
         return toStr(v);
       })(),
       dose: toStr(data.dose),
+      dap_gy_cm2: toStr(data.dap_gy_cm2),
       kv: toStr(data.kv),
       ma: toStr(data.ma),
       cath: toStr(data.cath),

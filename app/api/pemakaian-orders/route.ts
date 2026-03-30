@@ -3,6 +3,7 @@ import { format, parseISO } from "date-fns";
 import { requireUser } from "@/lib/auth/guards";
 import { getServiceSupabaseAdmin } from "@/lib/auth/serviceSupabase";
 import { normalizeTemplateInputBarang } from "@/lib/pemakaian/templateInputBarang";
+import { normalizeKategoriAlkesLine } from "@/lib/distributorCatalog";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ function newOrderId(): string {
 type LineIn = {
   lineId?: string;
   barang?: string;
+  kategori?: string;
   distributor?: string;
   qtyRencana?: number;
   qtyDipakai?: number;
@@ -38,7 +40,7 @@ export async function POST(req: Request) {
         message:
           "Server tidak dikonfigurasi (NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY).",
       },
-      { status: 503 }
+      { status: 503 },
     );
   }
 
@@ -48,7 +50,7 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json(
       { ok: false, message: "Body JSON tidak valid." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -58,13 +60,14 @@ export async function POST(req: Request) {
   const depo = String(body.depo ?? "").trim();
   const tanggalRaw = String(body.tanggal ?? "").trim();
   const mode =
-    body.mode === "RESEP" || body.mode === "PEMAKAIAN" ? body.mode : "PEMAKAIAN";
+    body.mode === "RESEP" || body.mode === "PEMAKAIAN"
+      ? body.mode
+      : "PEMAKAIAN";
   const catatan =
     typeof body.catatan === "string" && body.catatan.trim()
       ? body.catatan.trim()
       : null;
-  const ruangan =
-    typeof body.ruangan === "string" ? body.ruangan.trim() : "";
+  const ruangan = typeof body.ruangan === "string" ? body.ruangan.trim() : "";
   const tindakanIdRaw =
     typeof body.tindakanId === "string"
       ? body.tindakanId
@@ -79,7 +82,7 @@ export async function POST(req: Request) {
         ok: false,
         message: "Pasien, dokter, dan depo wajib diisi.",
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -94,7 +97,7 @@ export async function POST(req: Request) {
   if (!tanggal) {
     return NextResponse.json(
       { ok: false, message: "Tanggal & jam wajib diisi." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -104,12 +107,14 @@ export async function POST(req: Request) {
     .map((it, i) => {
       const barang = String(it.barang ?? "").trim();
       if (!barang) return null;
+      const kategori = normalizeKategoriAlkesLine(it.kategori);
       return {
         lineId:
           typeof it.lineId === "string" && it.lineId.trim()
             ? it.lineId.trim()
             : `line-${i + 1}`,
         barang,
+        ...(kategori ? { kategori } : {}),
         distributor:
           typeof it.distributor === "string" && it.distributor.trim()
             ? it.distributor.trim()
@@ -148,7 +153,7 @@ export async function POST(req: Request) {
         ok: false,
         message: "Tambah minimal satu barang dengan nama barang terisi.",
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -180,7 +185,7 @@ export async function POST(req: Request) {
   if (error) {
     return NextResponse.json(
       { ok: false, message: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -200,7 +205,7 @@ export async function GET(request: Request) {
         message:
           "Server tidak dikonfigurasi (NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY).",
       },
-      { status: 503 }
+      { status: 503 },
     );
   }
 
@@ -221,7 +226,7 @@ export async function GET(request: Request) {
   if (error) {
     return NextResponse.json(
       { ok: false, message: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 

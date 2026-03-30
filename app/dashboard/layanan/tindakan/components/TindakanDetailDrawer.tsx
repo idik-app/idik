@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Copy, X } from "lucide-react";
 
 import type { Pasien } from "@/app/dashboard/pasien/types/pasien";
@@ -31,6 +32,7 @@ import BiayaAutosaveField, {
   type BiayaAutosaveFieldKey,
 } from "./BiayaAutosaveField";
 import FastTrackBlock from "./FastTrackBlock";
+import SignTimeFields from "./SignTimeFields";
 import { buildResumeWhatsAppText } from "../lib/buildResumeWhatsAppText";
 import { cn } from "@/lib/utils";
 import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
@@ -75,6 +77,7 @@ const HEADER_TAB_ROW_PAD_X = 28;
 const RADIOLOGI_AUTOSAVE_FIELDS: RadiologiFieldKey[] = [
   "fluoro_time",
   "dose",
+  "dap_gy_cm2",
   "kv",
   "ma",
   "waktu",
@@ -425,8 +428,14 @@ export default function TindakanDetailDrawer({
 
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-[400]">
+  /**
+   * Portal ke body: ancestor `LayoutMain` memakai `motion.div` (transform), sehingga
+   * `fixed` di dalam tab tidak menutupi viewport penuh — BottomNav (mobile) tetap di atas
+   * dan konten drawer terasa “terhalang”. Portal mengembalikan perilaku fixed ke viewport.
+   */
+  const layer =
+    typeof document === "undefined" ? null : (
+    <div className="fixed inset-0 z-[5000]">
       <button
         type="button"
         aria-label="Tutup detail tindakan"
@@ -535,7 +544,7 @@ export default function TindakanDetailDrawer({
 
         <div
           className={cn(
-            "min-h-0 flex-1 overflow-y-auto px-3 py-2 sm:px-3 sm:py-2.5",
+            "min-h-0 flex-1 overflow-y-auto px-3 py-2 pb-[max(1.25rem,calc(0.75rem+env(safe-area-inset-bottom,0px)))] sm:px-3 sm:py-2.5 sm:pb-3",
             isLight ? "bg-slate-50/80" : "bg-transparent",
           )}
         >
@@ -886,9 +895,14 @@ export default function TindakanDetailDrawer({
                         displayRecord as unknown as Record<string, unknown>,
                         "total_waktu_fast_track",
                       )}
+                      fastTrackFotosValue={getWireframeFieldValue(
+                        displayRecord as unknown as Record<string, unknown>,
+                        "fast_track_fotos",
+                      )}
                       onSaved={onRecordPatch}
                     />
                   ) : (
+                  <>
                   <dl className="grid grid-cols-1 gap-1.5 text-sm font-semibold">
                     {def.fields.map((key) => {
                       const rawVal = getWireframeFieldValue(
@@ -1048,6 +1062,25 @@ export default function TindakanDetailDrawer({
                       );
                     })}
                   </dl>
+                  {def.id === "tindakan" ? (
+                    <SignTimeFields
+                      tindakanId={String(displayRecord.id ?? "").trim()}
+                      signInValue={getWireframeFieldValue(
+                        displayRecord as unknown as Record<string, unknown>,
+                        "fast_track_sign_in",
+                      )}
+                      timeOutValue={getWireframeFieldValue(
+                        displayRecord as unknown as Record<string, unknown>,
+                        "fast_track_time_out",
+                      )}
+                      signOutValue={getWireframeFieldValue(
+                        displayRecord as unknown as Record<string, unknown>,
+                        "fast_track_sign_out",
+                      )}
+                      onSaved={onRecordPatch}
+                    />
+                  ) : null}
+                  </>
                   )}
                   {def.id === "fast_track" ? (
                     <div
@@ -1101,5 +1134,8 @@ export default function TindakanDetailDrawer({
         </div>
       </div>
     </div>
-  );
+    );
+
+  if (!layer) return null;
+  return createPortal(layer, document.body);
 }

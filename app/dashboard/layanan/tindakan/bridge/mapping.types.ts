@@ -16,6 +16,7 @@ export interface TindakanJoinResult {
   dose: number | null;
   kv: number | null;
   ma: number | null;
+  dap_gy_cm2: number | null;
   status_duplikat: string | null;
 
   no_rm: string | null;
@@ -41,6 +42,11 @@ export interface TindakanJoinResult {
   pasien_datang_igd?: string | null;
   door_to_balloon?: string | null;
   total_waktu_fast_track?: string | null;
+  fast_track_sign_in?: string | null;
+  fast_track_time_out?: string | null;
+  fast_track_sign_out?: string | null;
+  /** JSON array string URL foto Fast-Track */
+  fast_track_fotos?: string | null;
 
   asisten: string | null;
   sirkuler: string | null;
@@ -100,6 +106,7 @@ export interface TindakanEditorState {
   mesin: {
     fluoro_time: string;
     dose: string;
+    dap_gy_cm2: string;
     kv: string;
     ma: string;
     cath: string;

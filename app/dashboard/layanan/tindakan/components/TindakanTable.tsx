@@ -1683,7 +1683,7 @@ export default function TindakanTable({
                 isLight ? "bg-white/85" : "bg-black/20",
               )}
             >
-              <table className="w-full min-w-[1120px] text-sm font-semibold border-separate border-spacing-0">
+              <table className="w-full min-w-[1200px] text-sm font-semibold border-separate border-spacing-0">
                 <thead className="sticky top-0 z-10">
                   <tr
                     className={cn(
@@ -1708,6 +1708,14 @@ export default function TindakanTable({
                       )}
                     >
                       Tanggal
+                    </th>
+                    <th
+                      className={cn(
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                      )}
+                    >
+                      Time out
                     </th>
                     <th
                       className={cn(
@@ -1771,7 +1779,7 @@ export default function TindakanTable({
                   {pagedRecords.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={9}
+                        colSpan={10}
                         className={cn(
                           "px-4 py-10 text-center font-semibold",
                           isLight ? "text-cyan-950/90" : "text-cyan-500/70",
@@ -1896,6 +1904,15 @@ export default function TindakanTable({
                                 }
                               />
                             </div>
+                          </td>
+                          <td
+                            className={cn(
+                              "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle tabular-nums",
+                              isLight ? "text-slate-800" : "text-cyan-200/90",
+                            )}
+                            title="Dari tab Fast-Track (Time out)"
+                          >
+                            {String(rec.fast_track_time_out ?? "").trim() || "—"}
                           </td>
                           <td
                             className={cn(
@@ -2235,7 +2252,7 @@ export default function TindakanTable({
                             )}
                           >
                             <td
-                              colSpan={9}
+                              colSpan={10}
                               className="px-3 py-1.5 align-top text-left"
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => e.stopPropagation()}

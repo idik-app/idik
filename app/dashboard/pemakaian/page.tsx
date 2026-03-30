@@ -1873,7 +1873,9 @@ export default function PemakaianPage() {
                       <Td>{row.tanggal}</Td>
                       <Td className="tabular-nums whitespace-nowrap">
                         {orderNoRm(row) ? (
-                          <span className="text-white/90">{orderNoRm(row)}</span>
+                          <span className="text-white/90">
+                            {orderNoRm(row)}
+                          </span>
                         ) : (
                           <span className="text-white/35">—</span>
                         )}

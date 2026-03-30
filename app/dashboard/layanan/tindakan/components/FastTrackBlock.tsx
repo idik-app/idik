@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 import { FIELD_LABELS } from "../bridge/wireframeDrawerTabs";
 import { DatetimeLocalPicker } from "@/components/ui/datetime-local-picker";
+import FastTrackPhotoDropzone from "./FastTrackPhotoDropzone";
 
 const DEBOUNCE_MS = 550;
 
@@ -63,15 +66,13 @@ function formatTotalForDb(minutes: number): string {
   return String(rounded).replace(".", ",");
 }
 
+/** Tampilan Indonesia, jam 24 jam (bukan AM/PM). */
 function formatWaktuDisplay(raw: string): string {
   const t = raw.trim();
   if (!t) return "—";
   const ms = parseToEpochMs(t);
   if (ms == null) return t;
-  return new Date(ms).toLocaleString("id-ID", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
+  return format(new Date(ms), "EEEE, d MMM yyyy, HH:mm", { locale: idLocale });
 }
 
 type Props = {
@@ -79,6 +80,7 @@ type Props = {
   pasienDatangValue: unknown;
   doorToBalloonValue: unknown;
   totalValue: unknown;
+  fastTrackFotosValue: unknown;
   onSaved?: () => void;
 };
 
@@ -87,6 +89,7 @@ export default function FastTrackBlock({
   pasienDatangValue,
   doorToBalloonValue,
   totalValue,
+  fastTrackFotosValue,
   onSaved,
 }: Props) {
   const isLight = useTindakanLightMode();
@@ -239,110 +242,122 @@ export default function FastTrackBlock({
     parseToEpochMs(d2bDraft)! < parseToEpochMs(igdDraft)!;
 
   return (
-    <dl className="grid grid-cols-1 gap-1.5 text-sm font-semibold">
-      <div className={boxClass}>
-        <dt
-          className={cn(
-            "text-[10px] font-bold leading-tight",
-            isLight ? "text-slate-600" : "text-gray-500",
-          )}
-        >
-          {FIELD_LABELS.pasien_datang_igd ?? "Waktu pasien tiba di IGD"}
-        </dt>
-        <dd className="mt-0.5 overflow-visible">
-          {canEdit ? (
-            <DatetimeLocalPicker
-              appearance="drawer"
-              isLight={isLight}
-              value={igdDraft}
-              onChange={(v) => {
-                setIgdDraft(v);
-                scheduleIgd(v);
-              }}
-            />
-          ) : (
-            <span
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(200px,280px)]">
+        <dl className="grid grid-cols-1 gap-1.5 text-sm font-semibold">
+          <div className={boxClass}>
+            <dt
               className={cn(
-                "text-[13px] font-semibold",
+                "text-[10px] font-bold leading-tight",
+                isLight ? "text-slate-600" : "text-gray-500",
+              )}
+            >
+              {FIELD_LABELS.pasien_datang_igd ?? "Waktu pasien tiba di IGD"}
+            </dt>
+            <dd className="mt-0.5 overflow-visible">
+              {canEdit ? (
+                <DatetimeLocalPicker
+                  appearance="drawer"
+                  isLight={isLight}
+                  value={igdDraft}
+                  onChange={(v) => {
+                    setIgdDraft(v);
+                    scheduleIgd(v);
+                  }}
+                />
+              ) : (
+                <span
+                  className={cn(
+                    "text-[13px] font-semibold",
+                    isLight ? "text-slate-950" : "text-cyan-100/95",
+                  )}
+                >
+                  {formatWaktuDisplay(draftFrom(pasienDatangValue))}
+                </span>
+              )}
+            </dd>
+          </div>
+
+          <div className={boxClass}>
+            <dt
+              className={cn(
+                "text-[10px] font-bold leading-tight",
+                isLight ? "text-slate-600" : "text-gray-500",
+              )}
+            >
+              {FIELD_LABELS.door_to_balloon ?? "Waktu door-to-balloon (cathlab)"}
+            </dt>
+            <dd className="mt-0.5 overflow-visible">
+              {canEdit ? (
+                <DatetimeLocalPicker
+                  appearance="drawer"
+                  isLight={isLight}
+                  value={d2bDraft}
+                  onChange={(v) => {
+                    setD2bDraft(v);
+                    scheduleD2b(v);
+                  }}
+                />
+              ) : (
+                <span
+                  className={cn(
+                    "text-[13px] font-semibold",
+                    isLight ? "text-slate-950" : "text-cyan-100/95",
+                  )}
+                >
+                  {formatWaktuDisplay(draftFrom(doorToBalloonValue))}
+                </span>
+              )}
+            </dd>
+          </div>
+
+          <div className={boxClass}>
+            <dt
+              className={cn(
+                "text-[10px] font-bold leading-tight",
+                isLight ? "text-slate-600" : "text-gray-500",
+              )}
+            >
+              {FIELD_LABELS.total_waktu_fast_track ?? "Total waktu"}
+            </dt>
+            <dd
+              className={cn(
+                "mt-0.5 text-[13px] font-semibold leading-snug break-words",
                 isLight ? "text-slate-950" : "text-cyan-100/95",
               )}
             >
-              {formatWaktuDisplay(draftFrom(pasienDatangValue))}
-            </span>
-          )}
-        </dd>
-      </div>
-
-      <div className={boxClass}>
-        <dt
-          className={cn(
-            "text-[10px] font-bold leading-tight",
-            isLight ? "text-slate-600" : "text-gray-500",
-          )}
-        >
-          {FIELD_LABELS.door_to_balloon ?? "Waktu door-to-balloon (cathlab)"}
-        </dt>
-        <dd className="mt-0.5 overflow-visible">
-          {canEdit ? (
-            <DatetimeLocalPicker
-              appearance="drawer"
-              isLight={isLight}
-              value={d2bDraft}
-              onChange={(v) => {
-                setD2bDraft(v);
-                scheduleD2b(v);
-              }}
-            />
-          ) : (
-            <span
+              {invalidOrder ? (
+                <span
+                  className={cn(
+                    "font-semibold",
+                    isLight ? "text-amber-800" : "text-amber-200/95",
+                  )}
+                >
+                  Urutan waktu tidak valid (balloon sebelum tiba IGD)
+                </span>
+              ) : (
+                totalDisplay
+              )}
+            </dd>
+            <p
               className={cn(
-                "text-[13px] font-semibold",
-                isLight ? "text-slate-950" : "text-cyan-100/95",
+                "mt-1 text-[10px] font-medium leading-snug",
+                isLight ? "text-slate-500" : "text-gray-500",
               )}
             >
-              {formatWaktuDisplay(draftFrom(doorToBalloonValue))}
-            </span>
-          )}
-        </dd>
-      </div>
+              Total dihitung otomatis: selisih menit dari waktu tiba IGD hingga
+              waktu first device / balloon di cathlab (door-to-balloon).
+            </p>
+          </div>
+        </dl>
 
-      <div className={boxClass}>
-        <dt
-          className={cn(
-            "text-[10px] font-bold leading-tight",
-            isLight ? "text-slate-600" : "text-gray-500",
-          )}
-        >
-          {FIELD_LABELS.total_waktu_fast_track ?? "Total waktu"}
-        </dt>
-        <dd
-          className={cn(
-            "mt-0.5 text-[13px] font-semibold leading-snug break-words",
-            isLight ? "text-slate-950" : "text-cyan-100/95",
-          )}
-        >
-          {invalidOrder ? (
-            <span
-              className={cn(
-                "font-semibold",
-                isLight ? "text-amber-800" : "text-amber-200/95",
-              )}
-            >
-              Urutan waktu tidak valid (balloon sebelum tiba IGD)
-            </span>
-          ) : (
-            totalDisplay
-          )}
-        </dd>
-        <p
-          className={cn(
-            "mt-1 text-[10px] font-medium leading-snug",
-            isLight ? "text-slate-500" : "text-gray-500",
-          )}
-        >
-          Total dihitung otomatis: selisih menit dari waktu tiba IGD hingga waktu
-          first device / balloon di cathlab (door-to-balloon).
-        </p>
+        <FastTrackPhotoDropzone
+          tindakanId={tindakanId}
+          fotosValue={fastTrackFotosValue}
+          canEdit={canEdit}
+          isLight={isLight}
+          onSaved={onSaved}
+        />
       </div>
 
       {!canEdit ? (
@@ -358,6 +373,6 @@ export default function FastTrackBlock({
           sini.
         </p>
       ) : null}
-    </dl>
+    </div>
   );
 }

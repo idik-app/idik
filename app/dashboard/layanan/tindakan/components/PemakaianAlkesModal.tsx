@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import {
@@ -46,6 +40,10 @@ import {
   normalizeTemplateInputBarang,
   type TemplateInputBarangPayload,
 } from "@/lib/pemakaian/templateInputBarang";
+import {
+  DISTRIBUTOR_PRODUK_KATEGORI,
+  normalizeKategoriAlkesLine,
+} from "@/lib/distributorCatalog";
 
 const DatetimeLocalPicker = dynamic(
   () =>
@@ -63,6 +61,8 @@ const ScanBarcodeQRDialog = dynamic(
 type PemakaianLine = {
   lineId: string;
   barang: string;
+  /** STENT | BALLON | WIRE | GUIDING | KATETER (mapping distributor). */
+  kategori?: string;
   distributor?: string;
   qtyRencana: number;
   qtyDipakai: number;
@@ -169,6 +169,10 @@ function newDrawerLineId() {
   return `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function kategoriFromPickRow(v: MasterBarangPickRow): string | undefined {
+  return normalizeKategoriAlkesLine(v.kategori);
+}
+
 function orderTanggalToDatetimeLocal(tanggal: string): string {
   const t = tanggal.trim();
   if (!t) return toDatetimeLocalValue(new Date());
@@ -207,9 +211,11 @@ function linesFromOrderItemsJson(raw: unknown): PemakaianLine[] {
       }
       return undefined;
     })();
+    const kategori = normalizeKategoriAlkesLine(o.kategori);
     out.push({
       lineId,
       barang,
+      ...(kategori ? { kategori } : {}),
       distributor:
         typeof o.distributor === "string" ? o.distributor : undefined,
       qtyRencana:
@@ -338,12 +344,7 @@ export default function PemakaianAlkesModal({
     setBarangScanOpen(false);
     setExistingOrderId(null);
     setEditingTemplateInputBarang(normalizeTemplateInputBarang(undefined));
-  }, [
-    initialPasienLabel,
-    initialDokter,
-    initialRuangan,
-    initialCatatan,
-  ]);
+  }, [initialPasienLabel, initialDokter, initialRuangan, initialCatatan]);
 
   const bootstrapSeqRef = useRef(0);
 
@@ -483,7 +484,8 @@ export default function PemakaianAlkesModal({
             order?: Record<string, unknown>;
           };
           if (seq !== bootstrapSeqRef.current) return;
-          const ord = j?.ok && j.order && typeof j.order === "object" ? j.order : null;
+          const ord =
+            j?.ok && j.order && typeof j.order === "object" ? j.order : null;
           if (ord && hydrateFromOrderRecord(ord)) return;
         } catch {
           /* lanjut */
@@ -733,9 +735,11 @@ export default function PemakaianAlkesModal({
   function applyBarangPick(pick: MasterBarangPickRow) {
     const suffix = Date.now().toString(36);
     const hPick = hargaFromPickRow(pick, barangVariantList);
+    const kCat = kategoriFromPickRow(pick);
     const line: PemakaianLine = {
       lineId: `draft-new-${suffix}`,
       barang: pick.nama.trim(),
+      ...(kCat ? { kategori: kCat } : {}),
       distributor: pick.distributor_nama?.trim() || undefined,
       qtyRencana: 1,
       qtyDipakai: 0,
@@ -918,9 +922,7 @@ export default function PemakaianAlkesModal({
           depo,
           items: itemsPayload,
           catatan: drawerCatatan.trim() || undefined,
-          ...(tindakanId?.trim()
-            ? { tindakanId: tindakanId.trim() }
-            : {}),
+          ...(tindakanId?.trim() ? { tindakanId: tindakanId.trim() } : {}),
         }),
       });
       const j = (await res.json().catch(() => ({}))) as {
@@ -963,8 +965,7 @@ export default function PemakaianAlkesModal({
 
   if (!open) return null;
 
-  const portalTarget =
-    typeof document !== "undefined" ? document.body : null;
+  const portalTarget = typeof document !== "undefined" ? document.body : null;
 
   const modalUi = (
     <>
@@ -1124,11 +1125,14 @@ export default function PemakaianAlkesModal({
               </div>
 
               <div className="rounded-xl border border-white/10 overflow-x-auto -mx-0.5 px-0.5 sm:mx-0 sm:px-0 touch-pan-x">
-                <table className="w-full text-[10px] min-w-[800px]">
+                <table className="w-full text-[10px] min-w-[920px]">
                   <thead>
                     <tr className="bg-[#0a1628] text-white/80">
                       <th className="text-left font-semibold px-2 py-1.5 min-w-[100px]">
                         Barang
+                      </th>
+                      <th className="text-left font-semibold px-2 py-1.5 min-w-[5.5rem]">
+                        Kategori
                       </th>
                       <th className="text-left font-semibold px-2 py-1.5 min-w-[88px]">
                         Distributor
@@ -1172,8 +1176,10 @@ export default function PemakaianAlkesModal({
                             }
                             onPickVariant={(v) => {
                               const h = hargaFromPickRow(v, barangVariantList);
+                              const kCat = kategoriFromPickRow(v);
                               patchDrawerLine(line.lineId, {
                                 barang: v.nama.trim(),
+                                ...(kCat ? { kategori: kCat } : {}),
                                 distributor:
                                   v.distributor_nama?.trim() || undefined,
                                 lot: v.lot?.trim() || undefined,
@@ -1185,6 +1191,29 @@ export default function PemakaianAlkesModal({
                             options={barangVariantList}
                             loading={barangVariantLoading}
                           />
+                        </td>
+                        <td className="px-1.5 py-1 align-top">
+                          <select
+                            suppressHydrationWarning
+                            aria-label="Kategori alkes"
+                            value={line.kategori ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              patchDrawerLine(line.lineId, {
+                                kategori: v
+                                  ? normalizeKategoriAlkesLine(v)
+                                  : undefined,
+                              });
+                            }}
+                            className="w-full min-w-[5rem] bg-black/50 border border-white/15 rounded px-0.5 py-1 text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                          >
+                            <option value="">— Pilih —</option>
+                            {DISTRIBUTOR_PRODUK_KATEGORI.map((k) => (
+                              <option key={k} value={k}>
+                                {k}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         <td className="px-1.5 py-1 align-top">
                           <input
@@ -1278,8 +1307,7 @@ export default function PemakaianAlkesModal({
                             value={line.tipe}
                             onChange={(e) =>
                               patchDrawerLine(line.lineId, {
-                                tipe: e.target
-                                  .value as PemakaianLine["tipe"],
+                                tipe: e.target.value as PemakaianLine["tipe"],
                               })
                             }
                             className="w-full bg-black/50 border border-white/15 rounded px-0.5 py-1 text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
@@ -1297,10 +1325,7 @@ export default function PemakaianAlkesModal({
                             aria-label={`Hapus baris ${line.barang || line.lineId}`}
                             title="Hapus baris"
                           >
-                            <Trash2
-                              className="h-3 w-3 shrink-0"
-                              aria-hidden
-                            />
+                            <Trash2 className="h-3 w-3 shrink-0" aria-hidden />
                           </button>
                         </td>
                       </tr>
@@ -1431,10 +1456,7 @@ export default function PemakaianAlkesModal({
                             .filter(Boolean)
                             .join(" · ")}
                         </span>
-                        {(v.lot ||
-                          v.ukuran ||
-                          v.ed ||
-                          v.distributor_nama) && (
+                        {(v.lot || v.ukuran || v.ed || v.distributor_nama) && (
                           <span className="block text-[9px] text-teal-200/90 mt-0.5">
                             {[
                               v.lot && `LOT ${v.lot}`,

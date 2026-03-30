@@ -156,18 +156,22 @@ export default function TabContent() {
   const entriesToRender = idsToRender.filter((id) => tabPanelCache[id]);
 
   return (
-    <div className="relative w-full min-h-0">
+    <div className="relative flex min-h-0 w-full flex-1 flex-col">
       {/*
         Jangan pakai position:absolute + inset-0 untuk panel: jika rantai tinggi
         (flex/%/overflow) tidak memberi tinggi pasti pada induk, area jadi 0px dan
         modul (mis. Dokter) tampak kosong walau sudah ter-mount.
         Keep-alive: tab non-aktif tetap di DOM dengan class hidden.
+        Panel aktif: flex-1 + min-h-0 agar tab seperti Tindakan (h-full di dalam)
+        mendapat tinggi pasti → scroll tabel/overflow-auto tampil.
       */}
       {entriesToRender.map((id) => (
         <div
           key={id}
           className={
-            activeTab === id ? "block w-full min-h-0" : "hidden"
+            activeTab === id
+              ? "flex min-h-0 w-full flex-1 flex-col"
+              : "hidden"
           }
           aria-hidden={activeTab !== id}
         >

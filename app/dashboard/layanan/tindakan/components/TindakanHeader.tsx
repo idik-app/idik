@@ -2,9 +2,12 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ChevronLeft, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { BarChart3, ChevronLeft, Sparkles } from "lucide-react";
 import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 import { cn } from "@/lib/utils";
+import type { TindakanJoinResult } from "../bridge/mapping.types";
+import TindakanDashboardModal from "./TindakanDashboardModal";
 
 type ThemeTone = "cyan" | "emerald";
 
@@ -12,13 +15,21 @@ export default function TindakanHeader({
   themeTone,
   onThemeToneChange,
   summary,
+  dashboardRows,
+  dashboardLoading,
 }: {
   themeTone: ThemeTone;
   onThemeToneChange: (next: ThemeTone) => void;
   /** Ringkasan KPI (mis. Hari ini / Total) — dipasang di samping judul untuk hemat ruang vertikal */
   summary?: ReactNode;
+  /** Snapshot daftar tindakan (sumber yang sama dengan tabel utama) untuk modal dashboard */
+  dashboardRows?: readonly TindakanJoinResult[];
+  dashboardLoading?: boolean;
 }) {
   const isLight = useTindakanLightMode();
+  const [dashboardOpen, setDashboardOpen] = useState(false);
+  const rows = dashboardRows ?? [];
+  const loadingDash = Boolean(dashboardLoading);
   const now = new Intl.DateTimeFormat("id-ID", {
     day: "2-digit",
     month: "long",
@@ -66,6 +77,23 @@ export default function TindakanHeader({
             ) : null}
           </div>
           <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end lg:shrink-0 min-w-0">
+            <button
+              type="button"
+              onClick={() => setDashboardOpen(true)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-bold transition",
+                isLight
+                  ? themeTone === "emerald"
+                    ? "border-emerald-500/45 bg-emerald-100/90 text-emerald-900 hover:border-emerald-600/55"
+                    : "border-cyan-500/45 bg-cyan-100/90 text-cyan-900 hover:border-cyan-600/55"
+                  : themeTone === "emerald"
+                    ? "border-emerald-700/50 bg-emerald-950/40 text-emerald-100 hover:border-emerald-500/55"
+                    : "border-cyan-700/50 bg-cyan-950/40 text-cyan-100 hover:border-cyan-500/55",
+              )}
+            >
+              <BarChart3 className="h-4 w-4 shrink-0" />
+              Dashboard
+            </button>
             <div
               className={cn(
                 "inline-flex items-center gap-1 rounded-xl border p-1",
@@ -158,6 +186,15 @@ export default function TindakanHeader({
           </div>
         </div>
       </div>
+
+      <TindakanDashboardModal
+        open={dashboardOpen}
+        onOpenChange={setDashboardOpen}
+        rows={rows}
+        loading={loadingDash}
+        isLight={isLight}
+        themeTone={themeTone}
+      />
     </div>
   );
 }

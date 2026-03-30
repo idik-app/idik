@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { format } from "date-fns";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import { format, isValid, parse } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { Calendar } from "lucide-react";
 import { DayPicker } from "react-day-picker";
@@ -9,132 +14,200 @@ import "react-day-picker/style.css";
 
 import { cn } from "@/lib/utils";
 
+const YMD = "yyyy-MM-dd" as const;
+
 function parseYmd(s: string): Date | undefined {
   const t = s.trim();
   if (!t) return undefined;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
-  if (!m) return undefined;
-  const y = Number(m[1]);
-  const mo = Number(m[2]);
-  const d = Number(m[3]);
-  if (!y || mo < 1 || mo > 12 || d < 1 || d > 31) return undefined;
-  const dt = new Date(y, mo - 1, d);
-  if (
-    dt.getFullYear() !== y ||
-    dt.getMonth() !== mo - 1 ||
-    dt.getDate() !== d
-  ) {
-    return undefined;
-  }
-  return dt;
+  const d = parse(t, YMD, new Date());
+  return isValid(d) ? d : undefined;
 }
 
 function toYmd(d: Date): string {
-  return format(d, "yyyy-MM-dd");
+  return format(d, YMD);
 }
 
-const rdpTheme = {
-  "--rdp-accent-color": "rgb(34 211 238)",
-  "--rdp-accent-background-color": "rgba(8, 51, 68, 0.55)",
-  "--rdp-today-color": "rgb(251 191 36)",
-  "--rdp-day-height": "2.25rem",
-  "--rdp-day-width": "2.25rem",
-  "--rdp-day_button-height": "2.125rem",
-  "--rdp-day_button-width": "2.125rem",
+const rdpLight = {
+  "--rdp-accent-color": "rgb(8 145 178)",
+  "--rdp-accent-background-color": "rgba(8, 145, 178, 0.12)",
+  "--rdp-today-color": "rgb(13 148 136)",
+  "--rdp-day-height": "2.5rem",
+  "--rdp-day-width": "2.5rem",
+  "--rdp-day_button-height": "2.5rem",
+  "--rdp-day_button-width": "2.5rem",
 } as const satisfies Record<string, string>;
 
+const rdpDark = {
+  "--rdp-accent-color": "rgb(34 211 238)",
+  "--rdp-accent-background-color": "rgba(34, 211, 238, 0.15)",
+  "--rdp-today-color": "rgb(250 204 21)",
+  "--rdp-day-height": "2.5rem",
+  "--rdp-day-width": "2.5rem",
+  "--rdp-day_button-height": "2.5rem",
+  "--rdp-day_button-width": "2.5rem",
+} as const satisfies Record<string, string>;
+
+const displayFmt = new Intl.DateTimeFormat("id-ID", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+
+/** Tetap diekspor agar pemanggil lama tidak rusak; kalender tidak lagi di-portal ke body. */
+export const DATE_YMD_PICKER_PORTAL = "data-date-ymd-picker-portal" as const;
+
+/**
+ * Pemilih tanggal `yyyy-MM-dd` — panel **di dalam pohon DOM** (bukan portal body)
+ * supaya selalu di atas input lain di modal dan klik di luar menutup tanpa “tembus”.
+ */
 export function DateYmdPicker({
-  label,
+  id,
   value,
   onChange,
+  placeholder = "Pilih tanggal",
+  isLight,
   className,
-  clearable = true,
+  buttonClassName,
+  disabled,
 }: {
-  label: string;
+  id?: string;
   value: string;
   onChange: (ymd: string) => void;
+  placeholder?: string;
+  isLight: boolean;
   className?: string;
-  /** false = wajib ada tanggal (filter laporan, dll.) */
-  clearable?: boolean;
+  buttonClassName?: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [navMonth, setNavMonth] = useState<Date>(() => new Date());
   const wrapRef = useRef<HTMLDivElement>(null);
+
   const selected = parseYmd(value);
+  const yearNow = new Date().getFullYear();
 
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (
-        wrapRef.current &&
-        !wrapRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
+    setNavMonth(parseYmd(value) ?? new Date());
+  }, [open, value]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocPointerDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (wrapRef.current?.contains(t)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
-    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("pointerdown", onDocPointerDown, true);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("pointerdown", onDocPointerDown, true);
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
 
+  const label =
+    selected && isValid(selected)
+      ? displayFmt.format(selected)
+      : placeholder;
+
   return (
-    <div ref={wrapRef} className={cn("relative", className)}>
-      <span className="flex flex-col gap-0.5 text-[11px] text-cyan-400/90">
-        {label}
-        <span className="flex items-stretch gap-0.5">
-          <button
-            suppressHydrationWarning
-            type="button"
-            onClick={() => setOpen((o) => !o)}
-            className="flex min-w-[11rem] flex-1 items-center gap-1.5 rounded-md border border-cyan-800/70 bg-slate-950/70 px-2 py-1.5 text-left text-[12px] text-cyan-100 hover:border-cyan-600/60"
-          >
-            <Calendar className="h-3.5 w-3.5 shrink-0 text-cyan-400/90" />
-            <span className="min-w-0 truncate">
-              {selected
-                ? format(selected, "d MMMM yyyy", { locale: idLocale })
-                : "Pilih tanggal…"}
-            </span>
-          </button>
-          {clearable && selected ? (
-            <button
-              suppressHydrationWarning
-              type="button"
-              title="Hapus tanggal"
-              onClick={(e) => {
-                e.stopPropagation();
-                onChange("");
-                setOpen(false);
-              }}
-              className="shrink-0 rounded-md border border-cyan-900/60 px-2 text-[11px] text-cyan-400/80 hover:bg-cyan-950/50"
-            >
-              ×
-            </button>
-          ) : null}
-        </span>
-      </span>
+    <div
+      ref={wrapRef}
+      {...{ [DATE_YMD_PICKER_PORTAL]: "" }}
+      className={cn(
+        "relative min-w-0",
+        open && "z-[300]",
+        className,
+      )}
+    >
+      <button
+        type="button"
+        id={id}
+        disabled={disabled}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => !disabled && setOpen((o) => !o)}
+        className={cn(
+          "flex h-9 w-full min-w-0 items-center gap-2 rounded-md border px-2.5 text-left text-xs transition outline-none focus-visible:ring-2",
+          isLight
+            ? "border-slate-300/80 bg-white text-slate-900 focus-visible:ring-cyan-500/35"
+            : "border-cyan-700/50 bg-black/40 text-cyan-50 focus-visible:ring-cyan-400/30",
+          !value && (isLight ? "text-slate-500" : "text-cyan-200/55"),
+          disabled && "cursor-not-allowed opacity-50",
+          buttonClassName,
+        )}
+      >
+        <Calendar
+          className={cn(
+            "h-3.5 w-3.5 shrink-0",
+            isLight ? "text-cyan-700" : "text-cyan-400",
+          )}
+        />
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+      </button>
+
       {open ? (
         <div
-          className="absolute left-0 top-full z-50 mt-1 rounded-xl border border-cyan-800/70 bg-slate-950/98 p-2 shadow-xl backdrop-blur-sm"
-          role="dialog"
-          aria-label={label}
+          className={cn(
+            "absolute left-0 top-full z-[301] mt-1 w-[min(calc(100vw-2rem),320px)] max-w-[min(100vw-2rem,320px)] rounded-xl border p-3 shadow-2xl",
+            isLight
+              ? "border-slate-200/90 bg-white text-slate-900"
+              : "border-cyan-700/50 bg-slate-950 text-cyan-50",
+          )}
+          aria-label="Kalender pilih tanggal"
+          onPointerDown={(e) => e.stopPropagation()}
         >
-          <DayPicker
-            mode="single"
-            selected={selected}
-            defaultMonth={selected ?? new Date()}
-            onSelect={(d) => {
-              onChange(d ? toYmd(d) : "");
-              setOpen(false);
-            }}
-            locale={idLocale}
-            className="rdp-root text-cyan-100"
-            style={rdpTheme as unknown as CSSProperties}
-          />
+          <div
+            className={cn(
+              "[&_.rdp-day]:flex [&_.rdp-day]:items-center [&_.rdp-day]:justify-center",
+              "[&_.rdp-day_button]:box-border [&_.rdp-day_button]:!h-full [&_.rdp-day_button]:!w-full [&_.rdp-day_button]:!min-h-[2.5rem] [&_.rdp-day_button]:!min-w-[2.5rem] [&_.rdp-day_button]:cursor-pointer",
+            )}
+          >
+            <DayPicker
+              mode="single"
+              selected={selected}
+              month={navMonth}
+              onMonthChange={setNavMonth}
+              onSelect={(d) => {
+                if (!d) return;
+                onChange(toYmd(d));
+                queueMicrotask(() => setOpen(false));
+              }}
+              locale={idLocale}
+              captionLayout="dropdown"
+              fromYear={1990}
+              toYear={yearNow + 5}
+              className={cn(
+                "rdp-root text-[12px]",
+                isLight ? "text-slate-900" : "text-cyan-50",
+              )}
+              style={(isLight ? rdpLight : rdpDark) as unknown as CSSProperties}
+            />
+          </div>
+          <div
+            className={cn(
+              "mt-2 flex justify-end border-t pt-2",
+              isLight ? "border-slate-200" : "border-cyan-800/50",
+            )}
+          >
+            <button
+              type="button"
+              className={cn(
+                "cursor-pointer text-[11px] font-semibold underline-offset-2 hover:underline",
+                isLight ? "text-slate-600" : "text-cyan-300/90",
+              )}
+              onClick={() => {
+                onChange("");
+                queueMicrotask(() => setOpen(false));
+              }}
+            >
+              Hapus tanggal
+            </button>
+          </div>
         </div>
       ) : null}
     </div>

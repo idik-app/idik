@@ -23,7 +23,10 @@ function isTemplateRowFilled(raw: string | undefined, slots: number): boolean {
 }
 
 /** Gabungkan slot terisi untuk cetak (hanya bagian yang ada isinya). */
-function formatTemplateSlotsForPrint(raw: string | undefined, slots: number): string {
+function formatTemplateSlotsForPrint(
+  raw: string | undefined,
+  slots: number,
+): string {
   const parts = splitTemplateSlots(raw ?? "", slots);
   const filled = parts.filter((p) => p.length > 0);
   if (filled.length === 0) return "—";
@@ -121,9 +124,9 @@ export function ConsumableAngiografiPrintTemplate({
       {/* —— Sama dengan PemakaianPrintTable —— */}
       <h1 className="text-base font-bold text-black">IDIK-App — {listTitle}</h1>
       <p className="text-gray-700 mt-1">
-        Detail order — Struk (master), checklist Obat/Alkes &amp; Komponen cathlab
-        (hanya isian terisi) · CONSUMABLE ANGIOGRAFI · Mode: {mode} · Dicetak:{" "}
-        {printedAt}
+        Detail order — Struk (master), checklist Obat/Alkes &amp; Komponen
+        cathlab (hanya isian terisi) · CONSUMABLE ANGIOGRAFI · Mode: {mode} ·
+        Dicetak: {printedAt}
       </p>
 
       <table className="mt-3 w-full border-collapse border border-gray-400">
@@ -173,7 +176,9 @@ export function ConsumableAngiografiPrintTemplate({
             <td className="border border-gray-400 px-1.5 py-0.5">
               {order.dokter}
             </td>
-            <td className="border border-gray-400 px-1.5 py-0.5">{order.depo}</td>
+            <td className="border border-gray-400 px-1.5 py-0.5">
+              {order.depo}
+            </td>
             <td className="border border-gray-400 px-1.5 py-0.5">
               {order.status}
             </td>
@@ -181,9 +186,7 @@ export function ConsumableAngiografiPrintTemplate({
         </tbody>
       </table>
 
-      <h2 className="mt-4 text-base font-bold text-black">
-        Struk (master)
-      </h2>
+      <h2 className="mt-4 text-base font-bold text-black">Struk (master)</h2>
       <p className="text-gray-700 mt-1">
         {strukFilled.length} baris terisi
         {order.items.length > strukFilled.length

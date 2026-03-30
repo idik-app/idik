@@ -39,6 +39,7 @@ export const TINDAKAN_SCHEMA_38 = [
   "waktu",
   "fluoro_time",
   "dose",
+  "dap_gy_cm2",
   "kv",
   "ma",
   "status_duplikat",
@@ -89,7 +90,15 @@ export const DETAIL_GROUPS = {
     "ruangan",
     "status",
   ],
-  mesin: ["fluoro_time", "dose", "kv", "ma", "cath", "status_duplikat"],
+  mesin: [
+    "fluoro_time",
+    "dose",
+    "dap_gy_cm2",
+    "kv",
+    "ma",
+    "cath",
+    "status_duplikat",
+  ],
   klinis: [
     "diagnosa",
     "hasil_lab_ppm",
@@ -125,7 +134,7 @@ export const EDITOR_TABS = {
     "kelas_pembiayaan",
     "tarif_tindakan",
   ],
-  mesin: ["fluoro_time", "dose", "kv", "ma", "cath"],
+  mesin: ["fluoro_time", "dose", "dap_gy_cm2", "kv", "ma", "cath"],
   klinis: [
     "diagnosa",
     "hasil_lab_ppm",

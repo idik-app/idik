@@ -3,6 +3,7 @@ import { format, parseISO } from "date-fns";
 import { requireUser } from "@/lib/auth/guards";
 import { getServiceSupabaseAdmin } from "@/lib/auth/serviceSupabase";
 import { normalizeTemplateInputBarang } from "@/lib/pemakaian/templateInputBarang";
+import { normalizeKategoriAlkesLine } from "@/lib/distributorCatalog";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ const ALLOWED_STATUS = new Set([
 type LineIn = {
   lineId?: string;
   barang?: string;
+  kategori?: string;
   distributor?: string;
   qtyRencana?: number;
   qtyDipakai?: number;
@@ -32,6 +34,7 @@ type LineIn = {
 type NormalizedLine = {
   lineId: string;
   barang: string;
+  kategori?: string;
   distributor?: string;
   qtyRencana: number;
   qtyDipakai: number;
@@ -42,20 +45,22 @@ type NormalizedLine = {
   harga?: number;
 };
 
-function normalizeItems(rawItems: unknown):
-  | { ok: true; items: NormalizedLine[] }
-  | { ok: false; message: string } {
+function normalizeItems(
+  rawItems: unknown,
+): { ok: true; items: NormalizedLine[] } | { ok: false; message: string } {
   const items: LineIn[] = Array.isArray(rawItems) ? (rawItems as LineIn[]) : [];
   const normalized = items
     .map((it, i) => {
       const barang = String(it.barang ?? "").trim();
       if (!barang) return null;
+      const kategori = normalizeKategoriAlkesLine(it.kategori);
       return {
         lineId:
           typeof it.lineId === "string" && it.lineId.trim()
             ? it.lineId.trim()
             : `line-${i + 1}`,
         barang,
+        ...(kategori ? { kategori } : {}),
         distributor:
           typeof it.distributor === "string" && it.distributor.trim()
             ? it.distributor.trim()
@@ -68,7 +73,7 @@ function normalizeItems(rawItems: unknown):
           typeof it.qtyDipakai === "number" && !Number.isNaN(it.qtyDipakai)
             ? Math.max(0, it.qtyDipakai)
             : 0,
-        tipe: it.tipe === "REUSE" ? "REUSE" : "BARU",
+        tipe: (it.tipe === "REUSE" ? "REUSE" : "BARU") as "BARU" | "REUSE",
         lot:
           typeof it.lot === "string" && it.lot.trim()
             ? it.lot.trim()
@@ -89,7 +94,10 @@ function normalizeItems(rawItems: unknown):
     .filter((x): x is NonNullable<typeof x> => x != null);
 
   if (normalized.length === 0) {
-    return { ok: false, message: "Minimal satu baris barang dengan nama terisi." };
+    return {
+      ok: false,
+      message: "Minimal satu baris barang dengan nama terisi.",
+    };
   }
   return { ok: true, items: normalized };
 }
@@ -165,7 +173,7 @@ export async function PATCH(req: Request, { params }: Params) {
   if (!id) {
     return NextResponse.json(
       { ok: false, message: "ID order tidak valid." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -175,7 +183,7 @@ export async function PATCH(req: Request, { params }: Params) {
   } catch {
     return NextResponse.json(
       { ok: false, message: "Body JSON tidak valid." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -187,7 +195,7 @@ export async function PATCH(req: Request, { params }: Params) {
         message:
           "Server tidak dikonfigurasi (NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY).",
       },
-      { status: 503 }
+      { status: 503 },
     );
   }
 
@@ -200,13 +208,13 @@ export async function PATCH(req: Request, { params }: Params) {
   if (fetchErr) {
     return NextResponse.json(
       { ok: false, message: fetchErr.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
   if (!existing) {
     return NextResponse.json(
       { ok: false, message: "Order tidak ditemukan." },
-      { status: 404 }
+      { status: 404 },
     );
   }
 
@@ -217,7 +225,7 @@ export async function PATCH(req: Request, { params }: Params) {
     if (!ALLOWED_STATUS.has(st)) {
       return NextResponse.json(
         { ok: false, message: "Status tidak valid." },
-        { status: 400 }
+        { status: 400 },
       );
     }
     patch.status = st;
@@ -228,7 +236,7 @@ export async function PATCH(req: Request, { params }: Params) {
     if (!t) {
       return NextResponse.json(
         { ok: false, message: "Tanggal & jam tidak boleh kosong." },
-        { status: 400 }
+        { status: 400 },
       );
     }
     patch.tanggal = t;
@@ -252,11 +260,12 @@ export async function PATCH(req: Request, { params }: Params) {
   }
 
   if (body.mode !== undefined) {
-    const m = body.mode === "RESEP" || body.mode === "PEMAKAIAN" ? body.mode : null;
+    const m =
+      body.mode === "RESEP" || body.mode === "PEMAKAIAN" ? body.mode : null;
     if (!m) {
       return NextResponse.json(
         { ok: false, message: "Mode harus RESEP atau PEMAKAIAN." },
-        { status: 400 }
+        { status: 400 },
       );
     }
     patch.mode = m;
@@ -264,14 +273,16 @@ export async function PATCH(req: Request, { params }: Params) {
 
   if (body.catatan !== undefined) {
     const c = body.catatan;
-    patch.catatan =
-      typeof c === "string" && c.trim() ? c.trim() : null;
+    patch.catatan = typeof c === "string" && c.trim() ? c.trim() : null;
   }
 
   if (body.items !== undefined) {
     const n = normalizeItems(body.items);
     if (!n.ok) {
-      return NextResponse.json({ ok: false, message: n.message }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, message: n.message },
+        { status: 400 },
+      );
     }
     patch.items = n.items;
   }
@@ -285,7 +296,7 @@ export async function PATCH(req: Request, { params }: Params) {
   if (Object.keys(patch).length === 0) {
     return NextResponse.json(
       { ok: false, message: "Tidak ada field yang diperbarui." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -299,7 +310,7 @@ export async function PATCH(req: Request, { params }: Params) {
   if (upErr) {
     return NextResponse.json(
       { ok: false, message: upErr.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -316,7 +327,7 @@ export async function DELETE(_req: Request, { params }: Params) {
   if (!id) {
     return NextResponse.json(
       { ok: false, message: "ID order tidak valid." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -328,7 +339,7 @@ export async function DELETE(_req: Request, { params }: Params) {
         message:
           "Server tidak dikonfigurasi (NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY).",
       },
-      { status: 503 }
+      { status: 503 },
     );
   }
 
@@ -341,7 +352,7 @@ export async function DELETE(_req: Request, { params }: Params) {
   if (error) {
     return NextResponse.json(
       { ok: false, message: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -349,7 +360,7 @@ export async function DELETE(_req: Request, { params }: Params) {
   if (deleted === 0) {
     return NextResponse.json(
       { ok: false, message: "Order tidak ditemukan." },
-      { status: 404 }
+      { status: 404 },
     );
   }
 

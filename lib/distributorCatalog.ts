@@ -10,6 +10,16 @@ export const DISTRIBUTOR_PRODUK_KATEGORI = [
 export type DistributorProdukKategori =
   (typeof DISTRIBUTOR_PRODUK_KATEGORI)[number];
 
+/** Nilai kategori alkes untuk satu baris order/resi (JSON `items[]`). */
+export function normalizeKategoriAlkesLine(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const s = raw.trim().toUpperCase();
+  if (!s) return undefined;
+  return (DISTRIBUTOR_PRODUK_KATEGORI as readonly string[]).includes(s)
+    ? s
+    : undefined;
+}
+
 /** Harga referensi mapping distributor untuk stent koroner (Rp, digunakan otomatis dari nama). */
 export const DISTRIBUTOR_STENT_DEFAULT_HARGA_JUAL = 6_000_000;
 

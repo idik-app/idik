@@ -52,6 +52,7 @@ export const WIREFRAME_DRAWER_TABS: {
     id: "tindakan",
     label: "Tindakan",
     short: "Tin",
+    /** + Sign in / Time out / Sign out (jam) di `SignTimeFields` di bawah daftar field. */
     fields: ["tanggal_tindakan", "tindakan", "kategori"],
   },
   {
@@ -70,7 +71,7 @@ export const WIREFRAME_DRAWER_TABS: {
     id: "radiologi",
     label: "Radiologi",
     short: "Rad",
-    fields: ["fluoro_time", "dose", "kv", "ma", "waktu"],
+    fields: ["fluoro_time", "dose", "dap_gy_cm2", "kv", "ma", "waktu"],
   },
   {
     id: "klinis",
@@ -106,9 +107,10 @@ export const FIELD_LABELS: Record<string, string> = {
   tanggal: "Tanggal",
   waktu: "Waktu",
   fluoro_time: "Fluoro time",
-  dose: "Dosis",
+  dose: "Dose (mGy)",
   kv: "kV",
   ma: "mA",
+  dap_gy_cm2: "DAP (Gy·cm²)",
   status_duplikat: "Status duplikat",
   no_rm: "No. RM",
   nama_pasien: "Nama pasien",
@@ -120,6 +122,9 @@ export const FIELD_LABELS: Record<string, string> = {
   pasien_datang_igd: "Waktu pasien tiba di IGD",
   door_to_balloon: "Waktu door-to-balloon (cathlab)",
   total_waktu_fast_track: "Total waktu",
+  fast_track_sign_in: "Sign in",
+  fast_track_time_out: "Time out",
+  fast_track_sign_out: "Sign out",
   ruangan: "Ruangan",
   cath: "Cathlab",
   dokter: "Dokter",
@@ -283,6 +288,9 @@ export function formatFieldValue(key: string, value: unknown): string {
   if (typeof value === "number" && Number.isFinite(value)) {
     if (key === "dose") {
       return value.toLocaleString("id-ID");
+    }
+    if (key === "dap_gy_cm2") {
+      return value.toLocaleString("id-ID", { maximumFractionDigits: 6 });
     }
     return String(value);
   }

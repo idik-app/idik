@@ -15,8 +15,13 @@ export const DialogTrigger = DialogPrimitive.Trigger;
 export function DialogContent({
   children,
   className,
+  overlayClassName,
   ...props
-}: DialogPrimitive.DialogContentProps & { className?: string }) {
+}: DialogPrimitive.DialogContentProps & {
+  className?: string;
+  /** Naikkan z-index bila dialog dibuka dari layer tinggi (mis. drawer z-[5000]). */
+  overlayClassName?: string;
+}) {
   return (
     <DialogPrimitive.Portal>
       <AnimatePresence>
@@ -26,7 +31,9 @@ export function DialogContent({
             animate={{ opacity: 0.7 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm"
+            className={`fixed inset-0 z-40 bg-black/70 backdrop-blur-sm ${
+              overlayClassName ?? ""
+            }`}
           />
         </DialogPrimitive.Overlay>
 
@@ -44,6 +51,7 @@ export function DialogContent({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.25 }}
+            className="overflow-visible"
           >
             {children}
           </motion.div>

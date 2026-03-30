@@ -55,6 +55,9 @@ const rdpThemeDrawerLight = {
 
 type Appearance = "default" | "drawer";
 
+const HOUR_OPTS = Array.from({ length: 24 }, (_, i) => i);
+const MINUTE_OPTS = Array.from({ length: 60 }, (_, i) => i);
+
 export function DatetimeLocalPicker({
   value,
   onChange,
@@ -180,30 +183,82 @@ export function DatetimeLocalPicker({
             isDrawer && isLight ? "text-slate-500" : "text-white/50",
           )}
         >
-          Jam
+          Jam (24 jam)
         </span>
-        <input
-          type="time"
-          value={format(calendarDay, "HH:mm")}
-          step={60}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (!v || !/^\d{2}:\d{2}$/.test(v)) return;
-            const [hs, ms] = v.split(":");
-            const hh = Number(hs);
-            const mm = Number(ms);
-            if (Number.isNaN(hh) || Number.isNaN(mm)) return;
-            applyTime(hh, mm);
-          }}
-          className={cn(
-            "min-w-0 flex-1 rounded-md border px-2 py-1 text-[11px] focus:outline-none focus:ring-1",
-            isDrawer && isLight
-              ? "border-cyan-400/55 bg-white text-slate-950 focus:ring-cyan-500/40 [color-scheme:light]"
-              : isDrawer
-                ? "border-cyan-900/50 bg-black/40 text-cyan-100 focus:ring-cyan-500/35 [color-scheme:dark]"
-                : "border-white/15 bg-black/40 text-white focus:ring-[#E8C547]/50 [color-scheme:dark]",
-          )}
-        />
+        {isDrawer ? (
+          <div
+            className={cn(
+              "flex min-w-0 flex-1 items-center gap-1 font-mono text-[11px] font-semibold",
+            )}
+            lang="id-ID"
+          >
+            <select
+              aria-label="Jam 0–23"
+              value={calendarDay.getHours()}
+              onChange={(e) => {
+                const hh = Number(e.target.value);
+                if (Number.isNaN(hh)) return;
+                applyTime(hh, calendarDay.getMinutes());
+              }}
+              className={cn(
+                "min-w-0 flex-1 rounded-md border px-1.5 py-1 focus:outline-none focus:ring-1",
+                isLight
+                  ? "border-cyan-400/55 bg-white text-slate-950 focus:ring-cyan-500/40"
+                  : "border-cyan-900/50 bg-black/40 text-cyan-100 focus:ring-cyan-500/35",
+              )}
+            >
+              {HOUR_OPTS.map((h) => (
+                <option key={h} value={h}>
+                  {String(h).padStart(2, "0")}
+                </option>
+              ))}
+            </select>
+            <span className={isLight ? "text-slate-400" : "text-cyan-500/60"}>
+              :
+            </span>
+            <select
+              aria-label="Menit 0–59"
+              value={calendarDay.getMinutes()}
+              onChange={(e) => {
+                const mm = Number(e.target.value);
+                if (Number.isNaN(mm)) return;
+                applyTime(calendarDay.getHours(), mm);
+              }}
+              className={cn(
+                "min-w-0 flex-1 rounded-md border px-1.5 py-1 focus:outline-none focus:ring-1",
+                isLight
+                  ? "border-cyan-400/55 bg-white text-slate-950 focus:ring-cyan-500/40"
+                  : "border-cyan-900/50 bg-black/40 text-cyan-100 focus:ring-cyan-500/35",
+              )}
+            >
+              {MINUTE_OPTS.map((m) => (
+                <option key={m} value={m}>
+                  {String(m).padStart(2, "0")}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <input
+            type="time"
+            lang="id-ID"
+            value={format(calendarDay, "HH:mm")}
+            step={60}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (!v || !/^\d{2}:\d{2}$/.test(v)) return;
+              const [hs, ms] = v.split(":");
+              const hh = Number(hs);
+              const mm = Number(ms);
+              if (Number.isNaN(hh) || Number.isNaN(mm)) return;
+              applyTime(hh, mm);
+            }}
+            className={cn(
+              "min-w-0 flex-1 rounded-md border px-2 py-1 text-[11px] focus:outline-none focus:ring-1",
+              "border-white/15 bg-black/40 text-white focus:ring-[#E8C547]/50 [color-scheme:dark]",
+            )}
+          />
+        )}
         <button
           type="button"
           onClick={() => {
@@ -253,6 +308,7 @@ export function DatetimeLocalPicker({
             }}
             role="dialog"
             aria-label="Kalender tanggal dan jam"
+            lang="id-ID"
           >
             {panelInner}
           </div>,
@@ -268,6 +324,7 @@ export function DatetimeLocalPicker({
           )}
           role="dialog"
           aria-label="Kalender tanggal dan jam"
+          lang="id-ID"
         >
           {panelInner}
         </div>
@@ -288,7 +345,7 @@ export function DatetimeLocalPicker({
   );
 
   return (
-    <div ref={wrapRef} className={cn("relative w-full", className)}>
+    <div ref={wrapRef} className={cn("relative w-full", className)} lang="id-ID">
       <button
         ref={buttonRef}
         suppressHydrationWarning
@@ -299,7 +356,7 @@ export function DatetimeLocalPicker({
         <Calendar className={iconClass} aria-hidden />
         <span className="min-w-0 flex-1 truncate">
           {selected
-            ? format(selected, "EEEE, d MMM yyyy · HH:mm", { locale: idLocale })
+            ? format(selected, "EEEE, d MMM yyyy, HH:mm", { locale: idLocale })
             : "Pilih tanggal & jam…"}
         </span>
       </button>

@@ -19,7 +19,8 @@ export type RadiologiFieldKey =
   | "dose"
   | "kv"
   | "ma"
-  | "waktu";
+  | "waktu"
+  | "dap_gy_cm2";
 
 const FIELD_KIND: Record<
   RadiologiFieldKey,
@@ -30,6 +31,7 @@ const FIELD_KIND: Record<
   kv: "numeric",
   ma: "numeric",
   waktu: "waktu_range",
+  dap_gy_cm2: "numeric",
 };
 
 /** Field numerik / fluoro: simpan setelah jeda mengetik pendek. */
@@ -232,12 +234,14 @@ export default function RadiologiAutosaveField({
     field === "fluoro_time"
       ? "Fluoro time"
       : field === "dose"
-        ? "Dosis"
+        ? "Dose (mGy)"
         : field === "kv"
           ? "kV"
           : field === "ma"
             ? "mA"
-            : "Waktu";
+            : field === "dap_gy_cm2"
+              ? "DAP (Gy·cm²)"
+              : "Waktu";
 
   const inputClassNumeric = cn(
     "mt-0.5 w-full max-w-[14rem] rounded-md border px-2 py-1.5 font-mono text-sm font-semibold focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",

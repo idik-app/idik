@@ -55,6 +55,78 @@ function normalize(s: string): string {
   return s.trim().toLowerCase();
 }
 
+/** Konteks baris untuk membedakan varian (nama/kode sama, LOT/ED/distributor beda). */
+export type BlurResolveLine = {
+  distributor?: string;
+  lot?: string;
+  ukuran?: string;
+  ed?: string;
+};
+
+function narrowPickRowsByLine(
+  candidates: MasterBarangPickRow[],
+  line?: BlurResolveLine,
+): MasterBarangPickRow[] {
+  if (candidates.length <= 1) return candidates;
+  if (!line) return candidates;
+  const L = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+  let filtered = candidates;
+  const lot = L(line.lot);
+  const uk = L(line.ukuran);
+  const ed = L(line.ed);
+  const dist = L(line.distributor);
+  if (lot) {
+    const f = filtered.filter((v) => L(v.lot) === lot);
+    if (f.length) filtered = f;
+  }
+  if (uk) {
+    const f = filtered.filter((v) => L(v.ukuran) === uk);
+    if (f.length) filtered = f;
+  }
+  if (ed) {
+    const f = filtered.filter((v) => L(v.ed) === ed);
+    if (f.length) filtered = f;
+  }
+  if (dist) {
+    const f = filtered.filter((v) => L(v.distributor_nama) === dist);
+    if (f.length) filtered = f;
+  }
+  return filtered.length ? filtered : candidates;
+}
+
+/**
+ * Cocokkan teks kolom Barang ke satu baris master (barcode / kode / nama persis).
+ * Bila banyak varian, sempitkan dengan LOT, ukuran, ED, distributor pada baris bila ada.
+ */
+export function resolvePickRowFromBarangInput(
+  label: string,
+  options: MasterBarangPickRow[],
+  line?: BlurResolveLine,
+): MasterBarangPickRow | undefined {
+  const q = label.trim().toLowerCase();
+  if (!q) return undefined;
+  const L = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+
+  const byBarcode = options.find((v) => L(v.barcode) === q);
+  if (byBarcode) return byBarcode;
+
+  const byKode = options.filter((v) => L(v.kode) === q);
+  if (byKode.length === 1) return byKode[0];
+  if (byKode.length > 1) {
+    const narrowed = narrowPickRowsByLine(byKode, line);
+    return narrowed.length === 1 ? narrowed[0] : undefined;
+  }
+
+  const sameNama = options.filter((v) => L(v.nama) === q);
+  if (sameNama.length === 1) return sameNama[0];
+  if (sameNama.length > 1) {
+    const narrowed = narrowPickRowsByLine(sameNama, line);
+    return narrowed.length === 1 ? narrowed[0] : undefined;
+  }
+
+  return undefined;
+}
+
 type MenuPos = { top: number; left: number; width: number };
 
 export function BarangVariantCombobox({
@@ -65,6 +137,7 @@ export function BarangVariantCombobox({
   loading,
   listboxId,
   variant = "default",
+  blurResolveLine,
 }: {
   value: string;
   onChange: (nama: string) => void;
@@ -73,6 +146,8 @@ export function BarangVariantCombobox({
   loading?: boolean;
   listboxId: string;
   variant?: "default" | "table";
+  /** Isi kolom lain pada baris yang sama agar resolusi varian tidak ambigu. */
+  blurResolveLine?: BlurResolveLine;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -236,6 +311,24 @@ export function BarangVariantCombobox({
           onChange={(e) => {
             onChange(e.target.value);
             setOpen(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            if (loading || !open) return;
+            if (filtered.length !== 1) return;
+            e.preventDefault();
+            onPickVariant(filtered[0]);
+            setOpen(false);
+          }}
+          onBlur={() => {
+            setOpen(false);
+            if (loading || options.length === 0) return;
+            const picked = resolvePickRowFromBarangInput(
+              value,
+              options,
+              blurResolveLine,
+            );
+            if (picked) onPickVariant(picked);
           }}
           onFocus={() => setOpen(true)}
           autoComplete="off"

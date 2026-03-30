@@ -119,6 +119,54 @@ function isTarifPresent(v: unknown): boolean {
   return Number.isFinite(Number(v));
 }
 
+/** Sumber nilai sama dengan kolom "Tanggal tindakan" (wireframe: `tanggal_tindakan` → `tanggal`). */
+function parseTanggalTindakanToDate(value: unknown): Date | null {
+  if (value === null || value === undefined || value === "") return null;
+  const raw =
+    typeof value === "string"
+      ? value.trim()
+      : value instanceof Date
+        ? value.toISOString().slice(0, 10)
+        : String(value).trim();
+  if (!raw) return null;
+
+  const ymd = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymd) {
+    const d = new Date(
+      Number(ymd[1]),
+      Number(ymd[2]) - 1,
+      Number(ymd[3]),
+    );
+    return Number.isFinite(d.getTime()) ? d : null;
+  }
+
+  const parsed = Date.parse(raw);
+  if (Number.isFinite(parsed)) return new Date(parsed);
+
+  const dmy = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+  if (dmy) {
+    const d = new Date(
+      Number(dmy[3]),
+      Number(dmy[2]) - 1,
+      Number(dmy[1]),
+    );
+    return Number.isFinite(d.getTime()) ? d : null;
+  }
+
+  return null;
+}
+
+function formatDrawerTitleHariTanggal(value: unknown): string {
+  const d = parseTanggalTindakanToDate(value);
+  if (!d) return "—";
+  return new Intl.DateTimeFormat("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(d);
+}
+
 /** Jenis pembiayaan + kelas perawatan (angka), contoh: `NPBI - 1` */
 function buildKelasPembiayaanFromPasienMaster(pasien: Pasien): string | null {
   const jp = pasien.jenisPembiayaan?.trim() || "";
@@ -420,10 +468,17 @@ export default function TindakanDetailDrawer({
 
   const title = useMemo(() => {
     if (!displayRecord) return "Detail tindakan";
-    const rm = displayRecord.no_rm ?? "";
-    const nama = displayRecord.nama_pasien ?? "";
-    const tin = displayRecord.tindakan ?? "";
-    return [rm && `RM ${rm}`, nama || "—", tin].filter(Boolean).join(" · ");
+    const tanggalVal = getWireframeFieldValue(
+      displayRecord as Record<string, unknown>,
+      "tanggal_tindakan",
+    );
+    const hariTanggal = formatDrawerTitleHariTanggal(tanggalVal);
+    const rmStr = String(displayRecord.no_rm ?? "").trim();
+    const namaStr = String(displayRecord.nama_pasien ?? "").trim() || "—";
+    const tinStr = String(displayRecord.tindakan ?? "").trim();
+    const prefix = rmStr ? `${hariTanggal}.${rmStr}` : hariTanggal;
+    const tail = [namaStr, tinStr].filter(Boolean).join("·");
+    return tail ? `${prefix}·${tail}` : prefix;
   }, [displayRecord]);
 
   if (!open) return null;

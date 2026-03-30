@@ -27,6 +27,7 @@ type PemakaianRow = {
   order_id?: string | null;
   pasien?: string | null;
   dokter?: string | null;
+  no_rm?: string | null;
   status_order?: string | null;
   catatan?: string | null;
   tanggal_order_raw?: string | null;
@@ -120,6 +121,182 @@ function parseKeteranganParts(k: string | null | undefined): KeteranganParts {
   return out;
 }
 
+/** Sufiks "(919830)" pada label pasien dari order / keterangan. */
+function extractRmFromPasienLabel(
+  pasienLabel: string | null | undefined,
+): string | null {
+  if (!pasienLabel?.trim()) return null;
+  const m = pasienLabel.trim().match(/\(([0-9A-Za-z.,\-\s]+)\)\s*$/);
+  return m ? m[1].trim() : null;
+}
+
+function pasienNamaTanpaRm(pasienLabel: string | null | undefined): string {
+  if (!pasienLabel?.trim()) return "";
+  return pasienLabel.replace(/\s*\([^)]+\)\s*$/, "").trim();
+}
+
+function rowKParts(row: PemakaianRow): KeteranganParts {
+  return parseKeteranganParts(row.keterangan);
+}
+
+function tableNamaPasien(row: PemakaianRow): string {
+  const parts = rowKParts(row);
+  const label = row.pasien?.trim() || parts.pasien?.trim();
+  if (!label) return "—";
+  const stripped = pasienNamaTanpaRm(label);
+  return stripped || label;
+}
+
+function tableNoRm(row: PemakaianRow): string {
+  const parts = rowKParts(row);
+  const label = row.pasien?.trim() || parts.pasien?.trim();
+  const fromCol = row.no_rm?.trim();
+  if (fromCol) return fromCol;
+  const extracted = extractRmFromPasienLabel(label);
+  return extracted ?? "—";
+}
+
+function tableDokter(row: PemakaianRow): string {
+  const parts = rowKParts(row);
+  const d = row.dokter?.trim() || parts.dokter?.trim();
+  return d || "—";
+}
+
+/** Kunci penggabungan: tanggal + pasien (RM & nama) + PT — beda PT tetap baris terpisah. */
+function mergeGroupKey(row: PemakaianRow): string {
+  const tgl = String(row.tanggal ?? "").trim();
+  const rm = tableNoRm(row).trim();
+  const nama = tableNamaPasien(row).toLowerCase().replace(/\s+/g, " ").trim();
+  const pt = (row.distributor_nama ?? "").trim().toLowerCase();
+  return `${tgl}\u001f${rm}\u001f${nama}\u001f${pt}`;
+}
+
+function groupPemakaianRows(list: PemakaianRow[]): PemakaianRow[][] {
+  const map = new Map<string, PemakaianRow[]>();
+  for (const r of list) {
+    const k = mergeGroupKey(r);
+    const arr = map.get(k);
+    if (arr) arr.push(r);
+    else map.set(k, [r]);
+  }
+  const groups = [...map.values()].map((g) =>
+    [...g].sort((a, b) => a.id.localeCompare(b.id)),
+  );
+  groups.sort((a, b) => {
+    const ta = String(a[0]?.tanggal ?? "");
+    const tb = String(b[0]?.tanggal ?? "");
+    const c = tb.localeCompare(ta);
+    if (c !== 0) return c;
+    return mergeGroupKey(a[0]!).localeCompare(mergeGroupKey(b[0]!));
+  });
+  return groups;
+}
+
+function tableDokterGroup(rows: PemakaianRow[]): string {
+  const set = new Set<string>();
+  for (const r of rows) {
+    const d = tableDokter(r);
+    if (d && d !== "—") set.add(d);
+  }
+  if (set.size === 0) return "—";
+  if (set.size === 1) return [...set][0]!;
+  return [...set].join(" · ");
+}
+
+function formatReceiptDateGroup(rows: PemakaianRow[]): string {
+  if (!rows.length) return "—";
+  const sorted = [...rows].sort((a, b) => {
+    const ra = a.tanggal_order_raw?.trim() || a.created_at || "";
+    const rb = b.tanggal_order_raw?.trim() || b.created_at || "";
+    return rb.localeCompare(ra);
+  });
+  return formatReceiptDate(sorted[0]!);
+}
+
+function displayOrderIdsGroup(
+  rows: PemakaianRow[],
+  /** Pemisah antar order; pakai ASCII untuk teks share (WA/Email). */
+  sep = " · ",
+): string {
+  const ids = new Set<string>();
+  for (const r of rows) {
+    const p = rowKParts(r);
+    const oid = displayOrderId(r, p);
+    if (oid) ids.add(oid);
+  }
+  return [...ids].join(sep) || "-";
+}
+
+function detailDokterLine(rows: PemakaianRow[]): string | null {
+  const set = new Set<string>();
+  for (const r of rows) {
+    const p = rowKParts(r);
+    const d = r.dokter?.trim() || p.dokter?.trim();
+    if (d) set.add(d);
+  }
+  if (set.size === 0) return null;
+  return [...set].join(" · ");
+}
+
+function buildShareBodyGroup(rows: PemakaianRow[]): string {
+  if (!rows.length) return "";
+  if (rows.length === 1) {
+    const r = rows[0]!;
+    return buildShareBody(r, rowKParts(r));
+  }
+  const head = rows[0]!;
+  const headParts = rowKParts(head);
+  const pasienLine = formatPasienDetailLine(head, headParts);
+  const dokters = detailDokterLine(rows);
+  const lines: string[] = [];
+  lines.push(`Tanggal: ${formatReceiptDateGroup(rows)}`);
+  lines.push(`ID Order: ${displayOrderIdsGroup(rows, " | ")}`);
+  if (pasienLine) lines.push(`Pasien: ${pasienLine}`);
+  if (dokters) lines.push(`Dokter: ${dokters.replace(/\s*·\s*/g, " | ")}`);
+  const pt = head.distributor_nama?.trim();
+  if (pt) lines.push(`PT / Distributor: ${pt}`);
+  lines.push("");
+  lines.push("Pemakaian:");
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]!;
+    const rp = rowKParts(r);
+    const nama = r.inventaris?.nama ?? "-";
+    const bullet = `- ${nama}${r.jumlah != null && Number(r.jumlah) !== 1 ? ` (x${r.jumlah})` : ""}`;
+    lines.push(bullet);
+    const lot = r.lot?.trim();
+    const ukuran = r.ukuran?.trim();
+    const ed = r.ed?.trim();
+    const satuan = r.inventaris?.satuan?.trim();
+    if (lot) lines.push(`   LOT: ${lot}`);
+    if (ukuran) lines.push(`   Ukuran: ${ukuran}`);
+    if (ed) lines.push(`   ED: ${ed}`);
+    if (satuan) lines.push(`   Satuan: ${satuan}`);
+    if (i < rows.length - 1) lines.push("");
+  }
+  lines.push("");
+  lines.push("- IDIK-App / Portal Distributor");
+  return lines.join("\n");
+}
+
+/** Satu baris untuk dialog & share: "NAMA (RM)" bila RM diketahui. */
+function formatPasienDetailLine(
+  row: PemakaianRow,
+  parts: KeteranganParts,
+): string | null {
+  const label = row.pasien?.trim() || parts.pasien?.trim();
+  const rm =
+    row.no_rm?.trim() || extractRmFromPasienLabel(label) || undefined;
+  const nama = label
+    ? pasienNamaTanpaRm(label) || label
+    : "";
+  if (!label && !rm) return null;
+  if (rm) {
+    const n = nama || label || "—";
+    return `${n} (${rm})`;
+  }
+  return label ?? null;
+}
+
 function displayOrderId(row: PemakaianRow, parts: KeteranganParts): string {
   return (
     row.order_id?.trim() ||
@@ -130,19 +307,19 @@ function displayOrderId(row: PemakaianRow, parts: KeteranganParts): string {
 }
 
 function buildShareBody(row: PemakaianRow, parts: KeteranganParts): string {
-  const pasien = row.pasien?.trim() || parts.pasien;
+  const pasienLine = formatPasienDetailLine(row, parts);
   const dokterFinal = row.dokter?.trim() || parts.dokter;
   const lines: string[] = [];
-  lines.push(`📅 ${formatReceiptDate(row)}`);
-  lines.push(`🆔 ${displayOrderId(row, parts)}`);
-  if (pasien) lines.push(`👤 ${pasien}`);
-  if (dokterFinal) lines.push(`🩺 ${dokterFinal}`);
+  lines.push(`Tanggal: ${formatReceiptDate(row)}`);
+  lines.push(`ID Order: ${displayOrderId(row, parts)}`);
+  if (pasienLine) lines.push(`Pasien: ${pasienLine}`);
+  if (dokterFinal) lines.push(`Dokter: ${dokterFinal}`);
   const pt = row.distributor_nama?.trim();
-  if (pt) lines.push(`🏢 ${pt}`);
+  if (pt) lines.push(`PT / Distributor: ${pt}`);
   lines.push("");
   lines.push("Pemakaian:");
-  const nama = row.inventaris?.nama ?? "—";
-  const bullet = `• ${nama}${row.jumlah != null && Number(row.jumlah) !== 1 ? ` (×${row.jumlah})` : ""}`;
+  const nama = row.inventaris?.nama ?? "-";
+  const bullet = `- ${nama}${row.jumlah != null && Number(row.jumlah) !== 1 ? ` (x${row.jumlah})` : ""}`;
   lines.push(bullet);
   const lot = row.lot?.trim();
   const ukuran = row.ukuran?.trim();
@@ -152,12 +329,93 @@ function buildShareBody(row: PemakaianRow, parts: KeteranganParts): string {
   if (ukuran) lines.push(`   Ukuran: ${ukuran}`);
   if (ed) lines.push(`   ED: ${ed}`);
   if (satuan) lines.push(`   Satuan: ${satuan}`);
-  const st = row.status_order?.trim() || parts.status;
-  if (st) lines.push(`   Status: ${st}`);
-  const cat = row.catatan?.trim() || parts.cat;
-  if (cat) lines.push(`   Catatan: ${cat}`);
   lines.push("");
-  lines.push("— IDIK-App • Portal Distributor");
+  lines.push("- IDIK-App / Portal Distributor");
+  return lines.join("\n");
+}
+
+function waDokterText(rows: PemakaianRow[]): string | null {
+  const raw = detailDokterLine(rows);
+  if (!raw) return null;
+  return raw.replace(/\s*·\s*/g, " | ");
+}
+
+function appendWaPemakaianLines(
+  lines: string[],
+  r: PemakaianRow,
+  itemNo: number,
+) {
+  const nama = r.inventaris?.nama ?? "-";
+  const qty =
+    r.jumlah != null && Number(r.jumlah) !== 1 ? ` (x${r.jumlah})` : "";
+  lines.push(`${itemNo}. ${nama}${qty}`);
+  const lot = r.lot?.trim();
+  const ukuran = r.ukuran?.trim();
+  const ed = r.ed?.trim();
+  const satuan = r.inventaris?.satuan?.trim();
+  if (lot) lines.push(`   LOT: ${lot}`);
+  if (ukuran) lines.push(`   Ukuran: ${ukuran}`);
+  if (ed) lines.push(`   ED: ${ed}`);
+  if (satuan) lines.push(`   Satuan: ${satuan}`);
+}
+
+/**
+ * Format khusus WhatsApp: judul *tebal*, blok per field, ASCII aman.
+ * (Email tetap memakai buildShareBody / buildShareBodyGroup.)
+ */
+function buildWhatsAppBodyFromGroup(rows: PemakaianRow[]): string {
+  if (!rows.length) return "";
+  if (rows.length === 1) {
+    const r = rows[0]!;
+    const p = rowKParts(r);
+    const lines: string[] = [];
+    lines.push("*Tanggal*");
+    lines.push(formatReceiptDate(r));
+    const pasienLine = formatPasienDetailLine(r, p);
+    if (pasienLine) {
+      lines.push("");
+      lines.push("*Pasien*");
+      lines.push(pasienLine);
+    }
+    const d = r.dokter?.trim() || p.dokter?.trim();
+    if (d) {
+      lines.push("");
+      lines.push("*Dokter*");
+      lines.push(d);
+    }
+    lines.push("");
+    lines.push("*Barang dipakai*");
+    appendWaPemakaianLines(lines, r, 1);
+    lines.push("");
+    return lines.join("\n");
+  }
+
+  const head = rows[0]!;
+  const headParts = rowKParts(head);
+  const pasienLine = formatPasienDetailLine(head, headParts);
+  const dokters = waDokterText(rows);
+  const lines: string[] = [];
+  lines.push("*Tanggal*");
+  lines.push(formatReceiptDateGroup(rows));
+  if (pasienLine) {
+    lines.push("");
+    lines.push("*Pasien*");
+    lines.push(pasienLine);
+  }
+  if (dokters) {
+    lines.push("");
+    lines.push("*Dokter*");
+    lines.push(dokters);
+  }
+  lines.push("");
+  lines.push("*Barang dipakai*");
+  let n = 1;
+  for (const r of rows) {
+    appendWaPemakaianLines(lines, r, n);
+    n += 1;
+    lines.push("");
+  }
+  if (lines[lines.length - 1] === "") lines.pop();
   return lines.join("\n");
 }
 
@@ -185,6 +443,7 @@ function rowMatchesSearch(r: PemakaianRow, q: string): boolean {
     r.order_id ?? "",
     r.pasien ?? "",
     r.dokter ?? "",
+    r.no_rm ?? "",
     r.status_order ?? "",
     r.catatan ?? "",
     r.lot ?? "",
@@ -210,7 +469,7 @@ function DistributorPemakaianPageContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPt, setFilterPt] = useState("");
   const [page, setPage] = useState(1);
-  const [detailRow, setDetailRow] = useState<PemakaianRow | null>(null);
+  const [detailGroup, setDetailGroup] = useState<PemakaianRow[] | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -252,10 +511,6 @@ function DistributorPemakaianPageContent() {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [searchQuery, filterPt, from, to, distributorIdParam, rows.length]);
-
   const title = useMemo(() => `Pemakaian (Cathlab)`, []);
 
   const ptOptions = useMemo(() => {
@@ -275,26 +530,48 @@ function DistributorPemakaianPageContent() {
     });
   }, [rows, searchQuery, filterPt]);
 
-  const totalFiltered = filteredRows.length;
+  const groupedRows = useMemo(
+    () => groupPemakaianRows(filteredRows),
+    [filteredRows],
+  );
+
+  const totalFiltered = groupedRows.length;
   const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageStart = (safePage - 1) * PAGE_SIZE;
-  const pageRows = filteredRows.slice(pageStart, pageStart + PAGE_SIZE);
+  const pageRows = groupedRows.slice(pageStart, pageStart + PAGE_SIZE);
   const showingFrom = totalFiltered === 0 ? 0 : pageStart + 1;
   const showingTo = Math.min(pageStart + PAGE_SIZE, totalFiltered);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, filterPt, from, to, distributorIdParam, groupedRows.length]);
 
   useEffect(() => {
     setPage((p) => Math.min(p, totalPages));
   }, [totalPages]);
 
+  const detailHead = detailGroup?.[0] ?? null;
+
   const detailKParts = useMemo(
-    () => parseKeteranganParts(detailRow?.keterangan),
-    [detailRow?.keterangan],
+    () => parseKeteranganParts(detailHead?.keterangan),
+    [detailHead?.keterangan],
   );
 
-  const shareBody = useMemo(
-    () => (detailRow ? buildShareBody(detailRow, detailKParts) : ""),
-    [detailRow, detailKParts],
+  const detailPasienLine = useMemo(
+    () =>
+      detailHead ? formatPasienDetailLine(detailHead, detailKParts) : null,
+    [detailHead, detailKParts],
+  );
+
+  const shareBodyEmail = useMemo(
+    () => buildShareBodyGroup(detailGroup ?? []),
+    [detailGroup],
+  );
+
+  const detailDokterMerged = useMemo(
+    () => (detailGroup?.length ? detailDokterLine(detailGroup) : null),
+    [detailGroup],
   );
 
   return (
@@ -358,7 +635,7 @@ function DistributorPemakaianPageContent() {
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cari: barang, pasien, order, PT…"
+              placeholder="Cari: pasien, No. RM, dokter, order, barang…"
               className="w-full rounded-md border border-cyan-800/70 bg-slate-950/70 py-1.5 pl-8 pr-2 text-[12px] text-cyan-100 placeholder:text-cyan-600/50 focus:border-cyan-500/50 focus:outline-none"
               aria-label="Cari pemakaian"
             />
@@ -385,17 +662,16 @@ function DistributorPemakaianPageContent() {
             <thead className="bg-slate-950/80">
               <tr className="text-cyan-300/80">
                 <Th>Tanggal</Th>
-                <Th className="min-w-[10rem]">PT / Distributor</Th>
-                <Th>Barang</Th>
-                <Th className="text-right">Qty</Th>
-                <Th className="min-w-[10rem]">Keterangan</Th>
+                <Th className="min-w-[9rem]">Nama Pasien</Th>
+                <Th className="whitespace-nowrap">No. RM</Th>
+                <Th className="min-w-[10rem]">Dokter</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-900/60">
               {loading ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={4}
                     className="px-3 py-6 text-center text-cyan-300/60"
                   >
                     Memuat...
@@ -404,7 +680,7 @@ function DistributorPemakaianPageContent() {
               ) : pageRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={4}
                     className="px-3 py-6 text-center text-cyan-300/60"
                   >
                     {rows.length === 0
@@ -413,39 +689,42 @@ function DistributorPemakaianPageContent() {
                   </td>
                 </tr>
               ) : (
-                pageRows.map((r) => (
-                  <tr
-                    key={r.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setDetailRow(r)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        setDetailRow(r);
-                      }
-                    }}
-                    className="cursor-pointer hover:bg-cyan-900/20 focus:bg-cyan-900/15 focus:outline-none"
-                  >
-                    <Td className="whitespace-nowrap">
-                      {formatTanggalId(String(r.tanggal ?? ""))}
-                    </Td>
-                    <Td className="max-w-[12rem] whitespace-normal break-words align-top text-cyan-100/90">
-                      {r.distributor_nama?.trim() ? r.distributor_nama : "—"}
-                    </Td>
-                    <Td className="align-top font-medium text-cyan-50/95">
-                      {r.inventaris?.nama ?? "-"}
-                    </Td>
-                    <Td className="text-right tabular-nums align-top">
-                      {r.jumlah}
-                    </Td>
-                    <Td className="max-w-[14rem] align-top text-cyan-100/85">
-                      <span className="line-clamp-2 leading-snug">
-                        {r.keterangan ?? "—"}
-                      </span>
-                    </Td>
-                  </tr>
-                ))
+                pageRows.map((grp) => {
+                  const r0 = grp[0]!;
+                  const gkey = mergeGroupKey(r0);
+                  return (
+                    <tr
+                      key={gkey}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setDetailGroup(grp)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setDetailGroup(grp);
+                        }
+                      }}
+                      className="cursor-pointer hover:bg-cyan-900/20 focus:bg-cyan-900/15 focus:outline-none"
+                    >
+                      <Td className="whitespace-nowrap align-top">
+                        {formatTanggalId(String(r0.tanggal ?? ""))}
+                      </Td>
+                      <Td className="max-w-[14rem] align-top font-medium text-cyan-50/95">
+                        <span className="line-clamp-2 leading-snug">
+                          {tableNamaPasien(r0)}
+                        </span>
+                      </Td>
+                      <Td className="whitespace-nowrap align-top tabular-nums text-cyan-100/90">
+                        {tableNoRm(r0)}
+                      </Td>
+                      <Td className="max-w-[18rem] align-top text-cyan-100/85">
+                        <span className="line-clamp-2 leading-snug">
+                          {tableDokterGroup(grp)}
+                        </span>
+                      </Td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -482,22 +761,28 @@ function DistributorPemakaianPageContent() {
       </div>
 
       <Dialog
-        open={detailRow != null}
+        open={detailGroup != null}
         onOpenChange={(open) => {
-          if (!open) setDetailRow(null);
+          if (!open) setDetailGroup(null);
         }}
       >
         <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto border-cyan-600/40 bg-slate-950/95 text-cyan-100">
-          {detailRow ? (
+          {detailGroup && detailHead ? (
             <>
               <DialogHeader>
                 <DialogTitle className="text-[#D4AF37]">
                   Detail pemakaian
                 </DialogTitle>
                 <DialogDescription className="text-[11px] text-cyan-500/75">
-                  Baris teknis:{" "}
+                  {detailGroup.length > 1 ? (
+                    <span className="block text-cyan-400/80 mb-1">
+                      {detailGroup.length} item digabung (sama tanggal, pasien &
+                      PT)
+                    </span>
+                  ) : null}
+                  <span className="text-cyan-500/75">Baris teknis: </span>
                   <code className="break-all font-mono text-cyan-300/90">
-                    {detailRow.id}
+                    {detailGroup.map((r) => r.id).join(" · ")}
                   </code>
                 </DialogDescription>
               </DialogHeader>
@@ -507,36 +792,36 @@ function DistributorPemakaianPageContent() {
                   <span className="mr-1.5" aria-hidden>
                     📅
                   </span>
-                  {formatReceiptDate(detailRow)}
+                  {formatReceiptDateGroup(detailGroup)}
                 </p>
                 <p className="text-cyan-50">
                   <span className="mr-1.5" aria-hidden>
                     🆔
                   </span>
-                  {displayOrderId(detailRow, detailKParts)}
+                  {displayOrderIdsGroup(detailGroup)}
                 </p>
-                {(detailRow.pasien?.trim() || detailKParts.pasien) ? (
+                {detailPasienLine ? (
                   <p className="text-cyan-50">
                     <span className="mr-1.5" aria-hidden>
                       👤
                     </span>
-                    {detailRow.pasien?.trim() || detailKParts.pasien}
+                    {detailPasienLine}
                   </p>
                 ) : null}
-                {(detailRow.dokter?.trim() || detailKParts.dokter) ? (
+                {detailDokterMerged ? (
                   <p className="text-cyan-50">
                     <span className="mr-1.5" aria-hidden>
                       🩺
                     </span>
-                    {detailRow.dokter?.trim() || detailKParts.dokter}
+                    {detailDokterMerged}
                   </p>
                 ) : null}
-                {detailRow.distributor_nama?.trim() ? (
+                {detailHead.distributor_nama?.trim() ? (
                   <p className="text-cyan-200/90">
                     <span className="mr-1.5" aria-hidden>
                       🏢
                     </span>
-                    {detailRow.distributor_nama.trim()}
+                    {detailHead.distributor_nama.trim()}
                   </p>
                 ) : null}
 
@@ -544,64 +829,54 @@ function DistributorPemakaianPageContent() {
                   <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-[#D4AF37]/95">
                     Pemakaian
                   </p>
-                  <ul className="list-none space-y-2 pl-0.5">
-                    <li>
-                      <span className="text-cyan-100">
-                        • {detailRow.inventaris?.nama ?? "—"}
-                        {detailRow.jumlah != null && Number(detailRow.jumlah) !== 1 ? (
-                          <span className="text-cyan-400/80">
-                            {" "}
-                            (×{detailRow.jumlah})
+                  <ul className="list-none space-y-3 pl-0.5">
+                    {detailGroup.map((lineRow) => (
+                        <li key={lineRow.id}>
+                          <span className="text-cyan-100">
+                            • {lineRow.inventaris?.nama ?? "—"}
+                            {lineRow.jumlah != null &&
+                            Number(lineRow.jumlah) !== 1 ? (
+                              <span className="text-cyan-400/80">
+                                {" "}
+                                (×{lineRow.jumlah})
+                              </span>
+                            ) : null}
                           </span>
-                        ) : null}
-                      </span>
-                      {detailRow.lot?.trim() ? (
-                        <div className="mt-1 pl-4 text-[12px] text-cyan-300/85">
-                          LOT: {detailRow.lot.trim()}
-                        </div>
-                      ) : null}
-                      {detailRow.ukuran?.trim() ? (
-                        <div className="pl-4 text-[12px] text-cyan-300/85">
-                          Ukuran: {detailRow.ukuran.trim()}
-                        </div>
-                      ) : null}
-                      {detailRow.ed?.trim() ? (
-                        <div className="pl-4 text-[12px] text-cyan-300/85">
-                          ED: {detailRow.ed.trim()}
-                        </div>
-                      ) : null}
-                      {detailRow.inventaris?.satuan?.trim() ? (
-                        <div className="pl-4 text-[12px] text-cyan-300/85">
-                          Satuan: {detailRow.inventaris.satuan}
-                        </div>
-                      ) : null}
-                    </li>
+                          {lineRow.lot?.trim() ? (
+                            <div className="mt-1 pl-4 text-[12px] text-cyan-300/85">
+                              LOT: {lineRow.lot.trim()}
+                            </div>
+                          ) : null}
+                          {lineRow.ukuran?.trim() ? (
+                            <div className="pl-4 text-[12px] text-cyan-300/85">
+                              Ukuran: {lineRow.ukuran.trim()}
+                            </div>
+                          ) : null}
+                          {lineRow.ed?.trim() ? (
+                            <div className="pl-4 text-[12px] text-cyan-300/85">
+                              ED: {lineRow.ed.trim()}
+                            </div>
+                          ) : null}
+                          {lineRow.inventaris?.satuan?.trim() ? (
+                            <div className="pl-4 text-[12px] text-cyan-300/85">
+                              Satuan: {lineRow.inventaris.satuan}
+                            </div>
+                          ) : null}
+                        </li>
+                    ))}
                   </ul>
                 </div>
-
-                {(detailRow.status_order?.trim() || detailKParts.status) ? (
-                  <p className="text-[12px] text-cyan-400/85">
-                    Status alur:{" "}
-                    <span className="text-cyan-200">
-                      {detailRow.status_order?.trim() || detailKParts.status}
-                    </span>
-                  </p>
-                ) : null}
-                {(detailRow.catatan?.trim() || detailKParts.cat) ? (
-                  <p className="text-[12px] text-cyan-400/85">
-                    Catatan:{" "}
-                    <span className="whitespace-pre-wrap break-words text-cyan-100/90">
-                      {detailRow.catatan?.trim() || detailKParts.cat}
-                    </span>
-                  </p>
-                ) : null}
               </div>
 
               <DialogFooter className="!mt-4 flex-col gap-2 sm:flex-row sm:justify-between">
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => openWhatsAppShare(shareBody)}
+                    onClick={() =>
+                      openWhatsAppShare(
+                        buildWhatsAppBodyFromGroup(detailGroup ?? []),
+                      )
+                    }
                     className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/50 bg-emerald-950/40 px-3 py-1.5 text-[12px] text-emerald-100 hover:bg-emerald-900/45"
                   >
                     <MessageCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -611,8 +886,8 @@ function DistributorPemakaianPageContent() {
                     type="button"
                     onClick={() =>
                       openEmailShare(
-                        `Pemakaian alkes — ${displayOrderId(detailRow, detailKParts)}`,
-                        shareBody,
+                        `Pemakaian alkes — ${displayOrderIdsGroup(detailGroup)}`,
+                        shareBodyEmail,
                       )
                     }
                     className="inline-flex items-center gap-1.5 rounded-md border border-cyan-500/45 bg-cyan-950/35 px-3 py-1.5 text-[12px] text-cyan-100 hover:bg-cyan-900/40"
@@ -623,7 +898,7 @@ function DistributorPemakaianPageContent() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setDetailRow(null)}
+                  onClick={() => setDetailGroup(null)}
                   className="rounded-md border border-cyan-500/40 bg-cyan-500/15 px-3 py-1.5 text-[12px] text-cyan-100 hover:bg-cyan-500/25"
                 >
                   Tutup

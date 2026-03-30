@@ -4,6 +4,8 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { motion, AnimatePresence } from "framer-motion";
 
+import { cn } from "@/lib/utils";
+
 /**
  * Komponen Dialog bergaya JARVIS Gold–Cyan Hybrid.
  * Semua subkomponen mendukung className agar kompatibel dengan TypeScript strict mode.
@@ -40,11 +42,10 @@ export function DialogContent({
         <DialogPrimitive.Content
           key="jarvis-dialog-content"
           {...props}
-          className={`fixed z-50 top-1/2 left-1/2 w-[95%] max-w-md -translate-x-1/2 -translate-y-1/2
-                     rounded-xl border border-cyan-500/40 bg-black/60 text-cyan-100 
-                     shadow-xl backdrop-blur-xl focus:outline-none ${
-                       className ?? ""
-                     }`}
+          className={cn(
+            "fixed left-1/2 top-1/2 z-50 w-[95%] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-cyan-500/40 bg-black/60 text-cyan-100 shadow-xl backdrop-blur-xl focus:outline-none",
+            className,
+          )}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}

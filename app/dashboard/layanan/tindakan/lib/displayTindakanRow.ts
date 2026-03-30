@@ -24,7 +24,12 @@ export const RM_FIELD_KEYS = [
   "no_rm_pasien",
 ] as const;
 
-const NAMA_FIELD_KEYS = ["nama_pasien", "nama", "pasien_nama"] as const;
+/** Kunci umum untuk nama pasien di baris tindakan / join (bervariasi antar schema). */
+export const NAMA_FIELD_KEYS = [
+  "nama_pasien",
+  "nama",
+  "pasien_nama",
+] as const;
 
 /**
  * Pecah "RAHMAN (919499)" → nama dasar + RM di dalam kurung.

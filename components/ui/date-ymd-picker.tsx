@@ -163,8 +163,8 @@ export function DateYmdPicker({
         >
           <div
             className={cn(
-              "[&_.rdp-day]:flex [&_.rdp-day]:items-center [&_.rdp-day]:justify-center",
-              "[&_.rdp-day_button]:box-border [&_.rdp-day_button]:!h-full [&_.rdp-day_button]:!w-full [&_.rdp-day_button]:!min-h-[2.5rem] [&_.rdp-day_button]:!min-w-[2.5rem] [&_.rdp-day_button]:cursor-pointer",
+              "[&_.rdp-month_grid]:table-fixed [&_.rdp-month_grid]:w-full",
+              "[&_.rdp-day_button]:box-border [&_.rdp-day_button]:!min-h-[2.5rem] [&_.rdp-day_button]:!min-w-[2.5rem] [&_.rdp-day_button]:cursor-pointer",
             )}
           >
             <DayPicker

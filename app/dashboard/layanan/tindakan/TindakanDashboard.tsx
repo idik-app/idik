@@ -1,15 +1,18 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
-import { useTindakanStatsFromList } from "./hooks/useTindakanStats";
-import { useTindakanBridgeAdapter } from "./bridge/useTindakanBridgeAdapter";
+import { emptyTindakanKpiStats } from "./hooks/useTindakanStats";
 import type { TindakanJoinResult } from "./bridge/mapping.types";
+import { useTindakanBridgeAdapter } from "./bridge/useTindakanBridgeAdapter";
 import TindakanHeader from "./components/TindakanHeader";
-import TindakanSummary from "./components/TindakanSummary";
+import TindakanHariIniModal from "./components/TindakanHariIniModal";
+import TindakanSummary, {
+  type TindakanFilteredSummary,
+} from "./components/TindakanSummary";
 import TindakanTable from "./components/TindakanTable";
 
 const TindakanDetailDrawer = dynamic(
@@ -22,17 +25,27 @@ type ThemeTone = "cyan" | "emerald";
 /** Tindakan medis — wireframe: daftar ringkas + drawer bertab + jembatan Pemakaian */
 export default function TindakanDashboard() {
   const adapter = useTindakanBridgeAdapter();
-  const { stats, loading: statsLoading } = useTindakanStatsFromList(
-    (adapter.tindakanList ?? []) as TindakanJoinResult[],
-    Boolean(adapter.loading),
-  );
 
   const tableRef = useRef<HTMLDivElement | null>(null);
   const [themeTone, setThemeTone] = useState<ThemeTone>("cyan");
+  const [todayModalOpen, setTodayModalOpen] = useState(false);
+  const [filteredSummary, setFilteredSummary] =
+    useState<TindakanFilteredSummary | null>(null);
+  const onFilteredSummaryChange = useCallback(
+    (next: TindakanFilteredSummary) => {
+      setFilteredSummary(next);
+    },
+    [],
+  );
   const { theme } = useTheme();
   const isLight = theme === "light";
 
   const drawerOpen = Boolean(adapter.detailOpenId && adapter.selectedRecord);
+
+  /** KPI header = snapshot terfilter dari tabel (bukan seluruh API). */
+  const stats = filteredSummary?.stats ?? emptyTindakanKpiStats();
+  const summaryLoading =
+    Boolean(adapter.loading) || filteredSummary === null;
 
   return (
     <div
@@ -66,9 +79,11 @@ export default function TindakanDashboard() {
           summary={
             <TindakanSummary
               stats={stats}
-              loading={statsLoading}
+              loading={summaryLoading}
               themeTone={themeTone}
               variant="header"
+              filtered={filteredSummary}
+              onTodayKpiClick={() => setTodayModalOpen(true)}
             />
           }
         />
@@ -80,7 +95,10 @@ export default function TindakanDashboard() {
           className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
           id="tindakan-table-section"
         >
-          <TindakanTable adapter={adapter} />
+          <TindakanTable
+            adapter={adapter}
+            onFilteredSummaryChange={onFilteredSummaryChange}
+          />
         </section>
       </main>
 
@@ -94,6 +112,19 @@ export default function TindakanDashboard() {
         }
         onClose={adapter.closeDetailDrawer}
         onRecordPatch={adapter.refresh}
+      />
+
+      <TindakanHariIniModal
+        open={todayModalOpen}
+        onOpenChange={setTodayModalOpen}
+        rows={
+          Array.isArray(adapter.tindakanList)
+            ? (adapter.tindakanList as TindakanJoinResult[])
+            : []
+        }
+        loading={Boolean(adapter.loading)}
+        isLight={isLight}
+        themeTone={themeTone}
       />
     </div>
   );

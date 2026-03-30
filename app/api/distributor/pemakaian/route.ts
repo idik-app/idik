@@ -431,6 +431,7 @@ export async function GET(req: Request) {
       order_id: null as string | null,
       pasien: null as string | null,
       dokter: null as string | null,
+      no_rm: null as string | null,
       status_order: null as string | null,
       catatan: null as string | null,
       tanggal_order_raw: null as string | null,
@@ -510,7 +511,9 @@ export async function GET(req: Request) {
     // Hanya TERVERIFIKASI / SELESAI: jangan tampilkan ke distributor saat masih alur depo (DIAJUKAN, MENUNGGU_VALIDASI).
     const { data: orderRows, error: orderErr } = await supabase
       .from("cathlab_pemakaian_order")
-      .select("id, tanggal, pasien, dokter, status, items, catatan, created_at")
+      .select(
+        "id, tanggal, pasien, dokter, status, items, catatan, created_at, no_rm",
+      )
       .in("status", ["TERVERIFIKASI", "SELESAI"])
       .order("created_at", { ascending: false })
       .limit(8000);
@@ -543,6 +546,9 @@ export async function GET(req: Request) {
         ).trim();
         const dokter = String(
           (orow as { dokter?: unknown }).dokter ?? "",
+        ).trim();
+        const noRmOrder = String(
+          (orow as { no_rm?: unknown }).no_rm ?? "",
         ).trim();
         const catatan = String(
           (orow as { catatan?: unknown }).catatan ?? "",
@@ -586,6 +592,7 @@ export async function GET(req: Request) {
             order_id: oid || null,
             pasien: pasien || null,
             dokter: dokter || null,
+            no_rm: noRmOrder || null,
             status_order: ost || null,
             catatan: catatan || null,
             tanggal_order_raw: tanggalStr.trim() || null,
@@ -624,7 +631,9 @@ export async function GET(req: Request) {
 
     const { data: orderRowsAdmin, error: orderErrAdmin } = await supabase
       .from("cathlab_pemakaian_order")
-      .select("id, tanggal, pasien, dokter, status, items, catatan, created_at")
+      .select(
+        "id, tanggal, pasien, dokter, status, items, catatan, created_at, no_rm",
+      )
       .in("status", ["TERVERIFIKASI", "SELESAI"])
       .order("created_at", { ascending: false })
       .limit(8000);
@@ -657,6 +666,9 @@ export async function GET(req: Request) {
         ).trim();
         const dokter = String(
           (orow as { dokter?: unknown }).dokter ?? "",
+        ).trim();
+        const noRmOrder = String(
+          (orow as { no_rm?: unknown }).no_rm ?? "",
         ).trim();
         const catatan = String(
           (orow as { catatan?: unknown }).catatan ?? "",
@@ -705,6 +717,7 @@ export async function GET(req: Request) {
             order_id: oid || null,
             pasien: pasien || null,
             dokter: dokter || null,
+            no_rm: noRmOrder || null,
             status_order: st || null,
             catatan: catatan || null,
             tanggal_order_raw: tanggalStr.trim() || null,

@@ -2234,6 +2234,12 @@ export default function PemakaianPage() {
                                   variant="table"
                                   listboxId={`pemakaian-barang-${line.lineId}`}
                                   value={line.barang}
+                                  blurResolveLine={{
+                                    distributor: line.distributor,
+                                    lot: line.lot,
+                                    ukuran: line.ukuran,
+                                    ed: line.ed,
+                                  }}
                                   onChange={(nama) =>
                                     patchDetailLine(line.lineId, {
                                       barang: nama,
@@ -2647,6 +2653,12 @@ export default function PemakaianPage() {
                                 variant="table"
                                 listboxId={`pemakaian-drawer-barang-${line.lineId}`}
                                 value={line.barang}
+                                blurResolveLine={{
+                                  distributor: line.distributor,
+                                  lot: line.lot,
+                                  ukuran: line.ukuran,
+                                  ed: line.ed,
+                                }}
                                 onChange={(nama) =>
                                   patchDrawerLine(line.lineId, { barang: nama })
                                 }

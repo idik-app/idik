@@ -19,7 +19,7 @@ import {
   type TindakanDashboardFilterState,
 } from "../lib/filterTindakanDashboardRows";
 import TindakanDashboardFilters from "./TindakanDashboardFilters";
-import TindakanDashboardReportTable from "./TindakanDashboardReportTable";
+import TindakanDashboardSummaryCharts from "./TindakanDashboardSummaryCharts";
 
 export default function TindakanDashboardModal({
   open,
@@ -46,7 +46,7 @@ export default function TindakanDashboardModal({
   );
 
   const shell = cn(
-    "flex max-h-[min(92vh,900px)] w-full max-w-6xl flex-col gap-3 overflow-y-auto overflow-x-visible p-4 sm:p-5",
+    "flex max-h-[min(92vh,900px)] w-full flex-col gap-3 overflow-y-auto overflow-x-visible p-4 sm:p-5",
     isLight
       ? "border-slate-200/80 bg-white text-slate-900 shadow-xl"
       : "border-cyan-600/35 bg-slate-950/95 text-cyan-50",
@@ -56,7 +56,7 @@ export default function TindakanDashboardModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "max-h-[95vh] max-w-[min(96vw,1152px)] overflow-visible border p-0",
+          "max-h-[95vh] w-[min(100vw-1rem,96vw)] max-w-[min(96vw,90rem)] overflow-visible border p-0",
           isLight
             ? "border-slate-300/60 bg-white/98 backdrop-blur-xl"
             : "border-cyan-500/35 bg-black/80 backdrop-blur-xl",
@@ -107,8 +107,9 @@ export default function TindakanDashboardModal({
                 isLight ? "text-slate-600" : "text-cyan-300/75",
               )}
             >
-              Filter laporan dan tabel ringkasan dari data tindakan yang sama dengan
-              daftar utama ({loading ? "memuat…" : `${rows.length} baris tersedia`}).
+              Filter dan ringkasan grafik dari data tindakan yang sama dengan
+              daftar utama (
+              {loading ? "memuat…" : `${rows.length} baris tersedia`}).
             </DialogDescription>
           </DialogHeader>
 
@@ -120,7 +121,7 @@ export default function TindakanDashboardModal({
             themeTone={themeTone}
           />
 
-          <div className="flex min-h-[200px] min-h-0 flex-1 flex-col">
+          <div className="flex min-h-[280px] min-h-0 flex-1 flex-col">
             {loading ? (
               <div
                 className={cn(
@@ -133,7 +134,11 @@ export default function TindakanDashboardModal({
                 Memuat data tindakan…
               </div>
             ) : (
-              <TindakanDashboardReportTable rows={filtered} isLight={isLight} />
+              <TindakanDashboardSummaryCharts
+                rows={filtered}
+                isLight={isLight}
+                themeTone={themeTone}
+              />
             )}
           </div>
         </div>

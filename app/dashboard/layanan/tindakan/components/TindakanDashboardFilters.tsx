@@ -13,8 +13,8 @@ import {
 } from "../lib/filterTindakanDashboardRows";
 
 function uniqSorted(values: string[]): string[] {
-  return [...new Set(values.map((s) => s.trim()).filter(Boolean))].sort((a, b) =>
-    a.localeCompare(b, "id"),
+  return [...new Set(values.map((s) => s.trim()).filter(Boolean))].sort(
+    (a, b) => a.localeCompare(b, "id"),
   );
 }
 
@@ -154,7 +154,11 @@ export default function TindakanDashboardFilters({
               placeholder="Semua dokter"
               value={value.dokter}
               onChange={(e) => onChange({ ...value, dokter: e.target.value })}
-              className={cn("h-9 text-xs", accent, isLight ? "bg-white" : "bg-black/40")}
+              className={cn(
+                "h-9 text-xs",
+                accent,
+                isLight ? "bg-white" : "bg-black/40",
+              )}
             />
             <datalist id="tdb-dokter-list">
               {dokterOptions.map((d) => (
@@ -172,7 +176,11 @@ export default function TindakanDashboardFilters({
               placeholder="Semua tindakan"
               value={value.tindakan}
               onChange={(e) => onChange({ ...value, tindakan: e.target.value })}
-              className={cn("h-9 text-xs", accent, isLight ? "bg-white" : "bg-black/40")}
+              className={cn(
+                "h-9 text-xs",
+                accent,
+                isLight ? "bg-white" : "bg-black/40",
+              )}
             />
             <datalist id="tdb-tindakan-list">
               {tindakanOptions.map((d) => (
@@ -189,7 +197,11 @@ export default function TindakanDashboardFilters({
               placeholder="Cari RM"
               value={value.noRm}
               onChange={(e) => onChange({ ...value, noRm: e.target.value })}
-              className={cn("h-9 text-xs", accent, isLight ? "bg-white" : "bg-black/40")}
+              className={cn(
+                "h-9 text-xs",
+                accent,
+                isLight ? "bg-white" : "bg-black/40",
+              )}
             />
           </div>
           <div className={fieldWrap}>
@@ -202,7 +214,11 @@ export default function TindakanDashboardFilters({
               placeholder="Semua kategori"
               value={value.kategori}
               onChange={(e) => onChange({ ...value, kategori: e.target.value })}
-              className={cn("h-9 text-xs", accent, isLight ? "bg-white" : "bg-black/40")}
+              className={cn(
+                "h-9 text-xs",
+                accent,
+                isLight ? "bg-white" : "bg-black/40",
+              )}
             />
             <datalist id="tdb-kategori-list">
               {kategoriOptions.map((d) => (
@@ -220,13 +236,16 @@ export default function TindakanDashboardFilters({
               onChange={(e) =>
                 onChange({
                   ...value,
-                  stent: e.target.value as TindakanDashboardFilterState["stent"],
+                  stent: e.target
+                    .value as TindakanDashboardFilterState["stent"],
                 })
               }
               className={cn(
                 "h-9 w-full rounded-md border px-2 text-xs outline-none transition focus-visible:ring-2",
                 accent,
-                isLight ? "bg-white text-slate-900" : "bg-black/40 text-cyan-50",
+                isLight
+                  ? "bg-white text-slate-900"
+                  : "bg-black/40 text-cyan-50",
               )}
             >
               <option value="any">Semua</option>
@@ -241,13 +260,16 @@ export default function TindakanDashboardFilters({
               onChange={(e) =>
                 onChange({
                   ...value,
-                  ballon: e.target.value as TindakanDashboardFilterState["ballon"],
+                  ballon: e.target
+                    .value as TindakanDashboardFilterState["ballon"],
                 })
               }
               className={cn(
                 "h-9 w-full rounded-md border px-2 text-xs outline-none transition focus-visible:ring-2",
                 accent,
-                isLight ? "bg-white text-slate-900" : "bg-black/40 text-cyan-50",
+                isLight
+                  ? "bg-white text-slate-900"
+                  : "bg-black/40 text-cyan-50",
               )}
             >
               <option value="any">Semua</option>

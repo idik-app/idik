@@ -50,6 +50,10 @@ import TableContainer from "../components/TableContainer";
 import TableToolbar from "../components/TableToolbar";
 import TablePagination from "../components/TablePagination";
 import PemakaianAlkesModal from "./PemakaianAlkesModal";
+import {
+  computeTindakanStatsFromRows,
+} from "../hooks/useTindakanStats";
+import type { TindakanFilteredSummary } from "./TindakanSummary";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import {
   displayNamaPasien,
@@ -223,11 +227,7 @@ function mapApiPasienRow(r: Record<string, unknown>): PasienOption | null {
 }
 
 function buildPasienLabelFromRow(raw: Record<string, unknown>): string {
-  const namaFull = pickFirstString(raw, [
-    "nama_pasien",
-    "nama",
-    "pasien_nama",
-  ]);
+  const namaFull = pickFirstString(raw, ["nama_pasien", "nama", "pasien_nama"]);
   const rmCol = pickFirstString(raw, [...RM_FIELD_KEYS]);
   const { baseNama, rmDalamKurung } = splitNamaDanRmDalamKurung(namaFull);
   const nama = (baseNama || namaFull).trim();
@@ -408,10 +408,12 @@ function orderPasienMatchesTindakanRowLabel(
   const oSplit = splitNamaDanRmDalamKurung(oStr);
   const rSplit = splitNamaDanRmDalamKurung(rStr);
 
-  const oName = normalizeNamaPasien((oSplit.baseNama || oStr).trim())
-    .toLowerCase();
-  const rName = normalizeNamaPasien((rSplit.baseNama || rStr).trim())
-    .toLowerCase();
+  const oName = normalizeNamaPasien(
+    (oSplit.baseNama || oStr).trim(),
+  ).toLowerCase();
+  const rName = normalizeNamaPasien(
+    (rSplit.baseNama || rStr).trim(),
+  ).toLowerCase();
   if (!oName || !rName) return false;
   if (oName !== rName && !oName.includes(rName) && !rName.includes(oName)) {
     return false;
@@ -451,11 +453,7 @@ function resolvePasienFromRow(
     const byLabel = resolvePasienFromLabel(options, label);
     if (byLabel) return byLabel;
   }
-  const namaFull = pickFirstString(raw, [
-    "nama_pasien",
-    "nama",
-    "pasien_nama",
-  ]);
+  const namaFull = pickFirstString(raw, ["nama_pasien", "nama", "pasien_nama"]);
   const { baseNama, rmDalamKurung } = splitNamaDanRmDalamKurung(namaFull);
   const namaForMatch = normalizeNamaPasien((baseNama || namaFull).trim());
   const rowRmDigits =
@@ -744,10 +742,13 @@ export default function TindakanTable({
   adapter,
   filterPasienId = "",
   filterRm = "",
+  onFilteredSummaryChange,
 }: {
   adapter: Adapter;
   filterPasienId?: string;
   filterRm?: string;
+  /** Sinkronkan jumlah & ringkasan filter ke ringkasan header */
+  onFilteredSummaryChange?: (summary: TindakanFilteredSummary) => void;
 }) {
   const {
     tindakanList,
@@ -1133,9 +1134,7 @@ export default function TindakanTable({
       if (tid && oid && !next[tid]) next[tid] = oid;
     }
 
-    const unlinked = orders.filter(
-      (o) => !String(o.tindakan_id ?? "").trim(),
-    );
+    const unlinked = orders.filter((o) => !String(o.tindakan_id ?? "").trim());
     let pool = unlinked.slice();
 
     const sortedRows = rowsForPemakaianLink
@@ -1154,8 +1153,7 @@ export default function TindakanTable({
       const rowId = String(row.id ?? "").trim();
       if (!rowId || next[rowId]) continue;
       const raw = row as unknown as Record<string, unknown>;
-      const label =
-        pasienLabelByRowId[rowId] ?? buildPasienLabelFromRow(raw);
+      const label = pasienLabelByRowId[rowId] ?? buildPasienLabelFromRow(raw);
       if (!label.trim()) continue;
       const rowDate = extractCalendarDateKey(String(row.tanggal ?? ""));
 
@@ -1176,11 +1174,7 @@ export default function TindakanTable({
     }
 
     return next;
-  }, [
-    pemakaianOrdersRaw,
-    rowsForPemakaianLink,
-    pasienLabelByRowId,
-  ]);
+  }, [pemakaianOrdersRaw, rowsForPemakaianLink, pasienLabelByRowId]);
 
   const pemakaianModalInitial = useMemo(() => {
     if (!pemakaianModalRow) return null;
@@ -1341,6 +1335,96 @@ export default function TindakanTable({
     pasienOptions,
     debouncedSearchTrim,
     doctorOptionsMaster,
+  ]);
+
+  const filterSummaryLines = useMemo(() => {
+    const lines: string[] = [];
+    const fd = String(filterDokter ?? "").trim();
+    if (fd) {
+      const display =
+        canonicalDoctorDisplayValue(doctorOptionsMaster, fd) || fd;
+      lines.push(`Dokter: ${display}`);
+    }
+    const fr = String(filterRuangan ?? "").trim();
+    if (fr) {
+      lines.push(`Ruangan: ${fr}`);
+    }
+    const from = String(filterTanggalFrom ?? "").trim();
+    const to = String(filterTanggalTo ?? "").trim();
+    if (from || to) {
+      lines.push(`Tanggal: ${from || "…"} – ${to || "…"}`);
+    }
+    const q = String(debouncedSearchTrim ?? "").trim();
+    if (q) {
+      const short = q.length > 48 ? `${q.slice(0, 45)}…` : q;
+      lines.push(`Cari: ${short}`);
+    }
+    const pid = String(filterPasienId ?? "").trim();
+    const frm = String(filterRm ?? "").trim();
+    if (pid) {
+      lines.push("Pasien: filter aktif");
+    } else if (frm) {
+      const short = frm.length > 40 ? `${frm.slice(0, 37)}…` : frm;
+      lines.push(`Pasien/RM: ${short}`);
+    }
+    return lines;
+  }, [
+    filterDokter,
+    filterRuangan,
+    filterTanggalFrom,
+    filterTanggalTo,
+    debouncedSearchTrim,
+    filterPasienId,
+    filterRm,
+    doctorOptionsMaster,
+  ]);
+
+  const filteredRowStats = useMemo(
+    () => computeTindakanStatsFromRows(filteredRecords),
+    [filteredRecords],
+  );
+
+  // TOTAL PASIEN harus berdiri sendiri (tidak ikut filter toolbar).
+  // Gunakan dataset master yang menjadi basis tabel sebelum penerapan filter.
+  const masterTotalPasien = useMemo(
+    () => rowsForPemakaianLink.length,
+    [rowsForPemakaianLink],
+  );
+
+  const filteredRowStatsFixedTotalPasien = useMemo(
+    () => ({
+      ...filteredRowStats,
+      "Total pasien": masterTotalPasien,
+    }),
+    [filteredRowStats, masterTotalPasien],
+  );
+
+  const filteredRowGender = useMemo(() => {
+    let laki = 0;
+    let perempuan = 0;
+    for (const rec of filteredRecords) {
+      const raw = rec as unknown as Record<string, unknown>;
+      const p = resolvePasienFromRow(pasienOptions, raw);
+      const jk = resolveJenisKelaminFromRow(raw, p);
+      if (jk === "L") laki += 1;
+      else if (jk === "P") perempuan += 1;
+    }
+    return { laki, perempuan };
+  }, [filteredRecords, pasienOptions]);
+
+  useEffect(() => {
+    onFilteredSummaryChange?.({
+      count: filteredRecords.length,
+      lines: filterSummaryLines,
+      stats: filteredRowStatsFixedTotalPasien,
+      gender: filteredRowGender,
+    });
+  }, [
+    filteredRecords,
+    filterSummaryLines,
+    filteredRowStatsFixedTotalPasien,
+    filteredRowGender,
+    onFilteredSummaryChange,
   ]);
 
   useEffect(() => {
@@ -1552,7 +1636,9 @@ export default function TindakanTable({
       try {
         await deleteRecord(rowId);
         setCathlabFallbackRows((prev) =>
-          prev.filter((r) => String(r.id ?? "").trim() !== String(rowId).trim()),
+          prev.filter(
+            (r) => String(r.id ?? "").trim() !== String(rowId).trim(),
+          ),
         );
         notify({
           type: "success",
@@ -1606,11 +1692,7 @@ export default function TindakanTable({
     async (id: string, next: string) => {
       const ok = await patchRowField(id, { tindakan: next || null });
       const t = next.trim();
-      if (
-        ok &&
-        t &&
-        t.toLowerCase() !== "belum diisi"
-      ) {
+      if (ok && t && t.toLowerCase() !== "belum diisi") {
         void refreshMasterTindakan();
       }
       return ok;
@@ -1830,9 +1912,7 @@ export default function TindakanTable({
                       const pKet = resolvePasienFromRow(pasienOptions, raw);
                       const namaForKet =
                         normalizeNamaPasien(displayNamaPasien(raw)) ||
-                        (pKet?.nama
-                          ? normalizeNamaPasien(pKet.nama)
-                          : "") ||
+                        (pKet?.nama ? normalizeNamaPasien(pKet.nama) : "") ||
                         "—";
                       const rmLine =
                         rmDisplayForKet !== "—"
@@ -1840,525 +1920,550 @@ export default function TindakanTable({
                           : dupRmDigits || "—";
                       return (
                         <Fragment key={key}>
-                        <tr
-                          onClick={(e) => {
-                            if (!id) return;
-                            const target = e.target as HTMLElement | null;
-                            if (
-                              target?.closest(
-                                'input,select,textarea,button,a,[data-no-row-click="true"]',
-                              )
-                            ) {
-                              return;
-                            }
-                            openDetail(id);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              if (!id) return;
-                              openDetail(id);
-                            }
-                          }}
-                          role={id ? "button" : undefined}
-                          tabIndex={id ? 0 : undefined}
-                          className={cn(
-                            "group border-b transition-all duration-200",
-                            isLight
-                              ? "border-cyan-200/70"
-                              : "border-cyan-900/25",
-                            isDuplicateRm &&
-                              (isLight
-                                ? "bg-amber-100/75 border-l-[3px] border-l-amber-500 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.2)]"
-                                : "bg-amber-950/35 border-l-[3px] border-l-amber-500/65 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.14)]"),
-                            id
-                              ? isDuplicateRm
-                                ? isLight
-                                  ? "cursor-pointer hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600/50"
-                                  : "cursor-pointer hover:bg-amber-950/45 hover:shadow-[inset_2px_0_0_rgba(245,158,11,0.5)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500/50"
-                                : isLight
-                                  ? "cursor-pointer hover:bg-cyan-50/90 hover:shadow-[inset_2px_0_0_rgba(6,182,212,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600/50"
-                                  : "cursor-pointer hover:bg-cyan-950/30 hover:shadow-[inset_2px_0_0_rgba(34,211,238,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500/50"
-                              : "opacity-60",
-                          )}
-                        >
-                          <td
-                            className={cn(
-                              "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center tabular-nums",
-                              isLight ? "text-cyan-800" : "text-cyan-400/90",
-                            )}
-                          >
-                            {rowNoDesc}
-                          </td>
-                          <td
-                            className={cn(
-                              "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle",
-                              isLight ? "text-slate-900" : "text-cyan-200/95",
-                            )}
-                          >
-                            <div className="mx-auto w-full max-w-[9.5rem]">
-                              <EditableDateCell
-                                value={String(rec.tanggal ?? "")}
-                                onCommit={async (next) =>
-                                  patchRowField(id, { tanggal: next || null })
-                                }
-                              />
-                            </div>
-                          </td>
-                          <td
-                            className={cn(
-                              "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle tabular-nums",
-                              isLight ? "text-slate-800" : "text-cyan-200/90",
-                            )}
-                            title="Dari tab Fast-Track (Time out)"
-                          >
-                            {String(rec.fast_track_time_out ?? "").trim() || "—"}
-                          </td>
-                          <td
-                            className={cn(
-                              "px-2 sm:px-2.5 py-1 font-mono text-[11px] text-center align-middle",
-                              isLight ? "text-slate-950" : "text-cyan-100",
-                            )}
-                          >
-                            {(() => {
-                              const labelRm = extractRmFromLabel(
-                                pasienLabelByRowId[stateKey] ?? "",
-                              );
-                              const p = resolvePasienFromRow(
-                                pasienOptions,
-                                raw,
-                              );
-                              const rmFromOpt = String(p?.no_rm ?? "").trim();
-                              const rowRmDisp = displayRm(raw);
-                              const rowRm = rowRmDisp === "—" ? "" : rowRmDisp;
-                              return labelRm || rmFromOpt || rowRm || "—";
-                            })()}
-                          </td>
-                          <td
-                            className={cn(
-                              "px-2 sm:px-2.5 py-1 max-w-[18rem] text-center align-middle",
-                              isLight ? "text-slate-950" : "text-cyan-100",
-                            )}
-                          >
-                            <div
-                              data-no-row-click="true"
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={(e) => e.stopPropagation()}
-                              className="mx-auto min-w-[10rem] sm:min-w-[14rem] max-w-[18rem]"
-                              title={pasienError ?? undefined}
-                            >
-                              <PasienCombobox
-                                listboxId={`tindakan-row-${key}-pasien`}
-                                value={
-                                  pasienLabelByRowId[stateKey] ??
-                                  buildPasienLabelFromRow(raw) ??
-                                  ""
-                                }
-                                onChange={(label) => {
-                                  setPasienLabelByRowId((p) => ({
-                                    ...p,
-                                    [stateKey]: label,
-                                  }));
-                                }}
-                                onSelectOption={(picked) => {
-                                  const canonical = formatPasienLabel(picked);
-                                  setPasienLabelByRowId((p) => ({
-                                    ...p,
-                                    [stateKey]: canonical,
-                                  }));
-                                  if (!id) return;
-                                  void patchRowField(id, {
-                                    pasien_id: picked.id,
-                                    no_rm: picked.no_rm,
-                                    nama_pasien: picked.nama,
-                                  });
-                                }}
-                                options={pasienOptions}
-                                loading={pasienLoading}
-                                className="max-w-[18rem]"
-                              />
-                              {!pasienLoading &&
-                              pasienOptions.length === 0 &&
-                              i === 0 ? (
-                                <p
-                                  className={cn(
-                                    "mt-0.5 text-[9px] leading-tight",
-                                    isLight ? "text-cyan-700/80" : "text-cyan-500/70",
-                                  )}
-                                >
-                                  {pasienError
-                                    ? "Gagal memuat pasien."
-                                    : "Belum ada pasien di database."}
-                                </p>
-                              ) : null}
-                            </div>
-                          </td>
-                          <td
-                            className={cn(
-                              "px-2 sm:px-2.5 py-1 text-[11px] text-center align-middle whitespace-nowrap",
-                              isLight ? "text-slate-800" : "text-cyan-100/95",
-                            )}
-                          >
-                            {formatJenisKelaminDisplay(
-                              resolveJenisKelaminFromRow(
-                                raw,
-                                resolvePasienFromRow(pasienOptions, raw),
-                              ),
-                            )}
-                          </td>
-                          <td
-                            className={cn(
-                              "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
-                              isLight ? "text-slate-950" : "text-cyan-300/90",
-                            )}
-                          >
-                            <div
-                              data-no-row-click="true"
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={(e) => e.stopPropagation()}
-                              className="mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]"
-                              title={doctorError ?? undefined}
-                            >
-                              <DoctorCombobox
-                                listboxId={`tindakan-row-${key}-doctor`}
-                                value={
-                                  doctorLabelByRowId[stateKey] ??
-                                  canonicalDoctorDisplayValue(
-                                    doctorOptionsMaster,
-                                    String(rec.dokter ?? ""),
-                                  )
-                                }
-                                onChange={(label) => {
-                                  setDoctorLabelByRowId((p) => ({
-                                    ...p,
-                                    [stateKey]: label,
-                                  }));
-                                }}
-                                onInputBlur={(finalText) => {
-                                  if (!id) return;
-                                  const m = doctorOptionsMaster;
-                                  const resolved = m.length
-                                    ? resolveDoctorFromLooseInput(m, finalText)
-                                    : null;
-                                  const persisted = resolved
-                                    ? String(resolved.nama_dokter).trim()
-                                    : finalText.trim();
-                                  const display = resolved
-                                    ? formatDoctorLabel(resolved)
-                                    : finalText.trim();
-                                  const cur = String(rec.dokter ?? "").trim();
-                                  setDoctorLabelByRowId((p) => ({
-                                    ...p,
-                                    [stateKey]: display,
-                                  }));
-                                  if (persisted !== cur) {
-                                    void patchRowField(id, {
-                                      dokter: persisted || null,
-                                    });
-                                  }
-                                }}
-                                onSelectOption={(picked) => {
-                                  const canonical = formatDoctorLabel(picked);
-                                  setDoctorLabelByRowId((p) => ({
-                                    ...p,
-                                    [stateKey]: canonical,
-                                  }));
-                                  if (!id) return;
-                                  void patchRowField(id, {
-                                    dokter: picked.nama_dokter || null,
-                                  });
-                                }}
-                                options={
-                                  doctorOptionsMaster.length
-                                    ? doctorOptionsMaster
-                                    : dokterOptions.map((nama, idx) => ({
-                                        id: `local:${idx}`,
-                                        nama_dokter: nama,
-                                        spesialis: null,
-                                        aktif: true,
-                                      }))
-                                }
-                                loading={doctorLoading}
-                                className="max-w-[14rem]"
-                              />
-                              {!doctorLoading &&
-                              doctorOptionsMaster.length === 0 &&
-                              i === 0 ? (
-                                <p
-                                  className={cn(
-                                    "mt-0.5 text-[9px] leading-tight",
-                                    isLight ? "text-cyan-700/80" : "text-cyan-500/70",
-                                  )}
-                                >
-                                  {doctorError
-                                    ? "Gagal memuat master dokter."
-                                    : "Belum ada dokter di master."}
-                                </p>
-                              ) : null}
-                            </div>
-                          </td>
-                          <td
-                            className={cn(
-                              "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
-                              isLight ? "text-slate-950" : "text-cyan-200/95",
-                            )}
-                          >
-                            <div
-                              data-no-row-click="true"
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={(e) => e.stopPropagation()}
-                              className="mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]"
-                              title={masterTindakanError ?? undefined}
-                            >
-                              <EditableMasterTindakanCell
-                                value={String(rec.tindakan ?? "")}
-                                masterOptions={masterTindakanOptions}
-                                loading={masterTindakanLoading}
-                                listboxId={`tindakan-row-${key}-tindakan`}
-                                onCommit={(next) =>
-                                  commitTindakanForRow(id, next)
-                                }
-                              />
-                              {!masterTindakanLoading &&
-                              masterTindakanOptions.length === 0 &&
-                              i === 0 ? (
-                                <p
-                                  className={cn(
-                                    "mt-0.5 text-[9px] leading-tight",
-                                    isLight ? "text-cyan-700/80" : "text-cyan-500/70",
-                                  )}
-                                >
-                                  {masterTindakanError
-                                    ? "Gagal memuat master tindakan."
-                                    : "Belum ada jenis tindakan di master."}
-                                </p>
-                              ) : null}
-                            </div>
-                          </td>
-                          <td
-                            className={cn(
-                              "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
-                              isLight ? "text-slate-950" : "text-cyan-300/90",
-                            )}
-                          >
-                            <div
-                              data-no-row-click="true"
-                              onMouseDown={(e) => e.stopPropagation()}
-                              onClick={(e) => e.stopPropagation()}
-                              className="mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]"
-                              title={ruanganError ?? undefined}
-                            >
-                              <EditableRuanganCell
-                                value={String(rec.ruangan ?? "")}
-                                ruanganMaster={ruanganMaster}
-                                loading={ruanganLoading}
-                                listboxId={`tindakan-row-${key}-ruangan`}
-                                onCommit={(next) => commitRuanganForRow(id, next)}
-                              />
-                              {!ruanganLoading &&
-                              ruanganMaster.length === 0 &&
-                              i === 0 ? (
-                                <p
-                                  className={cn(
-                                    "mt-0.5 text-[9px] leading-tight",
-                                    isLight ? "text-cyan-700/80" : "text-cyan-500/70",
-                                  )}
-                                >
-                                  {ruanganError
-                                    ? "Gagal memuat master ruangan."
-                                    : "Belum ada ruangan di master."}
-                                </p>
-                              ) : null}
-                            </div>
-                          </td>
-                          <td
-                            className="px-2 sm:px-2.5 py-1 align-middle text-center"
-                            onClick={(e) => e.stopPropagation()}
-                            onKeyDown={(e) => e.stopPropagation()}
-                          >
-                            <div className="flex flex-wrap items-center justify-center gap-1">
-                              {id && pemakaianOrderByTindakanId[id] ? (
-                                <button
-                                  type="button"
-                                  className={cn(
-                                    "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-all",
-                                    isLight
-                                      ? "border-amber-600/45 bg-amber-100/90 text-amber-950 hover:bg-amber-200/80"
-                                      : "border-amber-800/50 bg-amber-950/35 text-amber-200/95 hover:border-amber-600/45 hover:bg-amber-900/30",
-                                  )}
-                                  title="Edit pemakaian alkes (order sudah ada)"
-                                  aria-label="Edit pemakaian"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPemakaianModalRow(rec);
-                                  }}
-                                >
-                                  <SquarePen className="h-3.5 w-3.5 shrink-0 opacity-90" />
-                                  <span className="hidden sm:inline">
-                                    Edit pemakaian
-                                  </span>
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className={cn(
-                                    "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-all",
-                                    isLight
-                                      ? "border-cyan-600/45 bg-cyan-100/90 text-cyan-950 hover:bg-cyan-200/75"
-                                      : "border-cyan-800/50 bg-cyan-950/40 text-cyan-200/95 hover:border-cyan-600/40 hover:bg-cyan-900/35",
-                                  )}
-                                  title="Input pemakaian barang"
-                                  aria-label="Pemakaian"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPemakaianModalRow(rec);
-                                  }}
-                                >
-                                  <ClipboardList className="h-3.5 w-3.5 shrink-0 opacity-90" />
-                                  <span className="hidden sm:inline">
-                                    Pemakaian
-                                  </span>
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                disabled={!id || deletingId === id}
-                                className={cn(
-                                  "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-all disabled:pointer-events-none disabled:opacity-40",
-                                  isLight
-                                    ? "border-red-400/55 bg-red-50 text-red-800 hover:bg-red-100"
-                                    : "border-red-900/45 bg-red-950/25 text-red-300/95 hover:bg-red-950/45",
-                                )}
-                                title="Hapus kasus tindakan"
-                                aria-label="Hapus"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  void handleDelete(id, rec);
-                                }}
-                              >
-                                <Trash2 className="h-3.5 w-3.5 shrink-0 opacity-90" />
-                                <span className="hidden sm:inline">Hapus</span>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        {isDuplicateRm && priorList.length > 0 ? (
                           <tr
+                            onClick={(e) => {
+                              if (!id) return;
+                              const target = e.target as HTMLElement | null;
+                              if (
+                                target?.closest(
+                                  'input,select,textarea,button,a,[data-no-row-click="true"]',
+                                )
+                              ) {
+                                return;
+                              }
+                              openDetail(id);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                if (!id) return;
+                                openDetail(id);
+                              }
+                            }}
+                            role={id ? "button" : undefined}
+                            tabIndex={id ? 0 : undefined}
                             className={cn(
-                              "border-b",
+                              "group border-b transition-all duration-200",
                               isLight
-                                ? "border-amber-300/50 bg-amber-50/80"
-                                : "border-amber-900/30 bg-amber-950/15",
+                                ? "border-cyan-200/70"
+                                : "border-cyan-900/25",
+                              isDuplicateRm &&
+                                (isLight
+                                  ? "bg-amber-100/75 border-l-[3px] border-l-amber-500 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.2)]"
+                                  : "bg-amber-950/35 border-l-[3px] border-l-amber-500/65 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.14)]"),
+                              id
+                                ? isDuplicateRm
+                                  ? isLight
+                                    ? "cursor-pointer hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600/50"
+                                    : "cursor-pointer hover:bg-amber-950/45 hover:shadow-[inset_2px_0_0_rgba(245,158,11,0.5)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500/50"
+                                  : isLight
+                                    ? "cursor-pointer hover:bg-cyan-50/90 hover:shadow-[inset_2px_0_0_rgba(6,182,212,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600/50"
+                                    : "cursor-pointer hover:bg-cyan-950/30 hover:shadow-[inset_2px_0_0_rgba(34,211,238,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500/50"
+                                : "opacity-60",
                             )}
                           >
                             <td
-                              colSpan={10}
-                              className="px-3 py-1.5 align-top text-left"
+                              className={cn(
+                                "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center tabular-nums",
+                                isLight ? "text-cyan-800" : "text-cyan-400/90",
+                              )}
+                            >
+                              {rowNoDesc}
+                            </td>
+                            <td
+                              className={cn(
+                                "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle",
+                                isLight ? "text-slate-900" : "text-cyan-200/95",
+                              )}
+                            >
+                              <div className="mx-auto w-full max-w-[9.5rem]">
+                                <EditableDateCell
+                                  value={String(rec.tanggal ?? "")}
+                                  onCommit={async (next) =>
+                                    patchRowField(id, { tanggal: next || null })
+                                  }
+                                />
+                              </div>
+                            </td>
+                            <td
+                              className={cn(
+                                "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle tabular-nums",
+                                isLight ? "text-slate-800" : "text-cyan-200/90",
+                              )}
+                              title="Dari tab Fast-Track (Time out)"
+                            >
+                              {String(rec.fast_track_time_out ?? "").trim() ||
+                                "—"}
+                            </td>
+                            <td
+                              className={cn(
+                                "px-2 sm:px-2.5 py-1 font-mono text-[11px] text-center align-middle",
+                                isLight ? "text-slate-950" : "text-cyan-100",
+                              )}
+                            >
+                              {(() => {
+                                const labelRm = extractRmFromLabel(
+                                  pasienLabelByRowId[stateKey] ?? "",
+                                );
+                                const p = resolvePasienFromRow(
+                                  pasienOptions,
+                                  raw,
+                                );
+                                const rmFromOpt = String(p?.no_rm ?? "").trim();
+                                const rowRmDisp = displayRm(raw);
+                                const rowRm =
+                                  rowRmDisp === "—" ? "" : rowRmDisp;
+                                return labelRm || rmFromOpt || rowRm || "—";
+                              })()}
+                            </td>
+                            <td
+                              className={cn(
+                                "px-2 sm:px-2.5 py-1 max-w-[18rem] text-center align-middle",
+                                isLight ? "text-slate-950" : "text-cyan-100",
+                              )}
+                            >
+                              <div
+                                data-no-row-click="true"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mx-auto min-w-[10rem] sm:min-w-[14rem] max-w-[18rem]"
+                                title={pasienError ?? undefined}
+                              >
+                                <PasienCombobox
+                                  listboxId={`tindakan-row-${key}-pasien`}
+                                  value={
+                                    pasienLabelByRowId[stateKey] ??
+                                    buildPasienLabelFromRow(raw) ??
+                                    ""
+                                  }
+                                  onChange={(label) => {
+                                    setPasienLabelByRowId((p) => ({
+                                      ...p,
+                                      [stateKey]: label,
+                                    }));
+                                  }}
+                                  onSelectOption={(picked) => {
+                                    const canonical = formatPasienLabel(picked);
+                                    setPasienLabelByRowId((p) => ({
+                                      ...p,
+                                      [stateKey]: canonical,
+                                    }));
+                                    if (!id) return;
+                                    void patchRowField(id, {
+                                      pasien_id: picked.id,
+                                      no_rm: picked.no_rm,
+                                      nama_pasien: picked.nama,
+                                    });
+                                  }}
+                                  options={pasienOptions}
+                                  loading={pasienLoading}
+                                  className="max-w-[18rem]"
+                                />
+                                {!pasienLoading &&
+                                pasienOptions.length === 0 &&
+                                i === 0 ? (
+                                  <p
+                                    className={cn(
+                                      "mt-0.5 text-[9px] leading-tight",
+                                      isLight
+                                        ? "text-cyan-700/80"
+                                        : "text-cyan-500/70",
+                                    )}
+                                  >
+                                    {pasienError
+                                      ? "Gagal memuat pasien."
+                                      : "Belum ada pasien di database."}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </td>
+                            <td
+                              className={cn(
+                                "px-2 sm:px-2.5 py-1 text-[11px] text-center align-middle whitespace-nowrap",
+                                isLight ? "text-slate-800" : "text-cyan-100/95",
+                              )}
+                            >
+                              {formatJenisKelaminDisplay(
+                                resolveJenisKelaminFromRow(
+                                  raw,
+                                  resolvePasienFromRow(pasienOptions, raw),
+                                ),
+                              )}
+                            </td>
+                            <td
+                              className={cn(
+                                "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
+                                isLight ? "text-slate-950" : "text-cyan-300/90",
+                              )}
+                            >
+                              <div
+                                data-no-row-click="true"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]"
+                                title={doctorError ?? undefined}
+                              >
+                                <DoctorCombobox
+                                  listboxId={`tindakan-row-${key}-doctor`}
+                                  value={
+                                    doctorLabelByRowId[stateKey] ??
+                                    canonicalDoctorDisplayValue(
+                                      doctorOptionsMaster,
+                                      String(rec.dokter ?? ""),
+                                    )
+                                  }
+                                  onChange={(label) => {
+                                    setDoctorLabelByRowId((p) => ({
+                                      ...p,
+                                      [stateKey]: label,
+                                    }));
+                                  }}
+                                  onInputBlur={(finalText) => {
+                                    if (!id) return;
+                                    const m = doctorOptionsMaster;
+                                    const resolved = m.length
+                                      ? resolveDoctorFromLooseInput(
+                                          m,
+                                          finalText,
+                                        )
+                                      : null;
+                                    const persisted = resolved
+                                      ? String(resolved.nama_dokter).trim()
+                                      : finalText.trim();
+                                    const display = resolved
+                                      ? formatDoctorLabel(resolved)
+                                      : finalText.trim();
+                                    const cur = String(rec.dokter ?? "").trim();
+                                    setDoctorLabelByRowId((p) => ({
+                                      ...p,
+                                      [stateKey]: display,
+                                    }));
+                                    if (persisted !== cur) {
+                                      void patchRowField(id, {
+                                        dokter: persisted || null,
+                                      });
+                                    }
+                                  }}
+                                  onSelectOption={(picked) => {
+                                    const canonical = formatDoctorLabel(picked);
+                                    setDoctorLabelByRowId((p) => ({
+                                      ...p,
+                                      [stateKey]: canonical,
+                                    }));
+                                    if (!id) return;
+                                    void patchRowField(id, {
+                                      dokter: picked.nama_dokter || null,
+                                    });
+                                  }}
+                                  options={
+                                    doctorOptionsMaster.length
+                                      ? doctorOptionsMaster
+                                      : dokterOptions.map((nama, idx) => ({
+                                          id: `local:${idx}`,
+                                          nama_dokter: nama,
+                                          spesialis: null,
+                                          aktif: true,
+                                        }))
+                                  }
+                                  loading={doctorLoading}
+                                  className="max-w-[14rem]"
+                                />
+                                {!doctorLoading &&
+                                doctorOptionsMaster.length === 0 &&
+                                i === 0 ? (
+                                  <p
+                                    className={cn(
+                                      "mt-0.5 text-[9px] leading-tight",
+                                      isLight
+                                        ? "text-cyan-700/80"
+                                        : "text-cyan-500/70",
+                                    )}
+                                  >
+                                    {doctorError
+                                      ? "Gagal memuat master dokter."
+                                      : "Belum ada dokter di master."}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </td>
+                            <td
+                              className={cn(
+                                "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
+                                isLight ? "text-slate-950" : "text-cyan-200/95",
+                              )}
+                            >
+                              <div
+                                data-no-row-click="true"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]"
+                                title={masterTindakanError ?? undefined}
+                              >
+                                <EditableMasterTindakanCell
+                                  value={String(rec.tindakan ?? "")}
+                                  masterOptions={masterTindakanOptions}
+                                  loading={masterTindakanLoading}
+                                  listboxId={`tindakan-row-${key}-tindakan`}
+                                  onCommit={(next) =>
+                                    commitTindakanForRow(id, next)
+                                  }
+                                />
+                                {!masterTindakanLoading &&
+                                masterTindakanOptions.length === 0 &&
+                                i === 0 ? (
+                                  <p
+                                    className={cn(
+                                      "mt-0.5 text-[9px] leading-tight",
+                                      isLight
+                                        ? "text-cyan-700/80"
+                                        : "text-cyan-500/70",
+                                    )}
+                                  >
+                                    {masterTindakanError
+                                      ? "Gagal memuat master tindakan."
+                                      : "Belum ada jenis tindakan di master."}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </td>
+                            <td
+                              className={cn(
+                                "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
+                                isLight ? "text-slate-950" : "text-cyan-300/90",
+                              )}
+                            >
+                              <div
+                                data-no-row-click="true"
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
+                                className="mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]"
+                                title={ruanganError ?? undefined}
+                              >
+                                <EditableRuanganCell
+                                  value={String(rec.ruangan ?? "")}
+                                  ruanganMaster={ruanganMaster}
+                                  loading={ruanganLoading}
+                                  listboxId={`tindakan-row-${key}-ruangan`}
+                                  onCommit={(next) =>
+                                    commitRuanganForRow(id, next)
+                                  }
+                                />
+                                {!ruanganLoading &&
+                                ruanganMaster.length === 0 &&
+                                i === 0 ? (
+                                  <p
+                                    className={cn(
+                                      "mt-0.5 text-[9px] leading-tight",
+                                      isLight
+                                        ? "text-cyan-700/80"
+                                        : "text-cyan-500/70",
+                                    )}
+                                  >
+                                    {ruanganError
+                                      ? "Gagal memuat master ruangan."
+                                      : "Belum ada ruangan di master."}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </td>
+                            <td
+                              className="px-2 sm:px-2.5 py-1 align-middle text-center"
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => e.stopPropagation()}
                             >
-                              <div
-                                className={cn(
-                                  "max-w-3xl text-[11px] leading-snug",
-                                  isLight ? "text-amber-950" : "text-amber-100/90",
+                              <div className="flex flex-wrap items-center justify-center gap-1">
+                                {id && pemakaianOrderByTindakanId[id] ? (
+                                  <button
+                                    type="button"
+                                    className={cn(
+                                      "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-all",
+                                      isLight
+                                        ? "border-amber-600/45 bg-amber-100/90 text-amber-950 hover:bg-amber-200/80"
+                                        : "border-amber-800/50 bg-amber-950/35 text-amber-200/95 hover:border-amber-600/45 hover:bg-amber-900/30",
+                                    )}
+                                    title="Edit pemakaian alkes (order sudah ada)"
+                                    aria-label="Edit pemakaian"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPemakaianModalRow(rec);
+                                    }}
+                                  >
+                                    <SquarePen className="h-3.5 w-3.5 shrink-0 opacity-90" />
+                                    <span className="hidden sm:inline">
+                                      Edit pemakaian
+                                    </span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className={cn(
+                                      "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-all",
+                                      isLight
+                                        ? "border-cyan-600/45 bg-cyan-100/90 text-cyan-950 hover:bg-cyan-200/75"
+                                        : "border-cyan-800/50 bg-cyan-950/40 text-cyan-200/95 hover:border-cyan-600/40 hover:bg-cyan-900/35",
+                                    )}
+                                    title="Input pemakaian barang"
+                                    aria-label="Pemakaian"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPemakaianModalRow(rec);
+                                    }}
+                                  >
+                                    <ClipboardList className="h-3.5 w-3.5 shrink-0 opacity-90" />
+                                    <span className="hidden sm:inline">
+                                      Pemakaian
+                                    </span>
+                                  </button>
                                 )}
-                              >
                                 <button
                                   type="button"
-                                  data-no-row-click="true"
-                                  aria-expanded={Boolean(
-                                    rmHistoryOpenByRowKey[key],
+                                  disabled={!id || deletingId === id}
+                                  className={cn(
+                                    "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-all disabled:pointer-events-none disabled:opacity-40",
+                                    isLight
+                                      ? "border-red-400/55 bg-red-50 text-red-800 hover:bg-red-100"
+                                      : "border-red-900/45 bg-red-950/25 text-red-300/95 hover:bg-red-950/45",
                                   )}
+                                  title="Hapus kasus tindakan"
+                                  aria-label="Hapus"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setRmHistoryOpenByRowKey((p) => ({
-                                      ...p,
-                                      [key]: !p[key],
-                                    }));
+                                    void handleDelete(id, rec);
                                   }}
-                                  className={cn(
-                                    "flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500/45",
-                                    isLight
-                                      ? "border-amber-500/40 bg-white/90 hover:bg-amber-100/80"
-                                      : "border-amber-800/35 bg-black/25 hover:bg-amber-950/35",
-                                  )}
                                 >
-                                  {rmHistoryOpenByRowKey[key] ? (
-                                    <ChevronDown
-                                      className="h-4 w-4 shrink-0 text-amber-400/90"
-                                      aria-hidden
-                                    />
-                                  ) : (
-                                    <ChevronRight
-                                      className="h-4 w-4 shrink-0 text-amber-400/90"
-                                      aria-hidden
-                                    />
-                                  )}
-                                  <span className="font-mono text-[11px] text-amber-200/95">
-                                    Riwayat tindakan lain ({priorList.length})
-                                  </span>
-                                  <span className="text-amber-500/70 font-semibold">
-                                    · RM {rmLine}
+                                  <Trash2 className="h-3.5 w-3.5 shrink-0 opacity-90" />
+                                  <span className="hidden sm:inline">
+                                    Hapus
                                   </span>
                                 </button>
-                                {rmHistoryOpenByRowKey[key] ? (
-                                  <div className="mt-2 space-y-2 pl-1">
-                                    <div>
-                                      <div className="font-mono text-amber-200/95">
-                                        RM {rmLine}
-                                      </div>
-                                      <div
-                                        className={cn(
-                                          "mt-0.5",
-                                          isLight ? "text-amber-900/90" : "text-amber-50/88",
-                                        )}
-                                      >
-                                        · {namaForKet}
-                                      </div>
-                                    </div>
-                                    {priorList.map((e, j) => (
-                                      <div
-                                        key={`${e.sortKey}-${j}-${e.tindakan}`}
-                                        className={cn(
-                                          "rounded-md border px-3 py-2",
-                                          isLight
-                                            ? "border-amber-400/50 bg-white/95"
-                                            : "border-amber-800/40 bg-black/35",
-                                        )}
-                                      >
-                                        <div className="text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
-                                          Pernah dilakukan
+                              </div>
+                            </td>
+                          </tr>
+                          {isDuplicateRm && priorList.length > 0 ? (
+                            <tr
+                              className={cn(
+                                "border-b",
+                                isLight
+                                  ? "border-amber-300/50 bg-amber-50/80"
+                                  : "border-amber-900/30 bg-amber-950/15",
+                              )}
+                            >
+                              <td
+                                colSpan={10}
+                                className="px-3 py-1.5 align-top text-left"
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => e.stopPropagation()}
+                              >
+                                <div
+                                  className={cn(
+                                    "max-w-3xl text-[11px] leading-snug",
+                                    isLight
+                                      ? "text-amber-950"
+                                      : "text-amber-100/90",
+                                  )}
+                                >
+                                  <button
+                                    type="button"
+                                    data-no-row-click="true"
+                                    aria-expanded={Boolean(
+                                      rmHistoryOpenByRowKey[key],
+                                    )}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setRmHistoryOpenByRowKey((p) => ({
+                                        ...p,
+                                        [key]: !p[key],
+                                      }));
+                                    }}
+                                    className={cn(
+                                      "flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500/45",
+                                      isLight
+                                        ? "border-amber-500/40 bg-white/90 hover:bg-amber-100/80"
+                                        : "border-amber-800/35 bg-black/25 hover:bg-amber-950/35",
+                                    )}
+                                  >
+                                    {rmHistoryOpenByRowKey[key] ? (
+                                      <ChevronDown
+                                        className="h-4 w-4 shrink-0 text-amber-400/90"
+                                        aria-hidden
+                                      />
+                                    ) : (
+                                      <ChevronRight
+                                        className="h-4 w-4 shrink-0 text-amber-400/90"
+                                        aria-hidden
+                                      />
+                                    )}
+                                    <span className="font-mono text-[11px] text-amber-200/95">
+                                      Riwayat tindakan lain ({priorList.length})
+                                    </span>
+                                    <span className="text-amber-500/70 font-semibold">
+                                      · RM {rmLine}
+                                    </span>
+                                  </button>
+                                  {rmHistoryOpenByRowKey[key] ? (
+                                    <div className="mt-2 space-y-2 pl-1">
+                                      <div>
+                                        <div className="font-mono text-amber-200/95">
+                                          RM {rmLine}
                                         </div>
                                         <div
                                           className={cn(
                                             "mt-0.5",
-                                            isLight ? "text-amber-950" : "text-amber-100/95",
+                                            isLight
+                                              ? "text-amber-900/90"
+                                              : "text-amber-50/88",
                                           )}
                                         >
-                                          · {e.tindakan}
-                                        </div>
-                                        <div className="mt-2 text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
-                                          Tanggal tindakan
-                                        </div>
-                                        <div>{e.tanggalDisp}</div>
-                                        <div className="mt-2 text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
-                                          Dokter
-                                        </div>
-                                        <div
-                                          className={cn(
-                                            isLight ? "text-amber-950" : "text-amber-100/95",
-                                          )}
-                                        >
-                                          · {e.dokter}
+                                          · {namaForKet}
                                         </div>
                                       </div>
-                                    ))}
-                                  </div>
-                                ) : null}
-                              </div>
-                            </td>
-                          </tr>
-                        ) : null}
+                                      {priorList.map((e, j) => (
+                                        <div
+                                          key={`${e.sortKey}-${j}-${e.tindakan}`}
+                                          className={cn(
+                                            "rounded-md border px-3 py-2",
+                                            isLight
+                                              ? "border-amber-400/50 bg-white/95"
+                                              : "border-amber-800/40 bg-black/35",
+                                          )}
+                                        >
+                                          <div className="text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
+                                            Pernah dilakukan
+                                          </div>
+                                          <div
+                                            className={cn(
+                                              "mt-0.5",
+                                              isLight
+                                                ? "text-amber-950"
+                                                : "text-amber-100/95",
+                                            )}
+                                          >
+                                            · {e.tindakan}
+                                          </div>
+                                          <div className="mt-2 text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
+                                            Tanggal tindakan
+                                          </div>
+                                          <div>{e.tanggalDisp}</div>
+                                          <div className="mt-2 text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
+                                            Dokter
+                                          </div>
+                                          <div
+                                            className={cn(
+                                              isLight
+                                                ? "text-amber-950"
+                                                : "text-amber-100/95",
+                                            )}
+                                          >
+                                            · {e.dokter}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </td>
+                            </tr>
+                          ) : null}
                         </Fragment>
                       );
                     })

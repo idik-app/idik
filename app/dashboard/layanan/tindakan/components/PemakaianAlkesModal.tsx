@@ -1171,6 +1171,12 @@ export default function PemakaianAlkesModal({
                             variant="table"
                             listboxId={`tindakan-pemakaian-modal-barang-${line.lineId}`}
                             value={line.barang}
+                            blurResolveLine={{
+                              distributor: line.distributor,
+                              lot: line.lot,
+                              ukuran: line.ukuran,
+                              ed: line.ed,
+                            }}
                             onChange={(nama) =>
                               patchDrawerLine(line.lineId, { barang: nama })
                             }

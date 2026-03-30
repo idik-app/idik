@@ -27,8 +27,36 @@ function normKey(s: string): string {
 /** Tanggal dari kolom teks order `tanggal` (mis. "2026-03-26 09:30"). */
 function orderTanggalDateKey(tanggal: string): string | null {
   const t = tanggal.trim();
+  if (!t) return null;
   if (t.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
+  const ms = Date.parse(t);
+  if (!Number.isNaN(ms)) return new Date(ms).toISOString().slice(0, 10);
+  // Contoh: "29 Mar 2026" / "29 Maret 2026" (tanpa ISO di depan)
+  const m = t.match(
+    /(\d{1,2})\s+(Jan(?:uari)?|Feb(?:ruari)?|Mar(?:et)?|Apr(?:il)?|Mei|Jun(?:i)?|Jul(?:i)?|Agu(?:stus)?|Sep(?:tember)?|Okt(?:ober)?|Nov(?:ember)?|Des(?:ember)?)\s+(\d{4})/i,
+  );
+  if (m) {
+    const d = new Date(`${m[1]} ${m[2]} ${m[3]}`);
+    if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  }
   return null;
+}
+
+/** Cocokkan teks distributor di baris order dengan nama_pt (abaikan varian "PT." / spasi). */
+function distributorLineMatchesTenant(
+  lineDistributorRaw: string,
+  namaPtRaw: string,
+): boolean {
+  const stripPt = (s: string) =>
+    normKey(s).replace(/^pt\.?\s*/u, "").trim();
+  const distLine = stripPt(lineDistributorRaw);
+  const namaPt = stripPt(namaPtRaw);
+  if (!distLine || !namaPt) return false;
+  if (distLine === namaPt) return true;
+  if (distLine.length >= 4 && namaPt.length >= 4) {
+    if (distLine.includes(namaPt) || namaPt.includes(distLine)) return true;
+  }
+  return false;
 }
 
 function orderLineQtyUsed(line: Record<string, unknown>): number {
@@ -49,10 +77,15 @@ function orderLineQtyRencana(line: Record<string, unknown>): number {
  * Depo sering set status SELESAI tanpa mengisi ulang qtyDipakai di JSON;
  * untuk laporan distributor gunakan qty rencana sebagai kuantitas pemakaian.
  */
-function lineQtyForPemakaianReport(line: Record<string, unknown>, orderStatus: string): number {
+function lineQtyForPemakaianReport(
+  line: Record<string, unknown>,
+  orderStatus: string,
+): number {
   const u = orderLineQtyUsed(line);
   if (u > 0) return u;
-  const st = String(orderStatus ?? "").trim().toUpperCase();
+  const st = String(orderStatus ?? "")
+    .trim()
+    .toUpperCase();
   if (st === "SELESAI" || st === "TERVERIFIKASI") {
     const p = orderLineQtyRencana(line);
     if (p > 0) return p;
@@ -73,7 +106,10 @@ function parseOrderItemsJson(itemsRaw: unknown): Record<string, unknown>[] {
   return [];
 }
 
-function strFromLine(line: Record<string, unknown>, ...keys: string[]): string | null {
+function strFromLine(
+  line: Record<string, unknown>,
+  ...keys: string[]
+): string | null {
   for (const k of keys) {
     const v = line[k];
     if (typeof v === "string" && v.trim()) return v.trim();
@@ -89,7 +125,10 @@ function isValidUuidParam(s: string): boolean {
   return UUID_RE.test(s.trim());
 }
 
-function barangMatchesTenantSet(barangKey: string, tenantBarangNames: Set<string>): boolean {
+function barangMatchesTenantSet(
+  barangKey: string,
+  tenantBarangNames: Set<string>,
+): boolean {
   if (!barangKey) return false;
   if (tenantBarangNames.has(barangKey)) return true;
   for (const tn of tenantBarangNames) {
@@ -100,7 +139,10 @@ function barangMatchesTenantSet(barangKey: string, tenantBarangNames: Set<string
 }
 
 function masterBarangDistId(inv: {
-  master_barang?: { distributor_id?: string | null } | { distributor_id?: string | null }[] | null;
+  master_barang?:
+    | { distributor_id?: string | null }
+    | { distributor_id?: string | null }[]
+    | null;
 }): string {
   const mb = inv?.master_barang;
   const row = Array.isArray(mb) ? mb[0] : mb;
@@ -113,7 +155,9 @@ function masterBarangDistId(inv: {
  * DB lama dengan kolom pemakaian tidak lengkap (inventaris_id, jumlah, dll.) —
  * pakai buku besar mutasi (KELUAR_PEMAKAIAN) sebagai sumber baris.
  */
-function isPemakaianTableSchemaMismatch(err: { message?: string } | null): boolean {
+function isPemakaianTableSchemaMismatch(
+  err: { message?: string } | null,
+): boolean {
   const m = (err?.message ?? "").toLowerCase();
   return m.includes("pemakaian.") && m.includes("does not exist");
 }
@@ -130,13 +174,21 @@ type PemakaianRowBase = {
 
 export async function GET(req: Request) {
   const id = await getDistributorIdentity();
-  if (!id.ok) return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
+  if (!id.ok)
+    return NextResponse.json(
+      { ok: false, message: "Unauthorized" },
+      { status: 401 },
+    );
 
   const { searchParams } = new URL(req.url);
   const from = parseDate(searchParams.get("from"));
   const to = parseDate(searchParams.get("to"));
   const distributorIdParam = (searchParams.get("distributor_id") ?? "").trim();
-  if (id.isAdminView && distributorIdParam && !isValidUuidParam(distributorIdParam)) {
+  if (
+    id.isAdminView &&
+    distributorIdParam &&
+    !isValidUuidParam(distributorIdParam)
+  ) {
     return NextResponse.json(
       {
         ok: false,
@@ -147,7 +199,9 @@ export async function GET(req: Request) {
     );
   }
 
-  const scope = id.isAdminView ? (distributorIdParam || null) : (id.distributorId ?? null);
+  const scope = id.isAdminView
+    ? distributorIdParam || null
+    : (id.distributorId ?? null);
   const adminShowAll = Boolean(id.isAdminView && !scope);
 
   if (!id.isAdminView && !scope) {
@@ -175,10 +229,15 @@ export async function GET(req: Request) {
       .select("master_barang_id")
       .eq("distributor_id", scope);
     if (dbErr) {
-      return NextResponse.json({ ok: false, message: dbErr.message }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, message: dbErr.message },
+        { status: 500 },
+      );
     }
     for (const r of dbRows ?? []) {
-      const mb = String((r as { master_barang_id?: unknown }).master_barang_id ?? "").trim();
+      const mb = String(
+        (r as { master_barang_id?: unknown }).master_barang_id ?? "",
+      ).trim();
       if (mb) catalogMasterIds.add(mb);
     }
   }
@@ -189,7 +248,9 @@ export async function GET(req: Request) {
 
   let pemQ = supabase
     .from("pemakaian")
-    .select("id, created_at, inventaris_id, jumlah, tanggal, keterangan, tindakan_id")
+    .select(
+      "id, created_at, inventaris_id, jumlah, tanggal, keterangan, tindakan_id",
+    )
     .order("tanggal", { ascending: false });
 
   if (from) pemQ = pemQ.gte("tanggal", from);
@@ -200,7 +261,9 @@ export async function GET(req: Request) {
   if (pemErr && isPemakaianTableSchemaMismatch(pemErr)) {
     let mutQ = supabase
       .from("inventaris_stok_mutasi")
-      .select("id, created_at, inventaris_id, qty_delta, ref_id, keterangan, ref_type")
+      .select(
+        "id, created_at, inventaris_id, qty_delta, ref_id, keterangan, ref_type",
+      )
       .eq("tipe", "KELUAR_PEMAKAIAN")
       .eq("ref_type", "pemakaian")
       .order("created_at", { ascending: false });
@@ -210,7 +273,10 @@ export async function GET(req: Request) {
 
     const { data: mutRows, error: mutErr } = await mutQ;
     if (mutErr) {
-      return NextResponse.json({ ok: false, message: mutErr.message }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, message: mutErr.message },
+        { status: 500 },
+      );
     }
 
     pemRows = (mutRows ?? []).map((r) => {
@@ -220,7 +286,9 @@ export async function GET(req: Request) {
       const id = refId != null && refId !== "" ? String(refId) : mutId;
       const qty = Number((r as { qty_delta?: unknown }).qty_delta);
       const jumlah = Number.isFinite(qty) ? Math.abs(qty) : 0;
-      const invId = String((r as { inventaris_id?: unknown }).inventaris_id ?? "").trim();
+      const invId = String(
+        (r as { inventaris_id?: unknown }).inventaris_id ?? "",
+      ).trim();
       const tanggalSlice = created.length >= 10 ? created.slice(0, 10) : null;
       return {
         id,
@@ -228,12 +296,17 @@ export async function GET(req: Request) {
         inventaris_id: invId || null,
         jumlah,
         tanggal: tanggalSlice,
-        keterangan: ((r as { keterangan?: unknown }).keterangan ?? null) as string | null,
+        keterangan: ((r as { keterangan?: unknown }).keterangan ?? null) as
+          | string
+          | null,
         tindakan_id: null,
       };
     });
   } else if (pemErr) {
-    return NextResponse.json({ ok: false, message: pemErr.message }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, message: pemErr.message },
+      { status: 500 },
+    );
   } else {
     pemRows = (pemFromTable ?? []) as PemakaianRowBase[];
   }
@@ -251,7 +324,10 @@ export async function GET(req: Request) {
     lokasi?: string | null;
     distributor_id?: string | null;
     master_barang_id?: string | null;
-    master_barang?: { distributor_id?: string | null } | { distributor_id?: string | null }[] | null;
+    master_barang?:
+      | { distributor_id?: string | null }
+      | { distributor_id?: string | null }[]
+      | null;
   };
 
   const invById = new Map<string, InvRow>();
@@ -275,7 +351,10 @@ export async function GET(req: Request) {
       )
       .in("id", slice);
     if (invErr) {
-      return NextResponse.json({ ok: false, message: invErr.message }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, message: invErr.message },
+        { status: 500 },
+      );
     }
     for (const row of invChunk ?? []) {
       const r = row as InvRow;
@@ -285,7 +364,7 @@ export async function GET(req: Request) {
 
   const data = pemRows.map((row) => {
     const invId = String(row.inventaris_id ?? "").trim();
-    const inventaris = invId ? invById.get(invId) ?? null : null;
+    const inventaris = invId ? (invById.get(invId) ?? null) : null;
     return { ...row, inventaris };
   });
 
@@ -310,7 +389,8 @@ export async function GET(req: Request) {
 
     if (!invDist && masterDist === scopeStr) return true;
 
-    if (!invDist && !masterDist && mbId && catalogMasterIds.has(mbId)) return true;
+    if (!invDist && !masterDist && mbId && catalogMasterIds.has(mbId))
+      return true;
 
     return false;
   }
@@ -343,7 +423,10 @@ export async function GET(req: Request) {
       tindakan_id: row.tindakan_id,
       distributor_nama: null as string | null,
       inventaris: inv
-        ? { nama: inv.nama ?? "-", satuan: (inv.satuan as string | null) ?? null }
+        ? {
+            nama: inv.nama ?? "-",
+            satuan: (inv.satuan as string | null) ?? null,
+          }
         : null,
       order_id: null as string | null,
       pasien: null as string | null,
@@ -361,6 +444,7 @@ export async function GET(req: Request) {
    * Input pemakaian Cathlab (dashboard) menyimpan di cathlab_pemakaian_order.items,
    * terpisah dari FIFO pemakaian + mutasi. Tanpa ini, portal distributor kosong
    * jika staf belum / tidak memanggil allocate_pemakaian_fifo.
+   * Baris order hanya di-merge jika status TERVERIFIKASI / SELESAI (bukan DRAFT / alur sebelum verifikasi Depo).
    */
   let fromOrders: typeof enriched = [];
   if (!adminShowAll && scope) {
@@ -372,7 +456,7 @@ export async function GET(req: Request) {
       .select("nama_pt")
       .eq("id", scope)
       .maybeSingle();
-    const namaPtNorm = normKey(String(distRow?.nama_pt ?? ""));
+    const namaPtStr = String(distRow?.nama_pt ?? "").trim();
 
     const tenantBarangNames = new Set<string>();
     const { data: mbDirect } = await supabase
@@ -397,7 +481,10 @@ export async function GET(req: Request) {
       const chunk = 150;
       for (let i = 0; i < ids.length; i += chunk) {
         const slice = ids.slice(i, i + chunk);
-        const { data: mbCat } = await supabase.from("master_barang").select("nama").in("id", slice);
+        const { data: mbCat } = await supabase
+          .from("master_barang")
+          .select("nama")
+          .in("id", slice);
         for (const r of mbCat ?? []) {
           const n = normKey(String((r as { nama?: unknown }).nama ?? ""));
           if (n) tenantBarangNames.add(n);
@@ -405,47 +492,61 @@ export async function GET(req: Request) {
       }
     }
 
-    function orderItemForTenant(line: Record<string, unknown>, orderStatus: string): boolean {
+    function orderItemForTenant(
+      line: Record<string, unknown>,
+      orderStatus: string,
+    ): boolean {
       const qty = lineQtyForPemakaianReport(line, orderStatus);
       if (qty <= 0) return false;
-      const distLine = normKey(String(line.distributor ?? ""));
-      if (distLine && namaPtNorm) {
-        if (distLine === namaPtNorm) return true;
-        if (distLine.length >= 4 && namaPtNorm.length >= 4) {
-          if (distLine.includes(namaPtNorm) || namaPtNorm.includes(distLine)) return true;
-        }
-      }
+      const rawDist = String(line.distributor ?? "").trim();
+      if (rawDist && namaPtStr && distributorLineMatchesTenant(rawDist, namaPtStr))
+        return true;
       const barangKey = normKey(String(line.barang ?? ""));
-      if (barangKey && barangMatchesTenantSet(barangKey, tenantBarangNames)) return true;
+      if (barangKey && barangMatchesTenantSet(barangKey, tenantBarangNames))
+        return true;
       return false;
     }
 
-    // Selain DRAFT: pemakaian sudah diinput petugas; status alur depo tidak menghapus fakta kepakaian.
+    // Hanya TERVERIFIKASI / SELESAI: jangan tampilkan ke distributor saat masih alur depo (DIAJUKAN, MENUNGGU_VALIDASI).
     const { data: orderRows, error: orderErr } = await supabase
       .from("cathlab_pemakaian_order")
       .select("id, tanggal, pasien, dokter, status, items, catatan, created_at")
-      .neq("status", "DRAFT")
+      .in("status", ["TERVERIFIKASI", "SELESAI"])
       .order("created_at", { ascending: false })
-      .limit(1500);
+      .limit(8000);
 
     if (orderErr) {
-      return NextResponse.json({ ok: false, message: orderErr.message }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, message: orderErr.message },
+        { status: 500 },
+      );
     }
 
     if (orderRows?.length) {
       for (const orow of orderRows) {
         const oid = String((orow as { id?: unknown }).id ?? "");
         const ost = String((orow as { status?: unknown }).status ?? "").trim();
-        const tanggalStr = String((orow as { tanggal?: unknown }).tanggal ?? "");
-        const createdStr = String((orow as { created_at?: unknown }).created_at ?? "");
-        let dateKey = orderTanggalDateKey(tanggalStr) ?? orderTanggalDateKey(createdStr);
+        const tanggalStr = String(
+          (orow as { tanggal?: unknown }).tanggal ?? "",
+        );
+        const createdStr = String(
+          (orow as { created_at?: unknown }).created_at ?? "",
+        );
+        let dateKey =
+          orderTanggalDateKey(tanggalStr) ?? orderTanggalDateKey(createdStr);
         if (fromKey && dateKey && dateKey < fromKey) continue;
         if (toKey && dateKey && dateKey > toKey) continue;
         if ((fromKey || toKey) && !dateKey) continue;
 
-        const pasien = String((orow as { pasien?: unknown }).pasien ?? "").trim();
-        const dokter = String((orow as { dokter?: unknown }).dokter ?? "").trim();
-        const catatan = String((orow as { catatan?: unknown }).catatan ?? "").trim();
+        const pasien = String(
+          (orow as { pasien?: unknown }).pasien ?? "",
+        ).trim();
+        const dokter = String(
+          (orow as { dokter?: unknown }).dokter ?? "",
+        ).trim();
+        const catatan = String(
+          (orow as { catatan?: unknown }).catatan ?? "",
+        ).trim();
         const itemsRaw = (orow as { items?: unknown }).items;
         const items = parseOrderItemsJson(itemsRaw);
 
@@ -468,12 +569,16 @@ export async function GET(req: Request) {
           ].filter(Boolean);
           fromOrders.push({
             id: `${oid}__${lineId}`,
-            created_at: String((orow as { created_at?: unknown }).created_at ?? null),
+            created_at: String(
+              (orow as { created_at?: unknown }).created_at ?? null,
+            ),
             inventaris_id: null,
             jumlah: qty,
             tanggal:
               dateKey ??
-              (tanggalStr.length >= 10 ? tanggalStr.slice(0, 10) : orderTanggalDateKey(createdStr)),
+              (tanggalStr.length >= 10
+                ? tanggalStr.slice(0, 10)
+                : orderTanggalDateKey(createdStr)),
             keterangan: parts.length ? parts.join(" · ") : null,
             tindakan_id: null,
             distributor_nama: String(distRow?.nama_pt ?? "").trim() || null,
@@ -492,7 +597,7 @@ export async function GET(req: Request) {
       }
     }
   } else if (adminShowAll) {
-    /** Admin “Semua Distributor”: tampilkan semua baris order (selain DRAFT) dengan qty dipakai > 0. */
+    /** Admin “Semua Distributor”: sama — hanya order yang sudah lewat depo (TERVERIFIKASI / SELESAI). */
     const fromKey = from ?? "";
     const toKey = to ?? "";
 
@@ -511,7 +616,8 @@ export async function GET(req: Request) {
       }
       for (const row of distList) {
         const n = normKey(row.nama_pt);
-        if (n.length >= 4 && d.length >= 4 && (n.includes(d) || d.includes(n))) return row.nama_pt;
+        if (n.length >= 4 && d.length >= 4 && (n.includes(d) || d.includes(n)))
+          return row.nama_pt;
       }
       return raw.trim();
     }
@@ -519,28 +625,42 @@ export async function GET(req: Request) {
     const { data: orderRowsAdmin, error: orderErrAdmin } = await supabase
       .from("cathlab_pemakaian_order")
       .select("id, tanggal, pasien, dokter, status, items, catatan, created_at")
-      .neq("status", "DRAFT")
+      .in("status", ["TERVERIFIKASI", "SELESAI"])
       .order("created_at", { ascending: false })
-      .limit(1500);
+      .limit(8000);
 
     if (orderErrAdmin) {
-      return NextResponse.json({ ok: false, message: orderErrAdmin.message }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, message: orderErrAdmin.message },
+        { status: 500 },
+      );
     }
 
     if (orderRowsAdmin?.length) {
       for (const orow of orderRowsAdmin) {
         const oid = String((orow as { id?: unknown }).id ?? "");
         const ost = String((orow as { status?: unknown }).status ?? "").trim();
-        const tanggalStr = String((orow as { tanggal?: unknown }).tanggal ?? "");
-        const createdStr = String((orow as { created_at?: unknown }).created_at ?? "");
-        let dateKey = orderTanggalDateKey(tanggalStr) ?? orderTanggalDateKey(createdStr);
+        const tanggalStr = String(
+          (orow as { tanggal?: unknown }).tanggal ?? "",
+        );
+        const createdStr = String(
+          (orow as { created_at?: unknown }).created_at ?? "",
+        );
+        let dateKey =
+          orderTanggalDateKey(tanggalStr) ?? orderTanggalDateKey(createdStr);
         if (fromKey && dateKey && dateKey < fromKey) continue;
         if (toKey && dateKey && dateKey > toKey) continue;
         if ((fromKey || toKey) && !dateKey) continue;
 
-        const pasien = String((orow as { pasien?: unknown }).pasien ?? "").trim();
-        const dokter = String((orow as { dokter?: unknown }).dokter ?? "").trim();
-        const catatan = String((orow as { catatan?: unknown }).catatan ?? "").trim();
+        const pasien = String(
+          (orow as { pasien?: unknown }).pasien ?? "",
+        ).trim();
+        const dokter = String(
+          (orow as { dokter?: unknown }).dokter ?? "",
+        ).trim();
+        const catatan = String(
+          (orow as { catatan?: unknown }).catatan ?? "",
+        ).trim();
         const itemsRaw = (orow as { items?: unknown }).items;
         const items = parseOrderItemsJson(itemsRaw);
 
@@ -555,7 +675,9 @@ export async function GET(req: Request) {
           const barang = String(line.barang ?? "").trim() || "-";
           const qty = Math.abs(lineQtyForPemakaianReport(line, ost));
           const rawDist = String(line.distributor ?? "").trim();
-          const labelPt = rawDist ? resolveDistributorLabel(rawDist) || rawDist : null;
+          const labelPt = rawDist
+            ? resolveDistributorLabel(rawDist) || rawDist
+            : null;
           const st = ost;
           const parts = [
             pasien ? `Pasien: ${pasien}` : null,
@@ -566,12 +688,16 @@ export async function GET(req: Request) {
           ].filter(Boolean);
           fromOrders.push({
             id: `${oid}__${lineId}`,
-            created_at: String((orow as { created_at?: unknown }).created_at ?? null),
+            created_at: String(
+              (orow as { created_at?: unknown }).created_at ?? null,
+            ),
             inventaris_id: null,
             jumlah: qty,
             tanggal:
               dateKey ??
-              (tanggalStr.length >= 10 ? tanggalStr.slice(0, 10) : orderTanggalDateKey(createdStr)),
+              (tanggalStr.length >= 10
+                ? tanggalStr.slice(0, 10)
+                : orderTanggalDateKey(createdStr)),
             keterangan: parts.length ? parts.join(" · ") : null,
             tindakan_id: null,
             distributor_nama: labelPt,
@@ -600,7 +726,7 @@ export async function GET(req: Request) {
   const payload: Record<string, unknown> = { ok: true, data: merged };
   if (merged.length === 0) {
     payload.hint =
-      "Periksa rentang tanggal (From/To) mencakup tanggal order Cathlab. Mode “Semua Distributor” memuat order Depo/Cathlab selain DRAFT; filter PT tertentu lewat dropdown header.";
+      "Periksa rentang tanggal (From/To). Portal hanya menampilkan order Terverifikasi / Selesai. Order baru biasanya Menunggu validasi Depo — setelah Depo menyimpan di dashboard Pemakaian (atau tombol Verifikasi), status naik ke Terverifikasi dan baris muncul di sini.";
   }
 
   return NextResponse.json(payload, { status: 200 });

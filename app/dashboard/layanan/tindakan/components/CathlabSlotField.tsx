@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { cn } from "@/lib/utils";
-import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 
 const CATHLAB_NOMOR = ["1", "2", "3"] as const;
 
@@ -23,7 +22,6 @@ export default function CathlabSlotField({
   value,
   onSaved,
 }: Props) {
-  const isLight = useTindakanLightMode();
   const { show } = useNotification();
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState(() => normalizeDraft(value));
@@ -81,9 +79,7 @@ export default function CathlabSlotField({
     <select
       className={cn(
         "mt-0.5 w-full max-w-[12rem] rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 disabled:opacity-60",
-        isLight
-          ? "border-cyan-400/55 bg-white text-slate-950"
-          : "border-cyan-900/50 bg-black/40 text-cyan-100",
+        "border-cyan-400/55 bg-white text-slate-950 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white",
       )}
       value={draft}
       disabled={saving}

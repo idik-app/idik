@@ -1,8 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Search, Activity, Plus } from "lucide-react";
+import { Search, Activity, Plus, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 import type { Pasien } from "@/app/dashboard/pasien/types/pasien";
 import TambahPasienQuickModal from "./TambahPasienQuickModal";
 
@@ -24,6 +23,8 @@ interface Props {
   ruanganOptions: string[];
   /** Indikator halus: sinkronisasi latar sedang berjalan */
   isSyncing?: boolean;
+  /** Buat master pasien minimal dari tabel `tindakan` (no_rm + nama_pasien). */
+  onSyncMasterPasien?: () => Promise<void> | void;
 }
 
 /** Interval auto-refresh saat tab terlihat (detik). */
@@ -47,8 +48,8 @@ export default function TableToolbar({
   dokterOptions,
   ruanganOptions,
   isSyncing = false,
+  onSyncMasterPasien,
 }: Props) {
-  const isLight = useTindakanLightMode();
   const [dokter, setDokter] = useState("");
   const [ruangan, setRuangan] = useState("");
   const [tanggalFrom, setTanggalFrom] = useState("");
@@ -58,6 +59,7 @@ export default function TableToolbar({
   const [isPageVisible, setIsPageVisible] = useState(true);
   const [isUserTyping, setIsUserTyping] = useState(false);
   const [addPasienOpen, setAddPasienOpen] = useState(false);
+  const [syncingMasterPasien, setSyncingMasterPasien] = useState(false);
 
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -71,6 +73,20 @@ export default function TableToolbar({
     await Promise.resolve(
       typeof onRefresh === "function" ? onRefresh() : undefined,
     );
+  };
+
+  const handleSyncMasterPasien = async () => {
+    if (syncingMasterPasien) return;
+    if (typeof onSyncMasterPasien !== "function") return;
+    setSyncingMasterPasien(true);
+    try {
+      await onSyncMasterPasien();
+    } catch (e) {
+      // Notif seharusnya ditangani di parent, tapi tetap cegah error tanpa catch.
+      console.error("[TableToolbar] Sync master pasien error:", e);
+    } finally {
+      setSyncingMasterPasien(false);
+    }
   };
 
   /** Tab terlihat — jangan polling saat background (hemat request & fokus UX). */
@@ -128,21 +144,20 @@ export default function TableToolbar({
     <div
       className={cn(
         "flex shrink-0 flex-col gap-1 px-1.5 py-1 sm:px-2 sm:py-1.5 min-w-0 transition-colors duration-500",
-        isLight ? "bg-slate-50/90" : "bg-black/35",
+        "bg-slate-50/90 dark:bg-black/35",
       )}
     >
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
         <h3
           className={cn(
             "font-extrabold tracking-wide inline-flex items-center gap-1.5 flex-wrap text-[11px] sm:text-xs min-w-0",
-            isLight ? "text-cyan-900" : "text-cyan-300",
+            "text-cyan-900 dark:text-cyan-300",
           )}
         >
           <Activity
             size={14}
-            className={cn("shrink-0", isLight ? "text-cyan-700" : "text-cyan-400")}
+            className={cn("shrink-0 text-cyan-700 dark:text-cyan-400")}
           />
-          <span>Daftar kasus tindakan</span>
           <span className="sr-only" aria-live="polite">
             {isSyncing ? "Memperbarui data di latar." : ""}
           </span>
@@ -150,9 +165,7 @@ export default function TableToolbar({
             <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5",
-                isLight
-                  ? "border-cyan-500/35 bg-white/90"
-                  : "border-cyan-800/35 bg-black/30",
+                "border-cyan-500/35 bg-white/90 dark:border-cyan-800/35 dark:bg-black/30",
               )}
               title="Memperbarui data di latar"
             >
@@ -163,7 +176,7 @@ export default function TableToolbar({
               <span
                 className={cn(
                   "hidden sm:inline text-[10px] font-semibold font-mono tracking-tight",
-                  isLight ? "text-cyan-700/85" : "text-cyan-500/80",
+                  "text-cyan-700/85 dark:text-cyan-500/80",
                 )}
               >
                 Sinkron
@@ -175,19 +188,38 @@ export default function TableToolbar({
           type="button"
           onClick={() => setAddPasienOpen(true)}
           className={cn(
-            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[hsl(var(--cyan)/0.85)] bg-[hsl(var(--cyan))] px-3 text-xs font-extrabold text-black shadow-[0_0_18px_hsl(var(--cyan)/0.4)] transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--cyan))]",
-            isLight
-              ? "focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-              : "focus-visible:ring-offset-2 focus-visible:ring-offset-black/60",
+            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[hsl(var(--cyan)/0.85)] bg-[hsl(var(--cyan))] px-3 text-xs font-extrabold shadow-[0_0_18px_hsl(var(--cyan)/0.4)] transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--cyan))]",
+            "text-black dark:text-white",
+            "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
           )}
-          title="Tambah pasien (tanpa pindah halaman)"
+          title="Tambah saran pasien (tanpa pindah halaman)"
         >
           <Plus
             size={16}
             strokeWidth={2.5}
-            className="shrink-0 text-black motion-safe:transition-transform group-hover:scale-110"
+            className={cn(
+              "shrink-0 motion-safe:transition-transform group-hover:scale-110",
+              "text-black dark:text-white",
+            )}
           />
-          <span className="tracking-wide text-black">Tambah Pasien</span>
+          <span className={cn("tracking-wide text-black dark:text-white")}>
+            Tambah Pasien
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => void handleSyncMasterPasien()}
+          disabled={!onSyncMasterPasien || syncingMasterPasien}
+          className={cn(
+            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-extrabold transition",
+            "disabled:cursor-not-allowed disabled:opacity-50",
+            "border-cyan-500/40 bg-white/80 text-slate-800 hover:bg-white dark:border-white/20 dark:bg-black/30 dark:text-cyan-50 dark:hover:bg-black/45",
+          )}
+          title="Sinkronkan master pasien minimal dari tabel tindakan"
+        >
+          <Database size={16} className="shrink-0" />
+          {syncingMasterPasien ? "Sinkronisasi…" : "Sync Pasien"}
         </button>
       </div>
 
@@ -197,7 +229,7 @@ export default function TableToolbar({
             size={13}
             className={cn(
               "absolute left-2 top-1/2 -translate-y-1/2 opacity-70 pointer-events-none",
-              isLight ? "text-cyan-700" : "text-cyan-400",
+              "text-cyan-700 dark:text-white/85",
             )}
           />
           <input
@@ -207,9 +239,8 @@ export default function TableToolbar({
             onChange={(e) => handleUserTyping(e.target.value)}
             className={cn(
               "w-full pl-7 pr-2.5 py-1 text-[13px] font-semibold leading-snug rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500",
-              isLight
-                ? "bg-white border-cyan-500/40 text-slate-900 placeholder:text-slate-600 [color-scheme:light]"
-                : "bg-black/40 border-cyan-800/40 text-cyan-100 placeholder:text-gray-500",
+              "bg-white border-cyan-500/40 text-slate-900 placeholder:text-slate-600 [color-scheme:light]",
+              "dark:bg-black dark:border-white/20 dark:text-white dark:placeholder:text-white/45 dark:[color-scheme:dark]",
             )}
           />
         </div>
@@ -223,9 +254,8 @@ export default function TableToolbar({
           }}
           className={cn(
             "text-[13px] font-semibold px-2 py-1 rounded-md border focus:outline-none min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem]",
-            isLight
-              ? "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]"
-              : "bg-black/40 border-cyan-800/40 text-cyan-100",
+            "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
+            "dark:bg-black dark:border-white/20 dark:text-white dark:[color-scheme:dark]",
           )}
         >
           <option value="">Semua dokter</option>
@@ -246,9 +276,8 @@ export default function TableToolbar({
           }}
           className={cn(
             "text-[13px] font-semibold px-2 py-1 rounded-md border focus:outline-none min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem]",
-            isLight
-              ? "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]"
-              : "bg-black/40 border-cyan-800/40 text-cyan-100",
+            "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
+            "dark:bg-black dark:border-white/20 dark:text-white dark:[color-scheme:dark]",
           )}
         >
           <option value="">Semua ruangan</option>
@@ -273,9 +302,8 @@ export default function TableToolbar({
             }}
             className={cn(
               "cursor-pointer text-[13px] font-semibold px-2 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500",
-              isLight
-                ? "[color-scheme:light] bg-white border-cyan-500/40 text-slate-900"
-                : "[color-scheme:dark] bg-black/40 border-cyan-800/40 text-cyan-100",
+              "[color-scheme:light] bg-white border-cyan-500/40 text-slate-900",
+              "dark:[color-scheme:dark] dark:bg-black dark:border-white/20 dark:text-white",
             )}
             title="Tanggal dari"
             aria-label="Tanggal dari"
@@ -283,7 +311,7 @@ export default function TableToolbar({
           <span
             className={cn(
               "text-xs font-mono",
-              isLight ? "text-cyan-700/80" : "text-cyan-600/80",
+              "text-cyan-700/80 dark:text-cyan-600/80",
             )}
           >
             —
@@ -300,9 +328,8 @@ export default function TableToolbar({
             }}
             className={cn(
               "cursor-pointer text-[13px] font-semibold px-2 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500",
-              isLight
-                ? "[color-scheme:light] bg-white border-cyan-500/40 text-slate-900"
-                : "[color-scheme:dark] bg-black/40 border-cyan-800/40 text-cyan-100",
+              "[color-scheme:light] bg-white border-cyan-500/40 text-slate-900",
+              "dark:[color-scheme:dark] dark:bg-black dark:border-white/20 dark:text-white",
             )}
             title="Tanggal sampai"
             aria-label="Tanggal sampai"

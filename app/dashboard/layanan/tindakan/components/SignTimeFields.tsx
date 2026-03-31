@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 import { FIELD_LABELS } from "../bridge/wireframeDrawerTabs";
 import {
   TimeOnlyPicker,
@@ -37,7 +36,6 @@ type SignTimeFieldProps = {
   serverValue: unknown;
   tindakanId: string;
   canEdit: boolean;
-  isLight: boolean;
   boxClass: string;
   patchJson: (body: Record<string, unknown>) => Promise<void>;
   onSaved?: () => void;
@@ -49,7 +47,6 @@ function SignTimeField({
   serverValue,
   tindakanId,
   canEdit,
-  isLight,
   boxClass,
   patchJson,
   onSaved,
@@ -100,7 +97,7 @@ function SignTimeField({
       <dt
         className={cn(
           "text-[10px] font-bold leading-tight",
-          isLight ? "text-slate-600" : "text-gray-500",
+          "text-slate-600 dark:text-white",
         )}
       >
         {label}
@@ -109,7 +106,6 @@ function SignTimeField({
         {canEdit ? (
           <TimeOnlyPicker
             appearance="drawer"
-            isLight={isLight}
             value={draft}
             onChange={(v) => {
               setDraft(v);
@@ -120,7 +116,7 @@ function SignTimeField({
           <span
             className={cn(
               "text-[13px] font-semibold",
-              isLight ? "text-slate-950" : "text-cyan-100/95",
+              "text-slate-950 dark:text-white",
             )}
           >
             {formatJamSajaDisplay(draftFrom(serverValue))}
@@ -147,7 +143,6 @@ export default function SignTimeFields({
   signOutValue,
   onSaved,
 }: Props) {
-  const isLight = useTindakanLightMode();
   const canEdit = Boolean(tindakanId);
 
   const patchJson = async (body: Record<string, unknown>) => {
@@ -168,9 +163,7 @@ export default function SignTimeFields({
 
   const boxClass = cn(
     "rounded-md border px-2 py-1.5",
-    isLight
-      ? "border-cyan-200/80 bg-white shadow-sm"
-      : "border-cyan-900/25 bg-black/25",
+    "border-cyan-200/80 bg-white shadow-sm dark:border-cyan-900/25 dark:bg-black/25",
   );
 
   return (
@@ -181,7 +174,6 @@ export default function SignTimeFields({
         serverValue={signInValue}
         tindakanId={tindakanId}
         canEdit={canEdit}
-        isLight={isLight}
         boxClass={boxClass}
         patchJson={patchJson}
         onSaved={onSaved}
@@ -192,7 +184,6 @@ export default function SignTimeFields({
         serverValue={timeOutValue}
         tindakanId={tindakanId}
         canEdit={canEdit}
-        isLight={isLight}
         boxClass={boxClass}
         patchJson={patchJson}
         onSaved={onSaved}
@@ -203,7 +194,6 @@ export default function SignTimeFields({
         serverValue={signOutValue}
         tindakanId={tindakanId}
         canEdit={canEdit}
-        isLight={isLight}
         boxClass={boxClass}
         patchJson={patchJson}
         onSaved={onSaved}

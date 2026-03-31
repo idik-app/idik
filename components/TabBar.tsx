@@ -20,7 +20,7 @@ import { menuConfig } from "@/app/config/menuConfig";
 export default function TabBar() {
   const { tabs, activeTab, setActiveTab, closeTab, addTab, closeAllTabs } = useTabContext();
   const { theme } = useTheme();
-  const isLight = theme === "light";
+  const lightMode = theme === "light";
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [glowLeft, setGlowLeft] = useState(false);
@@ -130,7 +130,7 @@ export default function TabBar() {
       <div
         className={cn(
           "relative flex items-center min-h-[48px] backdrop-blur-md border-b transition-colors duration-500",
-          isLight
+          lightMode
             ? "bg-slate-100/90 border-cyan-600/25 shadow-sm"
             : "bg-[#04070d]/70 border-cyan-500/20 shadow-[0_0_15px_rgba(0,255,255,0.25)]"
         )}
@@ -165,10 +165,10 @@ export default function TabBar() {
                     className={cn(
                       "group relative flex items-center gap-1.5 px-2.5 py-1.5 sm:gap-2 sm:px-4 sm:py-2 rounded-full border transition-colors duration-200",
                       isActive
-                        ? isLight
+                        ? lightMode
                           ? "border-[#b8860b]/65 bg-gradient-to-r from-white to-cyan-50/95 text-cyan-900 shadow-sm"
                           : "border-[#D4AF37]/70 bg-gradient-to-r from-[#0e141d]/90 to-[#16222e]/90 text-cyan-200 shadow-[0_0_12px_rgba(212,175,55,0.3),0_0_16px_rgba(0,255,255,0.25)]"
-                        : isLight
+                        : lightMode
                           ? "border-transparent text-slate-600 hover:text-cyan-800 hover:bg-cyan-500/10"
                           : "border-transparent text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/5"
                     )}
@@ -212,7 +212,7 @@ export default function TabBar() {
             disabled={tabs.length <= 1}
             className={cn(
               "p-2 rounded-lg border border-transparent transition-colors duration-200 disabled:opacity-50 disabled:pointer-events-none",
-              isLight
+              lightMode
                 ? "text-slate-600 hover:text-cyan-800 hover:bg-cyan-500/15 hover:border-cyan-600/25"
                 : "text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/10 hover:border-cyan-500/30"
             )}

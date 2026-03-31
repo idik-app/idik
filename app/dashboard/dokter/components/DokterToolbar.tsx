@@ -17,14 +17,20 @@ export default function DokterToolbar() {
   } = useDokter();
 
   return (
-    <div className="jarvis-glass flex flex-col lg:flex-row flex-wrap justify-between items-stretch lg:items-end gap-3 p-3 mb-4 rounded-xl border border-cyan-700/40 shadow-[0_0_15px_rgba(0,255,255,0.08)] backdrop-blur-md">
+    <div
+      className="jarvis-glass flex flex-col lg:flex-row flex-wrap justify-between items-stretch lg:items-end gap-3 p-3 mb-4 rounded-xl border border-cyan-700/40 shadow-[0_0_15px_rgba(0,255,255,0.08)] backdrop-blur-md dark:border-cyan-600/30 dark:bg-black/35 dark:shadow-[0_0_18px_rgba(0,255,255,0.06)]"
+    >
       <div className="flex flex-col sm:flex-row flex-1 gap-3 min-w-0">
         <div className="flex items-center gap-2 flex-1 min-w-0 md:max-w-md">
-          <Search className="text-cyan-400 shrink-0" size={18} aria-hidden />
+          <Search
+            className="shrink-0 text-cyan-600 dark:text-white"
+            size={18}
+            aria-hidden
+          />
           <input
             type="search"
             placeholder="Cari nama, spesialis, atau kontak..."
-            className="w-full bg-transparent border-b border-cyan-700 text-cyan-200 placeholder-cyan-600 outline-none px-2 pb-1 text-sm focus:border-yellow-400 transition-all"
+            className="w-full bg-transparent border-b border-cyan-700 text-cyan-100 placeholder-cyan-500/70 outline-none px-2 pb-1 text-sm transition-all focus:border-yellow-400 dark:border-white/25 dark:text-white dark:placeholder:text-white/45 dark:focus:border-white/60"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Cari dokter"
@@ -34,7 +40,7 @@ export default function DokterToolbar() {
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 flex-1 min-w-0">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <Filter
-              className="text-cyan-500 shrink-0"
+              className="shrink-0 text-cyan-600 dark:text-white"
               size={16}
               aria-hidden
             />
@@ -45,7 +51,7 @@ export default function DokterToolbar() {
               id="filter-spesialis"
               value={filterSpesialis}
               onChange={(e) => setFilterSpesialis(e.target.value)}
-              className="w-full min-w-0 bg-gray-900/70 border border-cyan-700/50 text-cyan-200 rounded-lg px-2 py-1.5 text-sm focus:border-yellow-400 focus:outline-none"
+              className="w-full min-w-0 rounded-lg border border-cyan-700/50 bg-gray-900/70 px-2 py-1.5 text-sm text-cyan-100 focus:border-yellow-400 focus:outline-none dark:border-white/20 dark:bg-black dark:text-white dark:[color-scheme:dark] dark:focus:border-white/50"
             >
               <option value="">Semua spesialis</option>
               {spesialisOptions.map((s) => (
@@ -66,7 +72,7 @@ export default function DokterToolbar() {
               onChange={(e) =>
                 setStatusFilter(e.target.value as "all" | "aktif" | "nonaktif")
               }
-              className="w-full min-w-0 bg-gray-900/70 border border-cyan-700/50 text-cyan-200 rounded-lg px-2 py-1.5 text-sm focus:border-yellow-400 focus:outline-none"
+              className="w-full min-w-0 rounded-lg border border-cyan-700/50 bg-gray-900/70 px-2 py-1.5 text-sm text-cyan-900 focus:border-yellow-500 focus:outline-none dark:border-white/20 dark:bg-black dark:text-white dark:[color-scheme:dark] dark:focus:border-white/50"
             >
               <option value="all">Semua status</option>
               <option value="aktif">Aktif</option>
@@ -76,12 +82,12 @@ export default function DokterToolbar() {
         </div>
       </div>
 
-      <div className="text-xs text-cyan-500/90 lg:text-right shrink-0">
-        <span className="text-cyan-400">Hasil: </span>
-        <span className="text-yellow-400 font-semibold">
+      <div className="shrink-0 text-xs text-cyan-400/95 lg:text-right dark:text-white">
+        <span>Hasil: </span>
+        <span className="font-semibold text-yellow-400 dark:text-white">
           {filteredDoctors.length}
         </span>
-        <span className="text-cyan-500"> dokter</span>
+        <span className="dark:text-white/95"> dokter</span>
       </div>
     </div>
   );

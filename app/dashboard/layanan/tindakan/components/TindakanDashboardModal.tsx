@@ -26,14 +26,12 @@ export default function TindakanDashboardModal({
   onOpenChange,
   rows,
   loading,
-  isLight,
   themeTone,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   rows: readonly TindakanJoinResult[];
   loading: boolean;
-  isLight: boolean;
   themeTone: "cyan" | "emerald";
 }) {
   const [filters, setFilters] = useState<TindakanDashboardFilterState>(
@@ -47,9 +45,7 @@ export default function TindakanDashboardModal({
 
   const shell = cn(
     "flex max-h-[min(92vh,900px)] w-full flex-col gap-3 overflow-y-auto overflow-x-visible p-4 sm:p-5",
-    isLight
-      ? "border-slate-200/80 bg-white text-slate-900 shadow-xl"
-      : "border-cyan-600/35 bg-slate-950/95 text-cyan-50",
+    "border-slate-200/80 bg-white text-slate-900 shadow-xl dark:border-cyan-600/35 dark:bg-slate-950/95 dark:text-cyan-50",
   );
 
   return (
@@ -57,9 +53,7 @@ export default function TindakanDashboardModal({
       <DialogContent
         className={cn(
           "max-h-[95vh] w-[min(100vw-1rem,96vw)] max-w-[min(96vw,90rem)] overflow-visible border p-0",
-          isLight
-            ? "border-slate-300/60 bg-white/98 backdrop-blur-xl"
-            : "border-cyan-500/35 bg-black/80 backdrop-blur-xl",
+          "border-slate-300/60 bg-white/98 backdrop-blur-xl dark:border-cyan-500/35 dark:bg-black/80",
         )}
       >
         <div className={shell}>
@@ -69,19 +63,15 @@ export default function TindakanDashboardModal({
                 <BarChart3
                   className={cn(
                     "h-5 w-5 shrink-0",
-                    isLight
-                      ? themeTone === "emerald"
-                        ? "text-emerald-600"
-                        : "text-cyan-600"
-                      : themeTone === "emerald"
-                        ? "text-emerald-300"
-                        : "text-cyan-300",
+                    themeTone === "emerald"
+                      ? "text-emerald-600 dark:text-emerald-300"
+                      : "text-cyan-600 dark:text-cyan-300",
                   )}
                 />
                 <DialogTitle
                   className={cn(
                     "text-lg font-bold sm:text-xl",
-                    isLight ? "text-slate-900" : "text-gold",
+                    "text-slate-900 dark:text-gold",
                   )}
                 >
                   Dashboard tindakan
@@ -93,9 +83,7 @@ export default function TindakanDashboardModal({
                 onClick={() => onOpenChange(false)}
                 className={cn(
                   "rounded-lg p-1.5 transition",
-                  isLight
-                    ? "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                    : "text-cyan-300/80 hover:bg-cyan-950/60 hover:text-cyan-100",
+                  "text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-cyan-300/80 dark:hover:bg-cyan-950/60 dark:hover:text-cyan-100",
                 )}
               >
                 <X className="h-5 w-5" />
@@ -104,7 +92,7 @@ export default function TindakanDashboardModal({
             <DialogDescription
               className={cn(
                 "text-xs sm:text-sm",
-                isLight ? "text-slate-600" : "text-cyan-300/75",
+                "text-slate-600 dark:text-cyan-300/75",
               )}
             >
               Filter dan ringkasan grafik dari data tindakan yang sama dengan
@@ -117,7 +105,6 @@ export default function TindakanDashboardModal({
             value={filters}
             onChange={setFilters}
             rows={rows}
-            isLight={isLight}
             themeTone={themeTone}
           />
 
@@ -126,9 +113,7 @@ export default function TindakanDashboardModal({
               <div
                 className={cn(
                   "flex flex-1 items-center justify-center rounded-xl border py-16 text-sm",
-                  isLight
-                    ? "border-slate-200 bg-slate-50 text-slate-500"
-                    : "border-cyan-800/40 bg-black/30 text-cyan-200/60",
+                  "border-slate-200 bg-slate-50 text-slate-500 dark:border-cyan-800/40 dark:bg-black/30 dark:text-cyan-200/60",
                 )}
               >
                 Memuat data tindakan…
@@ -136,7 +121,6 @@ export default function TindakanDashboardModal({
             ) : (
               <TindakanDashboardSummaryCharts
                 rows={filtered}
-                isLight={isLight}
                 themeTone={themeTone}
               />
             )}

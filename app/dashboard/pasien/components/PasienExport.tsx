@@ -104,7 +104,7 @@ export default function PasienExport() {
       <Button
         onClick={exportToPDF}
         disabled={!!exporting}
-        className="flex items-center gap-2 bg-gradient-to-r from-gold to-yellow-400 text-black hover:opacity-90 shadow-md disabled:opacity-70"
+        className="flex items-center gap-2 bg-gradient-to-r from-gold to-yellow-400 text-black dark:text-white hover:opacity-90 shadow-md disabled:opacity-70"
       >
         <FileText size={16} />{" "}
         {exporting === "pdf"

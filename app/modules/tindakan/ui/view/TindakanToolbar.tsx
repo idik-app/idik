@@ -38,7 +38,7 @@ export function TindakanToolbar() {
       <div className="flex items-center gap-2">
         <Button
           onClick={openAddModal}
-          className="bg-gradient-to-r from-cyan-600 to-cyan-500 text-black font-semibold hover:opacity-90"
+          className="bg-gradient-to-r from-cyan-600 to-cyan-500 text-black dark:text-white font-semibold hover:opacity-90"
         >
           <Plus size={16} className="mr-1" /> Tambah
         </Button>

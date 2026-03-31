@@ -1,4 +1,5 @@
 "use client";
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   useUI,
@@ -7,6 +8,7 @@ import {
   UI_ZOOM_STEP,
   clampUiZoomPercent,
 } from "@/contexts/UIContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { X } from "lucide-react";
 
 type TransitionMode = "fast" | "smooth" | "cinematic";
@@ -22,6 +24,19 @@ export default function HoloSettingsPanel() {
     uiZoomPercent,
     setUiZoomPercent,
   } = useUI();
+
+  const { toggleTheme } = useTheme();
+
+  // Sinkronkan "Theme Color" dengan mode terang/gelap Tailwind.
+  // neo-white => siang (light), selain itu => malam (dark)
+  useEffect(() => {
+    const desiredTheme = themeMode === "neo-white" ? "light" : "dark";
+    if (typeof document === "undefined") return;
+    const currentTheme = document.documentElement.classList.contains("light")
+      ? "light"
+      : "dark";
+    if (currentTheme !== desiredTheme) toggleTheme();
+  }, [themeMode, toggleTheme]);
 
   return (
     <AnimatePresence>

@@ -46,7 +46,7 @@ export default function PasienContent() {
           className="relative flex items-center justify-center
                      w-9 h-9 rounded-full border border-yellow-400/40
                      bg-gradient-to-tr from-yellow-400/20 to-cyan-400/10
-                     text-yellow-300 hover:text-black hover:bg-yellow-400
+                     text-yellow-300 hover:text-black dark:hover:text-white hover:bg-yellow-400
                      hover:shadow-[0_0_10px_rgba(255,255,0,0.4)]
                      transition-all duration-300 hover:scale-110 hover:rotate-6 active:scale-95"
           title="Tambah Pasien Baru"

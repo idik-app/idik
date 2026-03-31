@@ -1,7 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import {
@@ -10,9 +15,7 @@ import {
   formatJenisKelaminDisplay,
   resolveJenisKelaminFromRow,
 } from "../lib/displayTindakanRow";
-import {
-  normalizeNamaPasien,
-} from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
+import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
 
 function todayWibYmd(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -33,14 +36,12 @@ export default function TindakanHariIniModal({
   onOpenChange,
   rows,
   loading,
-  isLight,
   themeTone,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   rows: readonly TindakanJoinResult[];
   loading: boolean;
-  isLight: boolean;
   themeTone: "cyan" | "emerald";
 }) {
   const today = todayWibYmd();
@@ -54,15 +55,13 @@ export default function TindakanHariIniModal({
       <DialogContent
         className={cn(
           "max-h-[95vh] w-[min(100vw-1rem,96vw)] max-w-[min(96vw,90rem)] overflow-auto p-0",
-          isLight
-            ? "border-slate-300/60 bg-white/98 backdrop-blur-xl"
-            : "border-cyan-500/35 bg-black/80 backdrop-blur-xl",
+          "border-slate-300/60 bg-white/98 backdrop-blur-xl dark:border-cyan-500/35 dark:bg-black/80",
         )}
       >
         <div
           className={cn(
             "flex flex-col gap-3 p-4 sm:p-6",
-            isLight ? "text-slate-900" : "text-cyan-50",
+            "text-slate-900 dark:text-cyan-50",
           )}
         >
           <DialogHeader className="space-y-1">
@@ -75,9 +74,7 @@ export default function TindakanHariIniModal({
             <div
               className={cn(
                 "rounded-xl border px-4 py-10 text-center text-sm font-semibold",
-                isLight
-                  ? "border-slate-200 bg-slate-50 text-slate-700"
-                  : "border-cyan-800/40 bg-black/25 text-cyan-200/80",
+                "border-slate-200 bg-slate-50 text-slate-700 dark:border-cyan-800/40 dark:bg-black/25 dark:text-cyan-200/80",
               )}
             >
               Memuat data…
@@ -86,9 +83,7 @@ export default function TindakanHariIniModal({
             <div
               className={cn(
                 "rounded-xl border px-4 py-10 text-center text-sm font-semibold",
-                isLight
-                  ? "border-slate-200 bg-slate-50 text-slate-700"
-                  : "border-cyan-800/40 bg-black/25 text-cyan-200/80",
+                "border-slate-200 bg-slate-50 text-slate-700 dark:border-cyan-800/40 dark:bg-black/25 dark:text-cyan-200/80",
               )}
             >
               Tidak ada tindakan pada tanggal hari ini.
@@ -99,37 +94,36 @@ export default function TindakanHariIniModal({
                 <thead className="sticky top-0 z-10">
                   <tr
                     className={cn(
-                      "border-b text-center",
-                      isLight
-                        ? "border-cyan-200/70 bg-slate-100/95"
-                        : "border-cyan-800/40 bg-black/80",
+                      // Header tabel: gradient + backdrop blur agar terlihat lebih elegan.
+                      "border-b text-center backdrop-blur-md shadow-[0_12px_30px_rgba(245,158,11,0.16)]",
+                      "border-amber-200/70 bg-gradient-to-b from-amber-400/85 via-amber-200/65 to-amber-100/40 dark:border-amber-400/55 dark:bg-gradient-to-b dark:from-amber-300/30 dark:via-amber-200/20 dark:to-amber-200/10",
                     )}
                   >
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-cyan-400/95 w-10">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white w-10">
                       No
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-cyan-400/95">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white">
                       Tanggal
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-cyan-400/95 w-24">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white w-24">
                       Time out
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-cyan-400/95 w-24">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white w-24">
                       RM
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-cyan-400/95 min-w-[180px]">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white min-w-[180px]">
                       Nama pasien
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-cyan-400/95 w-24">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white w-24">
                       Jenis kelamin
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-cyan-400/95 min-w-[180px]">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white min-w-[180px]">
                       Dokter
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-cyan-400/95 min-w-[180px]">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white min-w-[180px]">
                       Tindakan
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-cyan-400/95 min-w-[160px]">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white min-w-[160px]">
                       Ruangan
                     </th>
                   </tr>
@@ -146,7 +140,7 @@ export default function TindakanHariIniModal({
                         key={String(rec.id ?? i)}
                         className={cn(
                           "border-b",
-                          isLight ? "border-cyan-200/70" : "border-cyan-900/25",
+                          "border-cyan-200/70 dark:border-cyan-900/25",
                         )}
                       >
                         <td className="px-2 py-1.5 text-center font-mono text-[12px] tabular-nums text-cyan-500/90">
@@ -188,4 +182,3 @@ export default function TindakanHariIniModal({
     </Dialog>
   );
 }
-

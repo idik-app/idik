@@ -4,7 +4,6 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { cn } from "@/lib/utils";
-import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 
 type MasterItem = {
   id: string;
@@ -28,7 +27,6 @@ export default function KategoriTindakanField({
   value,
   onSaved,
 }: Props) {
-  const isLight = useTindakanLightMode();
   const { show } = useNotification();
   const listId = useId();
   const [items, setItems] = useState<MasterItem[]>([]);
@@ -260,9 +258,7 @@ export default function KategoriTindakanField({
           <input
             className={cn(
               "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",
-              isLight
-                ? "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500"
-                : "border-cyan-900/50 bg-black/40 text-cyan-100 placeholder:text-gray-600",
+              "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-gray-500",
             )}
             list={listId}
             value={draft}
@@ -285,9 +281,7 @@ export default function KategoriTindakanField({
           disabled={busyId !== null || savingRow}
           className={cn(
             "inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-semibold disabled:opacity-50",
-            isLight
-              ? "border-cyan-600/45 bg-cyan-100 text-cyan-900 hover:bg-cyan-200/80"
-              : "border-cyan-700/40 bg-cyan-950/40 text-cyan-200 hover:bg-cyan-900/30",
+          "border-cyan-600/45 bg-cyan-100 text-cyan-900 hover:bg-cyan-200/80 dark:border-cyan-700/40 dark:bg-cyan-950/40 dark:text-white dark:hover:bg-cyan-900/30",
           )}
         >
           <Plus size={14} />
@@ -301,9 +295,7 @@ export default function KategoriTindakanField({
           }}
           className={cn(
             "inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-semibold",
-            isLight
-              ? "border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200/90"
-              : "border-white/10 bg-white/5 text-gray-200 hover:bg-white/10",
+            "border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200/90 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10",
           )}
         >
           Kelola daftar
@@ -313,7 +305,7 @@ export default function KategoriTindakanField({
         <p
           className={cn(
             "text-[11px] font-medium",
-            isLight ? "text-cyan-700" : "text-cyan-500/80",
+            "text-cyan-700 dark:text-white",
           )}
         >
           Menyimpan…
@@ -322,7 +314,7 @@ export default function KategoriTindakanField({
         <p
           className={cn(
             "text-[11px]",
-            isLight ? "text-slate-600" : "text-gray-500",
+            "text-slate-600 dark:text-white",
           )}
         >
           Memuat saran…
@@ -348,21 +340,19 @@ export default function KategoriTindakanField({
           <div
             className={cn(
               "relative z-10 flex max-h-[min(70vh,520px)] w-full max-w-md flex-col overflow-hidden rounded-xl border shadow-xl",
-              isLight
-                ? "border-slate-200 bg-white"
-                : "border-cyan-500/35 bg-[#070d14]",
+              "border-slate-200 bg-white dark:border-cyan-500/35 dark:bg-[#070d14]",
             )}
           >
             <div
               className={cn(
                 "border-b px-3 py-2",
-                isLight ? "border-slate-200" : "border-cyan-900/40",
+                "border-slate-200 dark:border-cyan-900/40",
               )}
             >
               <p
                 className={cn(
                   "text-sm font-semibold",
-                  isLight ? "text-slate-900" : "text-cyan-100",
+                  "text-slate-900 dark:text-white",
                 )}
               >
                 Daftar kategori (master)
@@ -370,7 +360,7 @@ export default function KategoriTindakanField({
               <p
                 className={cn(
                   "text-[11px]",
-                  isLight ? "text-slate-600" : "text-gray-500",
+                  "text-slate-600 dark:text-white",
                 )}
               >
                 Ubah / hapus entri di sini. Nilai pada kasus tidak ikut berubah
@@ -384,9 +374,7 @@ export default function KategoriTindakanField({
                     key={it.id}
                     className={cn(
                       "flex items-center gap-1 rounded-lg border px-2 py-1.5",
-                      isLight
-                        ? "border-slate-200 bg-slate-50"
-                        : "border-white/5 bg-black/25",
+                  "border-slate-200 bg-slate-50 dark:border-white/5 dark:bg-black/25",
                     )}
                   >
                     {editingId === it.id ? (
@@ -394,9 +382,7 @@ export default function KategoriTindakanField({
                         <input
                           className={cn(
                             "min-w-0 flex-1 rounded border px-2 py-1 text-xs font-semibold",
-                            isLight
-                              ? "border-cyan-400/55 bg-white text-slate-950"
-                              : "border-cyan-800/50 bg-black/40 text-cyan-100",
+                            "border-cyan-400/55 bg-white text-slate-950 dark:border-cyan-800/50 dark:bg-black/40 dark:text-white",
                           )}
                           value={editNama}
                           onChange={(e) => setEditNama(e.target.value)}
@@ -405,9 +391,7 @@ export default function KategoriTindakanField({
                           type="button"
                           className={cn(
                             "rounded border px-2 py-1 text-[11px] font-medium disabled:opacity-50",
-                            isLight
-                              ? "border-emerald-600/40 text-emerald-800 hover:bg-emerald-100"
-                              : "border-emerald-800/50 text-emerald-200 hover:bg-emerald-900/20",
+                            "border-emerald-600/40 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800/50 dark:text-white dark:hover:bg-emerald-900/20",
                           )}
                           disabled={busyId === it.id}
                           onClick={() => void saveEdit(it.id)}
@@ -418,9 +402,7 @@ export default function KategoriTindakanField({
                           type="button"
                           className={cn(
                             "rounded px-2 py-1 text-[11px] font-medium",
-                            isLight
-                              ? "text-slate-600 hover:bg-slate-200/80"
-                              : "text-gray-400 hover:bg-white/5",
+                            "text-slate-600 hover:bg-slate-200/80 dark:text-white/90 dark:hover:bg-white/5",
                           )}
                           onClick={() => setEditingId(null)}
                         >
@@ -432,7 +414,7 @@ export default function KategoriTindakanField({
                         <span
                           className={cn(
                             "min-w-0 flex-1 truncate text-xs font-medium",
-                            isLight ? "text-slate-900" : "text-cyan-100/95",
+                            "text-slate-900 dark:text-white",
                           )}
                         >
                           {it.nama}
@@ -442,9 +424,7 @@ export default function KategoriTindakanField({
                           title="Ubah nama"
                           className={cn(
                             "shrink-0 rounded p-1 disabled:opacity-50",
-                            isLight
-                              ? "text-cyan-700 hover:bg-cyan-100"
-                              : "text-cyan-400 hover:bg-cyan-500/10",
+                            "text-cyan-700 hover:bg-cyan-100 dark:text-white dark:hover:bg-cyan-500/10",
                           )}
                           disabled={busyId !== null}
                           onClick={() => {
@@ -459,9 +439,7 @@ export default function KategoriTindakanField({
                           title="Hapus dari master"
                           className={cn(
                             "shrink-0 rounded p-1 disabled:opacity-50",
-                            isLight
-                              ? "text-rose-600 hover:bg-rose-100"
-                              : "text-rose-400/90 hover:bg-rose-500/10",
+                            "text-rose-600 hover:bg-rose-100 dark:text-rose-200 dark:hover:bg-rose-500/10",
                           )}
                           disabled={busyId !== null}
                           onClick={() => void removeMaster(it.id, it.nama)}
@@ -477,7 +455,7 @@ export default function KategoriTindakanField({
                 <p
                   className={cn(
                     "px-2 py-4 text-center text-xs",
-                    isLight ? "text-slate-600" : "text-gray-500",
+                    "text-slate-600 dark:text-white",
                   )}
                 >
                   Belum ada data. Tambah di bawah.
@@ -487,13 +465,13 @@ export default function KategoriTindakanField({
             <div
               className={cn(
                 "border-t p-2",
-                isLight ? "border-slate-200" : "border-cyan-900/40",
+                "border-slate-200 dark:border-cyan-900/40",
               )}
             >
               <p
                 className={cn(
                   "mb-1 text-[10px] font-semibold uppercase tracking-wide",
-                  isLight ? "text-slate-500" : "text-gray-500",
+                    "text-slate-500 dark:text-white/90",
                 )}
               >
                 Tambah baru
@@ -502,9 +480,7 @@ export default function KategoriTindakanField({
                 <input
                   className={cn(
                     "min-w-0 flex-1 rounded-md border px-2 py-1.5 text-xs font-semibold",
-                    isLight
-                      ? "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500"
-                      : "border-cyan-900/50 bg-black/40 text-cyan-100",
+                    "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white",
                   )}
                   value={newNama}
                   onChange={(e) => setNewNama(e.target.value)}
@@ -520,9 +496,7 @@ export default function KategoriTindakanField({
                   type="button"
                   className={cn(
                     "shrink-0 rounded-md border px-3 py-1.5 text-xs font-semibold disabled:opacity-50",
-                    isLight
-                      ? "border-cyan-600/50 bg-cyan-600 text-white hover:bg-cyan-700"
-                      : "border-cyan-600/40 bg-cyan-950/50 text-cyan-100 hover:bg-cyan-900/30",
+                    "border-cyan-600/50 bg-cyan-600 text-white hover:bg-cyan-700 dark:border-cyan-600/40 dark:bg-cyan-950/50 dark:text-white dark:hover:bg-cyan-900/30",
                   )}
                   disabled={busyId !== null}
                   onClick={() => void addFromManage()}
@@ -534,16 +508,14 @@ export default function KategoriTindakanField({
             <div
               className={cn(
                 "border-t p-2 text-right",
-                isLight ? "border-slate-200" : "border-white/5",
+                "border-slate-200 dark:border-white/5",
               )}
             >
               <button
                 type="button"
                 className={cn(
                   "rounded-md px-3 py-1.5 text-xs font-medium",
-                  isLight
-                    ? "text-slate-700 hover:bg-slate-100"
-                    : "text-gray-300 hover:bg-white/5",
+                  "text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-white/5",
                 )}
                 onClick={() => {
                   setManageOpen(false);

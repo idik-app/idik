@@ -11,8 +11,8 @@ import {
   normalizeNamaPasienInput,
 } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
 import { formatPasienApiValidationError } from "@/app/dashboard/pasien/utils/pasienValidationMessages";
+import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
-import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 
 const RM_LOOKUP_DEBOUNCE_MS = 420;
 const RM_LOOKUP_MIN_LEN = 2;
@@ -24,8 +24,10 @@ const initialForm = (): Omit<Pasien, "id"> => ({
   tanggalLahir: "",
   alamat: "",
   noHP: "",
+  // Backend/types saat ini hanya mengenal "BPJS" (BPJS-PBI ditampilkan via label UI).
+  // Jika jenis pembiayaan adalah BPJS, kelas perawatan otomatis Kelas 3.
   jenisPembiayaan: "BPJS",
-  kelasPerawatan: "Kelas 2",
+  kelasPerawatan: "Kelas 3",
   asuransi: "",
 });
 
@@ -44,20 +46,27 @@ function rmEquivalent(dbNoRm: string, typedRm: string): boolean {
   return false;
 }
 
-function coerceKelasPerawatan(raw: string | undefined): Pasien["kelasPerawatan"] {
+function coerceKelasPerawatan(
+  raw: string | undefined,
+): Pasien["kelasPerawatan"] {
   const k = String(raw ?? "").trim();
   if (k === "Kelas 1" || k === "1") return "Kelas 1";
   if (k === "Kelas 3" || k === "3") return "Kelas 3";
   return "Kelas 2";
 }
 
-function coerceJenisPembiayaan(raw: string | undefined): Pasien["jenisPembiayaan"] {
+function coerceJenisPembiayaan(
+  raw: string | undefined,
+): Pasien["jenisPembiayaan"] {
   const v = String(raw ?? "").trim();
+  if (v === "BPJS-PBI") return "BPJS";
   if (v === "BPJS" || v === "NPBI" || v === "Umum" || v === "Asuransi") return v;
   return "Umum";
 }
 
 function patientToFormFields(p: Pasien): Omit<Pasien, "id"> {
+  const jenisPembiayaan = coerceJenisPembiayaan(p.jenisPembiayaan);
+  const kelasPerawatan = coerceKelasPerawatan(p.kelasPerawatan);
   return {
     noRM: String(p.noRM ?? "").trim(),
     nama: normalizeNamaPasienInput(p.nama ?? ""),
@@ -65,17 +74,16 @@ function patientToFormFields(p: Pasien): Omit<Pasien, "id"> {
     tanggalLahir: formatTanggalLahirFromDb(p.tanggalLahir),
     alamat: p.alamat ?? "",
     noHP: String(p.noHP ?? "").trim(),
-    jenisPembiayaan: coerceJenisPembiayaan(p.jenisPembiayaan),
-    kelasPerawatan: coerceKelasPerawatan(p.kelasPerawatan),
+    jenisPembiayaan,
+    kelasPerawatan: jenisPembiayaan === "BPJS" ? "Kelas 3" : kelasPerawatan,
     asuransi: p.asuransi ?? "",
   };
 }
 
 async function fetchPasienByNoRm(rm: string): Promise<Pasien | null> {
-  const res = await fetch(
-    `/api/pasien?noRm=${encodeURIComponent(rm)}`,
-    { credentials: "include" },
-  );
+  const res = await fetch(`/api/pasien?noRm=${encodeURIComponent(rm)}`, {
+    credentials: "include",
+  });
   const json = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
     data?: Pasien | null;
@@ -93,12 +101,14 @@ export default function TambahPasienQuickModal({
   onClose: () => void;
   onSaved: (patient: Pasien) => Promise<void> | void;
 }) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
   const [formData, setFormData] = useState<Omit<Pasien, "id">>(initialForm);
   const [matchedPatient, setMatchedPatient] = useState<Pasien | null>(null);
   const [rmChecking, setRmChecking] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const isLight = useTindakanLightMode();
 
   const rmInputRef = useRef(formData.noRM);
   rmInputRef.current = formData.noRM;
@@ -187,6 +197,15 @@ export default function TambahPasienQuickModal({
             : name === "nama"
               ? normalizeNamaPasienInput(value)
               : value;
+
+      if (name === "jenisPembiayaan" && nextVal === "BPJS") {
+        return {
+          ...p,
+          jenisPembiayaan: nextVal,
+          kelasPerawatan: "Kelas 3",
+        } as Omit<Pasien, "id">;
+      }
+
       return { ...p, [name]: nextVal } as Omit<Pasien, "id">;
     });
   };
@@ -250,6 +269,9 @@ export default function TambahPasienQuickModal({
         const putJson = (await putRes.json().catch(() => ({}))) as {
           ok?: boolean;
           data?: Pasien;
+          // Selaras dengan formatPasienApiValidationError (jika API mengembalikan error/message)
+          error?: unknown;
+          message?: string;
         };
         if (!putRes.ok || !putJson?.ok || !putJson.data) {
           throw new Error(formatPasienApiValidationError(putJson));
@@ -273,7 +295,9 @@ export default function TambahPasienQuickModal({
       const parsedLocal = pasienSchema.safeParse(payload);
       if (!parsedLocal.success) {
         setError(
-          formatPasienApiValidationError({ error: parsedLocal.error.flatten() }),
+          formatPasienApiValidationError({
+            error: parsedLocal.error.flatten(),
+          }),
         );
         return;
       }
@@ -301,9 +325,7 @@ export default function TambahPasienQuickModal({
 
   if (!open) return null;
 
-  const primaryLabel = matchedPatient
-    ? "Tambah kasus tindakan"
-    : "💾 Simpan";
+  const primaryLabel = matchedPatient ? "Tambah kasus tindakan" : "💾 Simpan";
   const primaryLoadingLabel = matchedPatient
     ? "Memperbarui master & menambah kasus…"
     : "⏳ Menyimpan…";
@@ -314,15 +336,15 @@ export default function TambahPasienQuickModal({
         <div
           className={cn(
             "animate-in fade-in zoom-in-95 duration-200 rounded-xl border p-3 sm:rounded-2xl sm:p-6",
-            isLight
-              ? "border-cyan-500/35 bg-gradient-to-br from-white to-cyan-50/80 text-slate-800 shadow-lg shadow-cyan-900/10"
-              : "border-cyan-500/40 bg-gradient-to-br from-cyan-900/40 to-black/60 text-cyan-100 shadow-[0_0_16px_rgba(0,255,255,0.22)] sm:shadow-[0_0_25px_rgba(0,255,255,0.3)]",
+            isDark
+              ? "border-cyan-500/45 bg-gradient-to-br from-cyan-950/90 via-cyan-950/70 to-black/95 text-white shadow-lg shadow-cyan-900/25"
+              : "border-cyan-500/35 bg-gradient-to-br from-white to-cyan-50/80 text-slate-800 shadow-lg shadow-cyan-900/10",
           )}
         >
           <h3
             className={cn(
               "mb-2 text-center text-lg font-semibold sm:mb-4 sm:text-2xl",
-              isLight ? "text-cyan-900" : "text-cyan-300",
+              isDark ? "text-cyan-100" : "text-cyan-900",
             )}
           >
             ➕ Tambah Pasien
@@ -332,20 +354,20 @@ export default function TambahPasienQuickModal({
             <p
               className={cn(
                 "text-xs mb-3 rounded-lg border px-3 py-2 leading-relaxed",
-                isLight
-                  ? "text-amber-950 border-amber-400/45 bg-amber-50"
-                  : "text-amber-200/95 border-amber-500/35 bg-amber-950/35",
+                isDark
+                  ? "text-white border-amber-400/65 bg-amber-950/60"
+                  : "text-amber-950 border-amber-400/45 bg-amber-50",
               )}
               role="status"
             >
-              No. RM ini sudah ada di master pasien — formulir diisi otomatis. Anda
-              boleh melengkapi atau mengoreksi data (misalnya No. HP, alamat) sebelum
-              menyimpan; perubahan akan disimpan ke master pasien. Untuk kunjungan
-              atau jenis tindakan baru, gunakan{" "}
+              No. RM ini sudah ada di master pasien — formulir diisi otomatis.
+              Anda boleh melengkapi atau mengoreksi data (misalnya No. HP,
+              alamat) sebelum menyimpan; perubahan akan disimpan ke master
+              pasien. Untuk kunjungan atau jenis tindakan baru, gunakan{" "}
               <span
                 className={cn(
                   "font-medium",
-                  isLight ? "text-amber-900" : "text-amber-100",
+                  isDark ? "text-amber-100" : "text-amber-900",
                 )}
               >
                 Tambah kasus tindakan
@@ -361,14 +383,14 @@ export default function TambahPasienQuickModal({
                 name="noRM"
                 value={formData.noRM}
                 onChange={handleChange}
+                isDark={isDark}
                 autoComplete="off"
-                isLight={isLight}
               />
               {rmChecking ? (
                 <p
                   className={cn(
                     "text-[10px] mt-0.5 font-mono",
-                    isLight ? "text-cyan-800/85" : "text-cyan-500/85",
+                    isDark ? "text-cyan-200/90" : "text-cyan-800/85",
                   )}
                 >
                   Memeriksa No. RM…
@@ -380,8 +402,8 @@ export default function TambahPasienQuickModal({
               name="nama"
               value={formData.nama}
               onChange={handleChange}
+              isDark={isDark}
               autoComplete="name"
-              isLight={isLight}
             />
 
             <div className="col-span-1 grid grid-cols-1 gap-2 sm:col-span-2 sm:grid-cols-3 sm:gap-3">
@@ -389,7 +411,7 @@ export default function TambahPasienQuickModal({
                 <label
                   className={cn(
                     "text-xs sm:text-sm",
-                    isLight ? "text-cyan-900" : "text-cyan-300",
+                    isDark ? "text-white" : "text-cyan-900",
                   )}
                 >
                   Jenis Kelamin
@@ -400,9 +422,9 @@ export default function TambahPasienQuickModal({
                   onChange={handleChange}
                   className={cn(
                     "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-sm focus:border-yellow-500 focus:outline-none sm:px-3 sm:py-2 sm:text-base",
-                    isLight
-                      ? "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]"
-                      : "border-cyan-600/50 bg-black/30",
+                    isDark
+                      ? "border-cyan-600/60 bg-black/30 text-cyan-100 [color-scheme:dark]"
+                      : "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]",
                   )}
                 >
                   <option value="L">Laki-laki</option>
@@ -418,14 +440,14 @@ export default function TambahPasienQuickModal({
                 value={formData.tanggalLahir}
                 onChange={handleChange}
                 onBlur={handleTanggalLahirBlur}
-                isLight={isLight}
+                isDark={isDark}
               />
 
               <div>
                 <label
                   className={cn(
                     "text-xs sm:text-sm",
-                    isLight ? "text-cyan-900" : "text-cyan-300",
+                    isDark ? "text-white" : "text-cyan-900",
                   )}
                 >
                   Umur
@@ -436,9 +458,9 @@ export default function TambahPasienQuickModal({
                   value={umurTeks}
                   className={cn(
                     "mt-1 w-full cursor-default rounded-lg border px-2.5 py-1.5 text-sm sm:px-3 sm:py-2 sm:text-base",
-                    isLight
-                      ? "border-cyan-500/35 bg-slate-100 text-slate-700"
-                      : "border-cyan-600/30 bg-black/20 text-cyan-200",
+                    isDark
+                      ? "border-cyan-600/30 bg-black/20 text-cyan-200"
+                      : "border-cyan-500/35 bg-slate-100 text-slate-700",
                   )}
                   aria-live="polite"
                 />
@@ -451,8 +473,8 @@ export default function TambahPasienQuickModal({
               value={formData.alamat}
               onChange={handleChange}
               colSpan
+              isDark={isDark}
               autoComplete="street-address"
-              isLight={isLight}
             />
             <InputField
               label="No. HP"
@@ -460,15 +482,15 @@ export default function TambahPasienQuickModal({
               value={formData.noHP}
               onChange={handleChange}
               colSpan
+              isDark={isDark}
               autoComplete="tel"
-              isLight={isLight}
             />
 
             <div>
               <label
                 className={cn(
                   "text-xs sm:text-sm",
-                  isLight ? "text-cyan-900" : "text-cyan-300",
+                  isDark ? "text-white" : "text-cyan-900",
                 )}
               >
                 Jenis Pembiayaan
@@ -479,12 +501,12 @@ export default function TambahPasienQuickModal({
                 onChange={handleChange}
                 className={cn(
                   "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-sm focus:border-yellow-500 focus:outline-none sm:px-3 sm:py-2 sm:text-base",
-                  isLight
-                    ? "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]"
-                    : "border-cyan-600/50 bg-black/30",
+                  isDark
+                    ? "border-cyan-600/60 bg-black/30 text-cyan-100 [color-scheme:dark]"
+                    : "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]",
                 )}
               >
-                <option value="BPJS">BPJS</option>
+                <option value="BPJS">BPJS-PBI</option>
                 <option value="NPBI">NPBI</option>
                 <option value="Umum">Umum</option>
                 <option value="Asuransi">Asuransi</option>
@@ -495,7 +517,7 @@ export default function TambahPasienQuickModal({
               <label
                 className={cn(
                   "text-xs sm:text-sm",
-                  isLight ? "text-cyan-900" : "text-cyan-300",
+                  isDark ? "text-white" : "text-cyan-900",
                 )}
               >
                 Kelas Perawatan
@@ -506,9 +528,9 @@ export default function TambahPasienQuickModal({
                 onChange={handleChange}
                 className={cn(
                   "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-sm focus:border-yellow-500 focus:outline-none sm:px-3 sm:py-2 sm:text-base",
-                  isLight
-                    ? "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]"
-                    : "border-cyan-600/50 bg-black/30",
+                  isDark
+                    ? "border-cyan-600/60 bg-black/30 text-cyan-100 [color-scheme:dark]"
+                    : "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]",
                 )}
               >
                 <option value="Kelas 1">1</option>
@@ -523,7 +545,7 @@ export default function TambahPasienQuickModal({
               value={formData.asuransi}
               onChange={handleChange}
               colSpan
-              isLight={isLight}
+              isDark={isDark}
             />
           </div>
 
@@ -531,9 +553,9 @@ export default function TambahPasienQuickModal({
             <p
               className={cn(
                 "mx-auto mt-3 max-w-full text-left text-sm whitespace-pre-line rounded-lg border px-3 py-2 sm:max-w-md",
-                isLight
-                  ? "border-red-400/50 bg-red-50 text-red-900"
-                  : "border-red-500/40 bg-red-950/40 text-red-300",
+                isDark
+                  ? "border-red-400/70 bg-red-950/70 text-white"
+                  : "border-red-400/50 bg-red-50 text-red-900",
               )}
               role="alert"
             >
@@ -546,7 +568,10 @@ export default function TambahPasienQuickModal({
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="w-full shrink-0 rounded-lg border border-cyan-400/50 bg-cyan-600/60 px-4 py-2.5 text-black shadow-[0_0_15px_rgba(0,255,255,0.5)] transition-all hover:bg-cyan-500/80 hover:shadow-[0_0_20px_rgba(0,255,255,0.8)] disabled:opacity-60 sm:w-auto sm:px-6 sm:py-2"
+              className={cn(
+                "w-full shrink-0 rounded-lg border border-cyan-400/50 bg-cyan-600/60 px-4 py-2.5 shadow-[0_0_15px_rgba(0,255,255,0.5)] transition-all hover:bg-cyan-500/80 hover:shadow-[0_0_20px_rgba(0,255,255,0.8)] disabled:opacity-60 sm:w-auto sm:px-6 sm:py-2",
+                isDark ? "text-white" : "text-black",
+              )}
             >
               {loading ? primaryLoadingLabel : primaryLabel}
             </button>
@@ -554,9 +579,9 @@ export default function TambahPasienQuickModal({
               onClick={onClose}
               className={cn(
                 "w-full shrink-0 rounded-lg border bg-transparent px-4 py-2.5 transition-all sm:w-auto sm:px-6 sm:py-2",
-                isLight
-                  ? "border-amber-600/50 text-amber-800 hover:bg-amber-100/80"
-                  : "border-yellow-400/50 text-yellow-400 hover:bg-yellow-400/20 hover:shadow-[0_0_10px_rgba(255,215,0,0.4)]",
+                isDark
+                  ? "border-yellow-400/50 text-yellow-400 hover:bg-yellow-400/20 hover:shadow-[0_0_10px_rgba(255,215,0,0.4)]"
+                  : "border-amber-600/50 text-amber-800 hover:bg-amber-100/80",
               )}
             >
               ✖ Batal
@@ -578,7 +603,7 @@ function InputField({
   colSpan = false,
   placeholder,
   autoComplete,
-  isLight = false,
+  isDark,
 }: {
   label: string;
   name: string;
@@ -589,14 +614,14 @@ function InputField({
   colSpan?: boolean;
   placeholder?: string;
   autoComplete?: string;
-  isLight?: boolean;
+  isDark: boolean;
 }) {
   return (
     <div className={colSpan ? "col-span-1 sm:col-span-2" : ""}>
       <label
         className={cn(
           "text-xs sm:text-sm",
-          isLight ? "text-cyan-900" : "text-cyan-300",
+          isDark ? "text-white" : "text-cyan-900",
         )}
       >
         {label}
@@ -611,12 +636,11 @@ function InputField({
         autoComplete={autoComplete}
         className={cn(
           "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-sm focus:border-yellow-500 focus:outline-none sm:px-3 sm:py-2 sm:text-base",
-          isLight
-            ? "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]"
-            : "border-cyan-600/50 bg-black/30 [color-scheme:dark]",
+          isDark
+            ? "border-cyan-600/60 bg-black/30 text-cyan-100 placeholder:text-cyan-200 [color-scheme:dark]"
+            : "border-cyan-500/45 bg-white text-slate-800 placeholder:text-slate-500 [color-scheme:light]",
         )}
       />
     </div>
   );
 }
-

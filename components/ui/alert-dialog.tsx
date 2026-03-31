@@ -35,7 +35,7 @@ export function AlertDialogContent({
           key="alert-dialog-content"
           {...props}
           className={`fixed z-50 top-1/2 left-1/2 w-[95%] max-w-md -translate-x-1/2 -translate-y-1/2
-                     rounded-xl border border-cyan-500/40 bg-black/60 text-cyan-100 
+                     rounded-xl border border-cyan-500/40 bg-black/60 text-[hsl(var(--foreground))] 
                      shadow-lg backdrop-blur-xl focus:outline-none ${
                        className ?? ""
                      }`}
@@ -93,7 +93,10 @@ export const AlertDialogDescription = ({
   ...props
 }: React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Description>) => (
   <AlertDialogPrimitive.Description
-    className={cn("text-sm text-cyan-300/80", className)}
+    className={cn(
+      "text-sm text-[hsl(var(--foreground))] opacity-80",
+      className,
+    )}
     {...props}
   />
 );

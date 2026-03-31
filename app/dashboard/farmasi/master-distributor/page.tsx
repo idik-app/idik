@@ -120,7 +120,7 @@ export default function MasterDistributorPage() {
         <button
           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full
                      bg-gradient-to-r from-[#D4AF37] to-emerald-400
-                     text-xs font-semibold text-black shadow-[0_0_18px_rgba(250,204,21,0.6)]
+                     text-xs font-semibold text-black dark:text-white shadow-[0_0_18px_rgba(250,204,21,0.6)]
                      hover:shadow-[0_0_24px_rgba(45,212,191,0.8)] transition"
         >
           <PlusCircle size={16} />

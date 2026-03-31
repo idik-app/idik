@@ -13,6 +13,7 @@ import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const YMD = "yyyy-MM-dd" as const;
 
@@ -65,7 +66,6 @@ export function DateYmdPicker({
   value,
   onChange,
   placeholder = "Pilih tanggal",
-  isLight,
   className,
   buttonClassName,
   disabled,
@@ -74,11 +74,13 @@ export function DateYmdPicker({
   value: string;
   onChange: (ymd: string) => void;
   placeholder?: string;
-  isLight: boolean;
   className?: string;
   buttonClassName?: string;
   disabled?: boolean;
 }) {
+  const { theme } = useTheme();
+  const isDark = theme !== "light";
+
   const [open, setOpen] = useState(false);
   const [navMonth, setNavMonth] = useState<Date>(() => new Date());
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -133,10 +135,8 @@ export function DateYmdPicker({
         onClick={() => !disabled && setOpen((o) => !o)}
         className={cn(
           "flex h-9 w-full min-w-0 items-center gap-2 rounded-md border px-2.5 text-left text-xs transition outline-none focus-visible:ring-2",
-          isLight
-            ? "border-slate-300/80 bg-white text-slate-900 focus-visible:ring-cyan-500/35"
-            : "border-cyan-700/50 bg-black/40 text-cyan-50 focus-visible:ring-cyan-400/30",
-          !value && (isLight ? "text-slate-500" : "text-cyan-200/55"),
+          "border-slate-300/80 bg-white text-slate-900 focus-visible:ring-cyan-500/35 dark:border-cyan-700/50 dark:bg-black/40 dark:text-cyan-50 dark:focus-visible:ring-cyan-400/30",
+          !value && "text-slate-500 dark:text-cyan-200/55",
           disabled && "cursor-not-allowed opacity-50",
           buttonClassName,
         )}
@@ -144,7 +144,7 @@ export function DateYmdPicker({
         <Calendar
           className={cn(
             "h-3.5 w-3.5 shrink-0",
-            isLight ? "text-cyan-700" : "text-cyan-400",
+            "text-cyan-700 dark:text-cyan-400",
           )}
         />
         <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -154,9 +154,7 @@ export function DateYmdPicker({
         <div
           className={cn(
             "absolute left-0 top-full z-[301] mt-1 w-[min(calc(100vw-2rem),320px)] max-w-[min(100vw-2rem,320px)] rounded-xl border p-3 shadow-2xl",
-            isLight
-              ? "border-slate-200/90 bg-white text-slate-900"
-              : "border-cyan-700/50 bg-slate-950 text-cyan-50",
+            "border-slate-200/90 bg-white text-slate-900 dark:border-cyan-700/50 dark:bg-slate-950 dark:text-cyan-50",
           )}
           aria-label="Kalender pilih tanggal"
           onPointerDown={(e) => e.stopPropagation()}
@@ -183,22 +181,22 @@ export function DateYmdPicker({
               toYear={yearNow + 5}
               className={cn(
                 "rdp-root text-[12px]",
-                isLight ? "text-slate-900" : "text-cyan-50",
+                "text-slate-900 dark:text-cyan-50",
               )}
-              style={(isLight ? rdpLight : rdpDark) as unknown as CSSProperties}
+              style={(isDark ? rdpDark : rdpLight) as unknown as CSSProperties}
             />
           </div>
           <div
             className={cn(
               "mt-2 flex justify-end border-t pt-2",
-              isLight ? "border-slate-200" : "border-cyan-800/50",
+              "border-slate-200 dark:border-cyan-800/50",
             )}
           >
             <button
               type="button"
               className={cn(
                 "cursor-pointer text-[11px] font-semibold underline-offset-2 hover:underline",
-                isLight ? "text-slate-600" : "text-cyan-300/90",
+                "text-slate-600 dark:text-cyan-300/90",
               )}
               onClick={() => {
                 onChange("");

@@ -20,7 +20,6 @@ import {
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { useAppDialog } from "@/contexts/AppDialogContext";
 import { cn } from "@/lib/utils";
-import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 import {
   PasienCombobox,
   formatPasienLabel,
@@ -50,9 +49,7 @@ import TableContainer from "../components/TableContainer";
 import TableToolbar from "../components/TableToolbar";
 import TablePagination from "../components/TablePagination";
 import PemakaianAlkesModal from "./PemakaianAlkesModal";
-import {
-  computeTindakanStatsFromRows,
-} from "../hooks/useTindakanStats";
+import { computeTindakanStatsFromRows } from "../hooks/useTindakanStats";
 import type { TindakanFilteredSummary } from "./TindakanSummary";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import {
@@ -70,6 +67,14 @@ import {
 import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
 
 type Adapter = ReturnType<typeof useTindakanBridgeAdapter>;
+
+/** Kolom tindakan & ruangan — amber di siang & malam. */
+const TINDAKAN_TABLE_INPUT_TEXT =
+  "text-amber-800 placeholder:text-amber-700/55 dark:text-amber-300 dark:placeholder:text-amber-400/45";
+
+/** Kolom No–Dokter — amber di siang; putih terang di mode malam. */
+const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
+  "text-amber-800 placeholder:text-amber-700/55 dark:text-white dark:placeholder:text-white/45";
 
 function useDebouncedValue(value: string, ms: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -555,6 +560,7 @@ function EditableMasterTindakanCell({
       options={pickerOptions}
       loading={loading || saving}
       className="max-w-[14rem]"
+      inputClassName={TINDAKAN_TABLE_INPUT_TEXT}
     />
   );
 }
@@ -566,7 +572,6 @@ function EditableDateCell({
   value: string;
   onCommit: (next: string) => Promise<boolean>;
 }) {
-  const isLight = useTindakanLightMode();
   /** `type="date"` hanya menerima YYYY-MM-DD; tanggal dari DB sering "28-Jan-2023" → kalender error / tidak bisa navigasi. */
   const normalizedValue =
     extractCalendarDateKey(String(value ?? "").trim()) ?? "";
@@ -615,9 +620,7 @@ function EditableDateCell({
       }}
       className={cn(
         "w-full min-w-[8.5rem] rounded border px-2 py-1 text-xs font-semibold focus:outline-none",
-        isLight
-          ? "border-cyan-400/55 bg-white text-slate-950 [color-scheme:light]"
-          : "border-cyan-700/50 bg-black/40 text-cyan-100 [color-scheme:dark]",
+        "border-cyan-400/55 bg-white text-amber-800 [color-scheme:light] dark:border-cyan-700/50 dark:bg-black/40 dark:text-white dark:[color-scheme:dark]",
       )}
     />
   );
@@ -672,6 +675,7 @@ function EditableRuanganCell({
       options={ruanganMaster}
       loading={loading || saving}
       className="max-w-[14rem]"
+      inputClassName={TINDAKAN_TABLE_INPUT_TEXT}
     />
   );
 }
@@ -685,7 +689,6 @@ function EditableDokterCell({
   options: string[];
   onCommit: (next: string) => Promise<boolean>;
 }) {
-  const isLight = useTindakanLightMode();
   const [draft, setDraft] = useState(value.trim());
   const [saving, setSaving] = useState(false);
 
@@ -719,9 +722,7 @@ function EditableDokterCell({
       }}
       className={cn(
         "w-full rounded border px-2 py-1 text-xs font-semibold focus:outline-none",
-        isLight
-          ? "border-cyan-400/55 bg-white text-slate-950 [color-scheme:light]"
-          : "border-cyan-700/50 bg-black/40 text-cyan-100",
+        "border-cyan-400/55 bg-white text-amber-800 [color-scheme:light] dark:border-cyan-700/50 dark:bg-black/40 dark:text-white",
       )}
     >
       {!draft ? <option value="">Pilih dokter</option> : null}
@@ -763,7 +764,9 @@ export default function TindakanTable({
   } = adapter;
   const { show: notify } = useNotification();
   const { confirm: appConfirm } = useAppDialog();
-  const isLight = useTindakanLightMode();
+
+  /** Cegah sync ganda (auto + manual) dalam waktu bersamaan. */
+  const syncInFlightRef = useRef(false);
 
   const [search, setSearch] = useState("");
   const debouncedSearchTrim = useDebouncedValue(search.trim(), 280);
@@ -1700,6 +1703,141 @@ export default function TindakanTable({
     [patchRowField, refreshMasterTindakan],
   );
 
+  const syncMasterPasienFromTindakanCore = useCallback(
+    async (opts?: { source?: "auto" | "manual"; silent?: boolean }) => {
+      const source = opts?.source ?? "manual";
+      const silent = Boolean(opts?.silent);
+      if (syncInFlightRef.current) return;
+      syncInFlightRef.current = true;
+
+      try {
+        const res = await fetch(
+          "/api/pasien/sync-from-tindakan?limit=20000",
+          {
+            credentials: "include",
+            cache: "no-store",
+            method: "POST",
+          },
+        );
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          stats?: {
+            candidates?: number;
+            uniqueNoRm?: number;
+            insertedPatients?: number;
+            updatedActions?: number;
+            skippedActions?: number;
+            message?: string;
+          };
+        };
+        if (!res.ok || !json?.ok) {
+          throw new Error(json?.error || "Gagal sinkronkan master pasien.");
+        }
+
+        // Refresh dulu daftar tindakan agar drawer/tabel konsisten.
+        await refresh();
+
+        // Refresh combobox pasien agar item baru langsung muncul.
+        setPasienLoading(true);
+        setPasienError(null);
+        try {
+          const resPas = await fetch("/api/pasien?compact=1", {
+            credentials: "include",
+            cache: "no-store",
+          });
+          const jsonPas = (await resPas.json().catch(() => ({}))) as {
+            ok?: boolean;
+            data?: unknown;
+            error?: string;
+          };
+          if (!resPas.ok || !jsonPas?.ok) {
+            throw new Error(
+              jsonPas?.error ||
+                "Gagal mengambil data pasien setelah sync.",
+            );
+          }
+          const rows = Array.isArray(jsonPas.data) ? jsonPas.data : [];
+          const mapped = rows
+            .map((r) =>
+              r && typeof r === "object"
+                ? mapApiPasienRow(r as any)
+                : null,
+            )
+            .filter(Boolean) as PasienOption[];
+          setPasienOptions(mapped);
+        } catch (e) {
+          setPasienOptions([]);
+          setPasienError(silent ? null : extractErrorMessage(e));
+        } finally {
+          setPasienLoading(false);
+        }
+
+        if (!silent) {
+          notify({
+            type: "success",
+            message:
+              json?.stats?.message ||
+              `Sinkron selesai: ${json?.stats?.insertedPatients ?? 0} pasien dibuat.`,
+            duration: source === "auto" ? 4200 : 5200,
+          });
+        }
+        return true;
+      } catch (e) {
+        if (!silent) {
+          notify({
+            type: "error",
+            message: extractErrorMessage(e),
+            duration: source === "auto" ? 5000 : 5000,
+          });
+        }
+        return false;
+      } finally {
+        syncInFlightRef.current = false;
+      }
+    },
+    [notify, refresh],
+  );
+
+  const syncMasterPasienFromTindakan = useCallback(async () => {
+    if (syncInFlightRef.current) return;
+
+    const ok = await appConfirm({
+      title: "Sinkronkan master pasien minimal?",
+      message:
+        "Akan membuat data master pasien (default/null) untuk baris tindakan yang belum punya `pasien_id`, dengan sumber `no_rm` + `nama_pasien`.\n\nBaris tindakan akan dihubungkan ke master pasien yang baru/ditemukan.",
+      confirmLabel: "Sync",
+      cancelLabel: "Batal",
+    });
+    if (!ok) return;
+
+    await syncMasterPasienFromTindakanCore({ source: "manual" });
+  }, [appConfirm, syncMasterPasienFromTindakanCore]);
+
+  // Auto-sync saat halaman dibuka (sekali per ~6 jam per browser).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (syncInFlightRef.current) return;
+
+    const key = "tindakan_auto_sync_master_pasien_from_tindakan_v1";
+    const lastRaw = window.localStorage.getItem(key);
+    const last = lastRaw ? Number(lastRaw) : 0;
+    const now = Date.now();
+    const intervalMs = 6 * 60 * 60 * 1000; // 6 jam
+    const shouldRun =
+      !Number.isFinite(last) || last <= 0 || now - last > intervalMs;
+
+    if (!shouldRun) return;
+
+    void (async () => {
+      const ok = await syncMasterPasienFromTindakanCore({
+        source: "auto",
+        silent: true,
+      });
+      if (ok) window.localStorage.setItem(key, String(Date.now()));
+    })();
+  }, [syncMasterPasienFromTindakanCore]);
+
   return (
     <TableContainer>
       <div className="relative z-10 flex h-full min-h-0 max-h-full flex-1 flex-col min-w-0">
@@ -1707,6 +1845,7 @@ export default function TindakanTable({
           onSearch={setSearch}
           onRefresh={refresh}
           onCreateDraftForPasien={createDraftForPasien}
+          onSyncMasterPasien={syncMasterPasienFromTindakan}
           onFilter={(d, rg, from, to) => {
             setFilterDokter(d);
             setFilterRuangan(rg);
@@ -1722,16 +1861,14 @@ export default function TindakanTable({
           <div
             className={cn(
               "mb-3 rounded-xl border px-4 py-3 text-sm",
-              isLight
-                ? "border-red-300/70 bg-red-50 text-red-900"
-                : "border-red-900/40 bg-red-950/25 text-red-200",
+          "border-red-300/70 bg-red-50 text-red-900 dark:border-red-900/40 dark:bg-red-950/25 dark:text-red-200",
             )}
           >
             <div className="font-bold">Gagal memuat data tindakan</div>
             <div
               className={cn(
                 "mt-0.5 text-[12px]",
-                isLight ? "text-red-800/90" : "text-red-200/80",
+              "text-red-800/90 dark:text-red-200/80",
               )}
             >
               {extractErrorMessage(error)}
@@ -1739,7 +1876,7 @@ export default function TindakanTable({
             <div
               className={cn(
                 "mt-2 text-[11px] font-mono",
-                isLight ? "text-red-800/75" : "text-red-200/70",
+              "text-red-800/75 dark:text-red-200/70",
               )}
             >
               Sumber: `GET /api/tindakan?limit=8000` (butuh login & Supabase
@@ -1752,7 +1889,7 @@ export default function TindakanTable({
           <div
             className={cn(
               "flex min-h-0 flex-1 items-center justify-center py-6 text-sm font-semibold",
-              isLight ? "text-cyan-950" : "text-cyan-300",
+          "text-cyan-950 dark:text-cyan-300",
             )}
           >
             Memuat tindakan…
@@ -1762,95 +1899,94 @@ export default function TindakanTable({
             <div
               className={cn(
                 "min-h-0 flex-1 overflow-auto",
-                isLight ? "bg-white/85" : "bg-black/20",
+                  "bg-white/85 dark:bg-black/20",
               )}
             >
               <table className="w-full min-w-[1200px] text-sm font-semibold border-separate border-spacing-0">
                 <thead className="sticky top-0 z-10">
                   <tr
                     className={cn(
-                      "border-b text-center",
-                      isLight
-                        ? "border-cyan-200/70 bg-slate-100/95"
-                        : "border-cyan-800/40 bg-black/80",
+                      // Header tabel: gradient + backdrop blur agar terlihat lebih elegan.
+                      "border-b text-center backdrop-blur-md shadow-[0_12px_30px_rgba(245,158,11,0.16)]",
+                      "border-amber-200/70 bg-gradient-to-b from-amber-400/85 via-amber-200/65 to-amber-100/40 dark:border-amber-400/55 dark:from-amber-300/30 dark:via-amber-200/20 dark:to-amber-200/10",
                     )}
                   >
                     <th
                       className={cn(
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap w-10",
-                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap w-10",
+                        "text-cyan-950 dark:text-white",
                       )}
                     >
                       No
                     </th>
                     <th
                       className={cn(
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
-                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        "text-cyan-950 dark:text-white",
                       )}
                     >
                       Tanggal
                     </th>
                     <th
                       className={cn(
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
-                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        "text-cyan-950 dark:text-white",
                       )}
                     >
                       Time out
                     </th>
                     <th
                       className={cn(
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
-                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        "text-cyan-950 dark:text-white",
                       )}
                     >
                       RM
                     </th>
                     <th
                       className={cn(
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
-                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
+                        "text-cyan-950 dark:text-white",
                       )}
                     >
                       Nama pasien
                     </th>
                     <th
                       className={cn(
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
-                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        "text-cyan-950 dark:text-white",
                       )}
                     >
                       Jenis kelamin
                     </th>
                     <th
                       className={cn(
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
-                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
+                        "text-cyan-950 dark:text-white",
                       )}
                     >
                       Dokter
                     </th>
                     <th
                       className={cn(
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
-                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
+                        "text-cyan-950 dark:text-white",
                       )}
                     >
                       Tindakan
                     </th>
                     <th
                       className={cn(
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
-                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
+                        "text-cyan-950 dark:text-white",
                       )}
                     >
                       Ruangan
                     </th>
                     <th
                       className={cn(
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
-                        isLight ? "text-slate-950" : "text-cyan-400/95",
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        "text-cyan-950 dark:text-white",
                       )}
                     >
                       Aksi
@@ -1864,7 +2000,7 @@ export default function TindakanTable({
                         colSpan={10}
                         className={cn(
                           "px-4 py-10 text-center font-semibold",
-                          isLight ? "text-cyan-950/90" : "text-cyan-500/70",
+                          "text-cyan-950/90 dark:text-cyan-500/70",
                         )}
                       >
                         <div className="flex flex-col items-center gap-3">
@@ -1876,9 +2012,7 @@ export default function TindakanTable({
                               disabled={creatingForPasien}
                               className={cn(
                                 "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-50",
-                                isLight
-                                  ? "border-cyan-500/45 bg-cyan-100/90 text-cyan-900 hover:bg-cyan-200/80"
-                                  : "border-cyan-700/50 bg-cyan-950/30 text-cyan-200 hover:bg-cyan-900/40",
+                                "border-cyan-500/45 bg-cyan-100/90 text-cyan-900 hover:bg-cyan-200/80 dark:border-cyan-700/50 dark:bg-cyan-950/30 dark:text-cyan-200 dark:hover:bg-cyan-900/40",
                               )}
                             >
                               <Plus size={13} />
@@ -1944,28 +2078,21 @@ export default function TindakanTable({
                             tabIndex={id ? 0 : undefined}
                             className={cn(
                               "group border-b transition-all duration-200",
-                              isLight
-                                ? "border-cyan-200/70"
-                                : "border-cyan-900/25",
-                              isDuplicateRm &&
-                                (isLight
-                                  ? "bg-amber-100/75 border-l-[3px] border-l-amber-500 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.2)]"
-                                  : "bg-amber-950/35 border-l-[3px] border-l-amber-500/65 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.14)]"),
+                              "border-cyan-200/70 dark:border-cyan-900/25",
+                              isDuplicateRm
+                                ? "bg-amber-100/75 border-l-[3px] border-l-amber-500 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.2)] dark:bg-amber-950/35 dark:border-l-[3px] dark:border-l-amber-500/65 dark:shadow-[inset_0_0_0_1px_rgba(245,158,11,0.14)]"
+                                : "",
                               id
                                 ? isDuplicateRm
-                                  ? isLight
-                                    ? "cursor-pointer hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600/50"
-                                    : "cursor-pointer hover:bg-amber-950/45 hover:shadow-[inset_2px_0_0_rgba(245,158,11,0.5)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500/50"
-                                  : isLight
-                                    ? "cursor-pointer hover:bg-cyan-50/90 hover:shadow-[inset_2px_0_0_rgba(6,182,212,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600/50"
-                                    : "cursor-pointer hover:bg-cyan-950/30 hover:shadow-[inset_2px_0_0_rgba(34,211,238,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500/50"
+                                  ? "cursor-pointer hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600/50 dark:hover:bg-amber-950/45 dark:hover:shadow-[inset_2px_0_0_rgba(245,158,11,0.5)] dark:focus-visible:outline-amber-500/50"
+                                  : "cursor-pointer hover:bg-cyan-50/90 hover:shadow-[inset_2px_0_0_rgba(6,182,212,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600/50 dark:hover:bg-cyan-950/30 dark:hover:shadow-[inset_2px_0_0_rgba(34,211,238,0.45)] dark:focus-visible:outline-cyan-500/50"
                                 : "opacity-60",
                             )}
                           >
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center tabular-nums",
-                                isLight ? "text-cyan-800" : "text-cyan-400/90",
+                                "text-cyan-800 dark:text-white",
                               )}
                             >
                               {rowNoDesc}
@@ -1973,7 +2100,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle",
-                                isLight ? "text-slate-900" : "text-cyan-200/95",
+                                "text-amber-800 dark:text-white",
                               )}
                             >
                               <div className="mx-auto w-full max-w-[9.5rem]">
@@ -1988,7 +2115,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle tabular-nums",
-                                isLight ? "text-slate-800" : "text-cyan-200/90",
+                                "text-slate-800 dark:text-white",
                               )}
                               title="Dari tab Fast-Track (Time out)"
                             >
@@ -1998,7 +2125,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 font-mono text-[11px] text-center align-middle",
-                                isLight ? "text-slate-950" : "text-cyan-100",
+                                "text-amber-800 dark:text-white",
                               )}
                             >
                               {(() => {
@@ -2019,7 +2146,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 max-w-[18rem] text-center align-middle",
-                                isLight ? "text-slate-950" : "text-cyan-100",
+                                "text-amber-800 dark:text-white",
                               )}
                             >
                               <div
@@ -2058,6 +2185,7 @@ export default function TindakanTable({
                                   options={pasienOptions}
                                   loading={pasienLoading}
                                   className="max-w-[18rem]"
+                                  inputClassName={TINDAKAN_TABLE_PRIMARY_COL_INPUT}
                                 />
                                 {!pasienLoading &&
                                 pasienOptions.length === 0 &&
@@ -2065,9 +2193,7 @@ export default function TindakanTable({
                                   <p
                                     className={cn(
                                       "mt-0.5 text-[9px] leading-tight",
-                                      isLight
-                                        ? "text-cyan-700/80"
-                                        : "text-cyan-500/70",
+                                      "text-cyan-700/80 dark:text-white/70",
                                     )}
                                   >
                                     {pasienError
@@ -2080,7 +2206,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 text-[11px] text-center align-middle whitespace-nowrap",
-                                isLight ? "text-slate-800" : "text-cyan-100/95",
+                                "text-slate-800 dark:text-white",
                               )}
                             >
                               {formatJenisKelaminDisplay(
@@ -2093,7 +2219,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
-                                isLight ? "text-slate-950" : "text-cyan-300/90",
+                                "text-amber-800 dark:text-white",
                               )}
                             >
                               <div
@@ -2167,6 +2293,7 @@ export default function TindakanTable({
                                   }
                                   loading={doctorLoading}
                                   className="max-w-[14rem]"
+                                  inputClassName={TINDAKAN_TABLE_PRIMARY_COL_INPUT}
                                 />
                                 {!doctorLoading &&
                                 doctorOptionsMaster.length === 0 &&
@@ -2174,9 +2301,7 @@ export default function TindakanTable({
                                   <p
                                     className={cn(
                                       "mt-0.5 text-[9px] leading-tight",
-                                      isLight
-                                        ? "text-cyan-700/80"
-                                        : "text-cyan-500/70",
+                                      "text-cyan-700/80 dark:text-white/70",
                                     )}
                                   >
                                     {doctorError
@@ -2189,7 +2314,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
-                                isLight ? "text-slate-950" : "text-cyan-200/95",
+                                "text-amber-800 dark:text-amber-300",
                               )}
                             >
                               <div
@@ -2214,9 +2339,7 @@ export default function TindakanTable({
                                   <p
                                     className={cn(
                                       "mt-0.5 text-[9px] leading-tight",
-                                      isLight
-                                        ? "text-cyan-700/80"
-                                        : "text-cyan-500/70",
+                                      "text-cyan-700/80 dark:text-cyan-500/70",
                                     )}
                                   >
                                     {masterTindakanError
@@ -2229,7 +2352,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
-                                isLight ? "text-slate-950" : "text-cyan-300/90",
+                                "text-amber-800 dark:text-amber-300",
                               )}
                             >
                               <div
@@ -2254,9 +2377,7 @@ export default function TindakanTable({
                                   <p
                                     className={cn(
                                       "mt-0.5 text-[9px] leading-tight",
-                                      isLight
-                                        ? "text-cyan-700/80"
-                                        : "text-cyan-500/70",
+                                      "text-cyan-700/80 dark:text-cyan-500/70",
                                     )}
                                   >
                                     {ruanganError
@@ -2277,9 +2398,7 @@ export default function TindakanTable({
                                     type="button"
                                     className={cn(
                                       "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-all",
-                                      isLight
-                                        ? "border-amber-600/45 bg-amber-100/90 text-amber-950 hover:bg-amber-200/80"
-                                        : "border-amber-800/50 bg-amber-950/35 text-amber-200/95 hover:border-amber-600/45 hover:bg-amber-900/30",
+                                      "border-amber-600/45 bg-amber-100/90 text-amber-950 hover:bg-amber-200/80 dark:border-amber-800/50 dark:bg-amber-950/35 dark:text-amber-200/95 dark:hover:border-amber-600/45 dark:hover:bg-amber-900/30",
                                     )}
                                     title="Edit pemakaian alkes (order sudah ada)"
                                     aria-label="Edit pemakaian"
@@ -2298,9 +2417,7 @@ export default function TindakanTable({
                                     type="button"
                                     className={cn(
                                       "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-all",
-                                      isLight
-                                        ? "border-cyan-600/45 bg-cyan-100/90 text-cyan-950 hover:bg-cyan-200/75"
-                                        : "border-cyan-800/50 bg-cyan-950/40 text-cyan-200/95 hover:border-cyan-600/40 hover:bg-cyan-900/35",
+                                      "border-cyan-600/45 bg-cyan-100/90 text-cyan-950 hover:bg-cyan-200/75 dark:border-cyan-800/50 dark:bg-cyan-950/40 dark:text-cyan-200/95 dark:hover:border-cyan-600/40 dark:hover:bg-cyan-900/35",
                                     )}
                                     title="Input pemakaian barang"
                                     aria-label="Pemakaian"
@@ -2320,9 +2437,7 @@ export default function TindakanTable({
                                   disabled={!id || deletingId === id}
                                   className={cn(
                                     "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-all disabled:pointer-events-none disabled:opacity-40",
-                                    isLight
-                                      ? "border-red-400/55 bg-red-50 text-red-800 hover:bg-red-100"
-                                      : "border-red-900/45 bg-red-950/25 text-red-300/95 hover:bg-red-950/45",
+                                      "border-red-400/55 bg-red-50 text-red-800 hover:bg-red-100 dark:border-red-900/45 dark:bg-red-950/25 dark:text-red-300/95 dark:hover:bg-red-950/45",
                                   )}
                                   title="Hapus kasus tindakan"
                                   aria-label="Hapus"
@@ -2343,9 +2458,7 @@ export default function TindakanTable({
                             <tr
                               className={cn(
                                 "border-b",
-                                isLight
-                                  ? "border-amber-300/50 bg-amber-50/80"
-                                  : "border-amber-900/30 bg-amber-950/15",
+                                "border-amber-300/50 bg-amber-50/80 dark:border-amber-900/30 dark:bg-amber-950/15",
                               )}
                             >
                               <td
@@ -2357,9 +2470,7 @@ export default function TindakanTable({
                                 <div
                                   className={cn(
                                     "max-w-3xl text-[11px] leading-snug",
-                                    isLight
-                                      ? "text-amber-950"
-                                      : "text-amber-100/90",
+                                    "text-amber-950 dark:text-amber-100/90",
                                   )}
                                 >
                                   <button
@@ -2377,9 +2488,7 @@ export default function TindakanTable({
                                     }}
                                     className={cn(
                                       "flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500/45",
-                                      isLight
-                                        ? "border-amber-500/40 bg-white/90 hover:bg-amber-100/80"
-                                        : "border-amber-800/35 bg-black/25 hover:bg-amber-950/35",
+                                      "border-amber-500/40 bg-white/90 hover:bg-amber-100/80 dark:border-amber-800/35 dark:bg-black/25 dark:hover:bg-amber-950/35",
                                     )}
                                   >
                                     {rmHistoryOpenByRowKey[key] ? (
@@ -2409,9 +2518,7 @@ export default function TindakanTable({
                                         <div
                                           className={cn(
                                             "mt-0.5",
-                                            isLight
-                                              ? "text-amber-900/90"
-                                              : "text-amber-50/88",
+                                            "text-amber-900/90 dark:text-amber-50/88",
                                           )}
                                         >
                                           · {namaForKet}
@@ -2422,9 +2529,7 @@ export default function TindakanTable({
                                           key={`${e.sortKey}-${j}-${e.tindakan}`}
                                           className={cn(
                                             "rounded-md border px-3 py-2",
-                                            isLight
-                                              ? "border-amber-400/50 bg-white/95"
-                                              : "border-amber-800/40 bg-black/35",
+                                            "border-amber-400/50 bg-white/95 dark:border-amber-800/40 dark:bg-black/35",
                                           )}
                                         >
                                           <div className="text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
@@ -2433,9 +2538,7 @@ export default function TindakanTable({
                                           <div
                                             className={cn(
                                               "mt-0.5",
-                                              isLight
-                                                ? "text-amber-950"
-                                                : "text-amber-100/95",
+                                              "text-amber-950 dark:text-amber-100/95",
                                             )}
                                           >
                                             · {e.tindakan}
@@ -2449,9 +2552,7 @@ export default function TindakanTable({
                                           </div>
                                           <div
                                             className={cn(
-                                              isLight
-                                                ? "text-amber-950"
-                                                : "text-amber-100/95",
+                                              "text-amber-950 dark:text-amber-100/95",
                                             )}
                                           >
                                             · {e.dokter}
@@ -2474,7 +2575,7 @@ export default function TindakanTable({
             <div
               className={cn(
                 "shrink-0 space-y-0",
-                isLight ? "bg-slate-50/80" : "bg-black/15",
+                "bg-slate-50/80 dark:bg-black/15",
               )}
             >
               {filteredRecords.length > 0 ? (
@@ -2490,7 +2591,7 @@ export default function TindakanTable({
               <p
                 className={cn(
                   "px-2 pb-1.5 pt-0 text-[10px] font-semibold leading-snug font-mono",
-                  isLight ? "text-cyan-950/90" : "text-cyan-600/75",
+                  "text-cyan-950/90 dark:text-cyan-600/75",
                 )}
               >
                 Klik baris: drawer detail. Pemakaian / Edit: form alkes di

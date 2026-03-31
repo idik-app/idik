@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 
 const DEBOUNCE_MS = 550;
 
@@ -86,7 +85,6 @@ export default function BiayaAutosaveField({
   value,
   onSaved,
 }: Props) {
-  const isLight = useTindakanLightMode();
   const [draft, setDraft] = useState(() => draftFromValue(field, value));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
@@ -192,9 +190,7 @@ export default function BiayaAutosaveField({
 
   const inputClass = cn(
     "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",
-    isLight
-      ? "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500"
-      : "border-cyan-900/50 bg-black/40 text-cyan-100 placeholder:text-gray-600",
+    "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-gray-500",
   );
   const aria =
     field === "total"
@@ -252,9 +248,7 @@ export default function BiayaAutosaveField({
       <div
         className={cn(
           "mt-0.5 flex max-w-[min(100%,18rem)] items-center gap-1.5 rounded-md border px-2 py-1.5 focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/30",
-          isLight
-            ? "border-cyan-400/55 bg-white"
-            : "border-cyan-900/50 bg-black/40",
+          "border-cyan-400/55 bg-white dark:border-cyan-900/50 dark:bg-black/40",
         )}
         role="group"
         aria-label={aria}
@@ -262,7 +256,7 @@ export default function BiayaAutosaveField({
         <span
           className={cn(
             "shrink-0 text-sm font-semibold",
-            isLight ? "text-cyan-700" : "text-cyan-500/90",
+            "text-cyan-700 dark:text-cyan-500/90",
           )}
         >
           Rp
@@ -273,9 +267,7 @@ export default function BiayaAutosaveField({
           autoComplete="off"
           className={cn(
             "min-w-0 flex-1 border-0 bg-transparent p-0 font-mono text-sm font-semibold focus:outline-none focus:ring-0",
-            isLight
-              ? "text-slate-950 placeholder:text-slate-500"
-              : "text-cyan-100 placeholder:text-gray-600",
+            "text-slate-950 placeholder:text-slate-500 dark:text-white dark:placeholder:text-gray-500",
           )}
           placeholder="0"
           value={draft}

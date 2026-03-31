@@ -480,7 +480,7 @@ function DistributorPencairanPageContent() {
           <button
             type="button"
             disabled={loading || !formMasterBarangId || adminNeedsDist}
-            className="px-4 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-400 to-cyan-400 text-black disabled:opacity-50"
+            className="px-4 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-emerald-400 to-cyan-400 text-black dark:text-white disabled:opacity-50"
             onClick={async () => {
               if (!formMasterBarangId) {
                 alert("Pilih barang master terlebih dahulu.");

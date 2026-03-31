@@ -119,6 +119,7 @@ export function DoctorCombobox({
   options,
   loading,
   className,
+  inputClassName,
   /** Unik per instance jika beberapa combobox di satu halaman (a11y). */
   listboxId = "pemakaian-doctor-listbox",
 }: {
@@ -131,6 +132,7 @@ export function DoctorCombobox({
   options: DoctorOption[];
   loading?: boolean;
   className?: string;
+  inputClassName?: string;
   listboxId?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -184,7 +186,10 @@ export function DoctorCombobox({
           placeholder={
             loading ? "Memuat daftar dokter…" : "Cari / pilih dokter…"
           }
-          className="w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40"
+          className={cn(
+            "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40",
+            inputClassName,
+          )}
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={listboxId}

@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 
 const DEFAULT_SIZES = [10, 15, 25, 50, 100];
 
@@ -26,7 +25,6 @@ export default function TablePagination({
   onPageSizeChange,
   pageSizeOptions = DEFAULT_SIZES,
 }: Props) {
-  const isLight = useTindakanLightMode();
   const sizeChoices = useMemo(() => {
     const s = new Set([...pageSizeOptions, pageSize]);
     return [...s].sort((a, b) => a - b);
@@ -44,14 +42,14 @@ export default function TablePagination({
       <p
         className={cn(
           "text-center sm:text-left text-[11px] sm:text-xs font-semibold",
-          isLight ? "text-slate-800" : "text-cyan-200/90",
+          "text-slate-800 dark:text-cyan-200/90",
         )}
       >
         Menampilkan{" "}
         <span
           className={cn(
             "font-mono font-bold tabular-nums",
-            isLight ? "text-slate-950" : "text-cyan-100",
+            "text-slate-950 dark:text-cyan-100",
           )}
         >
           {start}–{end}
@@ -60,7 +58,7 @@ export default function TablePagination({
         <span
           className={cn(
             "font-mono font-bold tabular-nums",
-            isLight ? "text-slate-950" : "text-cyan-100",
+            "text-slate-950 dark:text-cyan-100",
           )}
         >
           {totalItems.toLocaleString("id-ID")}
@@ -70,7 +68,7 @@ export default function TablePagination({
         <label
           className={cn(
             "flex items-center gap-2 text-[11px] sm:text-xs font-bold",
-            isLight ? "text-cyan-950" : "text-cyan-400/90",
+            "text-cyan-950 dark:text-cyan-400/90",
           )}
         >
           <span className="whitespace-nowrap">Baris / halaman</span>
@@ -79,9 +77,7 @@ export default function TablePagination({
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
             className={cn(
               "rounded-md border px-2 py-1.5 text-xs font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/45",
-              isLight
-                ? "border-cyan-500/45 bg-white text-slate-950 [color-scheme:light]"
-                : "border-cyan-700/50 bg-black/60 text-cyan-100",
+              "border-cyan-500/45 bg-white text-slate-950 [color-scheme:light] dark:border-cyan-700/50 dark:bg-black/60 dark:text-cyan-100 dark:[color-scheme:dark]",
             )}
           >
             {sizeChoices.map((n) => (
@@ -98,9 +94,7 @@ export default function TablePagination({
             onClick={() => onPageChange(currentPage - 1)}
             className={cn(
               "p-2 rounded-md border disabled:opacity-30 disabled:cursor-not-allowed transition",
-              isLight
-                ? "border-cyan-500/40 hover:bg-cyan-100 text-cyan-900"
-                : "border-cyan-700/40 hover:bg-cyan-900/40 text-cyan-300",
+              "border-cyan-500/40 hover:bg-cyan-100 text-cyan-900 dark:border-cyan-700/40 dark:hover:bg-cyan-900/40 dark:text-cyan-300",
             )}
             aria-label="Halaman sebelumnya"
           >
@@ -109,7 +103,7 @@ export default function TablePagination({
           <span
             className={cn(
               "text-xs sm:text-sm font-bold whitespace-nowrap min-w-[7.5rem] text-center tabular-nums",
-              isLight ? "text-slate-950" : "text-cyan-200",
+              "text-slate-950 dark:text-cyan-200",
             )}
           >
             Halaman {currentPage} / {totalPages}
@@ -120,9 +114,7 @@ export default function TablePagination({
             onClick={() => onPageChange(currentPage + 1)}
             className={cn(
               "p-2 rounded-md border disabled:opacity-30 disabled:cursor-not-allowed transition",
-              isLight
-                ? "border-cyan-500/40 hover:bg-cyan-100 text-cyan-900"
-                : "border-cyan-700/40 hover:bg-cyan-900/40 text-cyan-300",
+              "border-cyan-500/40 hover:bg-cyan-100 text-cyan-900 dark:border-cyan-700/40 dark:hover:bg-cyan-900/40 dark:text-cyan-300",
             )}
             aria-label="Halaman berikutnya"
           >

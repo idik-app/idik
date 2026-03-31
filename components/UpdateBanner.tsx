@@ -12,7 +12,7 @@ export default function UpdateBanner() {
       <p className="font-semibold">🚀 Versi baru IDIK-App tersedia</p>
       <button
         onClick={updateApp}
-        className="mt-2 px-4 py-1 bg-gradient-to-r from-cyan-400 to-yellow-400 text-black font-bold rounded-lg shadow-md hover:scale-105 transition-transform"
+        className="mt-2 px-4 py-1 bg-gradient-to-r from-cyan-400 to-yellow-400 text-black dark:text-white font-bold rounded-lg shadow-md hover:scale-105 transition-transform"
       >
         Muat Ulang Sekarang
       </button>

@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 import { FIELD_LABELS } from "../bridge/wireframeDrawerTabs";
 import { DatetimeLocalPicker } from "@/components/ui/datetime-local-picker";
 import FastTrackPhotoDropzone from "./FastTrackPhotoDropzone";
@@ -92,7 +91,6 @@ export default function FastTrackBlock({
   fastTrackFotosValue,
   onSaved,
 }: Props) {
-  const isLight = useTindakanLightMode();
   const [igdDraft, setIgdDraft] = useState(() =>
     normalizeDatetimeLocalInput(draftFrom(pasienDatangValue)),
   );
@@ -222,9 +220,7 @@ export default function FastTrackBlock({
 
   const boxClass = cn(
     "rounded-md border px-2 py-1.5",
-    isLight
-      ? "border-cyan-200/80 bg-white shadow-sm"
-      : "border-cyan-900/25 bg-black/25",
+    "border-cyan-200/80 bg-white shadow-sm dark:border-cyan-900/25 dark:bg-black/25",
   );
 
   const canEdit = Boolean(tindakanId);
@@ -249,7 +245,7 @@ export default function FastTrackBlock({
             <dt
               className={cn(
                 "text-[10px] font-bold leading-tight",
-                isLight ? "text-slate-600" : "text-gray-500",
+                "text-slate-600 dark:text-white",
               )}
             >
               {FIELD_LABELS.pasien_datang_igd ?? "Waktu pasien tiba di IGD"}
@@ -258,7 +254,6 @@ export default function FastTrackBlock({
               {canEdit ? (
                 <DatetimeLocalPicker
                   appearance="drawer"
-                  isLight={isLight}
                   value={igdDraft}
                   onChange={(v) => {
                     setIgdDraft(v);
@@ -269,7 +264,7 @@ export default function FastTrackBlock({
                 <span
                   className={cn(
                     "text-[13px] font-semibold",
-                    isLight ? "text-slate-950" : "text-cyan-100/95",
+                    "text-slate-950 dark:text-white",
                   )}
                 >
                   {formatWaktuDisplay(draftFrom(pasienDatangValue))}
@@ -282,7 +277,7 @@ export default function FastTrackBlock({
             <dt
               className={cn(
                 "text-[10px] font-bold leading-tight",
-                isLight ? "text-slate-600" : "text-gray-500",
+                "text-slate-600 dark:text-white",
               )}
             >
               {FIELD_LABELS.door_to_balloon ?? "Waktu door-to-balloon (cathlab)"}
@@ -291,7 +286,6 @@ export default function FastTrackBlock({
               {canEdit ? (
                 <DatetimeLocalPicker
                   appearance="drawer"
-                  isLight={isLight}
                   value={d2bDraft}
                   onChange={(v) => {
                     setD2bDraft(v);
@@ -302,7 +296,7 @@ export default function FastTrackBlock({
                 <span
                   className={cn(
                     "text-[13px] font-semibold",
-                    isLight ? "text-slate-950" : "text-cyan-100/95",
+                    "text-slate-950 dark:text-white",
                   )}
                 >
                   {formatWaktuDisplay(draftFrom(doorToBalloonValue))}
@@ -315,7 +309,7 @@ export default function FastTrackBlock({
             <dt
               className={cn(
                 "text-[10px] font-bold leading-tight",
-                isLight ? "text-slate-600" : "text-gray-500",
+                "text-slate-600 dark:text-white",
               )}
             >
               {FIELD_LABELS.total_waktu_fast_track ?? "Total waktu"}
@@ -323,14 +317,14 @@ export default function FastTrackBlock({
             <dd
               className={cn(
                 "mt-0.5 text-[13px] font-semibold leading-snug break-words",
-                isLight ? "text-slate-950" : "text-cyan-100/95",
+                "text-slate-950 dark:text-white",
               )}
             >
               {invalidOrder ? (
                 <span
                   className={cn(
                     "font-semibold",
-                    isLight ? "text-amber-800" : "text-amber-200/95",
+                    "text-amber-800 dark:text-amber-200/95",
                   )}
                 >
                   Urutan waktu tidak valid (balloon sebelum tiba IGD)
@@ -342,7 +336,7 @@ export default function FastTrackBlock({
             <p
               className={cn(
                 "mt-1 text-[10px] font-medium leading-snug",
-                isLight ? "text-slate-500" : "text-gray-500",
+                "text-slate-500 dark:text-white/90",
               )}
             >
               Total dihitung otomatis: selisih menit dari waktu tiba IGD hingga
@@ -355,7 +349,6 @@ export default function FastTrackBlock({
           tindakanId={tindakanId}
           fotosValue={fastTrackFotosValue}
           canEdit={canEdit}
-          isLight={isLight}
           onSaved={onSaved}
         />
       </div>
@@ -364,9 +357,7 @@ export default function FastTrackBlock({
         <p
           className={cn(
             "rounded-md border border-dashed px-2 py-2 text-[11px] font-medium",
-            isLight
-              ? "border-amber-300/80 bg-amber-50/80 text-amber-950"
-              : "border-amber-700/40 bg-amber-950/20 text-amber-200/85",
+            "border-amber-300/80 bg-amber-50/80 text-amber-950 dark:border-amber-700/40 dark:bg-amber-950/20 dark:text-white",
           )}
         >
           Baris tanpa ID kasus — isian Fast-Track tidak dapat disimpan dari

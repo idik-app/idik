@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useCallback,
   ReactNode,
 } from "react";
 
@@ -41,13 +42,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  const toggleTheme = () => {
-    const newTheme: Theme = theme === "dark" ? "light" : "dark";
-    setTheme(newTheme);
-    document.documentElement.classList.remove("light", "dark");
-    document.documentElement.classList.add(newTheme);
-    localStorage.setItem("theme", newTheme);
-  };
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const newTheme: Theme = prev === "dark" ? "light" : "dark";
+
+      if (typeof document !== "undefined") {
+        document.documentElement.classList.remove("light", "dark");
+        document.documentElement.classList.add(newTheme);
+      }
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem("theme", newTheme);
+      }
+
+      return newTheme;
+    });
+  }, []);
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>

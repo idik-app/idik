@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";
 
-import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 import { emptyTindakanKpiStats } from "./hooks/useTindakanStats";
 import type { TindakanJoinResult } from "./bridge/mapping.types";
@@ -37,8 +36,6 @@ export default function TindakanDashboard() {
     },
     [],
   );
-  const { theme } = useTheme();
-  const isLight = theme === "light";
 
   const drawerOpen = Boolean(adapter.detailOpenId && adapter.selectedRecord);
 
@@ -52,19 +49,16 @@ export default function TindakanDashboard() {
       key="tindakan-dashboard"
       className={cn(
         "relative flex h-full min-h-0 flex-col overflow-hidden transition-colors duration-500",
-        isLight
-          ? "text-slate-900 font-semibold bg-gradient-to-br from-slate-100 via-white to-cyan-50/60"
-          : "text-white",
-        !isLight &&
-          (themeTone === "emerald"
-            ? "bg-gradient-to-br from-slate-950 via-black to-emerald-950"
-            : "bg-gradient-to-br from-slate-950 via-black to-cyan-950"),
+        "text-slate-900 font-semibold bg-gradient-to-br from-slate-100 via-white to-cyan-50/60 dark:text-white",
+        themeTone === "emerald"
+          ? "dark:bg-gradient-to-br dark:from-slate-950 dark:via-black dark:to-emerald-950"
+          : "dark:bg-gradient-to-br dark:from-slate-950 dark:via-black dark:to-cyan-950",
       )}
     >
       <header
         className={cn(
           "shrink-0 z-30 px-2 py-1 sm:px-2.5 sm:py-1.5 transition-colors duration-500",
-          isLight ? "bg-white/50" : "bg-black/35",
+          "bg-white/50 dark:bg-black/35",
         )}
       >
         <TindakanHeader
@@ -123,7 +117,6 @@ export default function TindakanDashboard() {
             : []
         }
         loading={Boolean(adapter.loading)}
-        isLight={isLight}
         themeTone={themeTone}
       />
     </div>

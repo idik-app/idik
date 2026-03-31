@@ -762,7 +762,7 @@ function BarangModal(props: {
             disabled={saving || !form.nama.trim()}
             className="px-4 py-1.5 rounded-full text-xs font-semibold
                        bg-gradient-to-r from-emerald-400 to-cyan-400
-                       text-black shadow-[0_0_18px_rgba(34,211,238,0.6)] hover:shadow-[0_0_22px_rgba(34,211,238,0.9)]
+                       text-black dark:text-white shadow-[0_0_18px_rgba(34,211,238,0.6)] hover:shadow-[0_0_22px_rgba(34,211,238,0.9)]
                        disabled:opacity-60"
           >
             {saving ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Simpan Obat'}
@@ -1349,7 +1349,7 @@ function AlkesModal(props: {
             disabled={saving || !form.nama.trim()}
             className="px-4 py-1.5 rounded-full text-xs font-semibold
                        bg-gradient-to-r from-emerald-400 to-cyan-400
-                       text-black shadow-[0_0_18px_rgba(34,211,238,0.6)] hover:shadow-[0_0_22px_rgba(34,211,238,0.9)]
+                       text-black dark:text-white shadow-[0_0_18px_rgba(34,211,238,0.6)] hover:shadow-[0_0_22px_rgba(34,211,238,0.9)]
                        disabled:opacity-60"
           >
             {saving ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Simpan Alkes'}
@@ -1751,7 +1751,7 @@ function DistributorModal(props: {
             disabled={saving || !form.namaPt.trim()}
             className="px-4 py-1.5 rounded-full text-xs font-semibold
                        bg-gradient-to-r from-emerald-400 to-cyan-400
-                       text-black shadow-[0_0_18px_rgba(34,211,238,0.6)] hover:shadow-[0_0_22px_rgba(34,211,238,0.9)]
+                       text-black dark:text-white shadow-[0_0_18px_rgba(34,211,238,0.6)] hover:shadow-[0_0_22px_rgba(34,211,238,0.9)]
                        disabled:opacity-60"
           >
             {saving ? 'Menyimpan...' : 'Simpan Distributor'}

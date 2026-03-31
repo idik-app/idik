@@ -56,7 +56,7 @@ export function ToolbarNotificationBell() {
         <Bell className="w-4 h-4 text-cyan-300" />
         {bellAlerts.length > 0 && (
           <span
-            className="absolute top-0 right-0 bg-amber-400 text-black text-[9px]
+              className="absolute top-0 right-0 bg-amber-400 text-black dark:text-white text-[9px]
                            font-bold rounded-full px-1 min-w-[14px] text-center"
           >
             {bellAlerts.length > 99 ? "99+" : bellAlerts.length}

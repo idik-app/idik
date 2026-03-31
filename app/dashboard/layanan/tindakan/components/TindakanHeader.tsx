@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { useState } from "react";
 import { BarChart3, ChevronLeft, Sparkles } from "lucide-react";
-import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 import { cn } from "@/lib/utils";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import TindakanDashboardModal from "./TindakanDashboardModal";
@@ -26,7 +25,6 @@ export default function TindakanHeader({
   dashboardRows?: readonly TindakanJoinResult[];
   dashboardLoading?: boolean;
 }) {
-  const isLight = useTindakanLightMode();
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const rows = dashboardRows ?? [];
   const loadingDash = Boolean(dashboardLoading);
@@ -42,13 +40,9 @@ export default function TindakanHeader({
     <div
       className={cn(
         "rounded-lg px-2 py-1.5 sm:px-2.5 sm:py-2 transition-colors duration-500",
-        isLight
-          ? themeTone === "emerald"
-            ? "bg-gradient-to-br from-white via-emerald-50/40 to-white"
-            : "bg-gradient-to-br from-white via-cyan-50/35 to-white"
-          : themeTone === "emerald"
-            ? "bg-gradient-to-br from-emerald-950/35 via-black/50 to-slate-950/50"
-            : "bg-gradient-to-br from-cyan-950/35 via-black/50 to-slate-950/50",
+        themeTone === "emerald"
+          ? "bg-gradient-to-br from-white via-emerald-50/40 to-white dark:bg-gradient-to-br dark:from-black dark:via-black dark:to-black"
+          : "bg-gradient-to-br from-white via-cyan-50/35 to-white dark:bg-gradient-to-br dark:from-black dark:via-black dark:to-black",
       )}
     >
       <div className="space-y-1 sm:space-y-1.5">
@@ -56,16 +50,12 @@ export default function TindakanHeader({
           href="/dashboard/perawat"
           className={cn(
             "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold transition-colors",
-            isLight
-              ? themeTone === "emerald"
-                ? "border-emerald-500/40 bg-emerald-100/80 text-emerald-900 hover:border-emerald-600/60"
-                : "border-cyan-500/40 bg-cyan-100/80 text-cyan-900 hover:border-cyan-600/60"
-              : themeTone === "emerald"
-                ? "border-emerald-800/55 bg-emerald-950/35 text-emerald-300/85 hover:border-emerald-600/70 hover:text-emerald-200"
-                : "border-cyan-800/55 bg-cyan-950/35 text-cyan-300/85 hover:border-cyan-600/70 hover:text-cyan-200",
+            themeTone === "emerald"
+              ? "border-emerald-500/40 bg-emerald-100/80 text-emerald-900 hover:border-emerald-600/60 dark:border-emerald-700/50 dark:bg-black dark:text-white dark:hover:border-emerald-500/55 dark:hover:text-white"
+              : "border-cyan-500/40 bg-cyan-100/80 text-cyan-900 hover:border-cyan-600/60 dark:border-cyan-700/50 dark:bg-black dark:text-white dark:hover:border-cyan-500/55 dark:hover:text-white",
           )}
         >
-          <ChevronLeft size={14} />
+          <ChevronLeft size={14} className="shrink-0 opacity-90 dark:opacity-100" />
           Beranda Perawat
         </Link>
         <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:justify-between min-w-0">
@@ -82,43 +72,29 @@ export default function TindakanHeader({
               onClick={() => setDashboardOpen(true)}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-bold transition",
-                isLight
-                  ? themeTone === "emerald"
-                    ? "border-emerald-500/45 bg-emerald-100/90 text-emerald-900 hover:border-emerald-600/55"
-                    : "border-cyan-500/45 bg-cyan-100/90 text-cyan-900 hover:border-cyan-600/55"
-                  : themeTone === "emerald"
-                    ? "border-emerald-700/50 bg-emerald-950/40 text-emerald-100 hover:border-emerald-500/55"
-                    : "border-cyan-700/50 bg-cyan-950/40 text-cyan-100 hover:border-cyan-500/55",
+                themeTone === "emerald"
+                  ? "border-emerald-500/45 bg-emerald-100/90 text-emerald-900 hover:border-emerald-600/55 dark:border-emerald-700/50 dark:bg-black dark:text-white dark:hover:border-emerald-500/55"
+                  : "border-cyan-500/45 bg-cyan-100/90 text-cyan-900 hover:border-cyan-600/55 dark:border-cyan-700/50 dark:bg-black dark:text-white dark:hover:border-cyan-500/55",
               )}
             >
-              <BarChart3 className="h-4 w-4 shrink-0" />
+              <BarChart3 className="h-4 w-4 shrink-0 opacity-95 dark:opacity-100" />
               Dashboard
             </button>
             <div
               className={cn(
                 "inline-flex items-center gap-1 rounded-xl border p-1",
-                isLight
-                  ? themeTone === "emerald"
-                    ? "border-emerald-400/45 bg-emerald-50/90"
-                    : "border-cyan-400/45 bg-cyan-50/90"
-                  : "bg-black/30",
-                !isLight &&
-                  (themeTone === "emerald"
-                    ? "border-emerald-800/45"
-                    : "border-cyan-800/45"),
+                themeTone === "emerald"
+                  ? "border-emerald-400/45 bg-emerald-50/90 dark:border-emerald-700/45 dark:bg-black"
+                  : "border-cyan-400/45 bg-cyan-50/90 dark:border-cyan-700/45 dark:bg-black",
               )}
             >
               <button
                 type="button"
                 className={cn(
                   "rounded-lg px-2.5 py-1 text-xs font-bold transition",
-                  isLight
-                    ? themeTone === "cyan"
-                      ? "bg-cyan-200/90 text-cyan-950"
-                      : "text-cyan-800/80 hover:text-cyan-950"
-                    : themeTone === "cyan"
-                      ? "bg-cyan-500/25 text-cyan-100"
-                      : "text-cyan-200/70 hover:text-cyan-100",
+                  themeTone === "cyan"
+                    ? "bg-cyan-200/90 text-cyan-950 dark:bg-cyan-500/30 dark:text-white"
+                    : "text-cyan-800/80 hover:text-cyan-950 dark:text-white/80 dark:hover:text-white",
                 )}
                 onClick={() => onThemeToneChange("cyan")}
               >
@@ -128,13 +104,9 @@ export default function TindakanHeader({
                 type="button"
                 className={cn(
                   "rounded-lg px-2.5 py-1 text-xs font-bold transition",
-                  isLight
-                    ? themeTone === "emerald"
-                      ? "bg-emerald-200/90 text-emerald-950"
-                      : "text-emerald-800/80 hover:text-emerald-950"
-                    : themeTone === "emerald"
-                      ? "bg-emerald-500/25 text-emerald-100"
-                      : "text-emerald-200/70 hover:text-emerald-100",
+                  themeTone === "emerald"
+                    ? "bg-emerald-200/90 text-emerald-950 dark:bg-emerald-500/30 dark:text-white"
+                    : "text-emerald-800/80 hover:text-emerald-950 dark:text-white/80 dark:hover:text-white",
                 )}
                 onClick={() => onThemeToneChange("emerald")}
               >
@@ -144,39 +116,25 @@ export default function TindakanHeader({
             <div
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5",
-                isLight
-                  ? themeTone === "emerald"
-                    ? "border-emerald-400/45 bg-white/80"
-                    : "border-cyan-400/45 bg-white/80"
-                  : "bg-black/35",
-                !isLight &&
-                  (themeTone === "emerald"
-                    ? "border-emerald-800/45"
-                    : "border-cyan-800/45"),
+                themeTone === "emerald"
+                  ? "border-emerald-400/45 bg-white/80 dark:border-emerald-700/45 dark:bg-black"
+                  : "border-cyan-400/45 bg-white/80 dark:border-cyan-700/45 dark:bg-black",
               )}
             >
               <Sparkles
                 className={cn(
-                  "h-4 w-4",
-                  isLight
-                    ? themeTone === "emerald"
-                      ? "text-emerald-700"
-                      : "text-cyan-700"
-                    : themeTone === "emerald"
-                      ? "text-emerald-300"
-                      : "text-cyan-300",
+                  "h-4 w-4 shrink-0",
+                  themeTone === "emerald"
+                    ? "text-emerald-700 dark:text-white"
+                    : "text-cyan-700 dark:text-white",
                 )}
               />
               <span
                 className={cn(
                   "text-[10px] sm:text-xs font-semibold min-w-0 max-w-full sm:max-w-[20rem] md:max-w-none truncate",
-                  isLight
-                    ? themeTone === "emerald"
-                      ? "text-emerald-900/90"
-                      : "text-cyan-900/90"
-                    : themeTone === "emerald"
-                      ? "text-emerald-100/85"
-                      : "text-cyan-100/85",
+                  themeTone === "emerald"
+                    ? "text-emerald-900/90 dark:text-white"
+                    : "text-cyan-900/90 dark:text-white",
                 )}
                 title={now}
               >
@@ -192,7 +150,6 @@ export default function TindakanHeader({
         onOpenChange={setDashboardOpen}
         rows={rows}
         loading={loadingDash}
-        isLight={isLight}
         themeTone={themeTone}
       />
     </div>

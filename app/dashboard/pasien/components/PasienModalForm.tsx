@@ -41,7 +41,7 @@ export default function PasienModalForm({
     alamat: "",
     noHP: "",
     jenisPembiayaan: "BPJS",
-    kelasPerawatan: "Kelas 2",
+    kelasPerawatan: "Kelas 3",
     asuransi: "",
   });
 
@@ -62,12 +62,19 @@ export default function PasienModalForm({
         alamat: "",
         noHP: "",
         jenisPembiayaan: "BPJS",
-        kelasPerawatan: "Kelas 2",
+        kelasPerawatan: "Kelas 3",
         asuransi: "",
       });
       return;
     }
     if (mode !== "edit" || !editPatientId || !selectedPatient) return;
+    const jenisPembiayaanRaw = String(selectedPatient.jenisPembiayaan ?? "");
+    const jenisPembiayaan: Pasien["jenisPembiayaan"] =
+      jenisPembiayaanRaw === "BPJS-PBI"
+        ? "BPJS"
+        : (selectedPatient.jenisPembiayaan as Pasien["jenisPembiayaan"]);
+    const kelasPerawatan =
+      jenisPembiayaan === "BPJS" ? "Kelas 3" : selectedPatient.kelasPerawatan;
     setFormData({
       noRM: selectedPatient.noRM,
       nama: normalizeNamaPasien(selectedPatient.nama ?? ""),
@@ -75,8 +82,8 @@ export default function PasienModalForm({
       tanggalLahir: formatTanggalLahirFromDb(selectedPatient.tanggalLahir),
       alamat: selectedPatient.alamat || "",
       noHP: selectedPatient.noHP || "",
-      jenisPembiayaan: selectedPatient.jenisPembiayaan,
-      kelasPerawatan: selectedPatient.kelasPerawatan,
+      jenisPembiayaan,
+      kelasPerawatan,
       asuransi: selectedPatient.asuransi || "",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- lihat komentar di atas
@@ -106,6 +113,21 @@ export default function PasienModalForm({
           : name === "nama"
           ? normalizeNamaPasienInput(value)
           : value;
+
+      // Paksa kelas perawatan ketika pembiayaan BPJS (label: BPJS-PBI)
+      if (name === "jenisPembiayaan") {
+        const jenisPembiayaan = nextVal as Pasien["jenisPembiayaan"];
+        return {
+          ...p,
+          jenisPembiayaan,
+          kelasPerawatan: jenisPembiayaan === "BPJS" ? "Kelas 3" : p.kelasPerawatan,
+        };
+      }
+
+      if (name === "kelasPerawatan" && p.jenisPembiayaan === "BPJS") {
+        return { ...p, kelasPerawatan: "Kelas 3" };
+      }
+
       const patch: Partial<Omit<Pasien, "id">> = {
         [name]: nextVal,
       } as Partial<Omit<Pasien, "id">>;
@@ -246,7 +268,7 @@ export default function PasienModalForm({
                   onChange={handleChange}
                   className="mt-1 w-full rounded-lg border border-cyan-600/50 bg-black/30 px-2.5 py-1.5 text-sm focus:border-yellow-400 focus:outline-none sm:px-3 sm:py-2 sm:text-base"
                 >
-                  <option value="BPJS">BPJS</option>
+                  <option value="BPJS">BPJS-PBI</option>
                   <option value="NPBI">NPBI</option>
                   <option value="Umum">Umum</option>
                   <option value="Asuransi">Asuransi</option>

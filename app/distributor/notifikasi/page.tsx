@@ -200,7 +200,7 @@ function DistributorNotifikasiPageContent() {
         <button
           onClick={save}
           disabled={saving}
-          className="px-4 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-emerald-400 to-cyan-400 text-black disabled:opacity-60"
+          className="px-4 py-2 rounded-full text-[12px] font-semibold bg-gradient-to-r from-emerald-400 to-cyan-400 text-black dark:text-white disabled:opacity-60"
         >
           {saving ? "Menyimpan..." : "Simpan"}
         </button>

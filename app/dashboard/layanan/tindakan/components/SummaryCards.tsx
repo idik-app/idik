@@ -19,10 +19,10 @@ export default function SummaryCards() {
           transition={{ delay: i * 0.1 }}
           className="rounded-2xl border border-cyan-900/50 bg-black/30 backdrop-blur-md p-4 sm:p-5 md:p-6 text-center shadow-inner shadow-cyan-900/20 hover:shadow-cyan-500/20 hover:border-cyan-500/40 transition-all duration-300 min-w-0"
         >
-          <div className="text-cyan-400 text-sm sm:text-base md:text-lg font-semibold">
+          <div className="text-white/90 text-sm sm:text-base md:text-lg font-semibold">
             {card.label}
           </div>
-          <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-cyan-300 mt-1 sm:mt-2 tabular-nums">
+          <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mt-1 sm:mt-2 tabular-nums">
             {card.value}
           </div>
         </motion.div>

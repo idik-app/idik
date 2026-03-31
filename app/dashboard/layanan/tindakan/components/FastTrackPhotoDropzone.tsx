@@ -44,7 +44,6 @@ type Props = {
   tindakanId: string;
   fotosValue: unknown;
   canEdit: boolean;
-  isLight: boolean;
   onSaved?: () => void;
 };
 
@@ -52,7 +51,6 @@ export default function FastTrackPhotoDropzone({
   tindakanId,
   fotosValue,
   canEdit,
-  isLight,
   onSaved,
 }: Props) {
   const [urls, setUrls] = useState<string[]>(() => parseFotosUrls(fotosValue));
@@ -176,15 +174,9 @@ export default function FastTrackPhotoDropzone({
     hasPhotos ? "min-h-[13rem] overflow-hidden p-1" : "min-h-[11rem] px-3 py-4",
     canEdit && !uploading
       ? dragOver
-        ? isLight
-          ? "border-cyan-500 bg-cyan-50/80"
-          : "border-cyan-400 bg-cyan-950/30"
-        : isLight
-          ? "border-cyan-300/70 bg-white/80 hover:border-cyan-400/80"
-          : "border-cyan-800/50 bg-black/20 hover:border-cyan-600/50"
-      : isLight
-        ? "border-slate-200 bg-slate-50/50"
-        : "border-cyan-900/40 bg-black/15",
+        ? "border-cyan-500 bg-cyan-50/80 dark:border-cyan-400 dark:bg-cyan-950/30"
+        : "border-cyan-300/70 bg-white/80 hover:border-cyan-400/80 dark:border-cyan-800/50 dark:bg-black/20 dark:hover:border-cyan-600/50"
+      : "border-slate-200 bg-slate-50/50 dark:border-cyan-900/40 dark:bg-black/15",
   );
 
   return (
@@ -192,7 +184,7 @@ export default function FastTrackPhotoDropzone({
       <p
         className={cn(
           "text-[10px] font-bold uppercase tracking-wider",
-          isLight ? "text-slate-600" : "text-gray-500",
+          "text-slate-600 dark:text-white",
         )}
       >
         Foto dokumentasi
@@ -223,20 +215,20 @@ export default function FastTrackPhotoDropzone({
               "flex min-h-[10rem] flex-1 flex-col items-center justify-center gap-2",
               hasPhotos && "absolute inset-0 z-20 rounded-md",
               hasPhotos &&
-                (isLight ? "bg-white/85" : "bg-black/75 backdrop-blur-[2px]"),
+                "bg-white/85 dark:bg-black/75 dark:backdrop-blur-[2px]",
             )}
           >
             <Loader2
               className={cn(
                 "h-8 w-8 animate-spin",
-                isLight ? "text-cyan-600" : "text-cyan-400",
+                "text-cyan-600 dark:text-white",
               )}
               aria-hidden
             />
             <span
               className={cn(
                 "text-[10px] font-semibold",
-                isLight ? "text-slate-700" : "text-cyan-100/90",
+                "text-slate-700 dark:text-white",
               )}
             >
               Mengompresi & mengunggah…
@@ -287,9 +279,7 @@ export default function FastTrackPhotoDropzone({
                     className={cn(
                       "absolute left-1 top-1 z-30 flex h-7 w-7 items-center justify-center rounded-md border shadow-md transition-opacity",
                       "opacity-95 hover:opacity-100 disabled:opacity-40",
-                      isLight
-                        ? "border-cyan-300/80 bg-white/95 text-cyan-800 hover:bg-cyan-50"
-                        : "border-cyan-600/50 bg-black/80 text-cyan-200 hover:bg-cyan-950/90",
+                    "border-cyan-300/80 bg-white/95 text-cyan-800 hover:bg-cyan-50 dark:border-cyan-600/50 dark:bg-black/80 dark:text-white dark:hover:bg-cyan-950/90",
                     )}
                   >
                     <Eye className="h-3.5 w-3.5" />
@@ -307,9 +297,7 @@ export default function FastTrackPhotoDropzone({
                       className={cn(
                         "absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-md border shadow-md transition-opacity",
                         "opacity-95 hover:opacity-100 disabled:opacity-40",
-                        isLight
-                          ? "border-red-200 bg-white/95 text-red-700"
-                          : "border-red-900/60 bg-black/80 text-red-300",
+                        "border-red-200 bg-white/95 text-red-700 dark:border-red-900/60 dark:bg-black/80 dark:text-red-300",
                       )}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -323,15 +311,13 @@ export default function FastTrackPhotoDropzone({
               <div
                 className={cn(
                   "pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-1.5 bg-gradient-to-t px-2 pb-2 pt-10",
-                  isLight
-                    ? "from-white via-white/95 to-transparent"
-                    : "from-black/90 via-black/70 to-transparent",
+                  "from-white via-white/95 to-transparent dark:from-black/90 dark:via-black/70 dark:to-transparent",
                 )}
               >
                 <p
                   className={cn(
                     "pointer-events-none text-[10px] font-semibold",
-                    isLight ? "text-slate-700" : "text-cyan-100/95",
+                    "text-slate-700 dark:text-white",
                   )}
                 >
                   Seret lagi untuk menambah · atau
@@ -341,9 +327,7 @@ export default function FastTrackPhotoDropzone({
                   onClick={() => inputRef.current?.click()}
                   className={cn(
                     "pointer-events-auto rounded-md border px-2.5 py-1 text-[10px] font-bold transition-colors",
-                    isLight
-                      ? "border-cyan-500/45 bg-white text-cyan-900 shadow-sm hover:bg-cyan-50"
-                      : "border-cyan-500/40 bg-cyan-950/90 text-cyan-100 hover:bg-cyan-900/90",
+                    "border-cyan-500/45 bg-white text-cyan-900 shadow-sm hover:bg-cyan-50 dark:border-cyan-500/40 dark:bg-cyan-950/90 dark:text-white dark:hover:bg-cyan-900/90",
                   )}
                 >
                   Pilih file
@@ -351,7 +335,7 @@ export default function FastTrackPhotoDropzone({
                 <p
                   className={cn(
                     "pointer-events-none text-[9px] font-medium",
-                    isLight ? "text-slate-500" : "text-gray-400",
+                    "text-slate-500 dark:text-white/90",
                   )}
                 >
                   Maks. 500 KB/foto (JPEG otomatis)
@@ -364,14 +348,14 @@ export default function FastTrackPhotoDropzone({
             <ImagePlus
               className={cn(
                 "h-8 w-8",
-                isLight ? "text-cyan-600/80" : "text-cyan-500/70",
+                "text-cyan-600/80 dark:text-white",
               )}
               aria-hidden
             />
             <p
               className={cn(
                 "text-[11px] font-semibold leading-snug",
-                isLight ? "text-slate-800" : "text-cyan-100/90",
+                "text-slate-800 dark:text-cyan-100/90",
               )}
             >
               {canEdit
@@ -381,7 +365,7 @@ export default function FastTrackPhotoDropzone({
             <p
               className={cn(
                 "text-[10px] font-medium",
-                isLight ? "text-slate-500" : "text-gray-500",
+                "text-slate-500 dark:text-white/90",
               )}
             >
               Otomatis dikompresi maks. 500 KB (JPEG) · seret JPG/PNG/WEBP/GIF
@@ -393,9 +377,7 @@ export default function FastTrackPhotoDropzone({
                 onClick={() => inputRef.current?.click()}
                 className={cn(
                   "mt-1 rounded-md border px-2.5 py-1 text-[10px] font-bold transition-colors disabled:opacity-50",
-                  isLight
-                    ? "border-cyan-500/40 bg-cyan-50 text-cyan-900 hover:bg-cyan-100"
-                    : "border-cyan-500/35 bg-cyan-950/40 text-cyan-200 hover:bg-cyan-900/40",
+                  "border-cyan-500/40 bg-cyan-50 text-cyan-900 hover:bg-cyan-100 dark:border-cyan-500/35 dark:bg-cyan-950/40 dark:text-cyan-200 dark:hover:bg-cyan-900/40",
                 )}
               >
                 Pilih file
@@ -423,9 +405,7 @@ export default function FastTrackPhotoDropzone({
         <p
           className={cn(
             "rounded-md border px-2 py-1.5 text-[10px] font-semibold",
-            isLight
-              ? "border-red-300 bg-red-50 text-red-900"
-              : "border-red-800/50 bg-red-950/30 text-red-200",
+            "border-red-300 bg-red-50 text-red-900 dark:border-red-800/50 dark:bg-red-950/30 dark:text-red-200",
           )}
           role="alert"
         >
@@ -446,16 +426,14 @@ export default function FastTrackPhotoDropzone({
           overlayClassName="!z-[10000]"
           className={cn(
             "!z-[10001] !max-h-[min(92dvh,760px)] !w-[min(96vw,900px)] !max-w-[min(96vw,900px)] !translate-x-[-50%] !translate-y-[-50%] gap-0 overflow-hidden p-0",
-            isLight
-              ? "!border-cyan-400/50 !bg-white !text-slate-900"
-              : "!border-cyan-500/40 !bg-zinc-950 !text-cyan-100",
+          "!border-cyan-400/50 !bg-white !text-slate-900 dark:!border-cyan-500/40 dark:!bg-zinc-950 dark:!text-white",
           )}
         >
           <DialogTitle className="sr-only">Pratinjau foto dokumentasi</DialogTitle>
           <div
             className={cn(
               "flex items-center justify-between gap-2 border-b px-3 py-2",
-              isLight ? "border-cyan-200/80 bg-slate-50" : "border-cyan-900/50 bg-black/50",
+            "border-cyan-200/80 bg-slate-50 dark:border-cyan-900/50 dark:bg-black/50",
             )}
           >
             <span className="text-xs font-bold">Pratinjau</span>
@@ -469,9 +447,7 @@ export default function FastTrackPhotoDropzone({
                 }
                 className={cn(
                   "inline-flex h-8 w-8 items-center justify-center rounded-md border text-sm font-bold transition-colors",
-                  isLight
-                    ? "border-cyan-400/50 bg-white hover:bg-cyan-50"
-                    : "border-cyan-700/50 bg-black/40 hover:bg-cyan-950/60",
+                  "border-cyan-400/50 bg-white hover:bg-cyan-50 dark:border-cyan-700/50 dark:bg-black/40 dark:hover:bg-cyan-950/60",
                 )}
               >
                 <ZoomOut className="h-4 w-4" />
@@ -479,7 +455,7 @@ export default function FastTrackPhotoDropzone({
               <span
                 className={cn(
                   "min-w-[3.25rem] text-center font-mono text-[11px] font-semibold tabular-nums",
-                  isLight ? "text-slate-600" : "text-cyan-300/90",
+                  "text-slate-600 dark:text-cyan-300/90",
                 )}
               >
                 {Math.round(zoom * 100)}%
@@ -493,9 +469,7 @@ export default function FastTrackPhotoDropzone({
                 }
                 className={cn(
                   "inline-flex h-8 w-8 items-center justify-center rounded-md border text-sm font-bold transition-colors",
-                  isLight
-                    ? "border-cyan-400/50 bg-white hover:bg-cyan-50"
-                    : "border-cyan-700/50 bg-black/40 hover:bg-cyan-950/60",
+                  "border-cyan-400/50 bg-white hover:bg-cyan-50 dark:border-cyan-700/50 dark:bg-black/40 dark:hover:bg-cyan-950/60",
                 )}
               >
                 <ZoomIn className="h-4 w-4" />
@@ -507,9 +481,7 @@ export default function FastTrackPhotoDropzone({
                 onClick={() => setZoom(1)}
                 className={cn(
                   "inline-flex h-8 w-8 items-center justify-center rounded-md border transition-colors",
-                  isLight
-                    ? "border-cyan-400/50 bg-white hover:bg-cyan-50"
-                    : "border-cyan-700/50 bg-black/40 hover:bg-cyan-950/60",
+                  "border-cyan-400/50 bg-white hover:bg-cyan-50 dark:border-cyan-700/50 dark:bg-black/40 dark:hover:bg-cyan-950/60",
                 )}
               >
                 <RotateCcw className="h-4 w-4" aria-hidden />
@@ -524,9 +496,7 @@ export default function FastTrackPhotoDropzone({
                 }}
                 className={cn(
                   "inline-flex h-8 w-8 items-center justify-center rounded-md border transition-colors",
-                  isLight
-                    ? "border-slate-300/80 bg-white text-slate-800 hover:bg-slate-100"
-                    : "border-cyan-800/50 bg-black/50 text-cyan-200 hover:bg-cyan-950/70",
+                  "border-slate-300/80 bg-white text-slate-800 hover:bg-slate-100 dark:border-cyan-800/50 dark:bg-black/50 dark:text-white dark:hover:bg-cyan-950/70",
                 )}
               >
                 <X className="h-4 w-4" aria-hidden />
@@ -536,7 +506,7 @@ export default function FastTrackPhotoDropzone({
           <div
             className={cn(
               "max-h-[min(78dvh,640px)] w-full overflow-auto overscroll-contain",
-              isLight ? "bg-slate-100/90" : "bg-black/80",
+            "bg-slate-100/90 dark:bg-black/80",
             )}
           >
             {previewUrl ? (

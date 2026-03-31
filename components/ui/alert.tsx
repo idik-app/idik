@@ -27,7 +27,8 @@ export function Alert({
   const Icon = variantIcons[variant] || Info;
 
   const variantClasses = {
-    default: "border-gray-300 text-gray-800 bg-gray-50 dark:bg-gray-900",
+    default:
+      "border-gray-300 text-gray-800 bg-gray-50 dark:bg-gray-900 dark:text-[hsl(var(--foreground))]",
     success: "border-green-400 text-green-800 bg-green-50 dark:bg-green-950",
     error: "border-red-400 text-red-800 bg-red-50 dark:bg-red-950",
     warning:

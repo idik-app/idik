@@ -4,7 +4,6 @@ import type { CSSProperties } from "react";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { useTabs } from "@/app/contexts/TabContext";
-import { useTheme } from "@/contexts/ThemeContext";
 import { useUI } from "@/contexts/UIContext";
 import { cn } from "@/lib/utils";
 
@@ -25,10 +24,8 @@ const BottomNav = dynamic(() => import("@/components/BottomNav"), {
 });
 
 export default function LayoutMain() {
-  const { theme } = useTheme();
   const { activeTab } = useTabs();
   const { uiZoomPercent } = useUI();
-  const isLight = theme === "light";
   /** Tab tindakan: tanpa kartu ganda (blur/border/shadow) supaya tabel memakai penuh area. */
   const flushContent = activeTab === "tindakan";
 
@@ -64,9 +61,7 @@ export default function LayoutMain() {
               ? "rounded-none border-0 bg-transparent p-0 shadow-none"
               : cn(
                   "rounded-2xl border p-1 md:p-2",
-                  isLight
-                    ? "border-cyan-600/20 bg-gradient-to-br from-white/95 via-slate-50/90 to-cyan-50/50 shadow-[0_4px_24px_rgba(0,100,120,0.06)]"
-                    : "border-cyan-500/12 bg-gradient-to-br from-cyan-900/20 via-black/60 to-black/80 shadow-[0_0_14px_rgba(0,255,255,0.08)]",
+                  "border-cyan-600/20 bg-gradient-to-br from-white/95 via-slate-50/90 to-cyan-50/50 shadow-[0_4px_24px_rgba(0,100,120,0.06)] dark:border-cyan-500/12 dark:bg-gradient-to-br dark:from-cyan-900/20 dark:via-black/60 dark:to-black/80 dark:shadow-[0_0_14px_rgba(0,255,255,0.08)]",
                 ),
           )}
         >

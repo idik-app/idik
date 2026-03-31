@@ -10,7 +10,6 @@ import {
   Venus,
   Users,
 } from "lucide-react";
-import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 import { cn } from "@/lib/utils";
 
 export type TindakanFilteredSummary = {
@@ -47,114 +46,67 @@ type SummaryItem = {
 function pickItemStyle(
   label: string,
   themeTone: "cyan" | "emerald",
-  isLight: boolean,
 ): Omit<SummaryItem, "label" | "value" | "filterLines"> {
   const key = label.toLowerCase();
   if (key.includes("hasil")) {
-    if (isLight) {
-      return {
-        icon: Filter,
-        tone: "from-amber-50/95 to-white border-amber-300/50",
-        iconWrap: "border-amber-400/45 bg-amber-100/90 text-amber-900",
-      };
-    }
     return {
       icon: Filter,
-      tone: "from-amber-950/45 to-black/20 border-amber-800/40",
-      iconWrap: "border-amber-700/35 bg-amber-950/40 text-amber-200/90",
+      tone:
+        "from-amber-50/95 to-white border-amber-300/50 dark:from-black dark:to-black dark:border-amber-800/40",
+      iconWrap:
+        "border-amber-400/45 bg-amber-100/90 text-amber-900 dark:border-amber-700/50 dark:bg-black dark:text-amber-200/90",
     };
   }
   if (key.includes("hari")) {
-    if (isLight) {
-      return {
-        icon: CalendarDays,
-        tone:
-          themeTone === "emerald"
-            ? "from-emerald-50/95 to-white border-emerald-300/55"
-            : "from-cyan-50/95 to-white border-cyan-300/55",
-        iconWrap:
-          themeTone === "emerald"
-            ? "border-emerald-400/45 bg-emerald-100/90 text-emerald-800"
-            : "border-cyan-400/45 bg-cyan-100/90 text-cyan-800",
-      };
-    }
     return {
       icon: CalendarDays,
       tone:
         themeTone === "emerald"
-          ? "from-emerald-950/50 to-black/20 border-emerald-800/40"
-          : "from-cyan-950/50 to-black/20 border-cyan-800/40",
+          ? "from-emerald-50/95 to-white border-emerald-300/55 dark:from-black dark:to-black dark:border-emerald-800/40"
+          : "from-cyan-50/95 to-white border-cyan-300/55 dark:from-black dark:to-black dark:border-cyan-800/40",
       iconWrap:
         themeTone === "emerald"
-          ? "border-emerald-700/35 bg-emerald-950/40 text-emerald-300/90"
-          : "border-cyan-700/35 bg-cyan-950/40 text-cyan-300/90",
+          ? "border-emerald-400/45 bg-emerald-100/90 text-emerald-800 dark:border-emerald-700/50 dark:bg-black dark:text-emerald-300/90"
+          : "border-cyan-400/45 bg-cyan-100/90 text-cyan-800 dark:border-cyan-700/50 dark:bg-black dark:text-cyan-300/90",
     };
   }
   if (key.includes("pasien")) {
-    if (isLight) {
-      return {
-        icon: Users,
-        tone: "from-sky-50/95 to-white border-sky-300/50",
-        iconWrap: "border-sky-400/45 bg-sky-100/90 text-sky-900",
-      };
-    }
     return {
       icon: Users,
-      tone: "from-sky-950/40 to-black/20 border-sky-800/35",
-      iconWrap: "border-sky-700/35 bg-sky-950/35 text-sky-200/90",
+      tone:
+        "from-sky-50/95 to-white border-sky-300/50 dark:from-black dark:to-black dark:border-sky-800/35",
+      iconWrap:
+        "border-sky-400/45 bg-sky-100/90 text-sky-900 dark:border-sky-700/50 dark:bg-black dark:text-sky-200/90",
     };
   }
   if (key.includes("dokter")) {
-    if (isLight) {
-      return {
-        icon: Stethoscope,
-        tone: "from-indigo-50/95 to-white border-indigo-300/50",
-        iconWrap: "border-indigo-400/45 bg-indigo-100/90 text-indigo-900",
-      };
-    }
     return {
       icon: Stethoscope,
-      tone: "from-indigo-950/40 to-black/20 border-indigo-800/35",
-      iconWrap: "border-indigo-700/35 bg-indigo-950/35 text-indigo-200/90",
+      tone:
+        "from-indigo-50/95 to-white border-indigo-300/50 dark:from-black dark:to-black dark:border-indigo-800/35",
+      iconWrap:
+        "border-indigo-400/45 bg-indigo-100/90 text-indigo-900 dark:border-indigo-700/50 dark:bg-black dark:text-indigo-200/90",
     };
   }
   if (key.includes("tindakan") && !key.includes("hari")) {
-    if (isLight) {
-      return {
-        icon: Syringe,
-        tone: "from-rose-50/95 to-white border-rose-300/50",
-        iconWrap: "border-rose-400/45 bg-rose-100/90 text-rose-800",
-      };
-    }
     return {
       icon: Syringe,
-      tone: "from-rose-950/40 to-black/20 border-rose-800/35",
-      iconWrap: "border-rose-700/35 bg-rose-950/35 text-rose-200/90",
-    };
-  }
-  if (isLight) {
-    return {
-      icon: Activity,
       tone:
-        themeTone === "emerald"
-          ? "from-emerald-50/95 to-white border-emerald-300/55"
-          : "from-cyan-50/95 to-white border-cyan-300/55",
+        "from-rose-50/95 to-white border-rose-300/50 dark:from-black dark:to-black dark:border-rose-800/35",
       iconWrap:
-        themeTone === "emerald"
-          ? "border-emerald-400/45 bg-emerald-100/90 text-emerald-800"
-          : "border-cyan-400/45 bg-cyan-100/90 text-cyan-800",
+        "border-rose-400/45 bg-rose-100/90 text-rose-800 dark:border-rose-700/50 dark:bg-black dark:text-rose-200/90",
     };
   }
   return {
     icon: Activity,
     tone:
       themeTone === "emerald"
-        ? "from-emerald-950/50 to-black/20 border-emerald-800/40"
-        : "from-cyan-950/50 to-black/20 border-cyan-800/40",
+        ? "from-emerald-50/95 to-white border-emerald-300/55 dark:from-black dark:to-black dark:border-emerald-800/40"
+        : "from-cyan-50/95 to-white border-cyan-300/55 dark:from-black dark:to-black dark:border-cyan-800/40",
     iconWrap:
       themeTone === "emerald"
-        ? "border-emerald-700/35 bg-emerald-950/40 text-emerald-300/90"
-        : "border-cyan-700/35 bg-cyan-950/40 text-cyan-300/90",
+        ? "border-emerald-400/45 bg-emerald-100/90 text-emerald-800 dark:border-emerald-700/50 dark:bg-black dark:text-emerald-300/90"
+        : "border-cyan-400/45 bg-cyan-100/90 text-cyan-800 dark:border-cyan-700/50 dark:bg-black dark:text-cyan-300/90",
   };
 }
 
@@ -173,6 +125,15 @@ function sortStatEntries(entries: [string, number][]): [string, number][] {
   });
 }
 
+function extractTextAccentClass(iconWrap: string): string {
+  // Ambil class yang diawali `text-...` dari string `iconWrap`.
+  const tokens = String(iconWrap ?? "")
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  return tokens.find((t) => t.startsWith("text-")) ?? "";
+}
+
 export default function TindakanSummary({
   stats,
   loading,
@@ -181,13 +142,12 @@ export default function TindakanSummary({
   filtered,
   onTodayKpiClick,
 }: SummaryProps) {
-  const isLight = useTindakanLightMode();
   const header = variant === "header";
   const entries = sortStatEntries(Object.entries(stats || {}));
   const baseCards: SummaryItem[] = entries.map(([label, rawValue]) => ({
     label,
     value: Number(rawValue || 0),
-    ...pickItemStyle(label, themeTone, isLight),
+    ...pickItemStyle(label, themeTone),
   }));
   const gender = filtered?.gender;
 
@@ -198,9 +158,7 @@ export default function TindakanSummary({
         className={cn(
           "flex min-w-0 flex-1 basis-[10rem] items-center rounded-lg border bg-gradient-to-br shadow-sm transition sm:flex-initial sm:basis-auto",
           header ? "gap-1.5 px-1.5 py-1" : "gap-2 px-2 py-1.5",
-          isLight
-            ? "shadow-cyan-900/5 hover:border-cyan-500/35 from-sky-50/95 to-white border-sky-300/50"
-            : "shadow-black/25 hover:border-white/10 from-sky-950/40 to-black/20 border-sky-800/35",
+          "shadow-cyan-900/5 hover:border-cyan-500/35 from-sky-50/95 to-white border-sky-300/50 dark:shadow-black/25 dark:hover:border-white/10 dark:from-black dark:to-black dark:border-sky-800/35",
         )}
       >
         <div className="flex min-w-0 flex-1 flex-col leading-tight items-center text-center">
@@ -208,7 +166,7 @@ export default function TindakanSummary({
             className={cn(
               "font-bold uppercase tracking-[0.12em]",
               header ? "text-[9px]" : "text-[10px]",
-              isLight ? "text-cyan-950/80" : "text-cyan-200/55",
+              "text-cyan-950/80 dark:text-white/85",
             )}
           >
             TOTAL GENDER
@@ -219,7 +177,7 @@ export default function TindakanSummary({
               <Mars
                 className={cn(
                   "h-4 w-4",
-                  isLight ? "text-sky-600" : "text-sky-300",
+                  "text-sky-600 dark:text-sky-300",
                 )}
                 strokeWidth={2}
               />
@@ -227,7 +185,7 @@ export default function TindakanSummary({
                 className={cn(
                   "font-extrabold tabular-nums",
                   header ? "text-sm" : "text-base",
-                  isLight ? "text-slate-900" : "text-cyan-50",
+                  "text-slate-900 dark:text-white",
                 )}
               >
                 {gender.laki.toLocaleString("id-ID")}
@@ -238,7 +196,7 @@ export default function TindakanSummary({
               <Venus
                 className={cn(
                   "h-4 w-4",
-                  isLight ? "text-rose-600" : "text-rose-300",
+                  "text-rose-600 dark:text-rose-300",
                 )}
                 strokeWidth={2}
               />
@@ -246,7 +204,7 @@ export default function TindakanSummary({
                 className={cn(
                   "font-extrabold tabular-nums",
                   header ? "text-sm" : "text-base",
-                  isLight ? "text-slate-900" : "text-cyan-50",
+                  "text-slate-900 dark:text-white",
                 )}
               >
                 {gender.perempuan.toLocaleString("id-ID")}
@@ -275,16 +233,14 @@ export default function TindakanSummary({
                 header
                   ? "min-h-[2.25rem] gap-2 px-2 py-1"
                   : "min-h-[2.75rem] gap-2.5 px-2.5 py-2",
-                isLight
-                  ? "border-cyan-300/50 bg-white/80"
-                  : "border-cyan-900/40 bg-black/30",
+                  "border-cyan-300/50 bg-white/80 dark:border-cyan-900/40 dark:bg-black/30",
               )}
             >
               <div
                 className={cn(
                   "shrink-0 animate-pulse rounded-md",
                   header ? "h-6 w-6" : "h-7 w-7",
-                  isLight ? "bg-cyan-200/60" : "bg-cyan-900/30",
+                  "bg-cyan-200/60 dark:bg-cyan-900/30",
                 )}
               />
               <div
@@ -294,14 +250,14 @@ export default function TindakanSummary({
                   className={cn(
                     "animate-pulse rounded",
                     header ? "h-2 w-12" : "h-2.5 w-14",
-                    isLight ? "bg-cyan-200/50" : "bg-cyan-900/35",
+                    "bg-cyan-200/50 dark:bg-cyan-900/35",
                   )}
                 />
                 <div
                   className={cn(
                     "animate-pulse rounded",
                     header ? "h-4 w-8" : "h-5 w-10",
-                    isLight ? "bg-cyan-200/50" : "bg-cyan-900/35",
+                    "bg-cyan-200/50 dark:bg-cyan-900/35",
                   )}
                 />
               </div>
@@ -311,6 +267,9 @@ export default function TindakanSummary({
             <>
               {baseCards.map((item) => {
                 const Icon = item.icon;
+                // Di mode gelap, kita paksa teks menjadi putih terang untuk
+                // menghindari "tabrakan" fallback `text-cyan-*` vs kebutuhan kontras.
+                const accentText = extractTextAccentClass(item.iconWrap);
                 const clickableTodayCard =
                   Boolean(onTodayKpiClick) &&
                   header &&
@@ -323,9 +282,7 @@ export default function TindakanSummary({
                       header
                         ? "gap-1.5 px-1.5 py-1"
                         : "gap-2 px-2 py-1.5",
-                      isLight
-                        ? "shadow-cyan-900/5 hover:border-cyan-500/35"
-                        : "shadow-black/25 hover:border-white/10",
+                      "shadow-cyan-900/5 hover:border-cyan-500/35 dark:shadow-black/25 dark:hover:border-white/10",
                       item.tone,
                       clickableTodayCard
                         ? "cursor-pointer hover:brightness-110 active:scale-[0.99]"
@@ -361,7 +318,8 @@ export default function TindakanSummary({
                         className={cn(
                           "font-bold uppercase tracking-[0.12em]",
                           header ? "text-[9px]" : "text-[10px]",
-                          isLight ? "text-cyan-950/80" : "text-cyan-200/55",
+                          accentText || "text-cyan-950/80",
+                          "dark:text-white/90",
                         )}
                       >
                         {item.label}
@@ -372,7 +330,8 @@ export default function TindakanSummary({
                           header
                             ? "mt-0 text-sm sm:text-base"
                             : "mt-0.5 text-base sm:text-lg",
-                          isLight ? "text-slate-900" : "text-cyan-50",
+                          accentText || "text-slate-900",
+                          "dark:text-white",
                         )}
                       >
                         {item.value.toLocaleString("id-ID")}
@@ -382,9 +341,8 @@ export default function TindakanSummary({
                           className={cn(
                             "mt-0.5 line-clamp-2 font-medium leading-snug",
                             header ? "text-[8px]" : "text-[10px]",
-                            isLight
-                              ? "text-slate-700/90"
-                              : "text-cyan-100/70",
+                            accentText || "text-slate-700/90",
+                            "dark:text-white/80",
                           )}
                           title={item.filterLines.join("\n")}
                         >

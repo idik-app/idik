@@ -22,13 +22,11 @@ export default function TindakanDashboardFilters({
   value,
   onChange,
   rows,
-  isLight,
   themeTone,
 }: {
   value: TindakanDashboardFilterState;
   onChange: (next: TindakanDashboardFilterState) => void;
   rows: readonly TindakanJoinResult[];
-  isLight: boolean;
   themeTone: "cyan" | "emerald";
 }) {
   const dokterOptions = useMemo(
@@ -46,16 +44,12 @@ export default function TindakanDashboardFilters({
 
   const accent =
     themeTone === "emerald"
-      ? isLight
-        ? "border-emerald-400/50 focus-visible:ring-emerald-500/40"
-        : "border-emerald-700/50 focus-visible:ring-emerald-400/30"
-      : isLight
-        ? "border-cyan-400/50 focus-visible:ring-cyan-500/40"
-        : "border-cyan-700/50 focus-visible:ring-cyan-400/30";
+      ? "border-emerald-400/50 focus-visible:ring-emerald-500/40 dark:border-emerald-700/50 dark:focus-visible:ring-emerald-400/30"
+      : "border-cyan-400/50 focus-visible:ring-cyan-500/40 dark:border-cyan-700/50 dark:focus-visible:ring-cyan-400/30";
 
   const labelCls = cn(
     "text-[10px] font-bold uppercase tracking-wide",
-    isLight ? "text-slate-600" : "text-cyan-200/75",
+    "text-slate-600 dark:text-cyan-200/75",
   );
 
   const fieldWrap = "flex min-w-0 flex-1 flex-col gap-1 sm:min-w-[8rem]";
@@ -66,13 +60,9 @@ export default function TindakanDashboardFilters({
     <div
       className={cn(
         "overflow-visible rounded-xl border p-3 sm:p-4",
-        isLight
-          ? themeTone === "emerald"
-            ? "border-emerald-200/80 bg-emerald-50/40"
-            : "border-cyan-200/80 bg-cyan-50/35"
-          : themeTone === "emerald"
-            ? "border-emerald-800/45 bg-emerald-950/25"
-            : "border-cyan-800/45 bg-cyan-950/25",
+        themeTone === "emerald"
+          ? "border-emerald-200/80 bg-emerald-50/40 dark:border-emerald-800/45 dark:bg-emerald-950/25"
+          : "border-cyan-200/80 bg-cyan-50/35 dark:border-cyan-800/45 dark:bg-cyan-950/25",
       )}
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -80,19 +70,15 @@ export default function TindakanDashboardFilters({
           <LayoutGrid
             className={cn(
               "h-4 w-4",
-              isLight
-                ? themeTone === "emerald"
-                  ? "text-emerald-700"
-                  : "text-cyan-700"
-                : themeTone === "emerald"
-                  ? "text-emerald-300"
-                  : "text-cyan-300",
+              themeTone === "emerald"
+                ? "text-emerald-700 dark:text-emerald-300"
+                : "text-cyan-700 dark:text-cyan-300",
             )}
           />
           <span
             className={cn(
               "text-sm font-bold",
-              isLight ? "text-slate-800" : "text-cyan-50",
+              "text-slate-800 dark:text-cyan-50",
             )}
           >
             Filter laporan
@@ -103,9 +89,7 @@ export default function TindakanDashboardFilters({
           onClick={reset}
           className={cn(
             "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition",
-            isLight
-              ? "border-slate-300/80 bg-white/90 text-slate-700 hover:bg-white"
-              : "border-cyan-700/50 bg-black/30 text-cyan-100 hover:bg-black/45",
+            "border-slate-300/80 bg-white/90 text-slate-700 hover:bg-white dark:border-cyan-700/50 dark:bg-black/30 dark:text-cyan-100 dark:hover:bg-black/45",
           )}
         >
           <RotateCcw className="h-3.5 w-3.5" />
@@ -124,7 +108,6 @@ export default function TindakanDashboardFilters({
               value={value.dateFrom}
               onChange={(ymd) => onChange({ ...value, dateFrom: ymd })}
               placeholder="Semua (tanpa batas awal)"
-              isLight={isLight}
               buttonClassName={accent}
             />
           </div>
@@ -137,7 +120,6 @@ export default function TindakanDashboardFilters({
               value={value.dateTo}
               onChange={(ymd) => onChange({ ...value, dateTo: ymd })}
               placeholder="Semua (tanpa batas akhir)"
-              isLight={isLight}
               buttonClassName={accent}
             />
           </div>
@@ -157,7 +139,7 @@ export default function TindakanDashboardFilters({
               className={cn(
                 "h-9 text-xs",
                 accent,
-                isLight ? "bg-white" : "bg-black/40",
+                "bg-white dark:bg-black/40",
               )}
             />
             <datalist id="tdb-dokter-list">
@@ -179,7 +161,7 @@ export default function TindakanDashboardFilters({
               className={cn(
                 "h-9 text-xs",
                 accent,
-                isLight ? "bg-white" : "bg-black/40",
+                "bg-white dark:bg-black/40",
               )}
             />
             <datalist id="tdb-tindakan-list">
@@ -200,7 +182,7 @@ export default function TindakanDashboardFilters({
               className={cn(
                 "h-9 text-xs",
                 accent,
-                isLight ? "bg-white" : "bg-black/40",
+                "bg-white dark:bg-black/40",
               )}
             />
           </div>
@@ -217,7 +199,7 @@ export default function TindakanDashboardFilters({
               className={cn(
                 "h-9 text-xs",
                 accent,
-                isLight ? "bg-white" : "bg-black/40",
+                "bg-white dark:bg-black/40",
               )}
             />
             <datalist id="tdb-kategori-list">
@@ -243,9 +225,7 @@ export default function TindakanDashboardFilters({
               className={cn(
                 "h-9 w-full rounded-md border px-2 text-xs outline-none transition focus-visible:ring-2",
                 accent,
-                isLight
-                  ? "bg-white text-slate-900"
-                  : "bg-black/40 text-cyan-50",
+                "bg-white text-slate-900 dark:bg-black/40 dark:text-cyan-50",
               )}
             >
               <option value="any">Semua</option>
@@ -267,9 +247,7 @@ export default function TindakanDashboardFilters({
               className={cn(
                 "h-9 w-full rounded-md border px-2 text-xs outline-none transition focus-visible:ring-2",
                 accent,
-                isLight
-                  ? "bg-white text-slate-900"
-                  : "bg-black/40 text-cyan-50",
+                "bg-white text-slate-900 dark:bg-black/40 dark:text-cyan-50",
               )}
             >
               <option value="any">Semua</option>

@@ -120,10 +120,12 @@ export function ConsumableAngiografiPrintTemplate({
   );
 
   return (
-    <div className="text-[10px] text-black">
+    <div className="text-[10px] text-black dark:text-white print:text-black">
       {/* —— Sama dengan PemakaianPrintTable —— */}
-      <h1 className="text-base font-bold text-black">IDIK-App — {listTitle}</h1>
-      <p className="text-gray-700 mt-1">
+      <h1 className="text-base font-bold text-black dark:text-white print:text-black">
+        IDIK-App — {listTitle}
+      </h1>
+      <p className="text-gray-700 mt-1 dark:text-white print:text-black">
         Detail order — Struk (master), checklist Obat/Alkes &amp; Komponen
         cathlab (hanya isian terisi) · CONSUMABLE ANGIOGRAFI · Mode: {mode} ·
         Dicetak: {printedAt}
@@ -186,8 +188,10 @@ export function ConsumableAngiografiPrintTemplate({
         </tbody>
       </table>
 
-      <h2 className="mt-4 text-base font-bold text-black">Struk (master)</h2>
-      <p className="text-gray-700 mt-1">
+      <h2 className="mt-4 text-base font-bold text-black dark:text-white print:text-black">
+        Struk (master)
+      </h2>
+      <p className="text-gray-700 mt-1 dark:text-white print:text-black">
         {strukFilled.length} baris terisi
         {order.items.length > strukFilled.length
           ? ` (${order.items.length} baris total di order; baris kosong tidak dicetak)`
@@ -291,10 +295,10 @@ export function ConsumableAngiografiPrintTemplate({
 
       {obatFilled.length > 0 ? (
         <>
-          <h2 className="mt-5 text-base font-bold text-black print:break-inside-avoid">
+          <h2 className="mt-5 text-base font-bold text-black dark:text-white print:text-black print:break-inside-avoid">
             Obat / Alkes (checklist — terisi)
           </h2>
-          <p className="text-gray-700 mt-1">
+          <p className="text-gray-700 mt-1 dark:text-white print:text-black">
             {obatFilled.length} item dengan isian.
           </p>
           <table className="mt-2 w-full border-collapse border border-gray-400">
@@ -326,7 +330,7 @@ export function ConsumableAngiografiPrintTemplate({
                   <td className="border border-gray-400 px-1.5 py-0.5">
                     {formatTemplateSlotsForPrint(obatVal[row.id], row.slots)}
                   </td>
-                  <td className="border border-gray-400 px-1.5 py-0.5 text-gray-800">
+                  <td className="border border-gray-400 px-1.5 py-0.5 text-gray-800 dark:text-white print:text-black">
                     {row.catatan?.trim() ? row.catatan : "—"}
                   </td>
                 </tr>
@@ -338,10 +342,10 @@ export function ConsumableAngiografiPrintTemplate({
 
       {komFilled.length > 0 ? (
         <>
-          <h2 className="mt-5 text-base font-bold text-black print:break-inside-avoid">
+          <h2 className="mt-5 text-base font-bold text-black dark:text-white print:text-black print:break-inside-avoid">
             Komponen cathlab (checklist — terisi)
           </h2>
-          <p className="text-gray-700 mt-1">
+          <p className="text-gray-700 mt-1 dark:text-white print:text-black">
             {komFilled.length} item dengan isian.
           </p>
           <table className="mt-2 w-full border-collapse border border-gray-400">
@@ -373,7 +377,7 @@ export function ConsumableAngiografiPrintTemplate({
                   <td className="border border-gray-400 px-1.5 py-0.5">
                     {formatTemplateSlotsForPrint(komVal[row.id], row.slots)}
                   </td>
-                  <td className="border border-gray-400 px-1.5 py-0.5 text-gray-800">
+                  <td className="border border-gray-400 px-1.5 py-0.5 text-gray-800 dark:text-white print:text-black">
                     {row.catatan?.trim() ? row.catatan : "—"}
                   </td>
                 </tr>
@@ -384,13 +388,13 @@ export function ConsumableAngiografiPrintTemplate({
       ) : null}
 
       {order.catatan?.trim() ? (
-        <p className="mt-3 text-[10px] text-black">
+        <p className="mt-3 text-[10px] text-black dark:text-white print:text-black">
           <span className="font-semibold">Catatan ke Depo / farmasi:</span>{" "}
           {order.catatan}
         </p>
       ) : null}
 
-      <p className="mt-3 text-gray-700">
+      <p className="mt-3 text-gray-700 dark:text-white print:text-black">
         IDIK-App · {printedAt} · Struk terisi: {strukFilled.length} · Obat/Alkes
         terisi: {obatFilled.length} · Komponen terisi: {komFilled.length}
       </p>
@@ -398,11 +402,13 @@ export function ConsumableAngiografiPrintTemplate({
       <div className="mt-8 grid grid-cols-2 gap-10 print:mt-10">
         <div>
           <div className="h-12 border-b border-gray-400" />
-          <p className="text-center text-gray-700 mt-1">Petugas / perawat</p>
+          <p className="text-center text-gray-700 mt-1 dark:text-white print:text-black">
+            Petugas / perawat
+          </p>
         </div>
         <div>
           <div className="h-12 border-b border-gray-400" />
-          <p className="text-center text-gray-700 mt-1">
+          <p className="text-center text-gray-700 mt-1 dark:text-white print:text-black">
             Dokter / penanggung jawab tindakan
           </p>
         </div>

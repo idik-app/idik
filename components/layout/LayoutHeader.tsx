@@ -14,7 +14,7 @@ export default function LayoutHeader() {
   const headerRef = useRef<HTMLDivElement>(null);
   const [opacity, setOpacity] = useState(0);
   const { theme } = useTheme();
-  const isLight = theme === "light";
+  const isDark = theme !== "light";
 
   const handleScroll = (e: Event) => {
     const el = e.target as HTMLElement;
@@ -33,14 +33,14 @@ export default function LayoutHeader() {
       ref={headerRef}
       className="flex shrink-0 flex-col relative z-[30] backdrop-blur-md transition-all duration-300"
       style={{
-        backgroundColor: isLight
-          ? `rgba(248,250,252,${opacity * 0.92})`
-          : `rgba(0,0,0,${opacity * 0.6})`,
+        backgroundColor: isDark
+          ? `rgba(0,0,0,${opacity * 0.6})`
+          : `rgba(248,250,252,${opacity * 0.92})`,
         borderBottom:
           opacity > 0.05
-            ? isLight
-              ? "1px solid rgba(6,182,212,0.22)"
-              : "1px solid rgba(0,255,255,0.2)"
+            ? isDark
+              ? "1px solid rgba(0,255,255,0.2)"
+              : "1px solid rgba(6,182,212,0.22)"
             : "1px solid transparent",
       }}
     >

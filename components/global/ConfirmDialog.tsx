@@ -28,8 +28,8 @@ export default function ConfirmDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-[600] bg-black/60 flex items-center justify-center">
-      <div className="bg-gray-900 border border-cyan-600 rounded-2xl p-6 shadow-lg text-center w-80">
-        <div className="text-cyan-200 text-sm mb-4">{message}</div>
+      <div className="bg-gray-900 border border-cyan-600 rounded-2xl p-6 shadow-lg text-center w-80 text-[hsl(var(--foreground))]">
+        <div className="text-sm mb-4 opacity-90">{message}</div>
         <div className="flex justify-center gap-3">
           <button
             onClick={onCancel}

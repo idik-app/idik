@@ -154,7 +154,7 @@ export default function MasterBarangPage() {
             onClick={() => setIsDrawerOpen(true)}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full
                        bg-gradient-to-r from-[#D4AF37] to-emerald-400
-                       text-xs font-semibold text-black shadow-[0_0_18px_rgba(250,204,21,0.6)]
+                       text-xs font-semibold text-black dark:text-white shadow-[0_0_18px_rgba(250,204,21,0.6)]
                        hover:shadow-[0_0_24px_rgba(45,212,191,0.8)] transition"
           >
             <PlusCircle size={16} />
@@ -433,7 +433,7 @@ export default function MasterBarangPage() {
               <button
                 className="px-4 py-1.5 rounded-full text-xs font-semibold
                            bg-gradient-to-r from-emerald-400 to-cyan-400
-                           text-black shadow-[0_0_18px_rgba(34,211,238,0.6)] hover:shadow-[0_0_22px_rgba(34,211,238,0.9)]"
+                           text-black dark:text-white shadow-[0_0_18px_rgba(34,211,238,0.6)] hover:shadow-[0_0_22px_rgba(34,211,238,0.9)]"
               >
                 Simpan Master Barang
               </button>

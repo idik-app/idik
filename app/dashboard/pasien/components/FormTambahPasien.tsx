@@ -26,8 +26,9 @@ export default function FormTambahPasien() {
     tanggalLahir: "",
     alamat: "",
     noHP: "",
-    jenisPembiayaan: "Umum",
-    kelasPerawatan: "Kelas 2",
+    // Default pembiayaan: BPJS-PBI (nilai internal "BPJS") dengan kelas perawatan 3
+    jenisPembiayaan: "BPJS",
+    kelasPerawatan: "Kelas 3",
     asuransi: "",
   });
 
@@ -41,14 +42,25 @@ export default function FormTambahPasien() {
     const { name, value } = e.target;
     const nextVal =
       name === "nama" ? normalizeNamaPasienInput(value) : (value as string);
-    setForm((prev) => ({
-      ...prev,
-      [name]: name === "jenisKelamin" ? (value as "L" | "P") : nextVal,
-      kelasPerawatan:
-        name === "jenisPembiayaan" && value === "NPBI"
-          ? "Kelas 3"
-          : prev.kelasPerawatan,
-    }));
+    setForm((prev) => {
+      const patched = {
+        ...prev,
+        [name]:
+          name === "jenisKelamin" ? (value as "L" | "P") : (nextVal as string),
+      };
+
+      // Jika pembiayaan BPJS, kelas perawatan harus otomatis Kelas 3.
+      if (name === "jenisPembiayaan" && value === "BPJS") {
+        return { ...patched, kelasPerawatan: "Kelas 3" };
+      }
+
+      // Jika sedang BPJS, cegah user mengubah kelas selain ke 3.
+      if (name === "kelasPerawatan" && prev.jenisPembiayaan === "BPJS") {
+        return { ...patched, kelasPerawatan: "Kelas 3" };
+      }
+
+      return patched;
+    });
   };
 
   const handleSubmit = async () => {

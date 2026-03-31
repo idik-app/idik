@@ -134,7 +134,7 @@ export default function ExportReportOfficial() {
   return (
     <button
       onClick={handleExportOfficial}
-      className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gradient-to-r from-emerald-500/90 to-green-400 text-black font-semibold shadow-[0_0_10px_rgba(0,255,128,0.3)] hover:scale-105 transition"
+      className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-gradient-to-r from-emerald-500/90 to-green-400 text-black dark:text-white font-semibold shadow-[0_0_10px_rgba(0,255,128,0.3)] hover:scale-105 transition"
       title="Ekspor PDF Resmi RSUD"
     >
       <FileText size={16} />

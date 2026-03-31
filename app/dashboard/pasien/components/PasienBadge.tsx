@@ -29,7 +29,7 @@ export default function PasienBadge({
 
   const kelasColor =
     kelas === "1"
-      ? "bg-gradient-to-r from-gold to-yellow-400 text-black"
+      ? "bg-gradient-to-r from-gold to-yellow-400 text-black dark:text-white"
       : kelas === "2"
       ? "bg-gradient-to-r from-cyan-600 to-cyan-400 text-white"
       : kelas === "3"

@@ -3104,9 +3104,11 @@ function PemakaianPrintTable({
   });
 
   return (
-    <div className="text-[10px] text-black">
-      <h1 className="text-base font-bold text-black">IDIK-App — {title}</h1>
-      <p className="text-gray-700 mt-1">
+    <div className="text-[10px] text-black dark:text-white print:text-black">
+      <h1 className="text-base font-bold text-black dark:text-white print:text-black">
+        IDIK-App — {title}
+      </h1>
+      <p className="text-gray-700 mt-1 dark:text-white print:text-black">
         Mode: {mode} · Dicetak: {printedAt} · Total order: {orders.length}
       </p>
       <table className="mt-3 w-full border-collapse border border-gray-400">

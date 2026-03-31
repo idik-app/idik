@@ -27,10 +27,16 @@ export function useTindakanData() {
         ok?: boolean;
         data?: unknown;
         error?: string;
+        message?: string;
       };
 
       if (!res.ok || !json?.ok) {
-        throw new Error(json?.error || "Gagal mengambil data tindakan.");
+        const msg =
+          json?.error ||
+          json?.message ||
+          (res.status ? `HTTP ${res.status}` : "") ||
+          "Gagal mengambil data tindakan.";
+        throw new Error(msg);
       }
 
       const nextRows = Array.isArray(json?.data) ? json.data : [];

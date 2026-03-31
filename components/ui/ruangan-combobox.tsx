@@ -34,6 +34,7 @@ export function RuanganCombobox({
   options,
   loading,
   className,
+  inputClassName,
   listboxId = "pemakaian-ruangan-listbox",
 }: {
   value: string;
@@ -45,6 +46,7 @@ export function RuanganCombobox({
   options: RuanganOption[];
   loading?: boolean;
   className?: string;
+  inputClassName?: string;
   listboxId?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -98,7 +100,10 @@ export function RuanganCombobox({
           placeholder={
             loading ? "Memuat daftar ruangan…" : "Cari / pilih ruangan…"
           }
-          className="w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40"
+          className={cn(
+            "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40",
+            inputClassName,
+          )}
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={listboxId}

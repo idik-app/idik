@@ -3,14 +3,12 @@
 import { useState } from "react";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { cn } from "@/lib/utils";
-import { useTindakanLightMode } from "../hooks/useTindakanLightMode";
 
 type Props = {
   onAdded?: () => void;
 };
 
 export default function TambahKeMasterPerawatForm({ onAdded }: Props) {
-  const isLight = useTindakanLightMode();
   const { show } = useNotification();
   const [nama, setNama] = useState("");
   const [bidang, setBidang] = useState("");
@@ -58,15 +56,13 @@ export default function TambahKeMasterPerawatForm({ onAdded }: Props) {
     <div
       className={cn(
         "rounded-lg border border-dashed px-3 py-3",
-        isLight
-          ? "border-cyan-500/40 bg-slate-100/80"
-          : "border-cyan-800/45 bg-black/20",
+        "border-cyan-500/40 bg-slate-100/80 dark:border-cyan-800/45 dark:bg-black/20",
       )}
     >
       <p
         className={cn(
           "text-[11px] font-semibold",
-          isLight ? "text-cyan-800" : "text-cyan-500/90",
+          "text-cyan-800 dark:text-white",
         )}
       >
         Tambah ke master perawat
@@ -74,7 +70,7 @@ export default function TambahKeMasterPerawatForm({ onAdded }: Props) {
       <p
         className={cn(
           "mt-0.5 text-[10px]",
-          isLight ? "text-slate-600" : "text-gray-500",
+          "text-slate-600 dark:text-white",
         )}
       >
         Nama akan muncul di pilihan Asisten, Sirkuler, dan Logger.
@@ -89,9 +85,7 @@ export default function TambahKeMasterPerawatForm({ onAdded }: Props) {
             disabled={busy}
             className={cn(
               "w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 disabled:opacity-50",
-              isLight
-                ? "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500"
-                : "border-cyan-900/50 bg-black/40 text-cyan-100 placeholder:text-cyan-600/50",
+              "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-gray-500",
             )}
           />
         </label>
@@ -104,9 +98,7 @@ export default function TambahKeMasterPerawatForm({ onAdded }: Props) {
             disabled={busy}
             className={cn(
               "w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 disabled:opacity-50",
-              isLight
-                ? "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500"
-                : "border-cyan-900/50 bg-black/40 text-cyan-100 placeholder:text-cyan-600/50",
+              "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-gray-500",
             )}
           />
         </label>
@@ -116,9 +108,7 @@ export default function TambahKeMasterPerawatForm({ onAdded }: Props) {
           onClick={() => void submit()}
           className={cn(
             "shrink-0 rounded-md border px-3 py-1.5 text-[11px] font-semibold disabled:opacity-50",
-            isLight
-              ? "border-cyan-600/50 bg-cyan-600 text-white hover:bg-cyan-700"
-              : "border-cyan-600/40 bg-cyan-950/50 text-cyan-100 hover:bg-cyan-900/40",
+            "border-cyan-600/50 bg-cyan-600 text-white hover:bg-cyan-700 dark:border-cyan-600/40 dark:bg-cyan-950/50 dark:text-white dark:hover:bg-cyan-900/40",
           )}
         >
           {busy ? "Menyimpan…" : "Tambah"}

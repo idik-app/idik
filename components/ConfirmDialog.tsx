@@ -71,7 +71,7 @@ export default function ConfirmDialog({
             className="relative bg-gradient-to-br from-cyan-900/40 to-black/70 
                        border border-cyan-400/40 rounded-2xl p-6 
                        shadow-[0_0_25px_rgba(0,255,255,0.4)] 
-                       text-center max-w-sm mx-auto text-cyan-100"
+                       text-center max-w-sm mx-auto text-[hsl(var(--foreground))]"
             style={{ pointerEvents: "auto" }}
           >
             <div className="flex justify-center mb-4">
@@ -81,7 +81,7 @@ export default function ConfirmDialog({
             <h2 className="text-lg font-semibold text-yellow-300 mb-2">
               {title}
             </h2>
-            <p className="text-cyan-100 text-sm mb-6 leading-relaxed">
+            <p className="text-sm mb-6 leading-relaxed opacity-90">
               {message}
             </p>
 

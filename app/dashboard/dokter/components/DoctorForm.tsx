@@ -71,7 +71,7 @@ export default function DoctorForm({ initialData, onClose }: DoctorFormProps) {
           </button>
           <button
             type="submit"
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-yellow-400 to-cyan-400 text-black font-semibold"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-yellow-400 to-cyan-400 text-black dark:text-white font-semibold"
           >
             Simpan
           </button>

@@ -43,7 +43,7 @@ export function DialogContent({
           key="jarvis-dialog-content"
           {...props}
           className={cn(
-            "fixed left-1/2 top-1/2 z-50 w-[95%] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-cyan-500/40 bg-black/60 text-cyan-100 shadow-xl backdrop-blur-xl focus:outline-none",
+            "fixed left-1/2 top-1/2 z-50 w-[95%] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-cyan-500/40 bg-black/60 text-[hsl(var(--foreground))] shadow-xl backdrop-blur-xl focus:outline-none",
             className,
           )}
         >
@@ -92,7 +92,7 @@ export const DialogDescription = ({
   className?: string;
 }) => (
   <DialogPrimitive.Description
-    className={`text-sm text-cyan-300/80 ${className ?? ""}`}
+    className={`text-sm text-[hsl(var(--foreground))] opacity-80 ${className ?? ""}`}
   >
     {children}
   </DialogPrimitive.Description>

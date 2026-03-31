@@ -12,6 +12,7 @@ import {
 import { CalendarDays, Layers3, Stethoscope, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/contexts/ThemeContext";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import {
   displayRm,
@@ -79,24 +80,24 @@ function useDashboardStats(rows: readonly TindakanJoinResult[]) {
   }, [rows]);
 }
 
-function chartPalette(themeTone: "cyan" | "emerald", isLight: boolean) {
+function chartPalette(themeTone: "cyan" | "emerald", isDark: boolean) {
   if (themeTone === "emerald") {
     return {
-      axis: isLight ? "#047857" : "#6ee7b7",
-      grid: isLight ? "#d1fae5" : "#064e3b",
-      fill: isLight ? "#059669" : "#34d399",
-      tooltipBg: isLight ? "#ecfdf5" : "#022c22",
-      tooltipBorder: isLight ? "#6ee7b7" : "#065f46",
-      label: isLight ? "#064e3b" : "#a7f3d0",
+      axis: isDark ? "#6ee7b7" : "#047857",
+      grid: isDark ? "#064e3b" : "#d1fae5",
+      fill: isDark ? "#34d399" : "#059669",
+      tooltipBg: isDark ? "#022c22" : "#ecfdf5",
+      tooltipBorder: isDark ? "#065f46" : "#6ee7b7",
+      label: isDark ? "#a7f3d0" : "#064e3b",
     };
   }
   return {
-    axis: isLight ? "#0e7490" : "#67e8f9",
-    grid: isLight ? "#cffafe" : "#164e63",
-    fill: isLight ? "#0891b2" : "#22d3ee",
-    tooltipBg: isLight ? "#ecfeff" : "#083344",
-    tooltipBorder: isLight ? "#22d3ee" : "#155e75",
-    label: isLight ? "#164e63" : "#a5f3fc",
+    axis: isDark ? "#67e8f9" : "#0e7490",
+    grid: isDark ? "#164e63" : "#cffafe",
+    fill: isDark ? "#22d3ee" : "#0891b2",
+    tooltipBg: isDark ? "#083344" : "#ecfeff",
+    tooltipBorder: isDark ? "#155e75" : "#22d3ee",
+    label: isDark ? "#a5f3fc" : "#164e63",
   };
 }
 
@@ -104,32 +105,32 @@ function StatMiniCard({
   icon: Icon,
   label,
   value,
-  isLight,
+  isDark,
   themeTone,
 }: {
   icon: typeof Users;
   label: string;
   value: number;
-  isLight: boolean;
+  isDark: boolean;
   themeTone: "cyan" | "emerald";
 }) {
   const accent =
     themeTone === "emerald"
-      ? isLight
-        ? "border-emerald-200/90 bg-gradient-to-br from-emerald-50 to-white text-emerald-900"
-        : "border-emerald-800/50 bg-gradient-to-br from-emerald-950/60 to-black/30 text-emerald-50"
-      : isLight
-        ? "border-cyan-200/90 bg-gradient-to-br from-cyan-50 to-white text-cyan-950"
-        : "border-cyan-800/50 bg-gradient-to-br from-cyan-950/60 to-black/30 text-cyan-50";
+      ? isDark
+        ? "border-emerald-800/50 bg-gradient-to-br from-emerald-950/60 to-black/30 text-emerald-50"
+        : "border-emerald-200/90 bg-gradient-to-br from-emerald-50 to-white text-emerald-900"
+      : isDark
+        ? "border-cyan-800/50 bg-gradient-to-br from-cyan-950/60 to-black/30 text-cyan-50"
+        : "border-cyan-200/90 bg-gradient-to-br from-cyan-50 to-white text-cyan-950";
 
   const iconWrap =
     themeTone === "emerald"
-      ? isLight
-        ? "border-emerald-300/60 bg-emerald-100 text-emerald-800"
-        : "border-emerald-700/40 bg-emerald-950/50 text-emerald-300"
-      : isLight
-        ? "border-cyan-300/60 bg-cyan-100 text-cyan-800"
-        : "border-cyan-700/40 bg-cyan-950/50 text-cyan-300";
+      ? isDark
+        ? "border-emerald-700/40 bg-emerald-950/50 text-emerald-300"
+        : "border-emerald-300/60 bg-emerald-100 text-emerald-800"
+      : isDark
+        ? "border-cyan-700/40 bg-cyan-950/50 text-cyan-300"
+        : "border-cyan-300/60 bg-cyan-100 text-cyan-800";
 
   return (
     <div
@@ -150,7 +151,7 @@ function StatMiniCard({
         <p
           className={cn(
             "text-[10px] font-bold uppercase tracking-wide",
-            isLight ? "opacity-80" : "text-cyan-200/70",
+            isDark ? "text-cyan-200/70" : "opacity-80",
           )}
         >
           {label}
@@ -166,19 +167,19 @@ function StatMiniCard({
 function ChartPanel({
   title,
   data,
-  isLight,
+  isDark,
   themeTone,
   layout,
 }: {
   title: string;
   data: { name: string; jumlah: number }[];
-  isLight: boolean;
+  isDark: boolean;
   themeTone: "cyan" | "emerald";
   layout: "horizontal" | "vertical";
 }) {
-  const c = chartPalette(themeTone, isLight);
-  const border = isLight ? "border-slate-200/90" : "border-cyan-800/45";
-  const bg = isLight ? "bg-white/90" : "bg-black/35";
+  const c = chartPalette(themeTone, isDark);
+  const border = isDark ? "border-cyan-800/45" : "border-slate-200/90";
+  const bg = isDark ? "bg-black/35" : "bg-white/90";
 
   if (data.length === 0) {
     return (
@@ -192,7 +193,7 @@ function ChartPanel({
         <h3
           className={cn(
             "mb-2 text-sm font-bold",
-            isLight ? "text-slate-800" : "text-cyan-100",
+            isDark ? "text-cyan-100" : "text-slate-800",
           )}
         >
           {title}
@@ -200,7 +201,7 @@ function ChartPanel({
         <div
           className={cn(
             "flex flex-1 items-center justify-center rounded-lg text-xs",
-            isLight ? "text-slate-500" : "text-cyan-200/55",
+            isDark ? "text-cyan-200/55" : "text-slate-500",
           )}
         >
           Tidak ada data untuk grafik ini.
@@ -214,7 +215,7 @@ function ChartPanel({
       <h3
         className={cn(
           "mb-1 shrink-0 text-sm font-bold",
-          isLight ? "text-slate-800" : "text-cyan-100",
+          isDark ? "text-cyan-100" : "text-slate-800",
         )}
       >
         {title}
@@ -237,7 +238,11 @@ function ChartPanel({
                 interval={0}
               />
               <Tooltip
-                cursor={{ fill: isLight ? "rgba(8,145,178,0.06)" : "rgba(34,211,238,0.06)" }}
+                cursor={{
+                  fill: isDark
+                    ? "rgba(34,211,238,0.06)"
+                    : "rgba(8,145,178,0.06)",
+                }}
                 contentStyle={{
                   backgroundColor: c.tooltipBg,
                   border: `1px solid ${c.tooltipBorder}`,
@@ -261,7 +266,11 @@ function ChartPanel({
               />
               <YAxis stroke={c.axis} tick={{ fill: c.label, fontSize: 11 }} allowDecimals={false} />
               <Tooltip
-                cursor={{ fill: isLight ? "rgba(8,145,178,0.06)" : "rgba(34,211,238,0.06)" }}
+                cursor={{
+                  fill: isDark
+                    ? "rgba(34,211,238,0.06)"
+                    : "rgba(8,145,178,0.06)",
+                }}
                 contentStyle={{
                   backgroundColor: c.tooltipBg,
                   border: `1px solid ${c.tooltipBorder}`,
@@ -281,13 +290,14 @@ function ChartPanel({
 
 export default function TindakanDashboardSummaryCharts({
   rows,
-  isLight,
   themeTone,
 }: {
   rows: readonly TindakanJoinResult[];
-  isLight: boolean;
   themeTone: "cyan" | "emerald";
 }) {
+  const { theme } = useTheme();
+  const isDark = theme !== "light";
+
   const stats = useDashboardStats(rows);
 
   if (rows.length === 0) {
@@ -295,9 +305,9 @@ export default function TindakanDashboardSummaryCharts({
       <div
         className={cn(
           "flex min-h-[220px] flex-1 flex-col items-center justify-center rounded-xl border px-4 py-12 text-center text-sm",
-          isLight
-            ? "border-slate-200 bg-slate-50 text-slate-600"
-            : "border-cyan-800/40 bg-black/25 text-cyan-200/65",
+          isDark
+            ? "border-cyan-800/40 bg-black/25 text-cyan-200/65"
+            : "border-slate-200 bg-slate-50 text-slate-600",
         )}
       >
         Tidak ada baris yang cocok dengan filter. Sesuaikan filter untuk melihat ringkasan.
@@ -312,28 +322,28 @@ export default function TindakanDashboardSummaryCharts({
           icon={Layers3}
           label="Total tindakan"
           value={stats.total}
-          isLight={isLight}
+          isDark={isDark}
           themeTone={themeTone}
         />
         <StatMiniCard
           icon={Users}
           label="Pasien (RM unik)"
           value={stats.uniquePatients}
-          isLight={isLight}
+          isDark={isDark}
           themeTone={themeTone}
         />
         <StatMiniCard
           icon={CalendarDays}
           label="Hari tindakan"
           value={stats.uniqueDays}
-          isLight={isLight}
+          isDark={isDark}
           themeTone={themeTone}
         />
         <StatMiniCard
           icon={Stethoscope}
           label="Jenis tindakan"
           value={stats.distinctTindakan}
-          isLight={isLight}
+          isDark={isDark}
           themeTone={themeTone}
         />
       </div>
@@ -342,14 +352,14 @@ export default function TindakanDashboardSummaryCharts({
         <ChartPanel
           title="Tindakan (teratas)"
           data={stats.byTindakan}
-          isLight={isLight}
+          isDark={isDark}
           themeTone={themeTone}
           layout="horizontal"
         />
         <ChartPanel
           title="Dokter (teratas)"
           data={stats.byDokter}
-          isLight={isLight}
+          isDark={isDark}
           themeTone={themeTone}
           layout="horizontal"
         />
@@ -359,14 +369,14 @@ export default function TindakanDashboardSummaryCharts({
         <ChartPanel
           title="Kategori"
           data={stats.byKategori}
-          isLight={isLight}
+          isDark={isDark}
           themeTone={themeTone}
           layout="vertical"
         />
         <ChartPanel
           title="Jenis kelamin"
           data={stats.jk}
-          isLight={isLight}
+          isDark={isDark}
           themeTone={themeTone}
           layout="vertical"
         />
@@ -375,7 +385,7 @@ export default function TindakanDashboardSummaryCharts({
       <p
         className={cn(
           "text-center text-[11px]",
-          isLight ? "text-slate-500" : "text-cyan-200/60",
+          isDark ? "text-cyan-200/60" : "text-slate-500",
         )}
       >
         Ringkasan dari {stats.total.toLocaleString("id-ID")} baris sesuai filter (top {TOP_N}{" "}

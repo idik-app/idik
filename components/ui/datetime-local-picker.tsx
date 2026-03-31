@@ -15,6 +15,7 @@ import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const DT_LOCAL = "yyyy-MM-dd'T'HH:mm" as const;
 
@@ -63,16 +64,16 @@ export function DatetimeLocalPicker({
   onChange,
   className,
   appearance = "default",
-  isLight = false,
 }: {
   value: string;
   onChange: (isoLike: string) => void;
   className?: string;
   /** `drawer`: gaya selaras tab tindakan + panel diposisikan fixed (tidak terpotong scroll). */
   appearance?: Appearance;
-  /** Hanya dipakai jika `appearance="drawer"`. */
-  isLight?: boolean;
 }) {
+  const { theme } = useTheme();
+  const isDark = theme !== "light";
+
   const [open, setOpen] = useState(false);
   const [navMonth, setNavMonth] = useState<Date>(() => new Date());
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -141,7 +142,7 @@ export function DatetimeLocalPicker({
   }
 
   const rdpStyle =
-    isDrawer && isLight
+    isDrawer && !isDark
       ? rdpThemeDrawerLight
       : isDrawer
         ? rdpThemeDrawerDark
@@ -149,7 +150,7 @@ export function DatetimeLocalPicker({
 
   const dayPickerClass = cn(
     "rdp-root text-[12px]",
-    isDrawer && isLight ? "text-slate-900" : "text-white",
+    "text-slate-900 dark:text-white",
   );
 
   const panelInner = (
@@ -172,15 +173,15 @@ export function DatetimeLocalPicker({
       <div
         className={cn(
           "mt-2 flex flex-wrap items-center gap-2 border-t pt-2",
-          isDrawer && isLight
-            ? "border-cyan-200/80"
+          isDrawer
+            ? "border-cyan-200/80 dark:border-white/10"
             : "border-white/10",
         )}
       >
         <span
           className={cn(
             "text-[10px] shrink-0",
-            isDrawer && isLight ? "text-slate-500" : "text-white/50",
+            "text-slate-500 dark:text-white/50",
           )}
         >
           Jam (24 jam)
@@ -202,9 +203,7 @@ export function DatetimeLocalPicker({
               }}
               className={cn(
                 "min-w-0 flex-1 rounded-md border px-1.5 py-1 focus:outline-none focus:ring-1",
-                isLight
-                  ? "border-cyan-400/55 bg-white text-slate-950 focus:ring-cyan-500/40"
-                  : "border-cyan-900/50 bg-black/40 text-cyan-100 focus:ring-cyan-500/35",
+                "border-cyan-400/55 bg-white text-slate-950 focus:ring-cyan-500/40 dark:border-cyan-900/50 dark:bg-black/40 dark:text-cyan-100 dark:focus:ring-cyan-500/35",
               )}
             >
               {HOUR_OPTS.map((h) => (
@@ -213,7 +212,7 @@ export function DatetimeLocalPicker({
                 </option>
               ))}
             </select>
-            <span className={isLight ? "text-slate-400" : "text-cyan-500/60"}>
+            <span className="text-slate-400 dark:text-cyan-500/60">
               :
             </span>
             <select
@@ -226,9 +225,7 @@ export function DatetimeLocalPicker({
               }}
               className={cn(
                 "min-w-0 flex-1 rounded-md border px-1.5 py-1 focus:outline-none focus:ring-1",
-                isLight
-                  ? "border-cyan-400/55 bg-white text-slate-950 focus:ring-cyan-500/40"
-                  : "border-cyan-900/50 bg-black/40 text-cyan-100 focus:ring-cyan-500/35",
+                "border-cyan-400/55 bg-white text-slate-950 focus:ring-cyan-500/40 dark:border-cyan-900/50 dark:bg-black/40 dark:text-cyan-100 dark:focus:ring-cyan-500/35",
               )}
             >
               {MINUTE_OPTS.map((m) => (
@@ -270,11 +267,9 @@ export function DatetimeLocalPicker({
           }}
           className={cn(
             "shrink-0 rounded-md border px-2 py-1 text-[10px]",
-            isDrawer && isLight
-              ? "border-cyan-400/40 text-cyan-900 hover:bg-cyan-50"
-              : isDrawer
-                ? "border-cyan-800/40 text-cyan-200/90 hover:bg-cyan-950/40"
-                : "border-white/20 text-white/80 hover:bg-white/5",
+            isDrawer
+              ? "border-cyan-400/40 text-cyan-900 hover:bg-cyan-50 dark:border-cyan-800/40 dark:text-cyan-200/90 dark:hover:bg-cyan-950/40"
+              : "border-white/20 text-white/80 hover:bg-white/5",
           )}
         >
           Hari ini
@@ -285,11 +280,9 @@ export function DatetimeLocalPicker({
 
   const panelClass = cn(
     "rounded-xl border p-2 shadow-2xl",
-    isDrawer && isLight
-      ? "border-cyan-300/70 bg-white text-slate-900"
-      : isDrawer
-        ? "border-cyan-800/50 bg-[#0a1018]/98 backdrop-blur-sm"
-        : "border-white/15 bg-[#0a1628]/98 backdrop-blur-sm",
+    isDrawer
+      ? "border-cyan-300/70 bg-white text-slate-900 dark:border-cyan-800/50 dark:bg-[#0a1018]/98 dark:backdrop-blur-sm dark:text-white"
+      : "border-white/15 bg-[#0a1628]/98 backdrop-blur-sm text-white",
   );
 
   const panel = isDrawer
@@ -332,16 +325,14 @@ export function DatetimeLocalPicker({
 
   const buttonClass = cn(
     "w-full flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-left text-[12px] font-semibold focus:outline-none focus:ring-2",
-    isDrawer && isLight
-      ? "border-cyan-400/55 bg-white text-slate-950 hover:bg-cyan-50/80 focus:ring-cyan-500/35"
-      : isDrawer
-        ? "border-cyan-900/50 bg-black/40 text-cyan-100 hover:bg-black/55 focus:ring-cyan-500/30"
-        : "border-white/15 bg-black/40 text-white hover:bg-black/55 focus:ring-[#E8C547]/40",
+    isDrawer
+      ? "border-cyan-400/55 bg-white text-slate-950 hover:bg-cyan-50/80 focus:ring-cyan-500/35 dark:border-cyan-900/50 dark:bg-black/40 dark:text-cyan-100 dark:hover:bg-black/55 dark:focus:ring-cyan-500/30"
+      : "border-white/15 bg-black/40 text-white hover:bg-black/55 focus:ring-[#E8C547]/40",
   );
 
   const iconClass = cn(
     "h-3.5 w-3.5 shrink-0",
-    isDrawer && isLight ? "text-cyan-600" : isDrawer ? "text-cyan-400/90" : "text-[#E8C547]/90",
+    isDrawer ? "text-cyan-600 dark:text-cyan-400/90" : "text-[#E8C547]/90",
   );
 
   return (

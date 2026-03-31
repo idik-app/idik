@@ -68,7 +68,7 @@ export function ModalWrapperContent({
           onClick={(e) => e.stopPropagation()}
           className={`relative my-auto w-full max-h-[80dvh] max-w-[min(30rem,86vw)] overflow-y-auto overscroll-y-contain rounded-xl border border-cyan-700/40 bg-gray-900/90 p-2.5 shadow-[0_0_18px_rgba(0,255,255,0.18)] sm:max-h-none sm:max-w-[min(32rem,calc(100vw-1.5rem))] sm:overflow-visible sm:rounded-2xl sm:p-6 sm:shadow-[0_0_25px_rgba(0,255,255,0.25)] ${
             className || ""
-          }`}
+          } text-[hsl(var(--foreground))]`}
         >
           {title ? (
             <div className="mb-2 text-sm font-semibold tracking-wide text-cyan-200 sm:mb-4 sm:text-base">

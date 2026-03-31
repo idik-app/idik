@@ -9,7 +9,6 @@ import {
 } from "framer-motion";
 import { useUI } from "@/contexts/UIContext";
 import { useSession } from "@/contexts/SessionContext";
-import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 import LayoutSidebar from "./LayoutSidebar";
 import LayoutHeader from "./LayoutHeader";
@@ -26,8 +25,6 @@ import LayoutLoader from "./LayoutLoader";
 export default function LayoutContainer() {
   const { isSidebarOpen, motionX, sidebarWidth, collapsed, isMobile } = useUI();
   const { role, lastRefresh, setSession } = useSession();
-  const { theme } = useTheme();
-  const isLight = theme === "light";
 
   const [blink, setBlink] = useState(false);
   const [visible, setVisible] = useState(true);
@@ -133,16 +130,14 @@ export default function LayoutContainer() {
       <motion.div
         className={cn(
           "relative flex min-h-app h-app overflow-x-hidden overflow-y-hidden transition-colors duration-500",
-          isLight ? "bg-[#e8eef5] text-slate-800" : "bg-[#0b111a] text-gray-100"
+          "bg-[#e8eef5] text-slate-800 dark:bg-[#0b111a] dark:text-gray-100",
         )}
       >
         {/* 🧩 Sidebar */}
         <motion.aside
           className={cn(
             "fixed left-0 top-0 min-h-app h-app z-[40] overflow-hidden transition-colors duration-500",
-            isLight
-              ? "bg-[#f0f5fa] border-r border-cyan-600/25"
-              : "bg-[#0d141f] border-r border-cyan-900/40"
+            "bg-[#f0f5fa] border-r border-cyan-600/25 dark:bg-[#0d141f] dark:border-cyan-900/40",
           )}
           style={{ width: motionX }}
         >

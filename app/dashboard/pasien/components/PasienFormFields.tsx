@@ -90,7 +90,7 @@ export default function PasienFormFields({ form, handleChange }: Props) {
           className="rounded-md px-3 py-2 bg-gray-900/60 border border-cyan-800 focus:outline-none"
         >
           <option value="Umum">Umum</option>
-          <option value="BPJS">BPJS</option>
+          <option value="BPJS">BPJS-PBI</option>
           <option value="NPBI">NPBI</option>
           <option value="Asuransi">Asuransi</option>
         </select>

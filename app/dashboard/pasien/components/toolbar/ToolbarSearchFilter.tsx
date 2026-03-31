@@ -59,7 +59,7 @@ export default function ToolbarSearchFilter() {
           className={`${selectClass} w-full sm:min-w-[11rem] sm:w-auto`}
         >
           <option value="">Semua Pembiayaan</option>
-          <option value="BPJS">BPJS</option>
+          <option value="BPJS">BPJS-PBI</option>
           <option value="NPBI">NPBI</option>
           <option value="Umum">Umum</option>
           <option value="Asuransi">Asuransi</option>

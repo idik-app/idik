@@ -48,7 +48,7 @@ export default function Sidebar() {
     isMobile,
   } = useUI();
   const { theme } = useTheme();
-  const isLight = theme === "light";
+  const lightMode = theme === "light";
   const { addTab, activeTab, setActiveTab } = useTabs();
   const router = useRouter();
 
@@ -173,7 +173,7 @@ export default function Sidebar() {
             }}
             className={cn(
               "fixed inset-0 z-[35] backdrop-blur-[2px]",
-              isLight ? "bg-slate-900/35" : "bg-black/50"
+              lightMode ? "bg-slate-900/35" : "bg-black/50"
             )}
           />
         )}
@@ -186,7 +186,7 @@ export default function Sidebar() {
           animate={{ opacity: 1 }}
           className={cn(
             "absolute inset-0 flex flex-col items-center justify-center gap-4 py-4 border-r",
-            isLight
+            lightMode
               ? "bg-gradient-to-b from-slate-100/95 to-slate-200/90 border-cyan-600/25"
               : "bg-gradient-to-b from-[#090e16]/95 to-[#0b1b28]/90 border-cyan-500/20"
           )}
@@ -207,7 +207,7 @@ export default function Sidebar() {
             onClick={toggleSidebar}
             className={cn(
               "p-2 rounded-lg border transition-colors",
-              isLight
+              lightMode
                 ? "border-cyan-600/35 bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-800"
                 : "border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300"
             )}
@@ -219,7 +219,7 @@ export default function Sidebar() {
           <span
             className={cn(
               "text-[10px] font-medium tracking-wider rotate-0 text-center px-1",
-              isLight ? "text-cyan-800/90" : "text-cyan-500/80"
+              lightMode ? "text-cyan-800/90" : "text-cyan-500/80"
             )}
           >
             Buka menu
@@ -244,7 +244,7 @@ export default function Sidebar() {
             onMouseLeave={handleSidebarMouseLeave}
             className={cn(
               "relative z-[40] h-full flex flex-col justify-between backdrop-blur-2xl border-r transition-colors duration-500",
-              isLight
+              lightMode
                 ? "bg-gradient-to-b from-slate-100/98 via-white/95 to-cyan-50/40 border-cyan-600/25 shadow-[0_4px_28px_rgba(0,100,120,0.1)]"
                 : "bg-gradient-to-b from-[#090e16]/95 via-[#0c1925]/90 to-[#0b1b28]/90 border-cyan-500/20 shadow-[0_0_35px_rgba(0,255,255,0.25)]"
             )}
@@ -254,7 +254,7 @@ export default function Sidebar() {
             layout
             className={cn(
               "relative flex flex-col items-center justify-center px-4 py-3 border-b space-y-2",
-              isLight ? "border-cyan-600/20" : "border-cyan-500/20"
+              lightMode ? "border-cyan-600/20" : "border-cyan-500/20"
             )}
           >
             <motion.button
@@ -262,7 +262,7 @@ export default function Sidebar() {
               onClick={handleChevron}
               className={cn(
                 "absolute right-3 top-3 p-1.5 rounded-md",
-                isLight
+                lightMode
                   ? "text-cyan-800 hover:text-cyan-950 hover:bg-cyan-500/15"
                   : "text-cyan-300 hover:text-cyan-100 hover:bg-cyan-500/20"
               )}
@@ -296,7 +296,7 @@ export default function Sidebar() {
                   transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
                   className={cn(
                     "text-lg font-bold tracking-[0.35em]",
-                    isLight
+                    lightMode
                       ? "text-cyan-900"
                       : "text-cyan-300 drop-shadow-[0_0_6px_#00e0ff]"
                   )}
@@ -325,7 +325,7 @@ export default function Sidebar() {
                       onClick={() => toggleGroup(group.group)}
                       className={cn(
                         "flex items-center justify-between w-full px-3 py-2 text-xs font-bold uppercase tracking-widest",
-                        isLight
+                        lightMode
                           ? "text-cyan-800/85 hover:text-amber-700"
                           : "text-cyan-500/70 hover:text-yellow-400"
                       )}
@@ -354,7 +354,7 @@ export default function Sidebar() {
                           transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
                           className={cn(
                             "pl-2 mt-1 space-y-1.5 border-l-2",
-                            isLight ? "border-cyan-500/40" : "border-cyan-700/30"
+                            lightMode ? "border-cyan-500/40" : "border-cyan-700/30"
                           )}
                         >
                           {group.items.map((item, idx) => {
@@ -393,10 +393,10 @@ export default function Sidebar() {
                                     ? "justify-center px-2"
                                     : "justify-start gap-2.5 px-3.5 text-left",
                                   isActive
-                                    ? isLight
+                                    ? lightMode
                                       ? "bg-cyan-500/15 border border-cyan-600/45 text-cyan-900 shadow-sm"
                                       : "bg-[rgba(0,224,255,0.08)] border border-cyan-400/40 text-cyan-300 shadow-[0_0_15px_rgba(0,255,255,0.5)]"
-                                    : isLight
+                                    : lightMode
                                       ? "border border-slate-200/90 bg-white/70 text-slate-700 hover:bg-cyan-50 hover:border-cyan-400/45 hover:text-cyan-900"
                                       : "border border-cyan-500/10 bg-[rgba(0,224,255,0.03)] text-gray-300 hover:bg-[rgba(0,224,255,0.1)] hover:border-cyan-500/40 hover:text-cyan-300"
                                 )}
@@ -431,7 +431,7 @@ export default function Sidebar() {
                                       transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                                       className={cn(
                                         "absolute left-10 top-1/2 -translate-y-1/2 z-[9999] text-xs px-2.5 py-1 rounded-md whitespace-nowrap border shadow-md",
-                                        isLight
+                                        lightMode
                                           ? "bg-white border-cyan-600/35 text-slate-800"
                                           : "bg-[#0b1b28]/95 border-cyan-400/40 text-cyan-100 shadow-[0_0_12px_rgba(0,255,255,0.4)]"
                                       )}
@@ -453,7 +453,9 @@ export default function Sidebar() {
                     <div
                       className={cn(
                         "border-b mt-3",
-                        isLight ? "border-cyan-600/15" : "border-cyan-500/10"
+                          lightMode
+                            ? "border-cyan-600/15"
+                            : "border-cyan-500/10"
                       )}
                     />
                   </div>
@@ -467,7 +469,7 @@ export default function Sidebar() {
             layout
             className={cn(
               "px-3 py-3 border-t text-center text-[11px] tracking-widest",
-              isLight
+              lightMode
                 ? "border-cyan-600/20 text-cyan-800/80"
                 : "border-cyan-500/20 text-cyan-500/70"
             )}
@@ -477,20 +479,20 @@ export default function Sidebar() {
                 <p
                   className={cn(
                     "font-semibold",
-                    isLight
+                    lightMode
                       ? "text-cyan-800"
                       : "text-cyan-400 drop-shadow-[0_0_4px_#00e0ff]"
                   )}
                 >
                   CATHLAB JARVIS
                 </p>
-                <p className={isLight ? "text-cyan-700/80" : "text-cyan-600/70"}>
+                <p className={lightMode ? "text-cyan-700/80" : "text-cyan-600/70"}>
                   v6.3-NeuralPulse
                 </p>
                 <p
                   className={cn(
                     "mt-0.5",
-                    isLight ? "text-slate-500" : "text-gray-500/50"
+                    lightMode ? "text-slate-500" : "text-gray-500/50"
                   )}
                 >
                   IDIK-APP 2025

@@ -1413,7 +1413,7 @@ export default function TindakanTable({
     () =>
       Boolean(
         String(filterTanggalFrom ?? "").trim() ||
-          String(filterTanggalTo ?? "").trim(),
+        String(filterTanggalTo ?? "").trim(),
       ),
     [filterTanggalFrom, filterTanggalTo],
   );
@@ -1579,14 +1579,30 @@ export default function TindakanTable({
     [filteredRowStatsFixedTotalPasien, totalTindakanToday, totalDokterToday],
   );
 
+  const filteredRowStatsTanggalAdjusted = useMemo(() => {
+    const next: Record<string, number> = {
+      ...filteredRowStatsFixedTotalPasien,
+      "Total Baris": filteredRecords.length,
+    };
+    delete next["Pasien hari ini"];
+    return next;
+  }, [filteredRowStatsFixedTotalPasien, filteredRecords.length]);
+
   const kpiStats = useMemo(
     () =>
-      hasTanggalFilter ? filteredRowStats : filteredRowStatsTodayAdjusted,
-    [hasTanggalFilter, filteredRowStats, filteredRowStatsTodayAdjusted],
+      hasTanggalFilter
+        ? filteredRowStatsTanggalAdjusted
+        : filteredRowStatsTodayAdjusted,
+    [
+      hasTanggalFilter,
+      filteredRowStatsTanggalAdjusted,
+      filteredRowStatsTodayAdjusted,
+    ],
   );
 
   const kpiTindakanBreakdown = useMemo(
-    () => (hasTanggalFilter ? tindakanBreakdownFiltered : tindakanBreakdownToday),
+    () =>
+      hasTanggalFilter ? tindakanBreakdownFiltered : tindakanBreakdownToday,
     [hasTanggalFilter, tindakanBreakdownFiltered, tindakanBreakdownToday],
   );
 

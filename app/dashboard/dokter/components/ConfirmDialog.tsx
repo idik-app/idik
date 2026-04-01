@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, Loader2, Trash2, X } from "lucide-react";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 export interface ConfirmDeleteDoctorProps {
   /** Nama dokter yang ditampilkan di teks konfirmasi */
@@ -50,14 +51,14 @@ export default function ConfirmDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10000] flex items-center justify-center p-4 pointer-events-auto bg-black/0"
+      className={`fixed inset-0 ${UI_LAYERS.dialogOverlayTop} flex items-center justify-center p-4 pointer-events-auto bg-black/0`}
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="confirm-delete-title"
       aria-describedby="confirm-delete-desc"
     >
         <div
-          className="absolute inset-0 bg-black/70 backdrop-blur-md cursor-pointer animate-in fade-in"
+          className="absolute inset-0 bg-black/75 cursor-pointer animate-in fade-in"
           aria-hidden
           onClick={() => !busy && onCancel()}
         />

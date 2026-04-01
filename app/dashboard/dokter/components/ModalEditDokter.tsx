@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { X, Loader2 } from "lucide-react";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 type DoctorRow = {
   id: string;
@@ -89,7 +90,7 @@ export default function ModalEditDokter({ doctor, onClose, onSuccess }: Props) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      className={`fixed inset-0 ${UI_LAYERS.modal} bg-black/75 flex items-center justify-center p-4`}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

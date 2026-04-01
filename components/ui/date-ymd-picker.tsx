@@ -136,7 +136,7 @@ export function DateYmdPicker({
         className={cn(
           "flex h-9 w-full min-w-0 items-center gap-2 rounded-md border px-2.5 text-left text-xs transition outline-none focus-visible:ring-2",
           "border-slate-300/80 bg-white text-slate-900 focus-visible:ring-cyan-500/35 dark:border-cyan-700/50 dark:bg-black/40 dark:text-cyan-50 dark:focus-visible:ring-cyan-400/30",
-          !value && "text-slate-500 dark:text-cyan-200/55",
+          !value && "text-slate-500 dark:text-white/90",
           disabled && "cursor-not-allowed opacity-50",
           buttonClassName,
         )}
@@ -183,6 +183,29 @@ export function DateYmdPicker({
                 "rdp-root text-[12px]",
                 "text-slate-900 dark:text-cyan-50",
               )}
+              classNames={{
+                month_caption:
+                  "flex items-center justify-between gap-2 text-slate-800 dark:text-white",
+                caption_label: "font-semibold text-slate-800 dark:text-white",
+                nav: "flex items-center gap-1",
+                button_previous:
+                  "inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-cyan-950/60",
+                button_next:
+                  "inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-700 hover:bg-slate-100 dark:text-white dark:hover:bg-cyan-950/60",
+                weekdays: "text-slate-600 dark:text-white/85",
+                weekday: "font-semibold",
+                month_grid: "w-full border-collapse",
+                week: "w-full",
+                day: "p-0 text-center",
+                day_button:
+                  "h-9 w-9 rounded-md text-slate-800 hover:bg-slate-100 dark:text-white dark:hover:bg-cyan-950/60",
+                selected:
+                  "bg-cyan-600 text-white hover:bg-cyan-600 dark:bg-cyan-500 dark:text-white",
+                today:
+                  "font-bold ring-1 ring-cyan-500/50 text-cyan-700 dark:text-white",
+                outside: "text-slate-400 dark:text-white/35",
+                disabled: "text-slate-300 dark:text-white/25",
+              }}
               style={(isDark ? rdpDark : rdpLight) as unknown as CSSProperties}
             />
           </div>
@@ -195,8 +218,8 @@ export function DateYmdPicker({
             <button
               type="button"
               className={cn(
-                "cursor-pointer text-[11px] font-semibold underline-offset-2 hover:underline",
-                "text-slate-600 dark:text-cyan-300/90",
+                "cursor-pointer rounded-md px-2 py-1 text-[11px] font-semibold transition underline-offset-2 hover:underline",
+                "text-slate-600 hover:bg-slate-100 dark:bg-cyan-950/20 dark:text-white dark:hover:bg-cyan-950/60",
               )}
               onClick={() => {
                 onChange("");

@@ -11,6 +11,7 @@ import {
   Trash2,
   UserPlus,
 } from "lucide-react";
+import { UI_LAYERS } from "@/lib/ui/layers";
 // Note: modal/dialog dirender via portal agar tidak ke-clip oleh layout tab.
 
 const ROLE_OPTIONS = [
@@ -478,7 +479,7 @@ export default function UserCrud() {
       {mounted && confirmDeleteId
         ? createPortal(
             <div
-              className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-[9999]"
+              className={`fixed inset-0 flex items-center justify-center bg-black/75 ${UI_LAYERS.modal}`}
               onMouseDown={(e) => {
                 if (e.target === e.currentTarget) setConfirmDeleteId(null);
               }}
@@ -534,7 +535,7 @@ export default function UserCrud() {
       {mounted && modalOpen
         ? createPortal(
             <div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999]"
+              className={`fixed inset-0 bg-black/75 flex items-center justify-center ${UI_LAYERS.modal}`}
               onMouseDown={(e) => {
                 if (e.target === e.currentTarget) setModalOpen(false);
               }}

@@ -46,10 +46,11 @@ export default function TindakanDashboardFilters({
     themeTone === "emerald"
       ? "border-emerald-400/50 focus-visible:ring-emerald-500/40 dark:border-emerald-700/50 dark:focus-visible:ring-emerald-400/30"
       : "border-cyan-400/50 focus-visible:ring-cyan-500/40 dark:border-cyan-700/50 dark:focus-visible:ring-cyan-400/30";
+  const darkInputText = "dark:text-white dark:placeholder:text-white/90";
 
   const labelCls = cn(
     "text-[10px] font-bold uppercase tracking-wide",
-    "text-slate-600 dark:text-cyan-200/75",
+    "text-slate-600 dark:text-white/90",
   );
 
   const fieldWrap = "flex min-w-0 flex-1 flex-col gap-1 sm:min-w-[8rem]";
@@ -78,7 +79,7 @@ export default function TindakanDashboardFilters({
           <span
             className={cn(
               "text-sm font-bold",
-              "text-slate-800 dark:text-cyan-50",
+              "text-slate-800 dark:text-white",
             )}
           >
             Filter laporan
@@ -89,7 +90,7 @@ export default function TindakanDashboardFilters({
           onClick={reset}
           className={cn(
             "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition",
-            "border-slate-300/80 bg-white/90 text-slate-700 hover:bg-white dark:border-cyan-700/50 dark:bg-black/30 dark:text-cyan-100 dark:hover:bg-black/45",
+            "border-slate-300/80 bg-white/90 text-slate-700 hover:bg-white dark:border-cyan-700/50 dark:bg-black/30 dark:text-white dark:hover:bg-black/45",
           )}
         >
           <RotateCcw className="h-3.5 w-3.5" />
@@ -108,7 +109,7 @@ export default function TindakanDashboardFilters({
               value={value.dateFrom}
               onChange={(ymd) => onChange({ ...value, dateFrom: ymd })}
               placeholder="Semua (tanpa batas awal)"
-              buttonClassName={accent}
+              buttonClassName={cn(accent, "dark:text-white")}
             />
           </div>
           <div className={fieldWrap}>
@@ -120,7 +121,7 @@ export default function TindakanDashboardFilters({
               value={value.dateTo}
               onChange={(ymd) => onChange({ ...value, dateTo: ymd })}
               placeholder="Semua (tanpa batas akhir)"
-              buttonClassName={accent}
+              buttonClassName={cn(accent, "dark:text-white")}
             />
           </div>
         </div>
@@ -140,6 +141,7 @@ export default function TindakanDashboardFilters({
                 "h-9 text-xs",
                 accent,
                 "bg-white dark:bg-black/40",
+                darkInputText,
               )}
             />
             <datalist id="tdb-dokter-list">
@@ -162,6 +164,7 @@ export default function TindakanDashboardFilters({
                 "h-9 text-xs",
                 accent,
                 "bg-white dark:bg-black/40",
+                darkInputText,
               )}
             />
             <datalist id="tdb-tindakan-list">
@@ -183,6 +186,7 @@ export default function TindakanDashboardFilters({
                 "h-9 text-xs",
                 accent,
                 "bg-white dark:bg-black/40",
+                darkInputText,
               )}
             />
           </div>
@@ -200,6 +204,7 @@ export default function TindakanDashboardFilters({
                 "h-9 text-xs",
                 accent,
                 "bg-white dark:bg-black/40",
+                darkInputText,
               )}
             />
             <datalist id="tdb-kategori-list">
@@ -225,7 +230,7 @@ export default function TindakanDashboardFilters({
               className={cn(
                 "h-9 w-full rounded-md border px-2 text-xs outline-none transition focus-visible:ring-2",
                 accent,
-                "bg-white text-slate-900 dark:bg-black/40 dark:text-cyan-50",
+                "bg-white text-slate-900 dark:bg-black/40 dark:text-white",
               )}
             >
               <option value="any">Semua</option>
@@ -247,7 +252,7 @@ export default function TindakanDashboardFilters({
               className={cn(
                 "h-9 w-full rounded-md border px-2 text-xs outline-none transition focus-visible:ring-2",
                 accent,
-                "bg-white text-slate-900 dark:bg-black/40 dark:text-cyan-50",
+                "bg-white text-slate-900 dark:bg-black/40 dark:text-white",
               )}
             >
               <option value="any">Semua</option>

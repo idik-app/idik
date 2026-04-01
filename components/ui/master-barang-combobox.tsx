@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 export type MasterBarangOption = {
   id: string;
@@ -114,7 +115,7 @@ export function MasterBarangCombobox({
       : "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40";
 
   const listCls = cn(
-    "max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl z-[9999]",
+    `max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl ${UI_LAYERS.popover}`,
     variant === "table" ? "text-[10px]" : "text-[11px]"
   );
 
@@ -212,7 +213,7 @@ export function MasterBarangCombobox({
         const el = (
           <p
             className={cn(
-              "rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/55 z-[9999]",
+              `rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/55 ${UI_LAYERS.popover}`,
               variant === "default" &&
                 "absolute left-0 right-0 top-full mt-1 z-[60]"
             )}

@@ -10,6 +10,7 @@ import {
 import { useUI } from "@/contexts/UIContext";
 import { useSession } from "@/contexts/SessionContext";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 import LayoutSidebar from "./LayoutSidebar";
 import LayoutHeader from "./LayoutHeader";
 import LayoutMain from "./LayoutMain";
@@ -130,14 +131,14 @@ export default function LayoutContainer() {
       <motion.div
         className={cn(
           "relative flex min-h-app h-app overflow-x-hidden overflow-y-hidden transition-colors duration-500",
-          "bg-[#e8eef5] text-slate-800 dark:bg-[#0b111a] dark:text-gray-100",
+          "bg-[#0b111a] text-gray-100",
         )}
       >
         {/* 🧩 Sidebar */}
         <motion.aside
           className={cn(
             "fixed left-0 top-0 min-h-app h-app z-[40] overflow-hidden transition-colors duration-500",
-            "bg-[#f0f5fa] border-r border-cyan-600/25 dark:bg-[#0d141f] dark:border-cyan-900/40",
+            "bg-[#0d141f] border-r border-cyan-900/40",
           )}
           style={{ width: motionX }}
         >
@@ -164,7 +165,7 @@ export default function LayoutContainer() {
         <AnimatePresence>
           {visible && (
             <motion.div
-              className="fixed z-[9999] flex flex-col gap-1 max-md:bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] max-md:left-3 max-md:right-auto max-md:items-start md:bottom-4 md:right-4 md:left-auto md:items-end"
+              className={`fixed ${UI_LAYERS.hud} flex flex-col gap-1 max-md:bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] max-md:left-3 max-md:right-auto max-md:items-start md:bottom-4 md:right-4 md:left-auto md:items-end`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}

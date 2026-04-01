@@ -61,7 +61,7 @@ export default function LayoutMain() {
               ? "rounded-none border-0 bg-transparent p-0 shadow-none"
               : cn(
                   "rounded-2xl border p-1 md:p-2",
-                  "border-cyan-600/20 bg-gradient-to-br from-white/95 via-slate-50/90 to-cyan-50/50 shadow-[0_4px_24px_rgba(0,100,120,0.06)] dark:border-cyan-500/12 dark:bg-gradient-to-br dark:from-cyan-900/20 dark:via-black/60 dark:to-black/80 dark:shadow-[0_0_14px_rgba(0,255,255,0.08)]",
+                  "border-cyan-500/15 bg-gradient-to-br from-[#07111b]/90 via-[#060c14]/94 to-[#040913]/96 shadow-[0_0_14px_rgba(0,255,255,0.08)]",
                 ),
           )}
         >

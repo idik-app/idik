@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import JarvisLoader from "@/components/JarvisLoader";
 import { useUI } from "@/contexts/UIContext";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 export default function GlobalLogoutOverlay() {
   const { showLogoutAnim } = useUI();
@@ -10,7 +11,7 @@ export default function GlobalLogoutOverlay() {
 
   return (
     <motion.div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90"
+      className={`fixed inset-0 ${UI_LAYERS.fullscreen} flex items-center justify-center bg-black/90`}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

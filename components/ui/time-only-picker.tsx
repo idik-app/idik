@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Clock } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 const HOUR_OPTS = Array.from({ length: 24 }, (_, i) => i);
 const MINUTE_OPTS = Array.from({ length: 60 }, (_, i) => i);
@@ -114,7 +115,7 @@ export function TimeOnlyPicker({
 
   const panelClass = cn(
     "rounded-xl border p-2 shadow-2xl",
-    "border-cyan-300/70 bg-white text-slate-900 dark:border-cyan-800/50 dark:bg-[#0a1018]/98 dark:backdrop-blur-sm dark:text-white",
+    "border-cyan-300/70 bg-white text-slate-900 dark:border-cyan-800/50 dark:bg-[#0a1018]/98 dark:text-white",
   );
 
   const panelInner = (
@@ -199,7 +200,7 @@ export function TimeOnlyPicker({
       ? createPortal(
           <div
             ref={portalRef}
-            className={cn(panelClass, "z-[10050]")}
+            className={cn(panelClass, UI_LAYERS.pickerFloatingTop)}
             style={{
               position: "fixed",
               top: floatPos.top,

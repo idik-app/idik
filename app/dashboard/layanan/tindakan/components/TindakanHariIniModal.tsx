@@ -61,7 +61,7 @@ export default function TindakanHariIniModal({
         <div
           className={cn(
             "flex flex-col gap-3 p-4 sm:p-6",
-            "text-slate-900 dark:text-cyan-50",
+            "text-slate-900 dark:text-white",
           )}
         >
           <DialogHeader className="space-y-1">
@@ -74,7 +74,7 @@ export default function TindakanHariIniModal({
             <div
               className={cn(
                 "rounded-xl border px-4 py-10 text-center text-sm font-semibold",
-                "border-slate-200 bg-slate-50 text-slate-700 dark:border-cyan-800/40 dark:bg-black/25 dark:text-cyan-200/80",
+                "border-slate-200 bg-slate-50 text-slate-700 dark:border-cyan-800/40 dark:bg-black/25 dark:text-white/90",
               )}
             >
               Memuat data…
@@ -83,7 +83,7 @@ export default function TindakanHariIniModal({
             <div
               className={cn(
                 "rounded-xl border px-4 py-10 text-center text-sm font-semibold",
-                "border-slate-200 bg-slate-50 text-slate-700 dark:border-cyan-800/40 dark:bg-black/25 dark:text-cyan-200/80",
+                "border-slate-200 bg-slate-50 text-slate-700 dark:border-cyan-800/40 dark:bg-black/25 dark:text-white/90",
               )}
             >
               Tidak ada tindakan pada tanggal hari ini.
@@ -99,31 +99,31 @@ export default function TindakanHariIniModal({
                       "border-amber-200/70 bg-gradient-to-b from-amber-400/85 via-amber-200/65 to-amber-100/40 dark:border-amber-400/55 dark:bg-gradient-to-b dark:from-amber-300/30 dark:via-amber-200/20 dark:to-amber-200/10",
                     )}
                   >
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white w-10">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-slate-900 dark:text-white w-10">
                       No
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-slate-900 dark:text-white">
                       Tanggal
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white w-24">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-slate-900 dark:text-white w-24">
                       Time out
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white w-24">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-slate-900 dark:text-white w-24">
                       RM
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white min-w-[180px]">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-slate-900 dark:text-white min-w-[180px]">
                       Nama pasien
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white w-24">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-slate-900 dark:text-white w-24">
                       Jenis kelamin
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white min-w-[180px]">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-slate-900 dark:text-white min-w-[180px]">
                       Dokter
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white min-w-[180px]">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-slate-900 dark:text-white min-w-[180px]">
                       Tindakan
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-white min-w-[160px]">
+                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-slate-900 dark:text-white min-w-[160px]">
                       Ruangan
                     </th>
                   </tr>
@@ -143,31 +143,31 @@ export default function TindakanHariIniModal({
                           "border-cyan-200/70 dark:border-cyan-900/25",
                         )}
                       >
-                        <td className="px-2 py-1.5 text-center font-mono text-[12px] tabular-nums text-cyan-500/90">
+                        <td className="px-2 py-1.5 text-center font-mono text-[12px] tabular-nums text-cyan-700 dark:text-white">
                           {i + 1}
                         </td>
-                        <td className="px-2 py-1.5 text-center font-mono text-[12px] text-cyan-200/95">
+                        <td className="px-2 py-1.5 text-center font-mono text-[12px] text-slate-800 dark:text-white/90">
                           {String(rec.tanggal ?? "").slice(0, 10) || "—"}
                         </td>
-                        <td className="px-2 py-1.5 text-center font-mono text-[12px] text-cyan-200/95">
+                        <td className="px-2 py-1.5 text-center font-mono text-[12px] text-slate-800 dark:text-white/90">
                           {String(rec.fast_track_time_out ?? "").trim() || "—"}
                         </td>
-                        <td className="px-2 py-1.5 text-center font-mono text-[12px] text-cyan-200/95">
+                        <td className="px-2 py-1.5 text-center font-mono text-[12px] text-slate-800 dark:text-white/90">
                           {displayRm(raw)}
                         </td>
-                        <td className="px-2 py-1.5 text-center text-[12px] text-cyan-200/95">
+                        <td className="px-2 py-1.5 text-center text-[12px] text-slate-800 dark:text-white/90">
                           {normalizeNamaPasien(displayNamaPasien(raw))}
                         </td>
-                        <td className="px-2 py-1.5 text-center text-[12px] text-cyan-200/95">
+                        <td className="px-2 py-1.5 text-center text-[12px] text-slate-800 dark:text-white/90">
                           {formatJenisKelaminDisplay(jk)}
                         </td>
-                        <td className="px-2 py-1.5 text-center text-[12px] text-cyan-200/95">
+                        <td className="px-2 py-1.5 text-center text-[12px] text-slate-800 dark:text-white/90">
                           {dokter}
                         </td>
-                        <td className="px-2 py-1.5 text-center text-[12px] text-cyan-200/95">
+                        <td className="px-2 py-1.5 text-center text-[12px] text-slate-800 dark:text-white/90">
                           {tindakan}
                         </td>
-                        <td className="px-2 py-1.5 text-center text-[12px] text-cyan-200/95">
+                        <td className="px-2 py-1.5 text-center text-[12px] text-slate-800 dark:text-white/90">
                           {ruangan}
                         </td>
                       </tr>

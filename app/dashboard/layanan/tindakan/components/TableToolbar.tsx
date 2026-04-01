@@ -189,7 +189,7 @@ export default function TableToolbar({
           onClick={() => setAddPasienOpen(true)}
           className={cn(
             "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[hsl(var(--cyan)/0.85)] bg-[hsl(var(--cyan))] px-3 text-xs font-extrabold shadow-[0_0_18px_hsl(var(--cyan)/0.4)] transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--cyan))]",
-            "text-black dark:text-white",
+            "text-black dark:text-slate-100",
             "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
           )}
           title="Tambah saran pasien (tanpa pindah halaman)"
@@ -199,10 +199,10 @@ export default function TableToolbar({
             strokeWidth={2.5}
             className={cn(
               "shrink-0 motion-safe:transition-transform group-hover:scale-110",
-              "text-black dark:text-white",
+              "text-black dark:text-slate-100",
             )}
           />
-          <span className={cn("tracking-wide text-black dark:text-white")}>
+          <span className={cn("tracking-wide text-black dark:text-slate-100")}>
             Tambah Pasien
           </span>
         </button>
@@ -229,7 +229,7 @@ export default function TableToolbar({
             size={13}
             className={cn(
               "absolute left-2 top-1/2 -translate-y-1/2 opacity-70 pointer-events-none",
-              "text-cyan-700 dark:text-white/85",
+              "text-cyan-700 dark:text-slate-200/90",
             )}
           />
           <input
@@ -240,7 +240,7 @@ export default function TableToolbar({
             className={cn(
               "w-full pl-7 pr-2.5 py-1 text-[13px] font-semibold leading-snug rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500",
               "bg-white border-cyan-500/40 text-slate-900 placeholder:text-slate-600 [color-scheme:light]",
-              "dark:bg-black dark:border-white/20 dark:text-white dark:placeholder:text-white/45 dark:[color-scheme:dark]",
+              "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:placeholder:text-slate-400/80 dark:[color-scheme:dark]",
             )}
           />
         </div>
@@ -255,7 +255,7 @@ export default function TableToolbar({
           className={cn(
             "text-[13px] font-semibold px-2 py-1 rounded-md border focus:outline-none min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem]",
             "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
-            "dark:bg-black dark:border-white/20 dark:text-white dark:[color-scheme:dark]",
+            "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:[color-scheme:dark]",
           )}
         >
           <option value="">Semua dokter</option>
@@ -277,7 +277,7 @@ export default function TableToolbar({
           className={cn(
             "text-[13px] font-semibold px-2 py-1 rounded-md border focus:outline-none min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem]",
             "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
-            "dark:bg-black dark:border-white/20 dark:text-white dark:[color-scheme:dark]",
+            "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:[color-scheme:dark]",
           )}
         >
           <option value="">Semua ruangan</option>
@@ -303,7 +303,7 @@ export default function TableToolbar({
             className={cn(
               "cursor-pointer text-[13px] font-semibold px-2 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500",
               "[color-scheme:light] bg-white border-cyan-500/40 text-slate-900",
-              "dark:[color-scheme:dark] dark:bg-black dark:border-white/20 dark:text-white",
+              "dark:[color-scheme:dark] dark:bg-black dark:border-white/20 dark:text-slate-100",
             )}
             title="Tanggal dari"
             aria-label="Tanggal dari"
@@ -329,7 +329,7 @@ export default function TableToolbar({
             className={cn(
               "cursor-pointer text-[13px] font-semibold px-2 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500",
               "[color-scheme:light] bg-white border-cyan-500/40 text-slate-900",
-              "dark:[color-scheme:dark] dark:bg-black dark:border-white/20 dark:text-white",
+              "dark:[color-scheme:dark] dark:bg-black dark:border-white/20 dark:text-slate-100",
             )}
             title="Tanggal sampai"
             aria-label="Tanggal sampai"

@@ -16,6 +16,7 @@ import "react-day-picker/style.css";
 
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/contexts/ThemeContext";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 const DT_LOCAL = "yyyy-MM-dd'T'HH:mm" as const;
 
@@ -281,7 +282,7 @@ export function DatetimeLocalPicker({
   const panelClass = cn(
     "rounded-xl border p-2 shadow-2xl",
     isDrawer
-      ? "border-cyan-300/70 bg-white text-slate-900 dark:border-cyan-800/50 dark:bg-[#0a1018]/98 dark:backdrop-blur-sm dark:text-white"
+      ? "border-cyan-300/70 bg-white text-slate-900 dark:border-cyan-800/50 dark:bg-[#0a1018]/98 dark:text-white"
       : "border-white/15 bg-[#0a1628]/98 backdrop-blur-sm text-white",
   );
 
@@ -290,7 +291,7 @@ export function DatetimeLocalPicker({
       ? createPortal(
           <div
             ref={portalRef}
-            className={cn(panelClass, "z-[5000]")}
+            className={cn(panelClass, UI_LAYERS.pickerFloating)}
             style={{
               position: "fixed",
               top: floatPos.top,

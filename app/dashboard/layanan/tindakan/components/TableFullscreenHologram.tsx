@@ -6,6 +6,7 @@ import { Maximize2, Minimize2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import DiagnosticsHUD from "@/components/DiagnosticsHUD";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 interface TableFullscreenHologramProps {
   title?: string;
@@ -42,7 +43,7 @@ export default function TableFullscreenHologram({
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-2xl"
+            className={`fixed inset-0 ${UI_LAYERS.fullscreenOverlay} flex items-center justify-center bg-black/80 backdrop-blur-2xl`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

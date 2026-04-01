@@ -140,7 +140,7 @@
 
   /* 🩺 Modal System (Unified v10vΩ) */
   .modal-overlay {
-    @apply fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-md;
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-black/75;
   }
   .modal-holo {
     @apply relative rounded-2xl p-6 text-white 

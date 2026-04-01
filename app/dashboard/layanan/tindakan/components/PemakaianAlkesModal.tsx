@@ -44,6 +44,7 @@ import {
   DISTRIBUTOR_PRODUK_KATEGORI,
   normalizeKategoriAlkesLine,
 } from "@/lib/distributorCatalog";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 const DatetimeLocalPicker = dynamic(
   () =>
@@ -161,6 +162,36 @@ function resolveHargaFromBarangInput(
   for (const c of narrowed) {
     const h = hargaFromPickRow(c, options);
     if (h !== undefined) return h;
+  }
+  return undefined;
+}
+
+function resolveDistributorFromBarangInput(
+  label: string,
+  options: MasterBarangPickRow[],
+  line?: Pick<PemakaianLine, "distributor" | "lot" | "ukuran" | "ed">,
+): string | undefined {
+  const q = label.trim().toLowerCase();
+  if (!q) return undefined;
+
+  const byBarcode = options.find(
+    (v) => (v.barcode ?? "").trim().toLowerCase() === q,
+  );
+  if (byBarcode?.distributor_nama?.trim()) return byBarcode.distributor_nama.trim();
+
+  const byKode = options.find((v) => v.kode.trim().toLowerCase() === q);
+  if (byKode?.distributor_nama?.trim()) return byKode.distributor_nama.trim();
+
+  const sameNama = options.filter((v) => v.nama.trim().toLowerCase() === q);
+  let candidates = sameNama;
+  if (sameNama.length === 0) {
+    candidates = options.filter((v) => v.kode.trim().toLowerCase() === q);
+  }
+  if (candidates.length === 0) return undefined;
+
+  const narrowed = line ? narrowByLineFields(candidates, line) : candidates;
+  for (const c of narrowed) {
+    if (c.distributor_nama?.trim()) return c.distributor_nama.trim();
   }
   return undefined;
 }
@@ -849,18 +880,35 @@ export default function PemakaianAlkesModal({
         `• Dokter: ${dokterKonfirmasi}\n` +
         `• Depo: ${depo}\n` +
         `• ${nBarang} jenis barang\n\n` +
+        `Order juga akan diteruskan ke distributor sesuai barang.\n` +
         `Status akan diset “menunggu validasi Depo”.`;
     const okSubmit = await appConfirm({
-      title: isEdit ? "Simpan perubahan?" : "Kirim ke Depo Farmasi?",
+      title: isEdit
+        ? "Simpan perubahan?"
+        : "Kirim ke Depo + Distributor?",
       message: konfirmasi,
-      confirmLabel: isEdit ? "Simpan" : "Simpan & kirim",
+      confirmLabel: isEdit ? "Simpan" : "Simpan & kirim semua",
       cancelLabel: "Batal",
     });
     if (!okSubmit) return;
 
-    const itemsPayload = drawerLines.filter(
-      (l) => cleanFormText(l.barang).length > 0,
-    );
+    const itemsPayload = drawerLines
+      .filter((l) => cleanFormText(l.barang).length > 0)
+      .map((line) => {
+        const distributorManual = cleanFormText(line.distributor ?? "");
+        const distributorResolved = distributorManual
+          ? distributorManual
+          : resolveDistributorFromBarangInput(line.barang, barangVariantList, {
+              distributor: line.distributor,
+              lot: line.lot,
+              ukuran: line.ukuran,
+              ed: line.ed,
+            });
+        return {
+          ...line,
+          distributor: distributorResolved || undefined,
+        };
+      });
 
     setDrawerSaving(true);
     try {
@@ -947,8 +995,8 @@ export default function PemakaianAlkesModal({
         variant: "success",
         title: "Order tersimpan",
         message: oid
-          ? `Order ${oid} dikirim ke Depo Farmasi (status: menunggu validasi).`
-          : "Order dikirim ke Depo Farmasi (menunggu validasi).",
+          ? `Order ${oid} dikirim ke Depo Farmasi dan distributor terkait barang (status: menunggu validasi).`
+          : "Order dikirim ke Depo Farmasi dan distributor terkait barang (menunggu validasi).",
       });
     } catch (e) {
       void appAlert({
@@ -982,7 +1030,7 @@ export default function PemakaianAlkesModal({
         <button
           suppressHydrationWarning
           type="button"
-          className="absolute inset-0 bg-black/70 backdrop-blur-sm border-0 cursor-default p-0"
+          className="absolute inset-0 bg-black/75 border-0 cursor-default p-0"
           aria-label="Tutup form"
           onClick={() => (!drawerSaving ? onClose() : undefined)}
         />
@@ -1375,7 +1423,7 @@ export default function PemakaianAlkesModal({
                 ? "Menyimpan…"
                 : existingOrderId
                   ? "Simpan perubahan"
-                  : "Simpan & Kirim ke Depo"}
+                  : "Simpan & Kirim ke Depo + Distributor"}
             </button>
           </div>
         </div>
@@ -1383,7 +1431,7 @@ export default function PemakaianAlkesModal({
 
       {barangPickerOpen ? (
         <div
-          className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-3 bg-black/75 backdrop-blur-sm print:hidden"
+          className={`fixed inset-0 ${UI_LAYERS.modalTop} flex items-end sm:items-center justify-center p-3 bg-black/80 print:hidden`}
           role="dialog"
           aria-modal="true"
           aria-labelledby="tindakan-pemakaian-barang-picker-title"

@@ -14,9 +14,12 @@ const PasienModalForm = dynamic(() => import("./components/PasienModalForm"), {
   ssr: false,
 });
 
-const PatientDetailModal = dynamic(() => import("./components/PatientDetailModal"), {
-  ssr: false,
-});
+const PatientDetailModal = dynamic(
+  () => import("./components/PatientDetailModal"),
+  {
+    ssr: false,
+  },
+);
 
 /*───────────────────────────────────────────────
 📋 PasienContent v4.1 — Stable Context Edition
@@ -61,7 +64,10 @@ export default function PasienContent() {
 
       {/* 🔹 Modal pasien */}
       {isFormModal && (
-        <div key="pasien-modal" className="animate-in fade-in zoom-in-95 duration-200">
+        <div
+          key="pasien-modal"
+          className="animate-in fade-in zoom-in-95 duration-200"
+        >
           <PasienModalForm
             mode={modalMode as "add" | "edit"}
             selectedPatient={selectedPatient as Pasien | null}

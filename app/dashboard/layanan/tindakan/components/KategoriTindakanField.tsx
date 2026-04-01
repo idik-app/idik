@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 type MasterItem = {
   id: string;
@@ -323,7 +324,7 @@ export default function KategoriTindakanField({
 
       {manageOpen ? (
         <div
-          className="fixed inset-0 z-[220] flex items-end justify-center p-3 sm:items-center"
+          className={`fixed inset-0 ${UI_LAYERS.modalManager} flex items-end justify-center p-3 sm:items-center`}
           role="dialog"
           aria-modal="true"
           aria-label="Kelola kategori master"

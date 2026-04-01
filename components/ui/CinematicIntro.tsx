@@ -15,6 +15,7 @@ import {
 } from "framer-motion";
 import { useRouter } from "next/navigation";
 import LoginModal from "@/components/LoginModal";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 /* ---------------------------------------------------------
    🔢 PRNG deterministik agar SSR = Client (bebas hydration)
@@ -891,7 +892,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
             key="access-granted"
             role="status"
             aria-live="polite"
-            className="absolute inset-0 flex items-center justify-center bg-black bg-[radial-gradient(circle,rgba(34,211,238,0.18)_0%,rgba(0,0,0,0)_65%)] z-[9999]"
+            className={`absolute inset-0 flex items-center justify-center bg-black bg-[radial-gradient(circle,rgba(34,211,238,0.18)_0%,rgba(0,0,0,0)_65%)] ${UI_LAYERS.fullscreen}`}
             initial={{ opacity: 0 }}
             animate={{
               opacity: 1,
@@ -939,7 +940,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
             key="access-denied"
             role="alert"
             aria-live="assertive"
-            className="absolute inset-0 flex items-center justify-center bg-black bg-[repeating-linear-gradient(0deg,rgba(255,0,64,0.05)_0px,rgba(255,0,64,0.05)_1px,transparent_1px,transparent_2px)] z-[9999]"
+            className={`absolute inset-0 flex items-center justify-center bg-black bg-[repeating-linear-gradient(0deg,rgba(255,0,64,0.05)_0px,rgba(255,0,64,0.05)_1px,transparent_1px,transparent_2px)] ${UI_LAYERS.fullscreen}`}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: lite ? 0.01 : 0.25 }}

@@ -45,7 +45,7 @@ export default function TindakanDashboardModal({
 
   const shell = cn(
     "flex max-h-[min(92vh,900px)] w-full flex-col gap-3 overflow-y-auto overflow-x-visible p-4 sm:p-5",
-    "border-slate-200/80 bg-white text-slate-900 shadow-xl dark:border-cyan-600/35 dark:bg-slate-950/95 dark:text-cyan-50",
+    "border-slate-200/80 bg-white text-slate-900 shadow-xl dark:border-cyan-600/35 dark:bg-slate-950/95 dark:text-white",
   );
 
   return (
@@ -71,7 +71,7 @@ export default function TindakanDashboardModal({
                 <DialogTitle
                   className={cn(
                     "text-lg font-bold sm:text-xl",
-                    "text-slate-900 dark:text-gold",
+                    "text-slate-900 dark:text-white",
                   )}
                 >
                   Dashboard tindakan
@@ -83,7 +83,7 @@ export default function TindakanDashboardModal({
                 onClick={() => onOpenChange(false)}
                 className={cn(
                   "rounded-lg p-1.5 transition",
-                  "text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-cyan-300/80 dark:hover:bg-cyan-950/60 dark:hover:text-cyan-100",
+                  "text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-300/85 dark:hover:bg-cyan-950/60 dark:hover:text-slate-100",
                 )}
               >
                 <X className="h-5 w-5" />
@@ -92,7 +92,7 @@ export default function TindakanDashboardModal({
             <DialogDescription
               className={cn(
                 "text-xs sm:text-sm",
-                "text-slate-600 dark:text-cyan-300/75",
+                  "text-slate-600 dark:text-white/90",
               )}
             >
               Filter dan ringkasan grafik dari data tindakan yang sama dengan
@@ -113,7 +113,7 @@ export default function TindakanDashboardModal({
               <div
                 className={cn(
                   "flex flex-1 items-center justify-center rounded-xl border py-16 text-sm",
-                  "border-slate-200 bg-slate-50 text-slate-500 dark:border-cyan-800/40 dark:bg-black/30 dark:text-cyan-200/60",
+                  "border-slate-200 bg-slate-50 text-slate-500 dark:border-cyan-800/40 dark:bg-black/30 dark:text-white/90",
                 )}
               >
                 Memuat data tindakan…

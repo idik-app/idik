@@ -74,7 +74,7 @@ const TINDAKAN_TABLE_INPUT_TEXT =
 
 /** Kolom No–Dokter — amber di siang; putih terang di mode malam. */
 const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
-  "text-amber-800 placeholder:text-amber-700/55 dark:text-white dark:placeholder:text-white/45";
+  "text-amber-800 placeholder:text-amber-700/55 dark:text-slate-100 dark:placeholder:text-slate-400/80";
 
 function useDebouncedValue(value: string, ms: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -620,7 +620,7 @@ function EditableDateCell({
       }}
       className={cn(
         "w-full min-w-[8.5rem] rounded border px-2 py-1 text-xs font-semibold focus:outline-none",
-        "border-cyan-400/55 bg-white text-amber-800 [color-scheme:light] dark:border-cyan-700/50 dark:bg-black/40 dark:text-white dark:[color-scheme:dark]",
+        "border-cyan-400/55 bg-white text-amber-800 [color-scheme:light] dark:border-cyan-700/50 dark:bg-black/40 dark:text-slate-100 dark:[color-scheme:dark]",
       )}
     />
   );
@@ -722,7 +722,7 @@ function EditableDokterCell({
       }}
       className={cn(
         "w-full rounded border px-2 py-1 text-xs font-semibold focus:outline-none",
-        "border-cyan-400/55 bg-white text-amber-800 [color-scheme:light] dark:border-cyan-700/50 dark:bg-black/40 dark:text-white",
+        "border-cyan-400/55 bg-white text-amber-800 [color-scheme:light] dark:border-cyan-700/50 dark:bg-black/40 dark:text-slate-100",
       )}
     >
       {!draft ? <option value="">Pilih dokter</option> : null}
@@ -1914,7 +1914,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap w-10",
-                        "text-cyan-950 dark:text-white",
+                        "text-cyan-950 dark:text-slate-100",
                       )}
                     >
                       No
@@ -1922,7 +1922,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
-                        "text-cyan-950 dark:text-white",
+                        "text-cyan-950 dark:text-slate-100",
                       )}
                     >
                       Tanggal
@@ -1930,7 +1930,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
-                        "text-cyan-950 dark:text-white",
+                        "text-cyan-950 dark:text-slate-100",
                       )}
                     >
                       Time out
@@ -1938,7 +1938,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
-                        "text-cyan-950 dark:text-white",
+                        "text-cyan-950 dark:text-slate-100",
                       )}
                     >
                       RM
@@ -1946,7 +1946,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
-                        "text-cyan-950 dark:text-white",
+                        "text-cyan-950 dark:text-slate-100",
                       )}
                     >
                       Nama pasien
@@ -1954,7 +1954,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
-                        "text-cyan-950 dark:text-white",
+                        "text-cyan-950 dark:text-slate-100",
                       )}
                     >
                       Jenis kelamin
@@ -1962,7 +1962,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
-                        "text-cyan-950 dark:text-white",
+                        "text-cyan-950 dark:text-slate-100",
                       )}
                     >
                       Dokter
@@ -1970,7 +1970,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
-                        "text-cyan-950 dark:text-white",
+                        "text-cyan-950 dark:text-slate-100",
                       )}
                     >
                       Tindakan
@@ -1978,7 +1978,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
-                        "text-cyan-950 dark:text-white",
+                        "text-cyan-950 dark:text-slate-100",
                       )}
                     >
                       Ruangan
@@ -1986,7 +1986,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
-                        "text-cyan-950 dark:text-white",
+                        "text-cyan-950 dark:text-slate-100",
                       )}
                     >
                       Aksi
@@ -2092,7 +2092,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center tabular-nums",
-                                "text-cyan-800 dark:text-white",
+                                "text-cyan-800 dark:text-slate-100",
                               )}
                             >
                               {rowNoDesc}
@@ -2100,7 +2100,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle",
-                                "text-amber-800 dark:text-white",
+                                "text-amber-800 dark:text-slate-100",
                               )}
                             >
                               <div className="mx-auto w-full max-w-[9.5rem]">
@@ -2115,7 +2115,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle tabular-nums",
-                                "text-slate-800 dark:text-white",
+                                "text-slate-800 dark:text-slate-100",
                               )}
                               title="Dari tab Fast-Track (Time out)"
                             >
@@ -2125,7 +2125,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 font-mono text-[11px] text-center align-middle",
-                                "text-amber-800 dark:text-white",
+                                "text-amber-800 dark:text-slate-100",
                               )}
                             >
                               {(() => {
@@ -2146,7 +2146,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 max-w-[18rem] text-center align-middle",
-                                "text-amber-800 dark:text-white",
+                                "text-amber-800 dark:text-slate-100",
                               )}
                             >
                               <div
@@ -2193,7 +2193,7 @@ export default function TindakanTable({
                                   <p
                                     className={cn(
                                       "mt-0.5 text-[9px] leading-tight",
-                                      "text-cyan-700/80 dark:text-white/70",
+                                      "text-cyan-700/80 dark:text-slate-300/80",
                                     )}
                                   >
                                     {pasienError
@@ -2206,7 +2206,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 text-[11px] text-center align-middle whitespace-nowrap",
-                                "text-slate-800 dark:text-white",
+                                "text-slate-800 dark:text-slate-100",
                               )}
                             >
                               {formatJenisKelaminDisplay(
@@ -2219,7 +2219,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
-                                "text-amber-800 dark:text-white",
+                                "text-amber-800 dark:text-slate-100",
                               )}
                             >
                               <div
@@ -2301,7 +2301,7 @@ export default function TindakanTable({
                                   <p
                                     className={cn(
                                       "mt-0.5 text-[9px] leading-tight",
-                                      "text-cyan-700/80 dark:text-white/70",
+                                      "text-cyan-700/80 dark:text-slate-300/80",
                                     )}
                                   >
                                     {doctorError

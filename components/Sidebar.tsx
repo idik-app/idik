@@ -8,6 +8,7 @@ import { useUI } from "@/contexts/UIContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useTabs } from "@/contexts/TabContext";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 import { useRouter } from "next/navigation";
 import { menuConfig } from "@/app/config/menuConfig";
 
@@ -430,7 +431,7 @@ export default function Sidebar() {
                                       exit={{ opacity: 0, x: 6 }}
                                       transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                                       className={cn(
-                                        "absolute left-10 top-1/2 -translate-y-1/2 z-[9999] text-xs px-2.5 py-1 rounded-md whitespace-nowrap border shadow-md",
+                                        `absolute left-10 top-1/2 -translate-y-1/2 ${UI_LAYERS.hud} text-xs px-2.5 py-1 rounded-md whitespace-nowrap border shadow-md`,
                                         lightMode
                                           ? "bg-white border-cyan-600/35 text-slate-800"
                                           : "bg-[#0b1b28]/95 border-cyan-400/40 text-cyan-100 shadow-[0_0_12px_rgba(0,255,255,0.4)]"

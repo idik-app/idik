@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { compressImageForUpload } from "../lib/compressImageForUpload";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 function parseFotosUrls(raw: unknown): string[] {
   if (raw == null || raw === "") return [];
@@ -423,9 +424,9 @@ export default function FastTrackPhotoDropzone({
         }}
       >
         <DialogContent
-          overlayClassName="!z-[10000]"
+          overlayClassName={`!${UI_LAYERS.dialogOverlayTop}`}
           className={cn(
-            "!z-[10001] !max-h-[min(92dvh,760px)] !w-[min(96vw,900px)] !max-w-[min(96vw,900px)] !translate-x-[-50%] !translate-y-[-50%] gap-0 overflow-hidden p-0",
+            `!${UI_LAYERS.dialogContentTop} !max-h-[min(92dvh,760px)] !w-[min(96vw,900px)] !max-w-[min(96vw,900px)] !translate-x-[-50%] !translate-y-[-50%] gap-0 overflow-hidden p-0`,
           "!border-cyan-400/50 !bg-white !text-slate-900 dark:!border-cyan-500/40 dark:!bg-zinc-950 dark:!text-white",
           )}
         >

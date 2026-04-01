@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { DoorOpen, Loader2, Trash2, X } from "lucide-react";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 export interface ConfirmDeleteRuanganProps {
   itemName: string;
@@ -49,14 +50,14 @@ export default function ConfirmDeleteRuangan({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[10000] flex items-center justify-center p-4 pointer-events-auto animate-in fade-in duration-200"
+      className={`fixed inset-0 ${UI_LAYERS.dialogOverlayTop} flex items-center justify-center p-4 pointer-events-auto animate-in fade-in duration-200`}
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="confirm-ruangan-title"
       aria-describedby="confirm-ruangan-desc"
     >
       <div
-        className="absolute inset-0 bg-black/75 backdrop-blur-md cursor-pointer"
+        className="absolute inset-0 bg-black/75 cursor-pointer"
         aria-hidden
         onClick={() => !busy && onCancel()}
       />

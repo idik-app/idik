@@ -151,7 +151,7 @@ function StatMiniCard({
         <p
           className={cn(
             "text-[10px] font-bold uppercase tracking-wide",
-            isDark ? "text-cyan-200/70" : "opacity-80",
+            isDark ? "text-white/85" : "opacity-80",
           )}
         >
           {label}
@@ -193,7 +193,7 @@ function ChartPanel({
         <h3
           className={cn(
             "mb-2 text-sm font-bold",
-            isDark ? "text-cyan-100" : "text-slate-800",
+            isDark ? "text-white" : "text-slate-800",
           )}
         >
           {title}
@@ -201,7 +201,7 @@ function ChartPanel({
         <div
           className={cn(
             "flex flex-1 items-center justify-center rounded-lg text-xs",
-            isDark ? "text-cyan-200/55" : "text-slate-500",
+            isDark ? "text-white/80" : "text-slate-500",
           )}
         >
           Tidak ada data untuk grafik ini.
@@ -215,7 +215,7 @@ function ChartPanel({
       <h3
         className={cn(
           "mb-1 shrink-0 text-sm font-bold",
-          isDark ? "text-cyan-100" : "text-slate-800",
+          isDark ? "text-white" : "text-slate-800",
         )}
       >
         {title}
@@ -306,7 +306,7 @@ export default function TindakanDashboardSummaryCharts({
         className={cn(
           "flex min-h-[220px] flex-1 flex-col items-center justify-center rounded-xl border px-4 py-12 text-center text-sm",
           isDark
-            ? "border-cyan-800/40 bg-black/25 text-cyan-200/65"
+            ? "border-cyan-800/40 bg-black/25 text-white/85"
             : "border-slate-200 bg-slate-50 text-slate-600",
         )}
       >
@@ -385,7 +385,7 @@ export default function TindakanDashboardSummaryCharts({
       <p
         className={cn(
           "text-center text-[11px]",
-          isDark ? "text-cyan-200/60" : "text-slate-500",
+          isDark ? "text-white/85" : "text-slate-500",
         )}
       >
         Ringkasan dari {stats.total.toLocaleString("id-ID")} baris sesuai filter (top {TOP_N}{" "}

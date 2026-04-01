@@ -35,6 +35,7 @@ import FastTrackBlock from "./FastTrackBlock";
 import SignTimeFields from "./SignTimeFields";
 import { buildResumeWhatsAppText } from "../lib/buildResumeWhatsAppText";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 type Props = {
   open: boolean;
@@ -488,7 +489,7 @@ export default function TindakanDetailDrawer({
    */
   const layer =
     typeof document === "undefined" ? null : (
-    <div className="fixed inset-0 z-[5000]">
+    <div className={`fixed inset-0 ${UI_LAYERS.drawerPortal}`}>
       <button
         type="button"
         aria-label="Tutup detail tindakan"

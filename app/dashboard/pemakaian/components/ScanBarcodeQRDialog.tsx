@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 const REGION_ID = "pemakaian-barang-scan-region";
 
@@ -114,7 +115,7 @@ export default function ScanBarcodeQRDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm"
+      className={`fixed inset-0 ${UI_LAYERS.modalTop} flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="scan-barcode-qr-title"

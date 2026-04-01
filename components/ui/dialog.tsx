@@ -5,6 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 /**
  * Komponen Dialog bergaya JARVIS Gold–Cyan Hybrid.
@@ -33,7 +34,7 @@ export function DialogContent({
             animate={{ opacity: 0.7 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className={`fixed inset-0 z-40 bg-black/70 backdrop-blur-sm ${
+            className={`fixed inset-0 ${UI_LAYERS.overlay} bg-black/75 ${
               overlayClassName ?? ""
             }`}
           />
@@ -43,7 +44,7 @@ export function DialogContent({
           key="jarvis-dialog-content"
           {...props}
           className={cn(
-            "fixed left-1/2 top-1/2 z-50 w-[95%] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-cyan-500/40 bg-black/60 text-[hsl(var(--foreground))] shadow-xl backdrop-blur-xl focus:outline-none",
+            `fixed left-1/2 top-1/2 ${UI_LAYERS.modal} w-[95%] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-cyan-500/40 bg-black/60 text-[hsl(var(--foreground))] shadow-xl backdrop-blur-xl focus:outline-none`,
             className,
           )}
         >

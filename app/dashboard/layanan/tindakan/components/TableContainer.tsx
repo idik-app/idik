@@ -4,6 +4,7 @@ import { Maximize2, Minimize2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import JarvisScanner from "@/components/effects/JarvisScanner";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 const DiagnosticsHUD = dynamic(() => import("@/components/DiagnosticsHUD"), {
   ssr: false,
@@ -42,7 +43,7 @@ export default function TableContainer({
         "relative flex h-full min-h-0 flex-col overflow-hidden min-w-0 max-w-full transition-colors duration-500",
         "bg-transparent",
         isFullscreen &&
-          "fixed inset-0 z-[9999] p-3 md:p-4 bg-slate-100/98 dark:bg-black/90",
+          `fixed inset-0 ${UI_LAYERS.fullscreen} p-3 md:p-4 bg-slate-100/98 dark:bg-black/90`,
       )}
     >
       <button

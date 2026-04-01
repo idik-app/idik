@@ -13,6 +13,7 @@ import {
 import { formatPasienApiValidationError } from "@/app/dashboard/pasien/utils/pasienValidationMessages";
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 const RM_LOOKUP_DEBOUNCE_MS = 420;
 const RM_LOOKUP_MIN_LEN = 2;
@@ -332,7 +333,7 @@ export default function TambahPasienQuickModal({
 
   return (
     <ModalWrapper onClose={onClose}>
-      <div className="relative z-[310]">
+      <div className={`relative ${UI_LAYERS.floatingCard}`}>
         <div
           className={cn(
             "animate-in fade-in zoom-in-95 duration-200 rounded-xl border p-3 sm:rounded-2xl sm:p-6",

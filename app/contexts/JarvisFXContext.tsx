@@ -8,6 +8,7 @@ import {
   useEffect,
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 /* ⚡ FXType v2.1 – Extended for TabContext Integration
    Menambahkan "scan-page", "switch", dan "refresh" agar kompatibel penuh
@@ -57,7 +58,7 @@ export function JarvisFXProvider({ children }: { children: ReactNode }) {
       <AnimatePresence>
         <motion.div
           key={fx}
-          className="fixed inset-0 z-[9999] pointer-events-none overflow-hidden"
+          className={`fixed inset-0 ${UI_LAYERS.fullscreen} pointer-events-none overflow-hidden`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

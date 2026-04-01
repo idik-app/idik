@@ -4,6 +4,7 @@ import * as React from "react";
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 /**
  * Komponen AlertDialog bergaya JARVIS Gold–Cyan Hybrid.
@@ -28,13 +29,13 @@ export function AlertDialogContent({
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.7 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40"
+            className={`fixed inset-0 bg-black/75 ${UI_LAYERS.overlay}`}
           />
         </AlertDialogPrimitive.Overlay>
         <AlertDialogPrimitive.Content
           key="alert-dialog-content"
           {...props}
-          className={`fixed z-50 top-1/2 left-1/2 w-[95%] max-w-md -translate-x-1/2 -translate-y-1/2
+          className={`fixed ${UI_LAYERS.modal} top-1/2 left-1/2 w-[95%] max-w-md -translate-x-1/2 -translate-y-1/2
                      rounded-xl border border-cyan-500/40 bg-black/60 text-[hsl(var(--foreground))] 
                      shadow-lg backdrop-blur-xl focus:outline-none ${
                        className ?? ""

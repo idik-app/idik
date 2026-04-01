@@ -58,6 +58,7 @@ import {
   loadKomponenRows,
   loadObatAlkesRows,
 } from "@/app/dashboard/pemakaian/lib/templateLocalStorage";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 const ScanBarcodeQRDialog = dynamic(
   () => import("@/app/dashboard/pemakaian/components/ScanBarcodeQRDialog"),
@@ -1997,13 +1998,13 @@ export default function PemakaianPage() {
         {/* ── Panel detail baris (klik tabel) ── */}
         {detailRow && detailDraft && (
           <div
-            className="fixed inset-0 z-[45] flex items-stretch justify-end print:hidden"
+            className={`fixed inset-0 ${UI_LAYERS.detailBackdrop} flex items-stretch justify-end print:hidden`}
             role="presentation"
           >
             <button
               suppressHydrationWarning
               type="button"
-              className="absolute inset-0 bg-black/65 backdrop-blur-[2px]"
+              className="absolute inset-0 bg-black/70"
               aria-label="Tutup detail"
               onClick={closeOrderDetail}
             />
@@ -2472,7 +2473,7 @@ export default function PemakaianPage() {
             <button
               suppressHydrationWarning
               type="button"
-              className="absolute inset-0 bg-black/70 backdrop-blur-sm border-0 cursor-default p-0"
+              className="absolute inset-0 bg-black/75 border-0 cursor-default p-0"
               aria-label="Tutup form"
               onClick={closePemakaianDrawer}
             />
@@ -2859,7 +2860,7 @@ export default function PemakaianPage() {
 
         {barangPickerOpen ? (
           <div
-            className="fixed inset-0 z-[55] flex items-end sm:items-center justify-center p-3 bg-black/75 backdrop-blur-sm"
+            className={`fixed inset-0 ${UI_LAYERS.modalHigh} flex items-end sm:items-center justify-center p-3 bg-black/80`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="pemakaian-barang-picker-title"

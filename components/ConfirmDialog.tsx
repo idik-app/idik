@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { useEffect } from "react";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 /* ---------------------------------------------------
    💠 ConfirmDialog – Cathlab JARVIS Mode v3.5.2
@@ -52,8 +53,7 @@ export default function ConfirmDialog({
       {open ? (
         <motion.div
           key="overlay"
-          className="fixed inset-0 z-[9999] flex items-center justify-center 
-                     bg-black/60 backdrop-blur-md"
+          className={`fixed inset-0 ${UI_LAYERS.dialogOverlayTop} flex items-center justify-center bg-black/75`}
           style={{
             pointerEvents: open ? "auto" : "none", // ✅ cegah blok klik tabel
             isolation: "isolate",

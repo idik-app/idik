@@ -83,10 +83,7 @@ export function useTindakanStatsFromList(
   rows: readonly TindakanJoinResult[],
   dataLoading: boolean,
 ) {
-  const stats = useMemo(
-    () => computeTindakanStatsFromRows(rows),
-    [rows],
-  );
+  const stats = useMemo(() => computeTindakanStatsFromRows(rows), [rows]);
 
   return { stats, loading: dataLoading };
 }

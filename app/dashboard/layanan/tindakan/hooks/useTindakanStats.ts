@@ -22,7 +22,7 @@ function tanggalKey(raw: unknown): string {
 /** Nilai awal KPI sebelum tabel mengirim snapshot terfilter. */
 export function emptyTindakanKpiStats(): Record<string, number> {
   return {
-    "Tindakan hari ini": 0,
+    "Pasien hari ini": 0,
     "Total pasien": 0,
     "Total tindakan": 0,
     "Total dokter": 0,
@@ -53,7 +53,7 @@ export function computeTindakanStatsFromRows(
     if (d && d !== "—") dokterKeys.add(d);
   }
   return {
-    "Tindakan hari ini": tindakanHariIni,
+    "Pasien hari ini": tindakanHariIni,
     "Total pasien": totalPasien,
     "Total tindakan": distinctTindakan.size,
     "Total dokter": dokterKeys.size,

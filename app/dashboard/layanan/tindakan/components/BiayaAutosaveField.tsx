@@ -24,7 +24,7 @@ function stripLeadingRp(raw: string): string {
 
 function draftFromValue(field: BiayaAutosaveFieldKey, value: unknown): string {
   if (value === null || value === undefined || value === "") return "";
-  if (NUMERIC.has(field)) {
+  if (field === "total" || field === "krs" || field === "consumable") {
     if (typeof value === "number" && Number.isFinite(value)) return String(value);
     const p = parseNumeric(String(value));
     if (p.ok && p.v != null) return String(p.v);
@@ -190,7 +190,7 @@ export default function BiayaAutosaveField({
 
   const inputClass = cn(
     "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",
-    "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-gray-500",
+    "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
   );
   const aria =
     field === "total"
@@ -267,7 +267,7 @@ export default function BiayaAutosaveField({
           autoComplete="off"
           className={cn(
             "min-w-0 flex-1 border-0 bg-transparent p-0 font-mono text-sm font-semibold focus:outline-none focus:ring-0",
-            "text-slate-950 placeholder:text-slate-500 dark:text-white dark:placeholder:text-gray-500",
+            "text-slate-950 placeholder:text-slate-500 dark:text-white dark:placeholder:text-white/90",
           )}
           placeholder="0"
           value={draft}
@@ -284,6 +284,5 @@ export default function BiayaAutosaveField({
     );
   }
 
-  const _exhaustive: never = field;
-  return _exhaustive;
+  return null;
 }

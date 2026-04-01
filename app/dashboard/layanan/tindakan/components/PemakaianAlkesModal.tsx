@@ -282,7 +282,7 @@ function LabeledField({
   children: React.ReactNode;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-[11px] text-white/70">
+    <label className="flex flex-col gap-1 text-[11px] text-white/85">
       <span className="font-semibold text-white/90">{label}</span>
       {children}
     </label>
@@ -1050,7 +1050,7 @@ export default function PemakaianAlkesModal({
                   ? "Edit Pemakaian Alkes"
                   : "Input Pemakaian Alkes"}
               </h3>
-              <p className="text-[11px] text-white/50 mt-0.5">
+              <p className="text-[11px] text-white/85 mt-0.5">
                 {existingOrderId
                   ? "Ubah barang & header order; simpan memperbarui data di Depo."
                   : "Dari kasus tindakan — simpan mengirim ke Depo Farmasi (menunggu validasi)."}
@@ -1061,7 +1061,7 @@ export default function PemakaianAlkesModal({
               type="button"
               disabled={drawerSaving}
               onClick={onClose}
-              className="self-end sm:self-start shrink-0 text-xs text-white/60 hover:text-white disabled:opacity-50 -mt-1 sm:mt-0"
+              className="self-end sm:self-start shrink-0 text-xs text-white/85 hover:text-white disabled:opacity-50 -mt-1 sm:mt-0"
             >
               Tutup
             </button>
@@ -1113,7 +1113,7 @@ export default function PemakaianAlkesModal({
                   value={drawerDepo}
                   onChange={(e) => setDrawerDepo(e.target.value)}
                   placeholder="Depo Cathlab / Depo Farmasi"
-                  className="w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40"
+                  className="w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 text-[11px] text-white placeholder:text-white/90 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40"
                 />
               </LabeledField>
               <div className="md:col-span-2">
@@ -1130,7 +1130,7 @@ export default function PemakaianAlkesModal({
               <div className="text-[#E8C547] font-semibold mb-2 flex flex-col gap-2 min-[400px]:flex-row min-[400px]:items-center min-[400px]:justify-between min-w-0">
                 <span className="text-xs shrink-0">Detail Barang Alkes</span>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-white/45 font-normal text-[10px]">
+                  <span className="text-white/85 font-normal text-[10px]">
                     {drawerLines.length} jenis
                   </span>
                   <button
@@ -1157,7 +1157,7 @@ export default function PemakaianAlkesModal({
                   </button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 mb-2 text-[10px] text-white/65">
+              <div className="grid grid-cols-2 gap-2 mb-2 text-[10px] text-white/85">
                 <span>
                   Total qty resep:{" "}
                   <span className="text-white/90 tabular-nums font-medium">
@@ -1175,7 +1175,7 @@ export default function PemakaianAlkesModal({
               <div className="rounded-xl border border-white/10 overflow-x-auto -mx-0.5 px-0.5 sm:mx-0 sm:px-0 touch-pan-x">
                 <table className="w-full text-[10px] min-w-[920px]">
                   <thead>
-                    <tr className="bg-[#0a1628] text-white/80">
+                    <tr className="bg-[#0a1628] text-white/90">
                       <th className="text-left font-semibold px-2 py-1.5 min-w-[100px]">
                         Barang
                       </th>
@@ -1278,7 +1278,7 @@ export default function PemakaianAlkesModal({
                                 distributor: e.target.value || undefined,
                               })
                             }
-                            className="w-full min-w-[76px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white/80 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                            className="w-full min-w-[76px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
                           />
                         </td>
                         <td className="px-1.5 py-1 align-top">
@@ -1291,7 +1291,7 @@ export default function PemakaianAlkesModal({
                               })
                             }
                             placeholder="—"
-                            className="w-full min-w-[56px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white/85 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                            className="w-full min-w-[56px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
                           />
                         </td>
                         <td className="px-1.5 py-1 align-top">
@@ -1304,7 +1304,7 @@ export default function PemakaianAlkesModal({
                               })
                             }
                             placeholder="—"
-                            className="w-full min-w-[52px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white/85 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                            className="w-full min-w-[52px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
                           />
                         </td>
                         <td className="px-1.5 py-1 align-top">
@@ -1317,7 +1317,7 @@ export default function PemakaianAlkesModal({
                               })
                             }
                             placeholder="MM-YYYY"
-                            className="w-full min-w-[52px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white/85 placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                            className="w-full min-w-[52px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
                           />
                         </td>
                         <td className="px-1.5 py-1.5 align-middle text-right tabular-nums text-white/90 text-[10px]">
@@ -1396,7 +1396,7 @@ export default function PemakaianAlkesModal({
                   value={drawerCatatan}
                   onChange={(e) => setDrawerCatatan(e.target.value)}
                   placeholder="Catatan klinis / instruksi ke Depo..."
-                  className="w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40"
+                  className="w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 text-[11px] text-white placeholder:text-white/90 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40"
                 />
               </LabeledField>
             </div>
@@ -1452,7 +1452,7 @@ export default function PemakaianAlkesModal({
                 suppressHydrationWarning
                 type="button"
                 onClick={closeBarangPicker}
-                className="rounded-lg p-1 text-white/55 hover:bg-white/10 hover:text-white"
+                className="rounded-lg p-1 text-white/85 hover:bg-white/10 hover:text-white"
                 aria-label="Tutup"
               >
                 <X className="h-4 w-4" />
@@ -1460,13 +1460,13 @@ export default function PemakaianAlkesModal({
             </div>
             <div className="px-3 py-2 border-b border-white/10 shrink-0">
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/40 pointer-events-none" />
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/85 pointer-events-none" />
                 <input
                   type="search"
                   value={barangPickerQuery}
                   onChange={(e) => setBarangPickerQuery(e.target.value)}
                   placeholder="Nama, kode, barcode, LOT, ukuran, ED, distributor…"
-                  className="w-full rounded-lg border border-white/15 bg-black/40 py-2 pl-8 pr-11 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                  className="w-full rounded-lg border border-white/15 bg-black/40 py-2 pl-8 pr-11 text-[11px] text-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
                   autoFocus
                 />
                 <button
@@ -1483,11 +1483,11 @@ export default function PemakaianAlkesModal({
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
               {barangVariantLoading ? (
-                <p className="px-3 py-6 text-center text-[11px] text-white/50">
+                <p className="px-3 py-6 text-center text-[11px] text-white/85">
                   Memuat katalog…
                 </p>
               ) : filteredBarangPicks.length === 0 ? (
-                <p className="px-3 py-6 text-center text-[11px] text-white/50">
+                <p className="px-3 py-6 text-center text-[11px] text-white/85">
                   {barangVariantList.length === 0
                     ? "Belum ada data master / mapping distributor."
                     : "Tidak ada baris yang cocok dengan pencarian."}
@@ -1505,7 +1505,7 @@ export default function PemakaianAlkesModal({
                         <span className="block text-[11px] font-medium text-white/95">
                           {v.nama}
                         </span>
-                        <span className="block text-[9px] text-white/50 mt-0.5 space-x-1">
+                        <span className="block text-[9px] text-white/85 mt-0.5 space-x-1">
                           {[v.kode && `Kode: ${v.kode}`, v.jenis]
                             .filter(Boolean)
                             .join(" · ")}
@@ -1533,7 +1533,7 @@ export default function PemakaianAlkesModal({
                 suppressHydrationWarning
                 type="button"
                 onClick={addEmptyLineFromPicker}
-                className="text-[10px] text-white/55 hover:text-[#E8C547] underline underline-offset-2"
+                className="text-[10px] text-white/85 hover:text-[#E8C547] underline underline-offset-2"
               >
                 Baris kosong (isi manual)
               </button>

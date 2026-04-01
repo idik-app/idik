@@ -26,6 +26,7 @@ export default function TabBar() {
   const [glowLeft, setGlowLeft] = useState(false);
   const [glowRight, setGlowRight] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const prefetchedRef = useRef<Set<string>>(new Set());
 
   const hrefByTabId = useMemo(() => {
     const map = new Map<string, string>();
@@ -120,6 +121,13 @@ export default function TabBar() {
   }, [activeTab, mounted, tabCount]);
 
   // Sinkron URL ↔ tab ditangani di TabContext (biar konsisten dengan mapping menuConfig)
+  const prefetchTabHref = (tabId: string) => {
+    const href = hrefByTabId.get(tabId);
+    if (!href) return;
+    if (prefetchedRef.current.has(href)) return;
+    prefetchedRef.current.add(href);
+    void router.prefetch(href);
+  };
 
   return (
     <div
@@ -162,6 +170,8 @@ export default function TabBar() {
                         setActiveTab(tab.id);
                       }
                     }}
+                    onFocus={() => prefetchTabHref(tab.id)}
+                    onMouseEnter={() => prefetchTabHref(tab.id)}
                     className={cn(
                       "group relative flex items-center gap-1.5 px-2.5 py-1.5 sm:gap-2 sm:px-4 sm:py-2 rounded-full border transition-colors duration-200",
                       isActive

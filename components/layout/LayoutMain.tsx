@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { useTabs } from "@/app/contexts/TabContext";
 import { useUI } from "@/contexts/UIContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 
 /*───────────────────────────────────────────────
@@ -26,6 +27,8 @@ const BottomNav = dynamic(() => import("@/components/BottomNav"), {
 export default function LayoutMain() {
   const { activeTab } = useTabs();
   const { uiZoomPercent } = useUI();
+  const { theme } = useTheme();
+  const lightMode = theme === "light";
   /** Tab tindakan: tanpa kartu ganda (blur/border/shadow) supaya tabel memakai penuh area. */
   const flushContent = activeTab === "tindakan";
 
@@ -61,7 +64,9 @@ export default function LayoutMain() {
               ? "rounded-none border-0 bg-transparent p-0 shadow-none"
               : cn(
                   "rounded-2xl border p-1 md:p-2",
-                  "border-cyan-500/15 bg-gradient-to-br from-[#07111b]/90 via-[#060c14]/94 to-[#040913]/96 shadow-[0_0_14px_rgba(0,255,255,0.08)]",
+                  lightMode
+                    ? "border-cyan-600/20 bg-gradient-to-br from-white via-slate-50 to-cyan-50/60 shadow-[0_4px_18px_rgba(14,116,144,0.08)]"
+                    : "border-cyan-500/15 bg-gradient-to-br from-[#07111b]/90 via-[#060c14]/94 to-[#040913]/96 shadow-[0_0_14px_rgba(0,255,255,0.08)]",
                 ),
           )}
         >

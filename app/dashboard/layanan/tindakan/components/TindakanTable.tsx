@@ -70,11 +70,11 @@ type Adapter = ReturnType<typeof useTindakanBridgeAdapter>;
 
 /** Kolom tindakan & ruangan — amber di siang & malam. */
 const TINDAKAN_TABLE_INPUT_TEXT =
-  "text-amber-800 placeholder:text-amber-700/55 dark:text-amber-300 dark:placeholder:text-amber-400/45";
+  "text-amber-800 placeholder:text-amber-700/55 dark:text-white dark:placeholder:text-white/90";
 
 /** Kolom No–Dokter — amber di siang; putih terang di mode malam. */
 const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
-  "text-amber-800 placeholder:text-amber-700/55 dark:text-slate-100 dark:placeholder:text-slate-400/80";
+  "text-amber-800 placeholder:text-amber-700/55 dark:text-slate-100 dark:placeholder:text-white/90";
 
 function useDebouncedValue(value: string, ms: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -272,6 +272,18 @@ function extractCalendarDateKey(raw: string): string | null {
   return null;
 }
 
+function formatKpiModeDateLabel(raw: string): string {
+  const iso = extractCalendarDateKey(raw);
+  if (!iso) return "…";
+  const dt = new Date(`${iso}T00:00:00+07:00`);
+  if (Number.isNaN(dt.getTime())) return iso;
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(dt);
+}
+
 /** Tampilan tanggal seperti 10-09-2021 (dari ISO atau teks baris). */
 function formatTanggalDdMmYyyy(raw: string): string {
   const iso = extractCalendarDateKey(raw);
@@ -281,6 +293,15 @@ function formatTanggalDdMmYyyy(raw: string): string {
   }
   const t = String(raw ?? "").trim();
   return t || "—";
+}
+
+function todayWibYmd(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 function resolveShownRmForRow(
@@ -767,6 +788,7 @@ export default function TindakanTable({
 
   /** Cegah sync ganda (auto + manual) dalam waktu bersamaan. */
   const syncInFlightRef = useRef(false);
+  const [isSyncingMasterPasien, setIsSyncingMasterPasien] = useState(false);
 
   const [search, setSearch] = useState("");
   const debouncedSearchTrim = useDebouncedValue(search.trim(), 280);
@@ -1387,6 +1409,15 @@ export default function TindakanTable({
     [filteredRecords],
   );
 
+  const hasTanggalFilter = useMemo(
+    () =>
+      Boolean(
+        String(filterTanggalFrom ?? "").trim() ||
+          String(filterTanggalTo ?? "").trim(),
+      ),
+    [filterTanggalFrom, filterTanggalTo],
+  );
+
   // TOTAL PASIEN harus berdiri sendiri (tidak ikut filter toolbar).
   // Gunakan dataset master yang menjadi basis tabel sebelum penerapan filter.
   const masterTotalPasien = useMemo(
@@ -1402,10 +1433,88 @@ export default function TindakanTable({
     [filteredRowStats, masterTotalPasien],
   );
 
+  /** KPI tertentu diminta mengikuti tanggal hari ini (WIB). */
+  const todayRowsForKpi = useMemo(() => {
+    const today = todayWibYmd();
+    return filteredRecords.filter((rec) => {
+      const key = extractCalendarDateKey(String(rec.tanggal ?? "").trim());
+      return key === today;
+    });
+  }, [filteredRecords]);
+
+  const totalTindakanToday = useMemo(() => {
+    const distinct = new Set<string>();
+    for (const rec of todayRowsForKpi) {
+      const td = String(rec.tindakan ?? "").trim();
+      if (td) distinct.add(td);
+    }
+    return distinct.size;
+  }, [todayRowsForKpi]);
+
+  const tindakanBreakdownToday = useMemo(() => {
+    const counter = new Map<string, number>();
+    for (const rec of todayRowsForKpi) {
+      const tindakan = String(rec.tindakan ?? "").trim();
+      if (!tindakan) continue;
+      counter.set(tindakan, (counter.get(tindakan) ?? 0) + 1);
+    }
+    return Array.from(counter.entries())
+      .sort((a, b) => {
+        const byCount = b[1] - a[1];
+        if (byCount !== 0) return byCount;
+        return a[0].localeCompare(b[0], "id");
+      })
+      .slice(0, 6)
+      .map(([name, count]) => `${count}. ${name}`);
+  }, [todayRowsForKpi]);
+
+  const dokterBreakdownToday = useMemo(() => {
+    const counter = new Map<string, { count: number; display: string }>();
+    for (const rec of todayRowsForKpi) {
+      const raw = String(rec.dokter ?? "").trim();
+      if (!raw || raw === "—") continue;
+      const key = doctorOptionsMaster.length
+        ? canonicalDoctorStoredValue(doctorOptionsMaster, raw)
+        : raw;
+      if (!key) continue;
+      const display = doctorOptionsMaster.length
+        ? canonicalDoctorDisplayValue(doctorOptionsMaster, key) || key
+        : raw;
+      const prev = counter.get(key);
+      if (prev) {
+        counter.set(key, { ...prev, count: prev.count + 1 });
+      } else {
+        counter.set(key, { count: 1, display });
+      }
+    }
+    return Array.from(counter.values())
+      .sort((a, b) => {
+        const byCount = b.count - a.count;
+        if (byCount !== 0) return byCount;
+        return a.display.localeCompare(b.display, "id");
+      })
+      .slice(0, 6)
+      .map((x) => `${x.count}. ${x.display}`);
+  }, [todayRowsForKpi, doctorOptionsMaster]);
+
+  const totalDokterToday = useMemo(() => {
+    const distinct = new Set<string>();
+    for (const rec of todayRowsForKpi) {
+      const raw = String(rec.dokter ?? "").trim();
+      if (!raw || raw === "—") continue;
+      const key = doctorOptionsMaster.length
+        ? canonicalDoctorStoredValue(doctorOptionsMaster, raw)
+        : raw;
+      if (key) distinct.add(key);
+    }
+    return distinct.size;
+  }, [todayRowsForKpi, doctorOptionsMaster]);
+
   const filteredRowGender = useMemo(() => {
     let laki = 0;
     let perempuan = 0;
-    for (const rec of filteredRecords) {
+    const sourceRows = hasTanggalFilter ? filteredRecords : todayRowsForKpi;
+    for (const rec of sourceRows) {
       const raw = rec as unknown as Record<string, unknown>;
       const p = resolvePasienFromRow(pasienOptions, raw);
       const jk = resolveJenisKelaminFromRow(raw, p);
@@ -1413,20 +1522,106 @@ export default function TindakanTable({
       else if (jk === "P") perempuan += 1;
     }
     return { laki, perempuan };
-  }, [filteredRecords, pasienOptions]);
+  }, [hasTanggalFilter, filteredRecords, todayRowsForKpi, pasienOptions]);
+
+  const tindakanBreakdownFiltered = useMemo(() => {
+    const counter = new Map<string, number>();
+    for (const rec of filteredRecords) {
+      const tindakan = String(rec.tindakan ?? "").trim();
+      if (!tindakan) continue;
+      counter.set(tindakan, (counter.get(tindakan) ?? 0) + 1);
+    }
+    return Array.from(counter.entries())
+      .sort((a, b) => {
+        const byCount = b[1] - a[1];
+        if (byCount !== 0) return byCount;
+        return a[0].localeCompare(b[0], "id");
+      })
+      .slice(0, 6)
+      .map(([name, count]) => `${count}. ${name}`);
+  }, [filteredRecords]);
+
+  const dokterBreakdownFiltered = useMemo(() => {
+    const counter = new Map<string, { count: number; display: string }>();
+    for (const rec of filteredRecords) {
+      const raw = String(rec.dokter ?? "").trim();
+      if (!raw || raw === "—") continue;
+      const key = doctorOptionsMaster.length
+        ? canonicalDoctorStoredValue(doctorOptionsMaster, raw)
+        : raw;
+      if (!key) continue;
+      const display = doctorOptionsMaster.length
+        ? canonicalDoctorDisplayValue(doctorOptionsMaster, key) || key
+        : raw;
+      const prev = counter.get(key);
+      if (prev) {
+        counter.set(key, { ...prev, count: prev.count + 1 });
+      } else {
+        counter.set(key, { count: 1, display });
+      }
+    }
+    return Array.from(counter.values())
+      .sort((a, b) => {
+        const byCount = b.count - a.count;
+        if (byCount !== 0) return byCount;
+        return a.display.localeCompare(b.display, "id");
+      })
+      .slice(0, 6)
+      .map((x) => `${x.count}. ${x.display}`);
+  }, [filteredRecords, doctorOptionsMaster]);
+
+  const filteredRowStatsTodayAdjusted = useMemo(
+    () => ({
+      ...filteredRowStatsFixedTotalPasien,
+      "Total tindakan": totalTindakanToday,
+      "Total dokter": totalDokterToday,
+    }),
+    [filteredRowStatsFixedTotalPasien, totalTindakanToday, totalDokterToday],
+  );
+
+  const kpiStats = useMemo(
+    () =>
+      hasTanggalFilter ? filteredRowStats : filteredRowStatsTodayAdjusted,
+    [hasTanggalFilter, filteredRowStats, filteredRowStatsTodayAdjusted],
+  );
+
+  const kpiTindakanBreakdown = useMemo(
+    () => (hasTanggalFilter ? tindakanBreakdownFiltered : tindakanBreakdownToday),
+    [hasTanggalFilter, tindakanBreakdownFiltered, tindakanBreakdownToday],
+  );
+
+  const kpiDokterBreakdown = useMemo(
+    () => (hasTanggalFilter ? dokterBreakdownFiltered : dokterBreakdownToday),
+    [hasTanggalFilter, dokterBreakdownFiltered, dokterBreakdownToday],
+  );
+
+  const kpiModeLabel = useMemo(() => {
+    if (!hasTanggalFilter) return "Hari ini (default)";
+    const from = String(filterTanggalFrom ?? "").trim();
+    const to = String(filterTanggalTo ?? "").trim();
+    return `Mengikuti filter (${formatKpiModeDateLabel(from)} - ${formatKpiModeDateLabel(to)})`;
+  }, [hasTanggalFilter, filterTanggalFrom, filterTanggalTo]);
 
   useEffect(() => {
     onFilteredSummaryChange?.({
       count: filteredRecords.length,
       lines: filterSummaryLines,
-      stats: filteredRowStatsFixedTotalPasien,
+      stats: kpiStats,
       gender: filteredRowGender,
+      tindakanBreakdown: kpiTindakanBreakdown,
+      dokterBreakdown: kpiDokterBreakdown,
+      kpiMode: hasTanggalFilter ? "filter" : "default",
+      kpiModeLabel,
     });
   }, [
     filteredRecords,
     filterSummaryLines,
-    filteredRowStatsFixedTotalPasien,
+    kpiStats,
     filteredRowGender,
+    kpiTindakanBreakdown,
+    kpiDokterBreakdown,
+    hasTanggalFilter,
+    kpiModeLabel,
     onFilteredSummaryChange,
   ]);
 
@@ -1709,16 +1904,14 @@ export default function TindakanTable({
       const silent = Boolean(opts?.silent);
       if (syncInFlightRef.current) return;
       syncInFlightRef.current = true;
+      setIsSyncingMasterPasien(true);
 
       try {
-        const res = await fetch(
-          "/api/pasien/sync-from-tindakan?limit=20000",
-          {
-            credentials: "include",
-            cache: "no-store",
-            method: "POST",
-          },
-        );
+        const res = await fetch("/api/pasien/sync-from-tindakan?limit=20000", {
+          credentials: "include",
+          cache: "no-store",
+          method: "POST",
+        });
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           error?: string;
@@ -1753,16 +1946,13 @@ export default function TindakanTable({
           };
           if (!resPas.ok || !jsonPas?.ok) {
             throw new Error(
-              jsonPas?.error ||
-                "Gagal mengambil data pasien setelah sync.",
+              jsonPas?.error || "Gagal mengambil data pasien setelah sync.",
             );
           }
           const rows = Array.isArray(jsonPas.data) ? jsonPas.data : [];
           const mapped = rows
             .map((r) =>
-              r && typeof r === "object"
-                ? mapApiPasienRow(r as any)
-                : null,
+              r && typeof r === "object" ? mapApiPasienRow(r as any) : null,
             )
             .filter(Boolean) as PasienOption[];
           setPasienOptions(mapped);
@@ -1794,6 +1984,7 @@ export default function TindakanTable({
         return false;
       } finally {
         syncInFlightRef.current = false;
+        setIsSyncingMasterPasien(false);
       }
     },
     [notify, refresh],
@@ -1855,20 +2046,21 @@ export default function TindakanTable({
           dokterOptions={dokterOptions}
           ruanganOptions={ruanganFilterOptions}
           isSyncing={isSyncing}
+          isSyncingMasterPasien={isSyncingMasterPasien}
         />
 
         {error ? (
           <div
             className={cn(
               "mb-3 rounded-xl border px-4 py-3 text-sm",
-          "border-red-300/70 bg-red-50 text-red-900 dark:border-red-900/40 dark:bg-red-950/25 dark:text-red-200",
+              "border-red-300/70 bg-red-50 text-red-900 dark:border-red-900/40 dark:bg-red-950/25 dark:text-red-200",
             )}
           >
             <div className="font-bold">Gagal memuat data tindakan</div>
             <div
               className={cn(
                 "mt-0.5 text-[12px]",
-              "text-red-800/90 dark:text-red-200/80",
+                "text-red-800/90 dark:text-red-200/80",
               )}
             >
               {extractErrorMessage(error)}
@@ -1876,7 +2068,7 @@ export default function TindakanTable({
             <div
               className={cn(
                 "mt-2 text-[11px] font-mono",
-              "text-red-800/75 dark:text-red-200/70",
+                "text-red-800/75 dark:text-red-200/70",
               )}
             >
               Sumber: `GET /api/tindakan?limit=8000` (butuh login & Supabase
@@ -1889,7 +2081,7 @@ export default function TindakanTable({
           <div
             className={cn(
               "flex min-h-0 flex-1 items-center justify-center py-6 text-sm font-semibold",
-          "text-cyan-950 dark:text-cyan-300",
+              "text-cyan-950 dark:text-cyan-300",
             )}
           >
             Memuat tindakan…
@@ -1899,7 +2091,7 @@ export default function TindakanTable({
             <div
               className={cn(
                 "min-h-0 flex-1 overflow-auto",
-                  "bg-white/85 dark:bg-black/20",
+                "bg-white/85 dark:bg-black/20",
               )}
             >
               <table className="w-full min-w-[1200px] text-sm font-semibold border-separate border-spacing-0">
@@ -2185,7 +2377,9 @@ export default function TindakanTable({
                                   options={pasienOptions}
                                   loading={pasienLoading}
                                   className="max-w-[18rem]"
-                                  inputClassName={TINDAKAN_TABLE_PRIMARY_COL_INPUT}
+                                  inputClassName={
+                                    TINDAKAN_TABLE_PRIMARY_COL_INPUT
+                                  }
                                 />
                                 {!pasienLoading &&
                                 pasienOptions.length === 0 &&
@@ -2293,7 +2487,9 @@ export default function TindakanTable({
                                   }
                                   loading={doctorLoading}
                                   className="max-w-[14rem]"
-                                  inputClassName={TINDAKAN_TABLE_PRIMARY_COL_INPUT}
+                                  inputClassName={
+                                    TINDAKAN_TABLE_PRIMARY_COL_INPUT
+                                  }
                                 />
                                 {!doctorLoading &&
                                 doctorOptionsMaster.length === 0 &&
@@ -2437,7 +2633,7 @@ export default function TindakanTable({
                                   disabled={!id || deletingId === id}
                                   className={cn(
                                     "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold transition-all disabled:pointer-events-none disabled:opacity-40",
-                                      "border-red-400/55 bg-red-50 text-red-800 hover:bg-red-100 dark:border-red-900/45 dark:bg-red-950/25 dark:text-red-300/95 dark:hover:bg-red-950/45",
+                                    "border-red-400/55 bg-red-50 text-red-800 hover:bg-red-100 dark:border-red-900/45 dark:bg-red-950/25 dark:text-red-300/95 dark:hover:bg-red-950/45",
                                   )}
                                   title="Hapus kasus tindakan"
                                   aria-label="Hapus"

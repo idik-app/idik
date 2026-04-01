@@ -89,6 +89,7 @@ export async function middleware(req: NextRequest) {
     if (isDistributor) {
       const allow = new Set([
         "distributor",
+        "perawat",
         // Legacy role mapping: getRedirectTargetForRole("vendor") → /distributor/dashboard
         // so middleware must allow it too.
         "vendor",
@@ -110,6 +111,7 @@ export async function middleware(req: NextRequest) {
       const allow = new Set([
         "depo_farmasi",
         "depo",
+        "perawat",
         "farmasi",
         "pharmacy",
         "admin",

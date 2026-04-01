@@ -24,6 +24,8 @@ import {
   UserRound,
   Activity,
   Tags,
+  Building2,
+  PackageOpen,
 } from "lucide-react";
 
 /* ⚡ menuConfig v4.0 – Neo-Hologram Gold-Cyan Hybrid
@@ -114,6 +116,24 @@ export const menuConfig = [
         priority: 2,
         module: "MasterTindakanDashboard",
         hologram: "edge",
+      },
+      {
+        id: "portal-depo",
+        label: "Depo Farmasi",
+        icon: <PackageOpen size={18} />,
+        href: "/depo/dashboard",
+        priority: 3,
+        module: "DepoPortal",
+        hologram: "edge",
+      },
+      {
+        id: "portal-distributor",
+        label: "Distributor Cathlab",
+        icon: <Building2 size={18} />,
+        href: "/distributor/pemakaian",
+        priority: 4,
+        module: "DistributorPortal",
+        hologram: "scan",
       },
     ],
   },

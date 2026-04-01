@@ -177,7 +177,7 @@ export default function DistributorLayoutClient({
 
           {adminView && (
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-cyan-300/80">Distributor:</span>
+              <span className="text-[11px] text-cyan-300/80">PT:</span>
               <select
                 value={selectedDistributorId}
                 onChange={(e) => {
@@ -191,7 +191,7 @@ export default function DistributorLayoutClient({
                 }}
                 className="bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
               >
-                <option value="">Semua Distributor</option>
+                <option value="">Semua PT</option>
                 {distributors
                   .filter((d) => d.is_active)
                   .map((d) => (

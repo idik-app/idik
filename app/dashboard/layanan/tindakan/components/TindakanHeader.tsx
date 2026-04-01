@@ -6,19 +6,20 @@ import { useState } from "react";
 import { BarChart3, ChevronLeft, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
+import type { AccessTarget } from "./TindakanRoleAccessModal";
 import TindakanDashboardModal from "./TindakanDashboardModal";
 
 type ThemeTone = "cyan" | "emerald";
 
 export default function TindakanHeader({
   themeTone,
-  onThemeToneChange,
+  onRoleAccessClick,
   summary,
   dashboardRows,
   dashboardLoading,
 }: {
   themeTone: ThemeTone;
-  onThemeToneChange: (next: ThemeTone) => void;
+  onRoleAccessClick: (target: AccessTarget) => void;
   /** Ringkasan KPI (mis. Hari ini / Total) — dipasang di samping judul untuk hemat ruang vertikal */
   summary?: ReactNode;
   /** Snapshot daftar tindakan (sumber yang sama dengan tabel utama) untuk modal dashboard */
@@ -83,34 +84,30 @@ export default function TindakanHeader({
             <div
               className={cn(
                 "inline-flex items-center gap-1 rounded-xl border p-1",
-                themeTone === "emerald"
-                  ? "border-emerald-400/45 bg-emerald-50/90 dark:border-emerald-700/45 dark:bg-black"
-                  : "border-cyan-400/45 bg-cyan-50/90 dark:border-cyan-700/45 dark:bg-black",
+                "border-cyan-400/45 bg-cyan-50/90 dark:border-cyan-700/45 dark:bg-black",
               )}
             >
               <button
                 type="button"
+                onClick={() => onRoleAccessClick("depo")}
                 className={cn(
                   "rounded-lg px-2.5 py-1 text-xs font-bold transition",
-                  themeTone === "cyan"
-                    ? "bg-cyan-200/90 text-cyan-950 dark:bg-cyan-500/30 dark:text-white"
-                    : "text-cyan-800/80 hover:text-cyan-950 dark:text-white/80 dark:hover:text-white",
+                  "bg-cyan-200/90 text-cyan-950 hover:bg-cyan-300/90",
+                  "dark:bg-cyan-500/30 dark:text-white dark:hover:bg-cyan-500/40",
                 )}
-                onClick={() => onThemeToneChange("cyan")}
               >
-                Cyan
+                Depo Farmasi
               </button>
               <button
                 type="button"
+                onClick={() => onRoleAccessClick("distributor")}
                 className={cn(
                   "rounded-lg px-2.5 py-1 text-xs font-bold transition",
-                  themeTone === "emerald"
-                    ? "bg-emerald-200/90 text-emerald-950 dark:bg-emerald-500/30 dark:text-white"
-                    : "text-emerald-800/80 hover:text-emerald-950 dark:text-white/80 dark:hover:text-white",
+                  "text-emerald-800 hover:text-emerald-950 hover:bg-emerald-100/80",
+                  "dark:text-white/90 dark:hover:text-white dark:hover:bg-emerald-500/25",
                 )}
-                onClick={() => onThemeToneChange("emerald")}
               >
-                Emerald
+                Distributor Cathlab
               </button>
             </div>
             <div

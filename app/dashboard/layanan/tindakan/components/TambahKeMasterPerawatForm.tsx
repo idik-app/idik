@@ -85,7 +85,7 @@ export default function TambahKeMasterPerawatForm({ onAdded }: Props) {
             disabled={busy}
             className={cn(
               "w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 disabled:opacity-50",
-              "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-gray-500",
+              "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
             )}
           />
         </label>
@@ -98,7 +98,7 @@ export default function TambahKeMasterPerawatForm({ onAdded }: Props) {
             disabled={busy}
             className={cn(
               "w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 disabled:opacity-50",
-              "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-gray-500",
+              "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
             )}
           />
         </label>

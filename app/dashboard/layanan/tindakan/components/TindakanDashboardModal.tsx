@@ -92,7 +92,7 @@ export default function TindakanDashboardModal({
             <DialogDescription
               className={cn(
                 "text-xs sm:text-sm",
-                  "text-slate-600 dark:text-white/90",
+                "text-slate-600 dark:text-white/90",
               )}
             >
               Filter dan ringkasan grafik dari data tindakan yang sama dengan

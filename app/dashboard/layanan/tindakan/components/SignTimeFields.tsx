@@ -3,10 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { FIELD_LABELS } from "../bridge/wireframeDrawerTabs";
-import {
-  TimeOnlyPicker,
-  normalizeTimeOnlyInput,
-} from "@/components/ui/time-only-picker";
+import { normalizeTimeOnlyInput } from "@/components/ui/time-only-picker";
 
 const DEBOUNCE_MS = 550;
 
@@ -55,6 +52,7 @@ function SignTimeField({
     normalizeTimeOnlyInput(draftFrom(serverValue)),
   );
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savingRef = useRef(false);
 
   useEffect(() => {
     setDraft(normalizeTimeOnlyInput(draftFrom(serverValue)));
@@ -68,14 +66,18 @@ function SignTimeField({
   );
 
   const persist = async (draftNow: string) => {
+    if (savingRef.current) return;
     const payload = normalizeStored(draftNow);
     if (payload === serverTimeOnlyComparable(serverValue)) return;
+    savingRef.current = true;
     try {
       await patchJson({ [fieldKey]: payload });
     } catch (e) {
       setDraft(normalizeTimeOnlyInput(draftFrom(serverValue)));
+      savingRef.current = false;
       throw e;
     }
+    savingRef.current = false;
     onSaved?.();
   };
 
@@ -92,6 +94,19 @@ function SignTimeField({
     }, DEBOUNCE_MS);
   };
 
+  const flushNow = () => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    void persist(draft).catch((e) => {
+      if (process.env.NODE_ENV === "development") {
+        console.warn(`[SignTimeFields] ${fieldKey}`, e);
+      }
+      setDraft(normalizeTimeOnlyInput(draftFrom(serverValue)));
+    });
+  };
+
   return (
     <div className={boxClass}>
       <dt
@@ -104,13 +119,27 @@ function SignTimeField({
       </dt>
       <dd className="mt-0.5 overflow-visible">
         {canEdit ? (
-          <TimeOnlyPicker
-            appearance="drawer"
+          <input
+            type="time"
+            step={60}
             value={draft}
             onChange={(v) => {
-              setDraft(v);
-              schedule(v);
+              const next = normalizeTimeOnlyInput(v.currentTarget.value);
+              setDraft(next);
+              schedule(next);
             }}
+            onBlur={flushNow}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                flushNow();
+              }
+            }}
+            placeholder="hh:mm"
+            className={cn(
+              "w-full rounded-md border px-2 py-1.5 text-[12px] font-semibold focus:outline-none focus:ring-1",
+              "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 [color-scheme:light] focus:ring-cyan-500/40 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white dark:[color-scheme:dark]",
+            )}
           />
         ) : (
           <span

@@ -20,6 +20,14 @@ export type TindakanFilteredSummary = {
   stats: Record<string, number>;
   /** Total gender berdasarkan kolom `jenis_kelamin` (filteredRecords yang sama dengan tabel) */
   gender?: { laki: number; perempuan: number };
+  /** Rincian jenis tindakan untuk KPI total tindakan (hari ini). */
+  tindakanBreakdown?: string[];
+  /** Rincian dokter untuk KPI total dokter (hari ini). */
+  dokterBreakdown?: string[];
+  /** Mode perhitungan KPI aktif. */
+  kpiMode?: "default" | "filter";
+  /** Label mode KPI untuk ditampilkan ke user. */
+  kpiModeLabel?: string;
 };
 
 type SummaryProps = {
@@ -30,7 +38,7 @@ type SummaryProps = {
   variant?: "default" | "header";
   /** Jumlah baris setelah filter di tabel + ringkasan filter */
   filtered?: TindakanFilteredSummary | null;
-  /** Saat klik KPI "Tindakan hari ini" (variant header). */
+  /** Saat klik KPI "Pasien hari ini" (variant header). */
   onTodayKpiClick?: () => void;
 };
 
@@ -51,8 +59,7 @@ function pickItemStyle(
   if (key.includes("hasil")) {
     return {
       icon: Filter,
-      tone:
-        "from-amber-50/95 to-white border-amber-300/50 dark:from-black dark:to-black dark:border-amber-800/40",
+      tone: "from-amber-50/95 to-white border-amber-300/50 dark:from-black dark:to-black dark:border-amber-800/40",
       iconWrap:
         "border-amber-400/45 bg-amber-100/90 text-amber-900 dark:border-amber-700/50 dark:bg-black dark:text-amber-200/90",
     };
@@ -73,8 +80,7 @@ function pickItemStyle(
   if (key.includes("pasien")) {
     return {
       icon: Users,
-      tone:
-        "from-sky-50/95 to-white border-sky-300/50 dark:from-black dark:to-black dark:border-sky-800/35",
+      tone: "from-sky-50/95 to-white border-sky-300/50 dark:from-black dark:to-black dark:border-sky-800/35",
       iconWrap:
         "border-sky-400/45 bg-sky-100/90 text-sky-900 dark:border-sky-700/50 dark:bg-black dark:text-sky-200/90",
     };
@@ -82,8 +88,7 @@ function pickItemStyle(
   if (key.includes("dokter")) {
     return {
       icon: Stethoscope,
-      tone:
-        "from-indigo-50/95 to-white border-indigo-300/50 dark:from-black dark:to-black dark:border-indigo-800/35",
+      tone: "from-indigo-50/95 to-white border-indigo-300/50 dark:from-black dark:to-black dark:border-indigo-800/35",
       iconWrap:
         "border-indigo-400/45 bg-indigo-100/90 text-indigo-900 dark:border-indigo-700/50 dark:bg-black dark:text-indigo-200/90",
     };
@@ -91,8 +96,7 @@ function pickItemStyle(
   if (key.includes("tindakan") && !key.includes("hari")) {
     return {
       icon: Syringe,
-      tone:
-        "from-rose-50/95 to-white border-rose-300/50 dark:from-black dark:to-black dark:border-rose-800/35",
+      tone: "from-rose-50/95 to-white border-rose-300/50 dark:from-black dark:to-black dark:border-rose-800/35",
       iconWrap:
         "border-rose-400/45 bg-rose-100/90 text-rose-800 dark:border-rose-700/50 dark:bg-black dark:text-rose-200/90",
     };
@@ -113,8 +117,8 @@ function pickItemStyle(
 function sortStatEntries(entries: [string, number][]): [string, number][] {
   const rank = (label: string) => {
     const k = label.toLowerCase();
-    if (k.includes("hari")) return 0;
-    if (k.includes("pasien")) return 1;
+    if (k.includes("pasien") && !k.includes("hari")) return 0;
+    if (k.includes("hari")) return 1;
     if (k.includes("tindakan")) return 2;
     if (k.includes("dokter")) return 3;
     return 4;
@@ -147,6 +151,12 @@ export default function TindakanSummary({
   const baseCards: SummaryItem[] = entries.map(([label, rawValue]) => ({
     label,
     value: Number(rawValue || 0),
+    filterLines:
+      label === "Total tindakan"
+        ? filtered?.tindakanBreakdown ?? []
+        : label === "Total dokter"
+          ? filtered?.dokterBreakdown ?? []
+          : undefined,
     ...pickItemStyle(label, themeTone),
   }));
   const gender = filtered?.gender;
@@ -175,10 +185,7 @@ export default function TindakanSummary({
           <div className="mt-0.5 flex items-center justify-center gap-6">
             <div className="flex items-center gap-2 min-w-0">
               <Mars
-                className={cn(
-                  "h-4 w-4",
-                  "text-sky-600 dark:text-sky-300",
-                )}
+                className={cn("h-4 w-4", "text-sky-600 dark:text-sky-300")}
                 strokeWidth={2}
               />
               <span
@@ -194,10 +201,7 @@ export default function TindakanSummary({
 
             <div className="flex items-center gap-2 min-w-0">
               <Venus
-                className={cn(
-                  "h-4 w-4",
-                  "text-rose-600 dark:text-rose-300",
-                )}
+                className={cn("h-4 w-4", "text-rose-600 dark:text-rose-300")}
                 strokeWidth={2}
               />
               <span
@@ -218,112 +222,168 @@ export default function TindakanSummary({
   const skeletonCount = loading ? Math.max(5, entries.length + 1) : 0;
 
   return (
-    <div
-      className={cn(
-        "flex flex-wrap items-stretch min-w-0",
-        header ? "gap-1.5" : "gap-2 sm:gap-2.5",
-      )}
-    >
-      {loading
-        ? Array.from({ length: skeletonCount }, (_, idx) => (
+    <div className="flex min-w-0 flex-col gap-1">
+      {header && filtered?.kpiModeLabel ? (
+        <div
+          className={cn(
+            "inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wide",
+            filtered.kpiMode === "filter"
+              ? "border-amber-400/60 bg-amber-100/90 text-amber-900 dark:border-amber-700/55 dark:bg-black dark:text-white"
+              : "border-cyan-400/60 bg-cyan-100/90 text-cyan-900 dark:border-cyan-700/55 dark:bg-black dark:text-white",
+          )}
+          title={filtered.kpiModeLabel}
+        >
+          Mode KPI: {filtered.kpiModeLabel}
+        </div>
+      ) : null}
+      <div
+        className={cn(
+          "flex flex-wrap items-stretch min-w-0",
+          header ? "gap-1.5" : "gap-2 sm:gap-2.5",
+        )}
+      >
+      {loading ? (
+        Array.from({ length: skeletonCount }, (_, idx) => (
+          <div
+            key={`loading-${idx}`}
+            className={cn(
+              "flex min-w-[9rem] flex-1 basis-[10rem] items-center rounded-lg border sm:min-w-0 sm:flex-initial sm:basis-auto",
+              header
+                ? "min-h-[2.25rem] gap-2 px-2 py-1"
+                : "min-h-[2.75rem] gap-2.5 px-2.5 py-2",
+              "border-cyan-300/50 bg-white/80 dark:border-cyan-900/40 dark:bg-black/30",
+            )}
+          >
             <div
-              key={`loading-${idx}`}
               className={cn(
-                "flex min-w-[9rem] flex-1 basis-[10rem] items-center rounded-lg border sm:min-w-0 sm:flex-initial sm:basis-auto",
-                header
-                  ? "min-h-[2.25rem] gap-2 px-2 py-1"
-                  : "min-h-[2.75rem] gap-2.5 px-2.5 py-2",
-                  "border-cyan-300/50 bg-white/80 dark:border-cyan-900/40 dark:bg-black/30",
+                "shrink-0 animate-pulse rounded-md",
+                header ? "h-6 w-6" : "h-7 w-7",
+                "bg-cyan-200/60 dark:bg-cyan-900/30",
+              )}
+            />
+            <div
+              className={cn(
+                "min-w-0 flex-1",
+                header ? "space-y-1" : "space-y-1.5",
               )}
             >
               <div
                 className={cn(
-                  "shrink-0 animate-pulse rounded-md",
-                  header ? "h-6 w-6" : "h-7 w-7",
-                  "bg-cyan-200/60 dark:bg-cyan-900/30",
+                  "animate-pulse rounded",
+                  header ? "h-2 w-12" : "h-2.5 w-14",
+                  "bg-cyan-200/50 dark:bg-cyan-900/35",
                 )}
               />
               <div
-                className={cn("min-w-0 flex-1", header ? "space-y-1" : "space-y-1.5")}
+                className={cn(
+                  "animate-pulse rounded",
+                  header ? "h-4 w-8" : "h-5 w-10",
+                  "bg-cyan-200/50 dark:bg-cyan-900/35",
+                )}
+              />
+            </div>
+          </div>
+        ))
+      ) : (
+        <>
+          {baseCards.map((item) => {
+            const Icon = item.icon;
+            // Di mode gelap, kita paksa teks menjadi putih terang untuk
+            // menghindari "tabrakan" fallback `text-cyan-*` vs kebutuhan kontras.
+            const accentText = extractTextAccentClass(item.iconWrap);
+            const clickableTodayCard =
+              Boolean(onTodayKpiClick) &&
+              header &&
+              item.label === "Pasien hari ini";
+            const sideBreakdown =
+              item.label === "Total tindakan" || item.label === "Total dokter"
+                ? item.filterLines ?? []
+                : [];
+            const sideBorderClass =
+              item.label === "Total dokter"
+                ? "border-indigo-300/60 dark:border-indigo-700/45"
+                : "border-rose-300/60 dark:border-rose-700/45";
+            const cardEl = (
+              <div
+                key={item.label}
+                className={cn(
+                  "flex min-w-0 flex-1 basis-[10rem] items-center rounded-lg border bg-gradient-to-br shadow-sm transition sm:flex-initial sm:basis-auto",
+                  header ? "gap-1.5 px-1.5 py-1" : "gap-2 px-2 py-1.5",
+                  "shadow-cyan-900/5 hover:border-cyan-500/35 dark:shadow-black/25 dark:hover:border-white/10",
+                  item.tone,
+                  clickableTodayCard
+                    ? "cursor-pointer hover:brightness-110 active:scale-[0.99]"
+                    : "",
+                )}
+                role={clickableTodayCard ? "button" : undefined}
+                tabIndex={clickableTodayCard ? 0 : undefined}
+                onClick={
+                  clickableTodayCard ? () => onTodayKpiClick?.() : undefined
+                }
+                onKeyDown={(e) => {
+                  if (!clickableTodayCard) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onTodayKpiClick?.();
+                  }
+                }}
               >
                 <div
                   className={cn(
-                    "animate-pulse rounded",
-                    header ? "h-2 w-12" : "h-2.5 w-14",
-                    "bg-cyan-200/50 dark:bg-cyan-900/35",
+                    "flex shrink-0 items-center justify-center rounded-md border",
+                    header ? "h-6 w-6" : "h-7 w-7",
+                    item.iconWrap,
                   )}
-                />
-                <div
-                  className={cn(
-                    "animate-pulse rounded",
-                    header ? "h-4 w-8" : "h-5 w-10",
-                    "bg-cyan-200/50 dark:bg-cyan-900/35",
-                  )}
-                />
-              </div>
-            </div>
-          ))
-        : (
-            <>
-              {baseCards.map((item) => {
-                const Icon = item.icon;
-                // Di mode gelap, kita paksa teks menjadi putih terang untuk
-                // menghindari "tabrakan" fallback `text-cyan-*` vs kebutuhan kontras.
-                const accentText = extractTextAccentClass(item.iconWrap);
-                const clickableTodayCard =
-                  Boolean(onTodayKpiClick) &&
-                  header &&
-                  item.label === "Tindakan hari ini";
-                const cardEl = (
-                  <div
-                    key={item.label}
+                >
+                  <Icon
+                    className={header ? "h-3 w-3" : "h-3.5 w-3.5"}
+                    strokeWidth={2}
+                  />
+                </div>
+                <div className="min-w-0 leading-tight">
+                  <p
                     className={cn(
-                      "flex min-w-0 flex-1 basis-[10rem] items-center rounded-lg border bg-gradient-to-br shadow-sm transition sm:flex-initial sm:basis-auto",
-                      header
-                        ? "gap-1.5 px-1.5 py-1"
-                        : "gap-2 px-2 py-1.5",
-                      "shadow-cyan-900/5 hover:border-cyan-500/35 dark:shadow-black/25 dark:hover:border-white/10",
-                      item.tone,
-                      clickableTodayCard
-                        ? "cursor-pointer hover:brightness-110 active:scale-[0.99]"
-                        : "",
+                      "font-bold uppercase tracking-[0.12em]",
+                      header ? "text-[9px]" : "text-[10px]",
+                      accentText || "text-cyan-950/80",
+                      "dark:text-white/90",
                     )}
-                    role={clickableTodayCard ? "button" : undefined}
-                    tabIndex={clickableTodayCard ? 0 : undefined}
-                    onClick={
-                      clickableTodayCard ? () => onTodayKpiClick?.() : undefined
-                    }
-                    onKeyDown={(e) => {
-                      if (!clickableTodayCard) return;
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        onTodayKpiClick?.();
-                      }
-                    }}
                   >
-                    <div
-                      className={cn(
-                        "flex shrink-0 items-center justify-center rounded-md border",
-                        header ? "h-6 w-6" : "h-7 w-7",
-                        item.iconWrap,
-                      )}
-                    >
-                      <Icon
-                        className={header ? "h-3 w-3" : "h-3.5 w-3.5"}
-                        strokeWidth={2}
-                      />
-                    </div>
-                    <div className="min-w-0 leading-tight">
+                    {item.label}
+                  </p>
+                  {sideBreakdown.length ? (
+                    <div className="mt-0.5 flex items-start gap-2">
                       <p
                         className={cn(
-                          "font-bold uppercase tracking-[0.12em]",
-                          header ? "text-[9px]" : "text-[10px]",
-                          accentText || "text-cyan-950/80",
-                          "dark:text-white/90",
+                          "font-extrabold tabular-nums shrink-0",
+                          header
+                            ? "text-sm sm:text-base"
+                            : "text-base sm:text-lg",
+                          accentText || "text-slate-900",
+                          "dark:text-white",
                         )}
                       >
-                        {item.label}
+                        {item.value.toLocaleString("id-ID")}
                       </p>
+                      <div
+                        className={cn(
+                          "min-w-0 space-y-0.5 border-l pl-2 font-medium leading-snug",
+                          header ? "text-[8px]" : "text-[10px]",
+                          sideBorderClass,
+                          accentText || "text-slate-700/90",
+                          "dark:text-white/85",
+                        )}
+                        title={sideBreakdown.join("\n")}
+                      >
+                        {sideBreakdown.map((line) => (
+                          <p key={`${item.label}-${line}`} className="truncate">
+                            {line}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
                       <p
                         className={cn(
                           "font-extrabold tabular-nums",
@@ -349,14 +409,19 @@ export default function TindakanSummary({
                           {item.filterLines.join(" · ")}
                         </p>
                       ) : null}
-                    </div>
-                  </div>
-                );
-                return [cardEl, item.label === "Total pasien" ? genderCardEl : null];
-              })}
-
-            </>
-          )}
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+            return [
+              cardEl,
+              item.label === "Total pasien" ? genderCardEl : null,
+            ];
+          })}
+        </>
+      )}
+      </div>
     </div>
   );
 }

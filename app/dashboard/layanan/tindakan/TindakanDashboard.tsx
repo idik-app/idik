@@ -9,6 +9,9 @@ import type { TindakanJoinResult } from "./bridge/mapping.types";
 import { useTindakanBridgeAdapter } from "./bridge/useTindakanBridgeAdapter";
 import TindakanHeader from "./components/TindakanHeader";
 import TindakanHariIniModal from "./components/TindakanHariIniModal";
+import TindakanRoleAccessModal, {
+  type AccessTarget,
+} from "./components/TindakanRoleAccessModal";
 import TindakanSummary, {
   type TindakanFilteredSummary,
 } from "./components/TindakanSummary";
@@ -19,15 +22,16 @@ const TindakanDetailDrawer = dynamic(
   { ssr: false, loading: () => null },
 );
 
-type ThemeTone = "cyan" | "emerald";
-
 /** Tindakan medis — wireframe: daftar ringkas + drawer bertab + jembatan Pemakaian */
 export default function TindakanDashboard() {
   const adapter = useTindakanBridgeAdapter();
 
   const tableRef = useRef<HTMLDivElement | null>(null);
-  const [themeTone, setThemeTone] = useState<ThemeTone>("cyan");
+  const themeTone = "cyan" as const;
   const [todayModalOpen, setTodayModalOpen] = useState(false);
+  const [roleAccessOpen, setRoleAccessOpen] = useState(false);
+  const [roleAccessTarget, setRoleAccessTarget] =
+    useState<AccessTarget>("depo");
   const [filteredSummary, setFilteredSummary] =
     useState<TindakanFilteredSummary | null>(null);
   const onFilteredSummaryChange = useCallback(
@@ -38,32 +42,33 @@ export default function TindakanDashboard() {
   );
 
   const drawerOpen = Boolean(adapter.detailOpenId && adapter.selectedRecord);
+  const onRoleAccessClick = useCallback((target: AccessTarget) => {
+    setRoleAccessTarget(target);
+    setRoleAccessOpen(true);
+  }, []);
 
   /** KPI header = snapshot terfilter dari tabel (bukan seluruh API). */
   const stats = filteredSummary?.stats ?? emptyTindakanKpiStats();
-  const summaryLoading =
-    Boolean(adapter.loading) || filteredSummary === null;
+  const summaryLoading = Boolean(adapter.loading) || filteredSummary === null;
 
   return (
     <div
       key="tindakan-dashboard"
       className={cn(
         "relative flex h-full min-h-0 flex-col overflow-hidden transition-colors duration-500",
-        "text-slate-100 font-semibold",
-        themeTone === "emerald"
-          ? "bg-gradient-to-br from-slate-950 via-black to-emerald-950"
-          : "bg-gradient-to-br from-slate-950 via-black to-cyan-950",
+        "font-semibold text-slate-900 dark:text-white",
+        "bg-gradient-to-br from-slate-50 via-white to-cyan-50/45 dark:from-slate-950 dark:via-black dark:to-cyan-950",
       )}
     >
       <header
         className={cn(
           "shrink-0 z-30 px-2 py-1 sm:px-2.5 sm:py-1.5 transition-colors duration-500",
-          "bg-black/35",
+          "bg-white/88 border-b border-slate-200/80 dark:border-white/10 dark:bg-black/35",
         )}
       >
         <TindakanHeader
           themeTone={themeTone}
-          onThemeToneChange={setThemeTone}
+          onRoleAccessClick={onRoleAccessClick}
           dashboardRows={
             Array.isArray(adapter.tindakanList)
               ? (adapter.tindakanList as TindakanJoinResult[])
@@ -118,6 +123,12 @@ export default function TindakanDashboard() {
         }
         loading={Boolean(adapter.loading)}
         themeTone={themeTone}
+      />
+
+      <TindakanRoleAccessModal
+        open={roleAccessOpen}
+        target={roleAccessTarget}
+        onOpenChange={setRoleAccessOpen}
       />
     </div>
   );

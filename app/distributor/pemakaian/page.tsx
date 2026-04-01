@@ -1,7 +1,15 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import {
+  Suspense,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { Mail, MessageCircle, Search } from "lucide-react";
@@ -10,7 +18,6 @@ import { DateYmdPicker } from "@/components/ui/date-ymd-picker";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -36,7 +43,26 @@ type PemakaianRow = {
   ed?: string | null;
 };
 
+type PemakaianAdminAllMode = "raw" | "distributor-only";
+type ShareChannel = "wa" | "email";
+
+type SharePreviewState = {
+  channel: ShareChannel;
+  subject: string;
+  body: string;
+  infoLink: string;
+};
+type IndexedPemakaianRow = {
+  row: PemakaianRow;
+  searchText: string;
+  groupKey: string;
+};
+
 const PAGE_SIZE = 10;
+const PORTAL_PUBLIC_BASE_URL =
+  process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+  process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+  process.env.NEXT_PUBLIC_VERCEL_URL?.trim();
 
 function todayISO() {
   const d = new Date();
@@ -192,6 +218,26 @@ function groupPemakaianRows(list: PemakaianRow[]): PemakaianRow[][] {
   return groups;
 }
 
+function groupPemakaianIndexedRows(list: IndexedPemakaianRow[]): PemakaianRow[][] {
+  const map = new Map<string, PemakaianRow[]>();
+  for (const item of list) {
+    const arr = map.get(item.groupKey);
+    if (arr) arr.push(item.row);
+    else map.set(item.groupKey, [item.row]);
+  }
+  const groups = [...map.values()].map((g) =>
+    [...g].sort((a, b) => a.id.localeCompare(b.id)),
+  );
+  groups.sort((a, b) => {
+    const ta = String(a[0]?.tanggal ?? "");
+    const tb = String(b[0]?.tanggal ?? "");
+    const c = tb.localeCompare(ta);
+    if (c !== 0) return c;
+    return mergeGroupKey(a[0]!).localeCompare(mergeGroupKey(b[0]!));
+  });
+  return groups;
+}
+
 function tableDokterGroup(rows: PemakaianRow[]): string {
   const set = new Set<string>();
   for (const r of rows) {
@@ -238,11 +284,34 @@ function detailDokterLine(rows: PemakaianRow[]): string | null {
   return [...set].join(" · ");
 }
 
-function buildShareBodyGroup(rows: PemakaianRow[]): string {
+function appendInfoAndSuggestion(lines: string[], infoLink?: string): void {
+  if (infoLink?.trim()) {
+    lines.push("");
+    lines.push("Informasi portal:");
+    lines.push(infoLink.trim());
+  }
+}
+
+function resolvePublicPortalBase(): string {
+  const raw = PORTAL_PUBLIC_BASE_URL ?? "";
+  const normalized = raw.startsWith("http") ? raw : raw ? `https://${raw}` : "";
+  if (normalized) return normalized.replace(/\/+$/, "");
+  if (typeof window !== "undefined") {
+    const origin = window.location.origin.replace(/\/+$/, "");
+    const host = window.location.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1" || host === "::1") {
+      return "";
+    }
+    return origin;
+  }
+  return "";
+}
+
+function buildShareBodyGroup(rows: PemakaianRow[], infoLink?: string): string {
   if (!rows.length) return "";
   if (rows.length === 1) {
     const r = rows[0]!;
-    return buildShareBody(r, rowKParts(r));
+    return buildShareBody(r, rowKParts(r), infoLink);
   }
   const head = rows[0]!;
   const headParts = rowKParts(head);
@@ -275,6 +344,7 @@ function buildShareBodyGroup(rows: PemakaianRow[]): string {
   }
   lines.push("");
   lines.push("- IDIK-App / Portal Distributor");
+  appendInfoAndSuggestion(lines, infoLink);
   return lines.join("\n");
 }
 
@@ -306,7 +376,11 @@ function displayOrderId(row: PemakaianRow, parts: KeteranganParts): string {
   );
 }
 
-function buildShareBody(row: PemakaianRow, parts: KeteranganParts): string {
+function buildShareBody(
+  row: PemakaianRow,
+  parts: KeteranganParts,
+  infoLink?: string,
+): string {
   const pasienLine = formatPasienDetailLine(row, parts);
   const dokterFinal = row.dokter?.trim() || parts.dokter;
   const lines: string[] = [];
@@ -331,6 +405,7 @@ function buildShareBody(row: PemakaianRow, parts: KeteranganParts): string {
   if (satuan) lines.push(`   Satuan: ${satuan}`);
   lines.push("");
   lines.push("- IDIK-App / Portal Distributor");
+  appendInfoAndSuggestion(lines, infoLink);
   return lines.join("\n");
 }
 
@@ -363,7 +438,7 @@ function appendWaPemakaianLines(
  * Format khusus WhatsApp: judul *tebal*, blok per field, ASCII aman.
  * (Email tetap memakai buildShareBody / buildShareBodyGroup.)
  */
-function buildWhatsAppBodyFromGroup(rows: PemakaianRow[]): string {
+function buildWhatsAppBodyFromGroup(rows: PemakaianRow[], infoLink?: string): string {
   if (!rows.length) return "";
   if (rows.length === 1) {
     const r = rows[0]!;
@@ -387,6 +462,7 @@ function buildWhatsAppBodyFromGroup(rows: PemakaianRow[]): string {
     lines.push("*Barang dipakai*");
     appendWaPemakaianLines(lines, r, 1);
     lines.push("");
+    appendInfoAndSuggestion(lines, infoLink);
     return lines.join("\n");
   }
 
@@ -416,6 +492,7 @@ function buildWhatsAppBodyFromGroup(rows: PemakaianRow[]): string {
     lines.push("");
   }
   if (lines[lines.length - 1] === "") lines.pop();
+  appendInfoAndSuggestion(lines, infoLink);
   return lines.join("\n");
 }
 
@@ -455,12 +532,53 @@ function rowMatchesSearch(r: PemakaianRow, q: string): boolean {
   return hay.includes(n);
 }
 
+function buildRowSearchText(r: PemakaianRow): string {
+  return [
+    r.id,
+    r.tanggal,
+    formatTanggalId(r.tanggal),
+    r.distributor_nama ?? "",
+    r.inventaris?.nama ?? "",
+    r.keterangan ?? "",
+    String(r.jumlah),
+    r.order_id ?? "",
+    r.pasien ?? "",
+    r.dokter ?? "",
+    r.no_rm ?? "",
+    r.status_order ?? "",
+    r.catatan ?? "",
+    r.lot ?? "",
+    r.ukuran ?? "",
+    r.ed ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
+function parseFocusOrderSet(raw: string | null): Set<string> {
+  const out = new Set<string>();
+  const src = String(raw ?? "").trim();
+  if (!src) return out;
+  for (const part of src.split("|")) {
+    const v = part.trim();
+    if (v) out.add(v);
+  }
+  return out;
+}
+
 function DistributorPemakaianPageContent() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const distributorIdParam = searchParams.get("distributor_id") ?? "";
+  const focusOrderParam = searchParams.get("focus_order");
+  const modeParam = searchParams.get("mode");
+  const initialMode: PemakaianAdminAllMode =
+    modeParam === "distributor-only" ? "distributor-only" : "raw";
 
   const [from, setFrom] = useState<string>(() => weekAgoISO());
   const [to, setTo] = useState<string>(() => todayISO());
+  const [mode, setMode] = useState<PemakaianAdminAllMode>(initialMode);
   const [rows, setRows] = useState<PemakaianRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -470,6 +588,30 @@ function DistributorPemakaianPageContent() {
   const [filterPt, setFilterPt] = useState("");
   const [page, setPage] = useState(1);
   const [detailGroup, setDetailGroup] = useState<PemakaianRow[] | null>(null);
+  const [sharePreview, setSharePreview] = useState<SharePreviewState | null>(
+    null,
+  );
+  const autoOpenedFocusRef = useRef<string>("");
+  const deferredRows = useDeferredValue(rows);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const deferredFilterPt = useDeferredValue(filterPt);
+
+  useEffect(() => {
+    const nextMode: PemakaianAdminAllMode =
+      modeParam === "distributor-only" ? "distributor-only" : "raw";
+    setMode((prev) => (prev === nextMode ? prev : nextMode));
+  }, [modeParam]);
+
+  useEffect(() => {
+    const currentMode: PemakaianAdminAllMode =
+      modeParam === "distributor-only" ? "distributor-only" : "raw";
+    if (currentMode === mode) return;
+
+    const next = new URLSearchParams(searchParams.toString());
+    next.set("mode", mode);
+    const q = next.toString();
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+  }, [mode, modeParam, pathname, router, searchParams]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -479,8 +621,9 @@ function DistributorPemakaianPageContent() {
       const distQ = distributorIdParam
         ? `&distributor_id=${encodeURIComponent(distributorIdParam)}`
         : "";
+      const modeQ = `&mode=${encodeURIComponent(mode)}`;
       const res = await fetch(
-        `/api/distributor/pemakaian?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${distQ}`,
+        `/api/distributor/pemakaian?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${distQ}${modeQ}`,
         { cache: "no-store" },
       );
       const json = (await res.json().catch(() => ({}))) as {
@@ -505,7 +648,7 @@ function DistributorPemakaianPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [distributorIdParam, from, to]);
+  }, [distributorIdParam, from, to, mode]);
 
   useEffect(() => {
     void load();
@@ -515,24 +658,38 @@ function DistributorPemakaianPageContent() {
 
   const ptOptions = useMemo(() => {
     const s = new Set<string>();
-    for (const r of rows) {
+    for (const r of deferredRows) {
       const pt = r.distributor_nama?.trim();
       if (pt) s.add(pt);
     }
     return [...s].sort((a, b) => a.localeCompare(b, "id"));
-  }, [rows]);
+  }, [deferredRows]);
 
-  const filteredRows = useMemo(() => {
-    return rows.filter((r) => {
-      if (!rowMatchesSearch(r, searchQuery)) return false;
-      if (filterPt && (r.distributor_nama?.trim() ?? "") !== filterPt) return false;
+  const indexedRows = useMemo<IndexedPemakaianRow[]>(() => {
+    return deferredRows.map((row) => ({
+      row,
+      searchText: buildRowSearchText(row),
+      groupKey: mergeGroupKey(row),
+    }));
+  }, [deferredRows]);
+
+  const filteredIndexedRows = useMemo(() => {
+    const needle = deferredSearchQuery.trim().toLowerCase();
+    return indexedRows.filter((item) => {
+      if (needle && !item.searchText.includes(needle)) return false;
+      if (
+        deferredFilterPt &&
+        (item.row.distributor_nama?.trim() ?? "") !== deferredFilterPt
+      ) {
+        return false;
+      }
       return true;
     });
-  }, [rows, searchQuery, filterPt]);
+  }, [indexedRows, deferredSearchQuery, deferredFilterPt]);
 
   const groupedRows = useMemo(
-    () => groupPemakaianRows(filteredRows),
-    [filteredRows],
+    () => groupPemakaianIndexedRows(filteredIndexedRows),
+    [filteredIndexedRows],
   );
 
   const totalFiltered = groupedRows.length;
@@ -564,15 +721,73 @@ function DistributorPemakaianPageContent() {
     [detailHead, detailKParts],
   );
 
-  const shareBodyEmail = useMemo(
-    () => buildShareBodyGroup(detailGroup ?? []),
-    [detailGroup],
-  );
-
   const detailDokterMerged = useMemo(
     () => (detailGroup?.length ? detailDokterLine(detailGroup) : null),
     [detailGroup],
   );
+
+  const focusOrderSet = useMemo(
+    () => parseFocusOrderSet(focusOrderParam),
+    [focusOrderParam],
+  );
+
+  useEffect(() => {
+    const focusKey = String(focusOrderParam ?? "").trim();
+    if (!focusKey) return;
+    if (loading) return;
+    if (!groupedRows.length) return;
+    if (autoOpenedFocusRef.current === focusKey) return;
+
+    const target = groupedRows.find((grp) =>
+      grp.some((r) => {
+        const oid = displayOrderId(r, rowKParts(r));
+        return focusOrderSet.has(oid);
+      }),
+    );
+    if (!target) return;
+
+    setDetailGroup(target);
+    autoOpenedFocusRef.current = focusKey;
+  }, [focusOrderParam, focusOrderSet, groupedRows, loading]);
+
+  const buildShareInfoLink = useCallback((focusOrderIds?: string): string => {
+    const qs = new URLSearchParams();
+    qs.set("mode", mode);
+    qs.set("from", from);
+    qs.set("to", to);
+    if (distributorIdParam) qs.set("distributor_id", distributorIdParam);
+    if (focusOrderIds?.trim() && focusOrderIds !== "-") {
+      qs.set("focus_order", focusOrderIds.trim());
+    }
+    const base = resolvePublicPortalBase();
+    if (!base) return "";
+    return `${base}${pathname}?${qs.toString()}`;
+  }, [distributorIdParam, from, mode, pathname, to]);
+
+  const openSharePreview = useCallback(
+    (channel: ShareChannel) => {
+      if (!detailGroup?.length) return;
+      const focusOrderIds = displayOrderIdsGroup(detailGroup, "|");
+      const infoLink = buildShareInfoLink(focusOrderIds);
+      const subject = `Pemakaian alkes — ${displayOrderIdsGroup(detailGroup)}`;
+      const body =
+        channel === "wa"
+          ? buildWhatsAppBodyFromGroup(detailGroup, infoLink)
+          : buildShareBodyGroup(detailGroup, infoLink);
+      setSharePreview({ channel, subject, body, infoLink });
+    },
+    [buildShareInfoLink, detailGroup],
+  );
+
+  const sendFromPreview = useCallback(() => {
+    if (!sharePreview) return;
+    if (sharePreview.channel === "wa") {
+      openWhatsAppShare(sharePreview.body);
+    } else {
+      openEmailShare(sharePreview.subject, sharePreview.body);
+    }
+    setSharePreview(null);
+  }, [sharePreview]);
 
   return (
     <div className="space-y-4">
@@ -600,20 +815,41 @@ function DistributorPemakaianPageContent() {
           ) : null}
         </div>
         <div className="flex flex-wrap items-end gap-3">
-          <DateYmdPicker
-            label="From"
-            value={from}
-            onChange={setFrom}
-            clearable={false}
-            className="text-cyan-300/70"
-          />
-          <DateYmdPicker
-            label="To"
-            value={to}
-            onChange={setTo}
-            clearable={false}
-            className="text-cyan-300/70"
-          />
+          <label className="flex flex-col gap-1 text-[11px] text-cyan-400/90">
+            <span className="whitespace-nowrap">Mode data</span>
+            <select
+              value={mode}
+              onChange={(e) =>
+                setMode(
+                  e.target.value === "distributor-only"
+                    ? "distributor-only"
+                    : "raw",
+                )
+              }
+              className="min-w-[13rem] rounded-md border border-cyan-800/70 bg-slate-950/70 px-2 py-1.5 text-[12px] text-cyan-100"
+            >
+              <option value="raw">Raw (Order + pemakaian mentah)</option>
+              <option value="distributor-only">
+                Distributor only (Order Cathlab)
+              </option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-[11px] text-cyan-400/90">
+            <span className="whitespace-nowrap">From</span>
+            <DateYmdPicker
+              value={from}
+              onChange={setFrom}
+              buttonClassName="!text-white dark:!text-white"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-[11px] text-cyan-400/90">
+            <span className="whitespace-nowrap">To</span>
+            <DateYmdPicker
+              value={to}
+              onChange={setTo}
+              buttonClassName="!text-white dark:!text-white"
+            />
+          </label>
           <button
             type="button"
             onClick={load}
@@ -773,18 +1009,6 @@ function DistributorPemakaianPageContent() {
                 <DialogTitle className="text-[#D4AF37]">
                   Detail pemakaian
                 </DialogTitle>
-                <DialogDescription className="text-[11px] text-cyan-500/75">
-                  {detailGroup.length > 1 ? (
-                    <span className="block text-cyan-400/80 mb-1">
-                      {detailGroup.length} item digabung (sama tanggal, pasien &
-                      PT)
-                    </span>
-                  ) : null}
-                  <span className="text-cyan-500/75">Baris teknis: </span>
-                  <code className="break-all font-mono text-cyan-300/90">
-                    {detailGroup.map((r) => r.id).join(" · ")}
-                  </code>
-                </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-3 rounded-lg border border-cyan-900/50 bg-slate-950/60 px-3 py-3 text-[13px] leading-relaxed">
@@ -816,15 +1040,6 @@ function DistributorPemakaianPageContent() {
                     {detailDokterMerged}
                   </p>
                 ) : null}
-                {detailHead.distributor_nama?.trim() ? (
-                  <p className="text-cyan-200/90">
-                    <span className="mr-1.5" aria-hidden>
-                      🏢
-                    </span>
-                    {detailHead.distributor_nama.trim()}
-                  </p>
-                ) : null}
-
                 <div className="border-t border-cyan-800/40 pt-3">
                   <p className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-[#D4AF37]/95">
                     Pemakaian
@@ -872,11 +1087,7 @@ function DistributorPemakaianPageContent() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() =>
-                      openWhatsAppShare(
-                        buildWhatsAppBodyFromGroup(detailGroup ?? []),
-                      )
-                    }
+                    onClick={() => openSharePreview("wa")}
                     className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/50 bg-emerald-950/40 px-3 py-1.5 text-[12px] text-emerald-100 hover:bg-emerald-900/45"
                   >
                     <MessageCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -884,12 +1095,7 @@ function DistributorPemakaianPageContent() {
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      openEmailShare(
-                        `Pemakaian alkes — ${displayOrderIdsGroup(detailGroup)}`,
-                        shareBodyEmail,
-                      )
-                    }
+                    onClick={() => openSharePreview("email")}
                     className="inline-flex items-center gap-1.5 rounded-md border border-cyan-500/45 bg-cyan-950/35 px-3 py-1.5 text-[12px] text-cyan-100 hover:bg-cyan-900/40"
                   >
                     <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -902,6 +1108,86 @@ function DistributorPemakaianPageContent() {
                   className="rounded-md border border-cyan-500/40 bg-cyan-500/15 px-3 py-1.5 text-[12px] text-cyan-100 hover:bg-cyan-500/25"
                 >
                   Tutup
+                </button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={sharePreview != null}
+        onOpenChange={(open) => {
+          if (!open) setSharePreview(null);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-cyan-600/40 bg-slate-950/95 text-cyan-100">
+          {sharePreview ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-[#D4AF37]">
+                  Preview{" "}
+                  {sharePreview.channel === "wa" ? "WhatsApp" : "Email"}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 rounded-lg border border-cyan-900/50 bg-slate-950/60 px-3 py-3">
+                {sharePreview.channel === "email" ? (
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-300/85">
+                      Subject
+                    </p>
+                    <div className="rounded-md border border-cyan-800/60 bg-slate-950/70 px-3 py-2 text-[12px] text-cyan-50">
+                      {sharePreview.subject}
+                    </div>
+                  </div>
+                ) : null}
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-300/85">
+                    Isi pesan
+                  </p>
+                  <textarea
+                    readOnly
+                    value={sharePreview.body}
+                    className="min-h-[280px] w-full rounded-md border border-cyan-800/60 bg-slate-950/70 px-3 py-2 text-[12px] leading-relaxed text-white dark:text-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-300/85">
+                    Link informasi
+                  </p>
+                  {sharePreview.infoLink ? (
+                    <a
+                      href={sharePreview.infoLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block break-all rounded-md border border-cyan-800/60 bg-slate-950/70 px-3 py-2 text-[12px] text-cyan-200 underline underline-offset-2 hover:text-white"
+                    >
+                      {sharePreview.infoLink}
+                    </a>
+                  ) : (
+                    <div className="rounded-md border border-amber-500/35 bg-amber-950/20 px-3 py-2 text-[12px] text-amber-200/90">
+                      Link belum tersedia. Isi env{" "}
+                      <code className="font-mono">NEXT_PUBLIC_APP_URL</code>{" "}
+                      dengan URL Vercel produksi agar link ikut tampil.
+                    </div>
+                  )}
+                </div>
+              </div>
+              <DialogFooter className="!mt-4 flex-col gap-2 sm:flex-row sm:justify-between">
+                <button
+                  type="button"
+                  onClick={() => setSharePreview(null)}
+                  className="rounded-md border border-cyan-500/40 bg-cyan-500/15 px-3 py-1.5 text-[12px] text-cyan-100 hover:bg-cyan-500/25"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={sendFromPreview}
+                  className="rounded-md border border-emerald-500/50 bg-emerald-950/40 px-3 py-1.5 text-[12px] text-emerald-100 hover:bg-emerald-900/45"
+                >
+                  Kirim{" "}
+                  {sharePreview.channel === "wa" ? "WhatsApp" : "Email"}
                 </button>
               </DialogFooter>
             </>

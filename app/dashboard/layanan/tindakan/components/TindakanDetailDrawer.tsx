@@ -21,6 +21,7 @@ import KategoriTindakanField from "./KategoriTindakanField";
 import MasterPerawatTimField, {
   type TimPerawatFieldKey,
 } from "./MasterPerawatTimField";
+import MasterDokterField from "./MasterDokterField";
 import TambahKeMasterPerawatForm from "./TambahKeMasterPerawatForm";
 import RadiologiAutosaveField, {
   type RadiologiFieldKey,
@@ -468,7 +469,7 @@ export default function TindakanDetailDrawer({
   const title = useMemo(() => {
     if (!displayRecord) return "Detail tindakan";
     const tanggalVal = getWireframeFieldValue(
-      displayRecord as Record<string, unknown>,
+      displayRecord as unknown as Record<string, unknown>,
       "tanggal_tindakan",
     );
     const hariTanggal = formatDrawerTitleHariTanggal(tanggalVal);
@@ -942,6 +943,8 @@ export default function TindakanDetailDrawer({
                           key === "sirkuler" ||
                           key === "logger") &&
                         Boolean(tindakanId);
+                      const isDokterEditable =
+                        def.id === "tim" && key === "dokter" && Boolean(tindakanId);
                       const isRadiologiEditable =
                         def.id === "radiologi" &&
                         RADIOLOGI_AUTOSAVE_FIELDS.includes(
@@ -1021,6 +1024,16 @@ export default function TindakanDetailDrawer({
                                   tidak dapat disimpan dari sini.
                                 </p>
                               </div>
+                            ) : isDokterEditable ? (
+                              <MasterDokterField
+                                tindakanId={tindakanId}
+                                value={
+                                  rawVal === null || rawVal === undefined
+                                    ? null
+                                    : String(rawVal)
+                                }
+                                onSaved={onRecordPatch}
+                              />
                             ) : isTimPerawatEditable ? (
                               <MasterPerawatTimField
                                 tindakanId={tindakanId}

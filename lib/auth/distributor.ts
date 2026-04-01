@@ -25,7 +25,12 @@ export async function getDistributorIdentity(): Promise<DistributorIdentity> {
     const decoded = jwt.verify(token, secret) as any;
     const role = String(decoded?.role ?? "user").trim().toLowerCase();
     const username = String(decoded?.username ?? "unknown").trim();
-    const adminRoles = new Set(["admin", "administrator", "superadmin"]);
+    const adminRoles = new Set([
+      "admin",
+      "administrator",
+      "superadmin",
+      "perawat",
+    ]);
     if (adminRoles.has(role)) {
       return { ok: true, username, role, isAdminView: true };
     }

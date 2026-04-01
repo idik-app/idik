@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, PanelLeftOpen } from "lucide-react";
@@ -70,6 +70,7 @@ export default function Sidebar() {
   }, []);
 
   const groups = menuConfig as MenuGroup[];
+  const prefetchedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -147,6 +148,16 @@ export default function Sidebar() {
     else setActiveTab(item.id);
     if (isMobile) toggleSidebar();
   };
+
+  const prefetchHref = useCallback(
+    (href?: string) => {
+      if (!href) return;
+      if (prefetchedRef.current.has(href)) return;
+      prefetchedRef.current.add(href);
+      void router.prefetch(href);
+    },
+    [router]
+  );
 
   const toggleGroup = (g: string) => {
     if (collapsed) return;
@@ -376,7 +387,9 @@ export default function Sidebar() {
                                 layout
                                 aria-label={item.label}
                                 onClick={() => handleMenuClick(item)}
+                                onFocus={() => prefetchHref(item.href)}
                                 onMouseEnter={() => setHovered(item.id)}
+                                onMouseMove={() => prefetchHref(item.href)}
                                 onMouseLeave={() => setHovered(null)}
                                 type="button"
                                 whileHover={

@@ -29,8 +29,11 @@ export function useTindakanData() {
         error?: string;
         message?: string;
       };
+      const dataField = (json as { data?: unknown })?.data;
+      const isSuccessPayload =
+        json?.ok === true || (res.ok && Array.isArray(dataField));
 
-      if (!res.ok || !json?.ok) {
+      if (!res.ok || !isSuccessPayload) {
         const msg =
           json?.error ||
           json?.message ||
@@ -39,11 +42,16 @@ export function useTindakanData() {
         throw new Error(msg);
       }
 
-      const nextRows = Array.isArray(json?.data) ? json.data : [];
+      const nextRows = Array.isArray(dataField) ? dataField : [];
       setError(null);
       setTindakanList(nextRows);
     } catch (e: unknown) {
-      console.error("Error load tindakan:", e);
+      if (!silent) {
+        console.error("Error load tindakan:", e);
+      } else {
+        // Reload senyap dipakai saat autosave/polling; hindari spam error console.
+        console.warn("Reload tindakan senyap gagal:", e);
+      }
       if (!silent) {
         setError(e);
         setTindakanList([]);

@@ -4,9 +4,18 @@ import { getDistributorIdentity } from "@/lib/auth/distributor";
 
 function parseDate(value: string | null) {
   if (!value) return null;
+  const t = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+function toYmdLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 /** Normalisasi untuk cocokkan nama PT / barang; rapikan spasi & homoglyph (mis. А Kiril vs A Latin). */
@@ -29,16 +38,42 @@ function orderTanggalDateKey(tanggal: string): string | null {
   const t = tanggal.trim();
   if (!t) return null;
   if (t.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
-  const ms = Date.parse(t);
-  if (!Number.isNaN(ms)) return new Date(ms).toISOString().slice(0, 10);
-  // Contoh: "29 Mar 2026" / "29 Maret 2026" (tanpa ISO di depan)
+  const idMonthMap: Record<string, string> = {
+    jan: "01",
+    januari: "01",
+    feb: "02",
+    februari: "02",
+    mar: "03",
+    maret: "03",
+    apr: "04",
+    april: "04",
+    mei: "05",
+    jun: "06",
+    juni: "06",
+    jul: "07",
+    juli: "07",
+    agu: "08",
+    agustus: "08",
+    sep: "09",
+    september: "09",
+    okt: "10",
+    oktober: "10",
+    nov: "11",
+    november: "11",
+    des: "12",
+    desember: "12",
+  };
   const m = t.match(
-    /(\d{1,2})\s+(Jan(?:uari)?|Feb(?:ruari)?|Mar(?:et)?|Apr(?:il)?|Mei|Jun(?:i)?|Jul(?:i)?|Agu(?:stus)?|Sep(?:tember)?|Okt(?:ober)?|Nov(?:ember)?|Des(?:ember)?)\s+(\d{4})/i,
+    /^(\d{1,2})\s+(Jan(?:uari)?|Feb(?:ruari)?|Mar(?:et)?|Apr(?:il)?|Mei|Jun(?:i)?|Jul(?:i)?|Agu(?:stus)?|Sep(?:tember)?|Okt(?:ober)?|Nov(?:ember)?|Des(?:ember)?)\s+(\d{4})/i,
   );
   if (m) {
-    const d = new Date(`${m[1]} ${m[2]} ${m[3]}`);
-    if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+    const day = String(Number(m[1])).padStart(2, "0");
+    const mon = idMonthMap[m[2].toLowerCase()];
+    const year = m[3];
+    if (mon) return `${year}-${mon}-${day}`;
   }
+  const ms = Date.parse(t);
+  if (!Number.isNaN(ms)) return toYmdLocal(new Date(ms));
   return null;
 }
 
@@ -74,22 +109,17 @@ function orderLineQtyRencana(line: Record<string, unknown>): number {
 }
 
 /**
- * Depo sering set status SELESAI tanpa mengisi ulang qtyDipakai di JSON;
- * untuk laporan distributor gunakan qty rencana sebagai kuantitas pemakaian.
+ * Untuk visibilitas distributor realtime, gunakan qty dipakai bila ada;
+ * jika belum terisi, fallback ke qty rencana pada semua status order.
  */
 function lineQtyForPemakaianReport(
   line: Record<string, unknown>,
-  orderStatus: string,
+  _orderStatus: string,
 ): number {
   const u = orderLineQtyUsed(line);
   if (u > 0) return u;
-  const st = String(orderStatus ?? "")
-    .trim()
-    .toUpperCase();
-  if (st === "SELESAI" || st === "TERVERIFIKASI") {
-    const p = orderLineQtyRencana(line);
-    if (p > 0) return p;
-  }
+  const p = orderLineQtyRencana(line);
+  if (p > 0) return p;
   return 0;
 }
 
@@ -172,6 +202,16 @@ type PemakaianRowBase = {
   tindakan_id: string | null;
 };
 
+type AdminAllMode = "raw" | "distributor-only";
+
+function parseAdminAllMode(value: string | null): AdminAllMode {
+  const v = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  if (v === "distributor-only") return "distributor-only";
+  return "raw";
+}
+
 export async function GET(req: Request) {
   const id = await getDistributorIdentity();
   if (!id.ok)
@@ -183,6 +223,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const from = parseDate(searchParams.get("from"));
   const to = parseDate(searchParams.get("to"));
+  const adminAllMode = parseAdminAllMode(searchParams.get("mode"));
   const distributorIdParam = (searchParams.get("distributor_id") ?? "").trim();
   if (
     id.isAdminView &&
@@ -445,7 +486,7 @@ export async function GET(req: Request) {
    * Input pemakaian Cathlab (dashboard) menyimpan di cathlab_pemakaian_order.items,
    * terpisah dari FIFO pemakaian + mutasi. Tanpa ini, portal distributor kosong
    * jika staf belum / tidak memanggil allocate_pemakaian_fifo.
-   * Baris order hanya di-merge jika status TERVERIFIKASI / SELESAI (bukan DRAFT / alur sebelum verifikasi Depo).
+   * Baris order di-merge lintas status agar distributor melihat pergerakan realtime.
    */
   let fromOrders: typeof enriched = [];
   if (!adminShowAll && scope) {
@@ -508,13 +549,18 @@ export async function GET(req: Request) {
       return false;
     }
 
-    // Hanya TERVERIFIKASI / SELESAI: jangan tampilkan ke distributor saat masih alur depo (DIAJUKAN, MENUNGGU_VALIDASI).
+    // Realtime distributor: sertakan status sebelum dan sesudah validasi Depo.
     const { data: orderRows, error: orderErr } = await supabase
       .from("cathlab_pemakaian_order")
       .select(
         "id, tanggal, pasien, dokter, status, items, catatan, created_at, no_rm",
       )
-      .in("status", ["TERVERIFIKASI", "SELESAI"])
+      .in("status", [
+        "DIAJUKAN",
+        "MENUNGGU_VALIDASI",
+        "TERVERIFIKASI",
+        "SELESAI",
+      ])
       .order("created_at", { ascending: false })
       .limit(8000);
 
@@ -604,7 +650,7 @@ export async function GET(req: Request) {
       }
     }
   } else if (adminShowAll) {
-    /** Admin “Semua Distributor”: sama — hanya order yang sudah lewat depo (TERVERIFIKASI / SELESAI). */
+    /** Admin “Semua Distributor”: sertakan lintas status agar realtime. */
     const fromKey = from ?? "";
     const toKey = to ?? "";
 
@@ -634,7 +680,12 @@ export async function GET(req: Request) {
       .select(
         "id, tanggal, pasien, dokter, status, items, catatan, created_at, no_rm",
       )
-      .in("status", ["TERVERIFIKASI", "SELESAI"])
+      .in("status", [
+        "DIAJUKAN",
+        "MENUNGGU_VALIDASI",
+        "TERVERIFIKASI",
+        "SELESAI",
+      ])
       .order("created_at", { ascending: false })
       .limit(8000);
 
@@ -730,7 +781,15 @@ export async function GET(req: Request) {
     }
   }
 
-  const merged = [...fromOrders, ...enriched].sort((a, b) => {
+  // Mode admin semua distributor:
+  // - raw: gabungkan order Cathlab + pemakaian FIFO mentah
+  // - distributor-only: hanya order Cathlab yang punya konteks distributor per item
+  const baseRows =
+    adminShowAll && adminAllMode === "distributor-only"
+      ? fromOrders
+      : [...fromOrders, ...enriched];
+
+  const merged = baseRows.sort((a, b) => {
     const ta = String(a.tanggal ?? "");
     const tb = String(b.tanggal ?? "");
     return tb.localeCompare(ta);

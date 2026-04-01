@@ -122,7 +122,7 @@ type Props = {
 };
 
 const inputClass =
-  "mt-0.5 w-full rounded-md border border-cyan-900/50 bg-black/40 px-2 py-1.5 text-sm text-cyan-100 placeholder:text-gray-600 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30";
+  "mt-0.5 w-full rounded-md border border-cyan-900/50 bg-black/40 px-2 py-1.5 text-sm text-white placeholder:text-white/90 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30";
 
 export default function PasienAutosaveField({
   pasienId,

@@ -57,9 +57,6 @@ const rdpThemeDrawerLight = {
 
 type Appearance = "default" | "drawer";
 
-const HOUR_OPTS = Array.from({ length: 24 }, (_, i) => i);
-const MINUTE_OPTS = Array.from({ length: 60 }, (_, i) => i);
-
 export function DatetimeLocalPicker({
   value,
   onChange,
@@ -88,6 +85,7 @@ export function DatetimeLocalPicker({
 
   const selected = parseDateTimeLocal(value);
   const calendarDay = selected ?? new Date();
+  const [timeDraft, setTimeDraft] = useState(() => format(calendarDay, "HH:mm"));
 
   const isDrawer = appearance === "drawer";
 
@@ -95,6 +93,10 @@ export function DatetimeLocalPicker({
     if (!open) return;
     setNavMonth(parseDateTimeLocal(value) ?? new Date());
   }, [open, value]);
+
+  useEffect(() => {
+    setTimeDraft(format(calendarDay, "HH:mm"));
+  }, [value]);
 
   useLayoutEffect(() => {
     if (!open || !isDrawer || !buttonRef.current) return;
@@ -156,21 +158,30 @@ export function DatetimeLocalPicker({
 
   const panelInner = (
     <>
-      <DayPicker
-        mode="single"
-        selected={selected}
-        month={navMonth}
-        onMonthChange={setNavMonth}
-        onSelect={(d) => {
-          if (!d) return;
-          const src = parseDateTimeLocal(value) ?? new Date();
-          d.setHours(src.getHours(), src.getMinutes(), 0, 0);
-          onChange(toDateTimeLocalString(d));
-        }}
-        locale={idLocale}
-        className={dayPickerClass}
-        style={rdpStyle as unknown as CSSProperties}
-      />
+      <div
+        className={cn(
+          "rounded-lg",
+          isDrawer
+            ? "bg-white dark:bg-[#0a1018]"
+            : "bg-[#0a1628]",
+        )}
+      >
+        <DayPicker
+          mode="single"
+          selected={selected}
+          month={navMonth}
+          onMonthChange={setNavMonth}
+          onSelect={(d) => {
+            if (!d) return;
+            const src = parseDateTimeLocal(value) ?? new Date();
+            d.setHours(src.getHours(), src.getMinutes(), 0, 0);
+            onChange(toDateTimeLocalString(d));
+          }}
+          locale={idLocale}
+          className={dayPickerClass}
+          style={rdpStyle as unknown as CSSProperties}
+        />
+      </div>
       <div
         className={cn(
           "mt-2 flex flex-wrap items-center gap-2 border-t pt-2",
@@ -188,72 +199,87 @@ export function DatetimeLocalPicker({
           Jam (24 jam)
         </span>
         {isDrawer ? (
-          <div
-            className={cn(
-              "flex min-w-0 flex-1 items-center gap-1 font-mono text-[11px] font-semibold",
-            )}
-            lang="id-ID"
-          >
-            <select
-              aria-label="Jam 0–23"
-              value={calendarDay.getHours()}
-              onChange={(e) => {
-                const hh = Number(e.target.value);
-                if (Number.isNaN(hh)) return;
-                applyTime(hh, calendarDay.getMinutes());
-              }}
-              className={cn(
-                "min-w-0 flex-1 rounded-md border px-1.5 py-1 focus:outline-none focus:ring-1",
-                "border-cyan-400/55 bg-white text-slate-950 focus:ring-cyan-500/40 dark:border-cyan-900/50 dark:bg-black/40 dark:text-cyan-100 dark:focus:ring-cyan-500/35",
-              )}
-            >
-              {HOUR_OPTS.map((h) => (
-                <option key={h} value={h}>
-                  {String(h).padStart(2, "0")}
-                </option>
-              ))}
-            </select>
-            <span className="text-slate-400 dark:text-cyan-500/60">
-              :
-            </span>
-            <select
-              aria-label="Menit 0–59"
-              value={calendarDay.getMinutes()}
-              onChange={(e) => {
-                const mm = Number(e.target.value);
-                if (Number.isNaN(mm)) return;
-                applyTime(calendarDay.getHours(), mm);
-              }}
-              className={cn(
-                "min-w-0 flex-1 rounded-md border px-1.5 py-1 focus:outline-none focus:ring-1",
-                "border-cyan-400/55 bg-white text-slate-950 focus:ring-cyan-500/40 dark:border-cyan-900/50 dark:bg-black/40 dark:text-cyan-100 dark:focus:ring-cyan-500/35",
-              )}
-            >
-              {MINUTE_OPTS.map((m) => (
-                <option key={m} value={m}>
-                  {String(m).padStart(2, "0")}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
           <input
-            type="time"
+            type="text"
             lang="id-ID"
-            value={format(calendarDay, "HH:mm")}
-            step={60}
+            inputMode="numeric"
+            value={timeDraft}
             onChange={(e) => {
-              const v = e.target.value;
-              if (!v || !/^\d{2}:\d{2}$/.test(v)) return;
+              const v = e.target.value.replace(/[^\d:]/g, "").slice(0, 5);
+              setTimeDraft(v);
+              if (!/^\d{2}:\d{2}$/.test(v)) return;
               const [hs, ms] = v.split(":");
               const hh = Number(hs);
               const mm = Number(ms);
               if (Number.isNaN(hh) || Number.isNaN(mm)) return;
+              if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return;
               applyTime(hh, mm);
             }}
+            onBlur={() => {
+              if (!/^\d{2}:\d{2}$/.test(timeDraft)) {
+                setTimeDraft(format(calendarDay, "HH:mm"));
+                return;
+              }
+              const [hs, ms] = timeDraft.split(":");
+              const hh = Number(hs);
+              const mm = Number(ms);
+              if (Number.isNaN(hh) || Number.isNaN(mm)) {
+                setTimeDraft(format(calendarDay, "HH:mm"));
+                return;
+              }
+              if (hh < 0 || hh > 23 || mm < 0 || mm > 59) {
+                setTimeDraft(format(calendarDay, "HH:mm"));
+                return;
+              }
+              applyTime(hh, mm);
+              setTimeDraft(`${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`);
+            }}
+            placeholder="HH:mm"
             className={cn(
-              "min-w-0 flex-1 rounded-md border px-2 py-1 text-[11px] focus:outline-none focus:ring-1",
-              "border-white/15 bg-black/40 text-white focus:ring-[#E8C547]/50 [color-scheme:dark]",
+              "min-w-0 flex-1 rounded-md border px-2 py-1 text-[11px] font-mono font-semibold focus:outline-none focus:ring-1",
+              "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 focus:ring-cyan-500/40 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90 dark:focus:ring-cyan-500/35",
+            )}
+          />
+        ) : (
+          <input
+            type="text"
+            lang="id-ID"
+            inputMode="numeric"
+            value={timeDraft}
+            onChange={(e) => {
+              const v = e.target.value.replace(/[^\d:]/g, "").slice(0, 5);
+              setTimeDraft(v);
+              if (!/^\d{2}:\d{2}$/.test(v)) return;
+              const [hs, ms] = v.split(":");
+              const hh = Number(hs);
+              const mm = Number(ms);
+              if (Number.isNaN(hh) || Number.isNaN(mm)) return;
+              if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return;
+              applyTime(hh, mm);
+            }}
+            onBlur={() => {
+              if (!/^\d{2}:\d{2}$/.test(timeDraft)) {
+                setTimeDraft(format(calendarDay, "HH:mm"));
+                return;
+              }
+              const [hs, ms] = timeDraft.split(":");
+              const hh = Number(hs);
+              const mm = Number(ms);
+              if (Number.isNaN(hh) || Number.isNaN(mm)) {
+                setTimeDraft(format(calendarDay, "HH:mm"));
+                return;
+              }
+              if (hh < 0 || hh > 23 || mm < 0 || mm > 59) {
+                setTimeDraft(format(calendarDay, "HH:mm"));
+                return;
+              }
+              applyTime(hh, mm);
+              setTimeDraft(`${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`);
+            }}
+            placeholder="HH:mm"
+            className={cn(
+              "min-w-0 flex-1 rounded-md border px-2 py-1 text-[11px] font-mono font-semibold focus:outline-none focus:ring-1",
+              "border-white/15 bg-black/40 text-white placeholder:text-white/90 focus:ring-[#E8C547]/50",
             )}
           />
         )}
@@ -282,29 +308,33 @@ export function DatetimeLocalPicker({
   const panelClass = cn(
     "rounded-xl border p-2 shadow-2xl",
     isDrawer
-      ? "border-cyan-300/70 bg-white text-slate-900 dark:border-cyan-800/50 dark:bg-[#0a1018]/98 dark:text-white"
-      : "border-white/15 bg-[#0a1628]/98 backdrop-blur-sm text-white",
+      ? isDark
+        ? "border-cyan-800/50 bg-[#0a1018] text-white"
+        : "border-cyan-300/70 bg-white text-slate-900"
+      : "border-white/15 bg-[#0a1628] text-white",
   );
 
   const panel = isDrawer
     ? typeof document !== "undefined"
       ? createPortal(
-          <div
-            ref={portalRef}
-            className={cn(panelClass, UI_LAYERS.pickerFloating)}
-            style={{
-              position: "fixed",
-              top: floatPos.top,
-              left: floatPos.left,
-              width: floatPos.width,
-              maxHeight: "min(70vh, 420px)",
-              overflowY: "auto",
-            }}
-            role="dialog"
-            aria-label="Kalender tanggal dan jam"
-            lang="id-ID"
-          >
-            {panelInner}
+          <div className={isDark ? "dark" : undefined}>
+            <div
+              ref={portalRef}
+              className={cn(panelClass, UI_LAYERS.pickerFloating)}
+              style={{
+                position: "fixed",
+                top: floatPos.top,
+                left: floatPos.left,
+                width: floatPos.width,
+                maxHeight: "min(70vh, 420px)",
+                overflowY: "auto",
+              }}
+              role="dialog"
+              aria-label="Kalender tanggal dan jam"
+              lang="id-ID"
+            >
+              {panelInner}
+            </div>
           </div>,
           document.body,
         )

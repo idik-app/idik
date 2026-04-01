@@ -27,14 +27,14 @@ export default function MiniTableFilter({
           type="text"
           placeholder="Cari nama pasien..."
           onChange={(e) => onSearch(e.target.value)}
-          className="pl-7 pr-3 py-1.5 text-sm rounded-md bg-black/40 border border-cyan-700/40 text-cyan-100 placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+          className="pl-7 pr-3 py-1.5 text-sm rounded-md bg-black/40 border border-cyan-700/40 text-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-cyan-500"
         />
       </div>
 
       {/* Filter Dokter */}
       <select
         onChange={(e) => onFilter(e.target.value, "")}
-        className="text-sm px-2 py-1.5 rounded-md bg-black/40 border border-cyan-700/40 text-cyan-100 focus:outline-none"
+        className="text-sm px-2 py-1.5 rounded-md bg-black/40 border border-cyan-700/40 text-white focus:outline-none"
       >
         <option value="">Semua Dokter</option>
         {dokterOptions.map((d, idx) => (
@@ -47,7 +47,7 @@ export default function MiniTableFilter({
       {/* Filter Status */}
       <select
         onChange={(e) => onFilter("", e.target.value)}
-        className="text-sm px-2 py-1.5 rounded-md bg-black/40 border border-cyan-700/40 text-cyan-100 focus:outline-none"
+        className="text-sm px-2 py-1.5 rounded-md bg-black/40 border border-cyan-700/40 text-white focus:outline-none"
       >
         <option value="">Semua Status</option>
         {statusOptions.map((s, idx) => (

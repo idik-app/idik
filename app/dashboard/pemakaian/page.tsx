@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
@@ -131,6 +138,10 @@ type PemakaianOrder = {
   /** Template tab Obat/Alkes & Komponen (kolom `template_input_barang`). */
   templateInputBarang?: TemplateInputBarangPayload;
 };
+type SearchIndexedOrder = {
+  order: PemakaianOrder;
+  searchHaystack: string;
+};
 
 /** Role yang boleh memverifikasi dari sisi Depo / admin RS (sama dengan middleware portal depo). */
 const DEPO_VERIFY_ROLES = new Set([
@@ -151,6 +162,8 @@ const idrLineFormatter = new Intl.NumberFormat("id-ID", {
   currency: "IDR",
   maximumFractionDigits: 0,
 });
+const TABLE_ROW_HEIGHT_PX = 52;
+const TABLE_OVERSCAN_ROWS = 6;
 
 function formatHargaCell(harga: number | undefined): string {
   if (harga == null || Number.isNaN(harga)) return "—";
@@ -1461,20 +1474,10 @@ export default function PemakaianPage() {
     });
   }, [barangVariantList, isDrawerOpen]);
 
-  const trimmedSearch = searchQuery.trim().toLowerCase();
-
-  const filteredData = useMemo(() => {
-    let list = orders;
-    if (selectedStatus !== "ALL") {
-      list = list.filter((o) => o.status === selectedStatus);
-    }
-    if (filterTanggalDari || filterTanggalSampai) {
-      list = list.filter((o) =>
-        orderTanggalInRange(o.tanggal, filterTanggalDari, filterTanggalSampai),
-      );
-    }
-    if (!trimmedSearch) return list;
-    return list.filter((o) => {
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const trimmedSearch = deferredSearchQuery.trim().toLowerCase();
+  const indexedOrders = useMemo<SearchIndexedOrder[]>(() => {
+    return orders.map((o) => {
       const statusText = STATUS_SEARCH_TEXT[o.status];
       const lineHay = o.items
         .map((l) =>
@@ -1494,10 +1497,29 @@ export default function PemakaianPage() {
       ]
         .join(" ")
         .toLowerCase();
-      return hay.includes(trimmedSearch);
+      return { order: o, searchHaystack: hay };
     });
+  }, [orders]);
+
+  const filteredData = useMemo(() => {
+    let list = indexedOrders.map((x) => x.order);
+    if (selectedStatus !== "ALL") {
+      list = list.filter((o) => o.status === selectedStatus);
+    }
+    if (filterTanggalDari || filterTanggalSampai) {
+      list = list.filter((o) =>
+        orderTanggalInRange(o.tanggal, filterTanggalDari, filterTanggalSampai),
+      );
+    }
+    if (!trimmedSearch) return list;
+    const visibleIds = new Set(list.map((o) => o.id));
+    return indexedOrders
+      .filter(
+        (x) => visibleIds.has(x.order.id) && x.searchHaystack.includes(trimmedSearch),
+      )
+      .map((x) => x.order);
   }, [
-    orders,
+    indexedOrders,
     selectedStatus,
     trimmedSearch,
     filterTanggalDari,
@@ -1511,6 +1533,32 @@ export default function PemakaianPage() {
     const start = (safePage - 1) * pageSize;
     return filteredData.slice(start, start + pageSize);
   }, [filteredData, safePage, pageSize]);
+  const tableViewportRef = useRef<HTMLDivElement | null>(null);
+  const [tableScrollTop, setTableScrollTop] = useState(0);
+  const [tableViewportHeight, setTableViewportHeight] = useState(420);
+  const shouldVirtualizeRows = paginatedData.length > 30;
+  const visibleStart = shouldVirtualizeRows
+    ? Math.max(
+        0,
+        Math.floor(tableScrollTop / TABLE_ROW_HEIGHT_PX) - TABLE_OVERSCAN_ROWS,
+      )
+    : 0;
+  const visibleEnd = shouldVirtualizeRows
+    ? Math.min(
+        paginatedData.length,
+        Math.ceil((tableScrollTop + tableViewportHeight) / TABLE_ROW_HEIGHT_PX) +
+          TABLE_OVERSCAN_ROWS,
+      )
+    : paginatedData.length;
+  const visibleRows = shouldVirtualizeRows
+    ? paginatedData.slice(visibleStart, visibleEnd)
+    : paginatedData;
+  const topSpacerHeight = shouldVirtualizeRows
+    ? visibleStart * TABLE_ROW_HEIGHT_PX
+    : 0;
+  const bottomSpacerHeight = shouldVirtualizeRows
+    ? Math.max(0, (paginatedData.length - visibleEnd) * TABLE_ROW_HEIGHT_PX)
+    : 0;
 
   useEffect(() => {
     setPage(1);
@@ -1525,6 +1573,25 @@ export default function PemakaianPage() {
   useEffect(() => {
     setPage((p) => Math.min(p, pageCount));
   }, [pageCount]);
+  useEffect(() => {
+    setTableScrollTop(0);
+    const el = tableViewportRef.current;
+    if (el) el.scrollTop = 0;
+  }, [safePage, pageSize, trimmedSearch, selectedStatus, filterTanggalDari, filterTanggalSampai]);
+  useEffect(() => {
+    const el = tableViewportRef.current;
+    if (!el) return;
+    const onScroll = () => setTableScrollTop(el.scrollTop);
+    const updateHeight = () => setTableViewportHeight(el.clientHeight || 420);
+    updateHeight();
+    onScroll();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", updateHeight);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", updateHeight);
+    };
+  }, []);
 
   const rangeLabel = useMemo(() => {
     if (filteredData.length === 0) return "0 dari 0";
@@ -1537,22 +1604,33 @@ export default function PemakaianPage() {
     window.print();
   }
 
-  const totalHariIni = orders.reduce((acc, o) => acc + sumQtyDipakai(o), 0);
-  const totalBaru = orders.reduce(
-    (acc, o) =>
-      acc +
-      o.items
-        .filter((l) => l.tipe === "BARU")
-        .reduce((a, l) => a + l.qtyDipakai, 0),
-    0,
+  const totalHariIni = useMemo(
+    () => orders.reduce((acc, o) => acc + sumQtyDipakai(o), 0),
+    [orders],
   );
-  const totalReuse = orders.reduce(
-    (acc, o) =>
-      acc +
-      o.items
-        .filter((l) => l.tipe === "REUSE")
-        .reduce((a, l) => a + l.qtyDipakai, 0),
-    0,
+  const totalBaru = useMemo(
+    () =>
+      orders.reduce(
+        (acc, o) =>
+          acc +
+          o.items
+            .filter((l) => l.tipe === "BARU")
+            .reduce((a, l) => a + l.qtyDipakai, 0),
+        0,
+      ),
+    [orders],
+  );
+  const totalReuse = useMemo(
+    () =>
+      orders.reduce(
+        (acc, o) =>
+          acc +
+          o.items
+            .filter((l) => l.tipe === "REUSE")
+            .reduce((a, l) => a + l.qtyDipakai, 0),
+        0,
+      ),
+    [orders],
   );
 
   return (
@@ -1813,7 +1891,10 @@ export default function PemakaianPage() {
             </div>
           </div>
 
-          <div className="min-w-0 overflow-x-auto overflow-y-visible text-xs rounded-xl border border-white/[0.08] [scrollbar-gutter:stable]">
+          <div
+            ref={tableViewportRef}
+            className="min-w-0 overflow-x-auto overflow-y-auto max-h-[65vh] text-xs rounded-xl border border-white/[0.08] [scrollbar-gutter:stable]"
+          >
             <table className="min-w-full divide-y divide-white/[0.06]">
               <thead className="bg-[#0a1628]">
                 <tr>
@@ -1850,7 +1931,13 @@ export default function PemakaianPage() {
                     </td>
                   </tr>
                 ) : (
-                  paginatedData.map((row) => (
+                  <>
+                    {topSpacerHeight > 0 ? (
+                      <tr aria-hidden>
+                        <td colSpan={9} style={{ height: topSpacerHeight }} />
+                      </tr>
+                    ) : null}
+                    {visibleRows.map((row) => (
                     <tr
                       key={row.id}
                       role="button"
@@ -1934,7 +2021,13 @@ export default function PemakaianPage() {
                         </button>
                       </Td>
                     </tr>
-                  ))
+                    ))}
+                    {bottomSpacerHeight > 0 ? (
+                      <tr aria-hidden>
+                        <td colSpan={9} style={{ height: bottomSpacerHeight }} />
+                      </tr>
+                    ) : null}
+                  </>
                 )}
               </tbody>
             </table>
@@ -1959,7 +2052,7 @@ export default function PemakaianPage() {
                   onChange={(e) => setPageSize(Number(e.target.value))}
                   className="bg-black/40 border border-white/20 rounded-lg px-2 py-1 text-[11px] text-white focus:outline-none focus:ring-2 focus:ring-[#E8C547]/50"
                 >
-                  {[5, 10, 25, 50].map((n) => (
+                  {[5, 10, 25, 50, 100, 250].map((n) => (
                     <option key={n} value={n}>
                       {n}
                     </option>

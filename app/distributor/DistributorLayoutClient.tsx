@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
+import { runDeduped } from "@/lib/api/runDeduped";
 
 type MeResponse =
   | {
@@ -115,9 +116,11 @@ export default function DistributorLayoutClient({
 
   useEffect(() => {
     let alive = true;
-    fetch("/api/distributor/me", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j: MeResponse) => {
+    void runDeduped("GET:/api/distributor/me", async () => {
+      const r = await fetch("/api/distributor/me", { cache: "no-store" });
+      return r.json() as Promise<MeResponse>;
+    })
+      .then((j) => {
         if (!alive) return;
         if (j.ok) {
           const pt =

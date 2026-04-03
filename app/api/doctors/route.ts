@@ -22,7 +22,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("doctor")
-    .select("*")
+    .select("id,nama_dokter,spesialis,status")
     .order("nama_dokter", { ascending: true });
 
   if (error) {

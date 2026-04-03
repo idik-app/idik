@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 /** Baris ringkas dari GET /api/pasien (Supabase snake_case). */
 export type PasienOption = {
@@ -13,6 +14,11 @@ export type PasienOption = {
   created_at: string | null;
   /** Dari kolom `jenis_kelamin` / `jk` di Supabase */
   jenis_kelamin?: "L" | "P" | null;
+  /** Master biaya (GET ?compact=1) — untuk laporan cara bayar / merge dengan baris tindakan */
+  jenis_pembiayaan?: string | null;
+  kelas_perawatan?: string | null;
+  pembiayaan?: string | null;
+  kelas?: string | null;
 };
 
 export function formatPasienLabel(
@@ -32,6 +38,7 @@ export function PasienCombobox({
   value,
   onChange,
   onSelectOption,
+  onInputBlur,
   options,
   loading,
   className,
@@ -43,6 +50,8 @@ export function PasienCombobox({
   onChange: (label: string) => void;
   /** Dipanggil hanya saat user memilih dari list (klik). */
   onSelectOption?: (opt: PasienOption) => void;
+  /** Dipanggil saat input kehilangan fokus (nilai ketikan manual). */
+  onInputBlur?: (finalText: string) => void;
   options: PasienOption[];
   loading?: boolean;
   className?: string;
@@ -51,6 +60,8 @@ export function PasienCombobox({
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  /** Hindari commit blur saat klik item list. */
+  const skipBlurRef = useRef(false);
 
   const filtered = useMemo(() => {
     const q = normalize(value);
@@ -81,6 +92,13 @@ export function PasienCombobox({
             onChange(e.target.value);
             setOpen(true);
           }}
+          onBlur={() => {
+            if (skipBlurRef.current) {
+              skipBlurRef.current = false;
+              return;
+            }
+            onInputBlur?.(value.trim());
+          }}
           onFocus={() => setOpen(true)}
           autoComplete="off"
           placeholder={
@@ -105,7 +123,13 @@ export function PasienCombobox({
         <ul
           id={listboxId}
           role="listbox"
-          className="absolute left-0 right-0 top-full z-[60] mt-1 max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl"
+          onMouseDown={() => {
+            skipBlurRef.current = true;
+          }}
+          className={cn(
+            "absolute left-0 right-0 top-full mt-1 max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl",
+            UI_LAYERS.modalTop,
+          )}
         >
           {filtered.map((p) => {
             const label = formatPasienLabel(p);
@@ -137,7 +161,12 @@ export function PasienCombobox({
         </ul>
       ) : null}
       {open && !loading && options.length === 0 ? (
-        <p className="absolute left-0 right-0 top-full z-[60] mt-1 rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/55">
+        <p
+          className={cn(
+            "absolute left-0 right-0 top-full mt-1 rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/55",
+            UI_LAYERS.modalTop,
+          )}
+        >
           Belum ada pasien di database. Tambah lewat menu Pasien.
         </p>
       ) : null}

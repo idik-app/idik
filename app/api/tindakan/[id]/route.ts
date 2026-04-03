@@ -1,16 +1,9 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { requireUser } from "@/lib/auth/guards";
-import {
-  finalizeTindakanPatchForSupabase,
-  mapTindakanRowToApiDetail,
-} from "@/lib/tindakan/tindakanDbMap";
-import {
-  enrichTindakanRowTarifFromMasterMap,
-  fetchMasterTarifLookupMap,
-  lookupMasterTarifRupiah,
-} from "@/lib/tindakan/masterTarifTindakan";
 
+/**
+ * Impor modul berat (auth, Supabase, mapping tarif) dilakukan via `import()` per handler
+ * agar chunk kompilasi dev & cold start tidak menarik seluruh graf sekaligus.
+ */
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
@@ -67,10 +60,17 @@ function sanitizeTindakanPatch(body: unknown): Record<string, unknown> {
   return out;
 }
 
+/** PostgREST: kolom belum ada di tabel / cache skema (instalasi lama / migrasi belum jalan). */
+function extractMissingColumnFromSchemaCacheError(message: string): string | null {
+  const m = String(message ?? "").match(/could not find the '([^']+)' column/i);
+  return m?.[1]?.trim() || null;
+}
+
 /**
  * Satu baris `tindakan` — untuk deep link Pemakaian (`?tindakanId=`).
  */
 export async function GET(_req: Request, ctx: Params) {
+  const { requireUser } = await import("@/lib/auth/guards");
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
@@ -82,6 +82,12 @@ export async function GET(_req: Request, ctx: Params) {
       { status: 400 },
     );
   }
+
+  const [{ createAdminClient }, masterTarif, tindakanDbMap] = await Promise.all([
+    import("@/lib/supabase/admin"),
+    import("@/lib/tindakan/masterTarifTindakan"),
+    import("@/lib/tindakan/tindakanDbMap"),
+  ]);
 
   let supabase: ReturnType<typeof createAdminClient>;
   try {
@@ -113,15 +119,15 @@ export async function GET(_req: Request, ctx: Params) {
     );
   }
 
-  const tarifMap = await fetchMasterTarifLookupMap(supabase);
-  const row = enrichTindakanRowTarifFromMasterMap(
+  const tarifMap = await masterTarif.fetchMasterTarifLookupMap(supabase);
+  const row = masterTarif.enrichTindakanRowTarifFromMasterMap(
     data as Record<string, unknown>,
     tarifMap,
   );
 
   return NextResponse.json({
     ok: true,
-    data: mapTindakanRowToApiDetail(row),
+    data: tindakanDbMap.mapTindakanRowToApiDetail(row),
   });
 }
 
@@ -129,6 +135,7 @@ export async function GET(_req: Request, ctx: Params) {
  * Patch sebagian baris `tindakan` — service role (tahan RLS), dipakai UI inline edit.
  */
 export async function PATCH(req: Request, ctx: Params) {
+  const { requireUser } = await import("@/lib/auth/guards");
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
@@ -151,8 +158,14 @@ export async function PATCH(req: Request, ctx: Params) {
     );
   }
 
+  const [{ createAdminClient }, masterTarif, tindakanDbMap] = await Promise.all([
+    import("@/lib/supabase/admin"),
+    import("@/lib/tindakan/masterTarifTindakan"),
+    import("@/lib/tindakan/tindakanDbMap"),
+  ]);
+
   const sanitized = sanitizeTindakanPatch(body);
-  const patch = finalizeTindakanPatchForSupabase(sanitized);
+  const patch = tindakanDbMap.finalizeTindakanPatchForSupabase(sanitized);
 
   let supabase: ReturnType<typeof createAdminClient>;
   try {
@@ -164,9 +177,9 @@ export async function PATCH(req: Request, ctx: Params) {
     );
   }
 
-  const tarifMap = await fetchMasterTarifLookupMap(supabase);
+  const tarifMap = await masterTarif.fetchMasterTarifLookupMap(supabase);
   if (Object.prototype.hasOwnProperty.call(patch, "tindakan")) {
-    const hit = lookupMasterTarifRupiah(tarifMap, patch.tindakan);
+    const hit = masterTarif.lookupMasterTarifRupiah(tarifMap, patch.tindakan);
     if (hit != null) patch.tarif_tindakan = hit;
   }
 
@@ -177,29 +190,63 @@ export async function PATCH(req: Request, ctx: Params) {
     );
   }
 
-  const { data: updated, error } = await supabase
-    .from("tindakan")
-    .update(patch)
-    .eq("id", tindakanId)
-    .select("id")
-    .maybeSingle();
+  /** Beberapa DB tidak punya kolom opsional (mis. `pasien_id`); buang dari payload lalu ulang — selaras `useTindakanCrud` insert. */
+  let attemptPatch: Record<string, unknown> = { ...patch };
+  let lastError: { message?: string } | null = null;
 
-  if (error) {
-    console.error("[PATCH api/tindakan/[id]]", error);
-    return NextResponse.json(
-      { ok: false, message: error.message },
-      { status: 500 },
-    );
+  for (let i = 0; i < 16; i += 1) {
+    if (Object.keys(attemptPatch).length === 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            lastError?.message ||
+            "Tidak ada kolom yang bisa diperbarui untuk skema tindakan ini.",
+        },
+        { status: 500 },
+      );
+    }
+
+    const { data: updated, error } = await supabase
+      .from("tindakan")
+      .update(attemptPatch)
+      .eq("id", tindakanId)
+      .select("id")
+      .maybeSingle();
+
+    if (!error) {
+      if (!updated) {
+        return NextResponse.json(
+          { ok: false, message: "Kasus tindakan tidak ditemukan." },
+          { status: 404 },
+        );
+      }
+      return NextResponse.json({ ok: true, data: updated }, { status: 200 });
+    }
+
+    lastError = error;
+    const msg = String(error.message ?? "");
+    const missingCol = extractMissingColumnFromSchemaCacheError(msg);
+    if (
+      !missingCol ||
+      !Object.prototype.hasOwnProperty.call(attemptPatch, missingCol)
+    ) {
+      console.error("[PATCH api/tindakan/[id]]", error);
+      return NextResponse.json(
+        { ok: false, message: error.message },
+        { status: 500 },
+      );
+    }
+    const next = { ...attemptPatch };
+    delete next[missingCol];
+    attemptPatch = next;
   }
 
-  if (!updated) {
-    return NextResponse.json(
-      { ok: false, message: "Kasus tindakan tidak ditemukan." },
-      { status: 404 },
-    );
-  }
-
-  return NextResponse.json({ ok: true, data: updated }, { status: 200 });
+  console.error("[PATCH api/tindakan/[id]] exhausted retries", lastError);
+  return NextResponse.json(
+    { ok: false, message: lastError?.message || "Gagal memperbarui tindakan." },
+    { status: 500 },
+  );
 }
 
 function isMissingRelationOrTableError(err: { message?: string } | null): boolean {
@@ -217,6 +264,7 @@ function isMissingRelationOrTableError(err: { message?: string } | null): boolea
  * dan tidak bergantung pada RLS klien anon.
  */
 export async function DELETE(_req: Request, ctx: Params) {
+  const { requireUser } = await import("@/lib/auth/guards");
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
@@ -228,6 +276,8 @@ export async function DELETE(_req: Request, ctx: Params) {
       { status: 400 },
     );
   }
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
 
   let supabase: ReturnType<typeof createAdminClient>;
   try {

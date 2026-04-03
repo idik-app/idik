@@ -22,6 +22,7 @@ import MasterPerawatTimField, {
   type TimPerawatFieldKey,
 } from "./MasterPerawatTimField";
 import MasterDokterField from "./MasterDokterField";
+import MasterJenisTindakanField from "./MasterJenisTindakanField";
 import TambahKeMasterPerawatForm from "./TambahKeMasterPerawatForm";
 import RadiologiAutosaveField, {
   type RadiologiFieldKey,
@@ -186,9 +187,14 @@ function mergePasienMasterIntoRow(
 ): TindakanJoinResult {
   if (!pasien) return row;
   const no_rm = isBlank(row.no_rm) ? pasien.noRM?.trim() || null : row.no_rm;
-  const nama_pasien = isBlank(row.nama_pasien)
-    ? pasien.nama?.trim() || null
-    : row.nama_pasien;
+  const rowNamaDenorm =
+    String(row.nama_pasien ?? "").trim() ||
+    String(
+      (row as TindakanJoinResult & { nama?: string | null }).nama ?? "",
+    ).trim();
+  const masterNama = pasien.nama?.trim() ?? "";
+  /** Master pasien = sumber kebenaran untuk nama bila drawer sudah punya fetch by `pasien_id` / RM. */
+  const nama_pasien = masterNama || rowNamaDenorm || null;
   const tgl_lahir = isBlank(row.tgl_lahir)
     ? pasien.tanggalLahir?.trim() || null
     : row.tgl_lahir;
@@ -215,7 +221,7 @@ function mergePasienMasterIntoRow(
     if (dobStr) umur = hitungUsia(dobStr).angka;
   }
 
-  /** Tab Biaya: "Kelas pembiayaan" = Jenis Pembiayaan + Kelas perawatan dari master pasien */
+  /** Tab Biaya — "Kelas pembiayaan": jenis + kelas (mis. NPBI - 1, BPJS - 3); selaras laporan cara bayar. */
   const kelas_pembiayaan = isBlank(row.kelas_pembiayaan)
     ? buildKelasPembiayaanFromPasienMaster(pasien)
     : row.kelas_pembiayaan;
@@ -476,9 +482,14 @@ export default function TindakanDetailDrawer({
     const rmStr = String(displayRecord.no_rm ?? "").trim();
     const namaStr = String(displayRecord.nama_pasien ?? "").trim() || "—";
     const tinStr = String(displayRecord.tindakan ?? "").trim();
-    const prefix = rmStr ? `${hariTanggal}.${rmStr}` : hariTanggal;
-    const tail = [namaStr, tinStr].filter(Boolean).join("·");
-    return tail ? `${prefix}·${tail}` : prefix;
+    /** Mudah dibaca: hari & tanggal — RM — nama — jenis tindakan (bukan titik / middle dot). */
+    const parts = [
+      hariTanggal,
+      rmStr || "—",
+      namaStr,
+      tinStr || "—",
+    ];
+    return parts.join(" - ");
   }, [displayRecord]);
 
   if (!open) return null;
@@ -929,6 +940,10 @@ export default function TindakanDetailDrawer({
                         key,
                       );
                       const tindakanId = String(displayRecord.id ?? "").trim();
+                      const isJenisTindakanEditable =
+                        def.id === "tindakan" &&
+                        key === "tindakan" &&
+                        Boolean(tindakanId);
                       const isKategoriEditable =
                         def.id === "tindakan" &&
                         key === "kategori" &&
@@ -1056,6 +1071,16 @@ export default function TindakanDetailDrawer({
                                 }
                                 onSaved={onRecordPatch}
                               />
+                            ) : isJenisTindakanEditable ? (
+                              <MasterJenisTindakanField
+                                tindakanId={tindakanId}
+                                value={
+                                  rawVal === null || rawVal === undefined
+                                    ? null
+                                    : String(rawVal)
+                                }
+                                onSaved={onRecordPatch}
+                              />
                             ) : isKategoriEditable ? (
                               <KategoriTindakanField
                                 tindakanId={tindakanId}
@@ -1066,6 +1091,19 @@ export default function TindakanDetailDrawer({
                                 }
                                 onSaved={onRecordPatch}
                               />
+                            ) : key === "tindakan" && !tindakanId ? (
+                              <div>
+                                <span>{formatFieldValue(key, rawVal)}</span>
+                                <p
+                                  className={cn(
+                                    "mt-1 text-[11px] font-medium",
+                                    "text-amber-900 dark:text-amber-100",
+                                  )}
+                                >
+                                  Baris tanpa ID kasus — jenis tindakan tidak
+                                  dapat disimpan dari sini.
+                                </p>
+                              </div>
                             ) : key === "kategori" && !tindakanId ? (
                               <div>
                                 <span>{formatFieldValue(key, rawVal)}</span>
@@ -1107,43 +1145,6 @@ export default function TindakanDetailDrawer({
                   ) : null}
                   </>
                   )}
-                  {def.id === "fast_track" ? (
-                    <div
-                      className={cn(
-                        "mt-3 rounded-xl border-2 px-3 py-3",
-                        "border-rose-500/45 bg-rose-50/95 shadow-sm dark:border-rose-500/40 dark:bg-rose-950/35 dark:shadow-[0_0_24px_rgba(244,63,94,0.12)]",
-                      )}
-                      role="note"
-                    >
-                      <p
-                        className={cn(
-                          "text-[11px] font-extrabold uppercase tracking-wide",
-                          "text-rose-900 dark:text-white",
-                        )}
-                      >
-                        Saran pamungkas — STEMI
-                      </p>
-                      <p
-                        className={cn(
-                          "mt-2 text-xs font-semibold leading-relaxed",
-                          "text-rose-950 dark:text-white",
-                        )}
-                      >
-                        Infark miokard dengan elevasi ST memerlukan{" "}
-                        <span className="font-bold">tindakan secepat mungkin</span>
-                        : setiap penundaan berarti kehilangan miokardium
-                        irreversibel. Aktifkan jalur{" "}
-                        <span className="font-bold">Fast-Track IGD → lab → kathlab</span>
-                        — EKG dan triase dini, terapi antiplatelet/antikoagulan sesuai
-                        protokol rumah sakit, konsultasi kardiologi segera, dan
-                        dokumentasi waktu (kedatangan IGD, first medical contact,
-                        first device) untuk mengejar target{" "}
-                        <span className="font-bold">door-to-balloon</span> sesuai
-                        standar (umumnya ≤90 menit; ideal lebih singkat di pusat PCI
-                        primer). Hindari hambatan administratif yang tidak perlu.
-                      </p>
-                    </div>
-                  ) : null}
                   {def.id === "tim" ? (
                     <TambahKeMasterPerawatForm
                       onAdded={() => setPerawatMasterReloadToken((t) => t + 1)}

@@ -1,7 +1,16 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Search, Activity, Plus } from "lucide-react";
+import {
+  Search,
+  Activity,
+  Plus,
+  Zap,
+  BarChart3,
+  FileSpreadsheet,
+  ChevronDown,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 import type { Pasien } from "@/app/dashboard/pasien/types/pasien";
 import TambahPasienQuickModal from "./TambahPasienQuickModal";
 
@@ -27,6 +36,12 @@ interface Props {
   onSyncMasterPasien?: () => Promise<void> | void;
   /** Indikator sinkronisasi master pasien berjalan (silent/background). */
   isSyncingMasterPasien?: boolean;
+  /** Buka modal ringkasan Fast-Track (filter di dalam modal). */
+  onOpenFastTrack?: () => void;
+  /** Buka modal frekuensi tindakan × tahun (Lab Kateter). */
+  onOpenTindakanTerbanyakLab?: () => void;
+  /** Matriks bulanan: jenis operasi / cara bayar (filter mengikuti tabel). */
+  onOpenLaporan?: () => void;
 }
 
 /** Interval auto-refresh saat tab terlihat (detik). */
@@ -51,6 +66,9 @@ export default function TableToolbar({
   ruanganOptions,
   isSyncing = false,
   isSyncingMasterPasien = false,
+  onOpenFastTrack,
+  onOpenTindakanTerbanyakLab,
+  onOpenLaporan,
 }: Props) {
   const [dokter, setDokter] = useState("");
   const [ruangan, setRuangan] = useState("");
@@ -61,8 +79,31 @@ export default function TableToolbar({
   const [isPageVisible, setIsPageVisible] = useState(true);
   const [isUserTyping, setIsUserTyping] = useState(false);
   const [addPasienOpen, setAddPasienOpen] = useState(false);
+  const [laporanMenuOpen, setLaporanMenuOpen] = useState(false);
+  const laporanMenuRef = useRef<HTMLDivElement | null>(null);
 
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const hasLaporanLab = typeof onOpenTindakanTerbanyakLab === "function";
+  const hasLaporanMatriks = typeof onOpenLaporan === "function";
+  const hasAnyLaporan = hasLaporanLab || hasLaporanMatriks;
+
+  useEffect(() => {
+    if (!laporanMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      const el = laporanMenuRef.current;
+      if (!el?.contains(e.target as Node)) setLaporanMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLaporanMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [laporanMenuOpen]);
 
   const handleSavedPasien = async (patient: Pasien) => {
     const pasienId = String(patient.id ?? "").trim();
@@ -132,11 +173,18 @@ export default function TableToolbar({
   return (
     <div
       className={cn(
-        "flex shrink-0 flex-col gap-1 px-1.5 py-1 sm:px-2 sm:py-1.5 min-w-0 transition-colors duration-500",
+        "relative flex shrink-0 flex-col gap-1 px-1.5 py-1 sm:px-2 sm:py-1.5 min-w-0 transition-colors duration-500",
         "bg-slate-50/90 dark:bg-black/35",
+        /* Di atas area scroll + thead sticky (z-10) agar submenu Laporan tidak tertutup tabel */
+        UI_LAYERS.hud,
       )}
     >
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+      <div
+        className={cn(
+          "relative flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5",
+          UI_LAYERS.toolbarActionsRow,
+        )}
+      >
         <h3
           className={cn(
             "font-extrabold tracking-wide inline-flex items-center gap-1.5 flex-wrap text-[11px] sm:text-xs min-w-0",
@@ -203,10 +251,136 @@ export default function TableToolbar({
             Tambah Pasien
           </span>
         </button>
-
+        {typeof onOpenFastTrack === "function" ? (
+          <button
+            type="button"
+            onClick={() => onOpenFastTrack()}
+            className={cn(
+              "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-extrabold shadow-[0_0_14px_rgba(245,158,11,0.35)] transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/90",
+              "border-amber-600/85 bg-amber-500 text-black dark:border-amber-500/70 dark:bg-amber-600 dark:text-white",
+              "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
+            )}
+            title="Daftar Fast-Track: filter bulan, dokter, IGD, door-to-balloon, foto"
+          >
+            <Zap
+              size={16}
+              strokeWidth={2.5}
+              className={cn(
+                "shrink-0 motion-safe:transition-transform group-hover:scale-110",
+                "text-black dark:text-white",
+              )}
+            />
+            <span className={cn("tracking-wide text-black dark:text-white")}>
+              Fast-Track
+            </span>
+          </button>
+        ) : null}
+        {hasAnyLaporan ? (
+          <div className="relative shrink-0" ref={laporanMenuRef}>
+            <button
+              type="button"
+              id="tindakan-toolbar-laporan-trigger"
+              aria-haspopup="menu"
+              aria-expanded={laporanMenuOpen}
+              aria-controls="tindakan-toolbar-laporan-menu"
+              onClick={() => setLaporanMenuOpen((o) => !o)}
+              className={cn(
+                "group inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border px-2.5 pr-2 text-xs font-extrabold shadow-[0_0_14px_rgba(16,185,129,0.3)] transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/90",
+                "border-emerald-600/85 bg-emerald-600 text-white dark:border-emerald-500/70 dark:bg-emerald-700 dark:text-white",
+                "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
+                laporanMenuOpen && "brightness-110",
+              )}
+              title="Laporan: pilih jenis"
+            >
+              <FileSpreadsheet
+                size={16}
+                strokeWidth={2.5}
+                className="shrink-0 motion-safe:transition-transform group-hover:scale-110"
+              />
+              <span className="tracking-wide">Laporan</span>
+              <ChevronDown
+                size={14}
+                strokeWidth={2.5}
+                className={cn(
+                  "shrink-0 opacity-90 motion-safe:transition-transform",
+                  laporanMenuOpen && "rotate-180",
+                )}
+                aria-hidden
+              />
+            </button>
+            {laporanMenuOpen ? (
+              <div
+                id="tindakan-toolbar-laporan-menu"
+                role="menu"
+                aria-labelledby="tindakan-toolbar-laporan-trigger"
+                className={cn(
+                  "absolute left-0 top-full mt-1 min-w-[14rem] rounded-lg border py-1 shadow-lg",
+                  UI_LAYERS.popover,
+                  "border-emerald-600/40 bg-white dark:border-emerald-500/35 dark:bg-black/95",
+                  "ring-1 ring-black/5 dark:ring-white/10",
+                )}
+              >
+                {hasLaporanLab ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={cn(
+                      "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
+                      "text-slate-900 hover:bg-violet-500/10 dark:text-white dark:hover:bg-violet-500/15",
+                      "focus-visible:bg-violet-500/10 focus-visible:outline-none dark:focus-visible:bg-violet-500/15",
+                    )}
+                    onClick={() => {
+                      setLaporanMenuOpen(false);
+                      onOpenTindakanTerbanyakLab?.();
+                    }}
+                  >
+                    <BarChart3
+                      size={16}
+                      strokeWidth={2.25}
+                      className="shrink-0 text-violet-600 dark:text-violet-400"
+                    />
+                    <span className="min-w-0 flex-1 font-extrabold tracking-wide">
+                      Laporan Tindakan Terbanyak
+                    </span>
+                  </button>
+                ) : null}
+                {hasLaporanLab && hasLaporanMatriks ? (
+                  <div
+                    className="mx-2 border-t border-slate-200/80 dark:border-white/15"
+                    role="separator"
+                  />
+                ) : null}
+                {hasLaporanMatriks ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={cn(
+                      "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
+                      "text-slate-900 hover:bg-emerald-500/10 dark:text-white dark:hover:bg-emerald-500/15",
+                      "focus-visible:bg-emerald-500/10 focus-visible:outline-none dark:focus-visible:bg-emerald-500/15",
+                    )}
+                    onClick={() => {
+                      setLaporanMenuOpen(false);
+                      onOpenLaporan?.();
+                    }}
+                  >
+                    <FileSpreadsheet
+                      size={16}
+                      strokeWidth={2.25}
+                      className="shrink-0 text-emerald-600 dark:text-emerald-400"
+                    />
+                    <span className="min-w-0 flex-1 font-extrabold tracking-wide">
+                      Laporan bulanan
+                    </span>
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
-      <div className="flex flex-wrap items-end gap-1.5 sm:gap-2 min-w-0">
+      <div className="relative z-0 flex flex-wrap items-end gap-1.5 sm:gap-2 min-w-0">
         <div className="relative min-w-0 w-full min-[480px]:w-auto min-[480px]:flex-1 min-[480px]:min-w-[12rem] min-[480px]:max-w-2xl">
           <Search
             size={13}

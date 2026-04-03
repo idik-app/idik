@@ -3,6 +3,8 @@
  * Gunakan token ini agar tidak hardcode angka di banyak komponen.
  */
 export const UI_LAYERS = {
+  /** Baris aksi toolbar (tombol + submenu) harus di atas baris filter di bawahnya */
+  toolbarActionsRow: "z-20",
   hud: "z-30",
   detailBackdrop: "z-[45]",
   overlay: "z-40",
@@ -20,4 +22,3 @@ export const UI_LAYERS = {
   fullscreenOverlay: "z-[999]",
   fullscreen: "z-[9999]",
 } as const;
-

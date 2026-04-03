@@ -52,7 +52,10 @@ export const WIREFRAME_DRAWER_TABS: {
     id: "tindakan",
     label: "Tindakan",
     short: "Tin",
-    /** + Sign in / Time out / Sign out (jam) di `SignTimeFields` di bawah daftar field. */
+    /**
+     * + Sign in / Time out / Sign out (jam) di `SignTimeFields` di bawah daftar field.
+     * `tindakan`: combobox master (`MasterJenisTindakanField`), autofill nama kanonik, PATCH + refresh silent (tanpa toast sukses).
+     */
     fields: ["tanggal_tindakan", "tindakan", "kategori"],
   },
   {
@@ -65,6 +68,7 @@ export const WIREFRAME_DRAWER_TABS: {
     id: "tim",
     label: "Dokter & tim",
     short: "Tim",
+    /** `dokter`: combobox master (`MasterDokterField`), autofill nama kanonik, simpan PATCH + refresh list tanpa toast sukses. */
     fields: ["dokter", "asisten", "sirkuler", "logger"],
   },
   {

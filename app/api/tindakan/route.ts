@@ -25,36 +25,39 @@ async function fetchTableOrderedInChunks(
   projection: string,
   maxRows: number,
 ): Promise<{ data: Record<string, unknown>[]; error: { message?: string } | null }> {
-  const out: Record<string, unknown>[] = [];
-  let from = 0;
-
-  while (out.length < maxRows) {
+  const numChunks = Math.ceil(maxRows / POSTGREST_SAFE_CHUNK);
+  const ranges = Array.from({ length: numChunks }, (_, i) => {
+    const from = i * POSTGREST_SAFE_CHUNK;
     const to = from + POSTGREST_SAFE_CHUNK - 1;
-    const res = await supabase
-      .from(table)
-      .select(projection)
-      .order("tanggal", { ascending: false, nullsFirst: false })
-      .order("id", { ascending: false })
-      .range(from, to);
+    return { from, to };
+  });
 
+  const results = await Promise.all(
+    ranges.map(({ from, to }) =>
+      supabase
+        .from(table)
+        .select(projection)
+        .order("tanggal", { ascending: false, nullsFirst: false })
+        .order("id", { ascending: false })
+        .range(from, to),
+    ),
+  );
+
+  const out: Record<string, unknown>[] = [];
+  for (const res of results) {
     if (res.error) {
       return { data: out, error: res.error as { message?: string } };
     }
-
     const batch = Array.isArray(res.data)
-      ? (res.data as Record<string, unknown>[])
+      ? (res.data as unknown as Record<string, unknown>[])
       : [];
-
     if (batch.length === 0) break;
-
     const remaining = maxRows - out.length;
     out.push(...batch.slice(0, remaining));
-
-    if (batch.length < POSTGREST_SAFE_CHUNK || out.length >= maxRows) break;
-    from += batch.length;
+    if (out.length >= maxRows) break;
   }
 
-  return { data: out, error: null };
+  return { data: out.slice(0, maxRows), error: null };
 }
 
 function mapLegacyTindakanMedikRow(

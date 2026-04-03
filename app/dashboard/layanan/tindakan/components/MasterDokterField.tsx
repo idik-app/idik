@@ -96,40 +96,73 @@ export default function MasterDokterField({ tindakanId, value, onSaved }: Props)
     setDraft(norm(String(value ?? "")));
   }, [value, tindakanId]);
 
-  const persist = async (nextLabel: string | null) => {
-    const trimmed = nextLabel == null ? "" : norm(nextLabel);
-    const resolved = resolveDoctorFromLooseInput(options, trimmed);
-    const stored = resolved ? norm(String(resolved.nama_dokter)) : trimmed;
-    const nextKey = stored || "";
-    if (nextKey === lastPersistedRef.current) return;
+  const persist = useCallback(
+    async (nextLabel: string | null) => {
+      const trimmed = nextLabel == null ? "" : norm(nextLabel);
+      const resolved = resolveDoctorFromLooseInput(options, trimmed);
+      const stored = resolved ? norm(String(resolved.nama_dokter)) : trimmed;
+      const nextKey = stored || "";
+      if (nextKey === lastPersistedRef.current) return;
 
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/tindakan/${encodeURIComponent(tindakanId)}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dokter: nextKey || null }),
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        message?: string;
-      };
-      if (!res.ok || !json.ok) {
-        throw new Error(json.message || res.statusText);
+      setSaving(true);
+      try {
+        const res = await fetch(
+          `/api/tindakan/${encodeURIComponent(tindakanId)}`,
+          {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dokter: nextKey || null }),
+          },
+        );
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          message?: string;
+        };
+        if (!res.ok || !json.ok) {
+          throw new Error(json.message || res.statusText);
+        }
+        lastPersistedRef.current = nextKey;
+        onSaved?.();
+      } catch (e) {
+        show({
+          type: "error",
+          message: `Gagal simpan dokter: ${(e as Error).message}`,
+        });
+        setDraft(lastPersistedRef.current);
+      } finally {
+        setSaving(false);
       }
-      lastPersistedRef.current = nextKey;
-      onSaved?.();
-    } catch (e) {
-      show({
-        type: "error",
-        message: `Gagal simpan dokter: ${(e as Error).message}`,
-      });
-      setDraft(lastPersistedRef.current);
-    } finally {
-      setSaving(false);
+    },
+    [options, show, tindakanId, onSaved],
+  );
+
+  /**
+   * Setelah master dokter termuat: samakan label tampilan + jika nilai DB masih
+   * panggilan/singkat, PATCH ke nama_dokter kanonik (tanpa toast sukses; refresh list silent).
+   */
+  useEffect(() => {
+    if (!options.length || saving) return;
+    const raw = value == null || value === "" ? "" : norm(String(value));
+    if (!raw) return;
+
+    const resolved = resolveDoctorFromLooseInput(options, raw);
+    if (!resolved) return;
+
+    const storedCanonical = norm(String(resolved.nama_dokter));
+    const displayCanonical = formatDoctorLabel(resolved);
+    const valueNorm = norm(raw);
+
+    if (valueNorm !== storedCanonical) {
+      setDraft(displayCanonical);
+      void persist(displayCanonical);
+      return;
     }
-  };
+
+    setDraft((d) =>
+      norm(d) !== norm(displayCanonical) ? displayCanonical : d,
+    );
+  }, [options, value, tindakanId, saving, persist]);
 
   const handleBlurCommit = (current: string) => {
     if (skipBlurCommitRef.current) return;

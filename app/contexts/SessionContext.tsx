@@ -4,6 +4,8 @@ import React, {
   useContext,
   useState,
   useEffect,
+  useCallback,
+  useMemo,
   ReactNode,
 } from "react";
 
@@ -29,8 +31,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     refreshCount: 0,
   });
 
-  const setSession = (data: Partial<SessionState>) =>
+  const setSession = useCallback((data: Partial<SessionState>) => {
     setSessionState((prev) => ({ ...prev, ...data }));
+  }, []);
 
   // Rehidrasi dari sessionStorage saat mount (nama user tampil segera setelah pernah login)
   useEffect(() => {
@@ -49,24 +52,28 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const resetSession = () =>
+  const resetSession = useCallback(
+    () =>
     setSessionState({
       username: "unknown",
       role: "guest",
       lastRefresh: null,
       refreshCount: 0,
-    });
+    }),
+    [],
+  );
 
   // Persist ringan di sessionStorage
   useEffect(() => {
     sessionStorage.setItem("session", JSON.stringify(session));
   }, [session]);
 
-  return (
-    <SessionContext.Provider value={{ ...session, setSession, resetSession }}>
-      {children}
-    </SessionContext.Provider>
+  const value = useMemo(
+    () => ({ ...session, setSession, resetSession }),
+    [session, setSession, resetSession],
   );
+
+  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
 
 export function useSession() {

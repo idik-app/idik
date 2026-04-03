@@ -3,8 +3,6 @@
 import { useEffect } from "react";
 import dynamic from "next/dynamic";
 
-import { AutonomousKernelProvider } from "@/core/idik-autonomous/AutonomousKernelProvider";
-
 import { EventBridgeProvider } from "@/contexts/EventBridgeContext";
 import { DiagnosticsHUDProvider } from "@/contexts/DiagnosticsHUDContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -70,30 +68,27 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <EventBridgeProvider>
       <DiagnosticsHUDProvider>
-        <AutonomousKernelProvider>
-          <JarvisFXProvider>
-            <NotificationProvider>
-              <AppDialogProvider>
-                <ConnectionNotify />
-                <ThemeProvider>
-                  <UIProvider>
-                    <SessionProvider>
-                      <TabProvider>
-                        <AIProvider>
-                          {children}
-                          <GlobalLogoutOverlay />
-                          <UpdateBanner />
-                        </AIProvider>
-                      </TabProvider>
-                    </SessionProvider>
-                  </UIProvider>
-                  <ThemedToaster />
-                </ThemeProvider>
-              </AppDialogProvider>
-            </NotificationProvider>
-          </JarvisFXProvider>
-        </AutonomousKernelProvider>
-
+        <JarvisFXProvider>
+          <NotificationProvider>
+            <AppDialogProvider>
+              <ConnectionNotify />
+              <ThemeProvider>
+                <UIProvider>
+                  <SessionProvider>
+                    <TabProvider>
+                      <AIProvider>
+                        {children}
+                        <GlobalLogoutOverlay />
+                        <UpdateBanner />
+                      </AIProvider>
+                    </TabProvider>
+                  </SessionProvider>
+                </UIProvider>
+                <ThemedToaster />
+              </ThemeProvider>
+            </AppDialogProvider>
+          </NotificationProvider>
+        </JarvisFXProvider>
       </DiagnosticsHUDProvider>
     </EventBridgeProvider>
   );

@@ -12,7 +12,7 @@ import {
   type RefObject,
 } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   Info,
@@ -52,6 +52,7 @@ import {
   DISTRIBUTOR_GENOSS_DEFAULT_HARGA_JUAL,
   DISTRIBUTOR_STENT_DEFAULT_HARGA_JUAL,
 } from "@/lib/distributorCatalog";
+import { runDeduped } from "@/lib/api/runDeduped";
 
 type Row = {
   id: string;
@@ -203,8 +204,10 @@ function looksLikeLotOrBarcodeSearchToken(raw: string): boolean {
 }
 
 function DistributorBarangPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const distributorIdParam = searchParams.get("distributor_id") ?? "";
+  const openedNamaFromUrlRef = useRef(false);
 
   const [q, setQ] = useState("");
   const [allRows, setAllRows] = useState<Row[]>([]);
@@ -596,18 +599,23 @@ function DistributorBarangPageContent() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (distributorIdParam) params.set("distributor_id", distributorIdParam);
-      const paramsWithBust = new URLSearchParams(params);
-      paramsWithBust.set("_", String(Date.now()));
-      const res = await fetch(
-        `/api/distributor/produk?${paramsWithBust.toString()}`,
-        {
-          cache: "no-store",
-        },
-      );
-      const json = await res.json();
-      const all = (json?.data ?? []) as Row[];
+      const dedupeKey = `GET:/api/distributor/produk?distributor_id=${encodeURIComponent(
+        distributorIdParam ?? "",
+      )}`;
+      const all = await runDeduped(dedupeKey, async () => {
+        const params = new URLSearchParams();
+        if (distributorIdParam) params.set("distributor_id", distributorIdParam);
+        const paramsWithBust = new URLSearchParams(params);
+        paramsWithBust.set("_", String(Date.now()));
+        const res = await fetch(
+          `/api/distributor/produk?${paramsWithBust.toString()}`,
+          {
+            cache: "no-store",
+          },
+        );
+        const json = await res.json();
+        return (json?.data ?? []) as Row[];
+      });
       setAllRows(all);
     } finally {
       setLoading(false);
@@ -733,7 +741,11 @@ function DistributorBarangPageContent() {
   }, [formLot, findLotDuplicateInLoadedRows]);
 
   const openTambahProdukModal = useCallback(
-    (opts?: { seedBarcodeFromFilter?: string; seedLotFromFilter?: string }) => {
+    (opts?: {
+      seedBarcodeFromFilter?: string;
+      seedLotFromFilter?: string;
+      seedNama?: string;
+    }) => {
       if (adminView && !distributorIdParam) return;
       setEditing(null);
       setProdukModalError(null);
@@ -753,12 +765,40 @@ function DistributorBarangPageContent() {
       }
       setBarcodeHint(null);
       setSelectedMasterLabel("");
-      setFormNamaMasterBaru("");
+      const seedNama = opts?.seedNama?.trim() ?? "";
+      setFormNamaMasterBaru(seedNama);
       setFormKodeMasterBaru("");
       setModalOpen(true);
     },
     [adminView, distributorIdParam],
   );
+
+  useEffect(() => {
+    const nama = searchParams.get("nama");
+    if (!nama?.trim() || openedNamaFromUrlRef.current) return;
+    const stripNamaFromUrl = () => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("nama");
+      const qs = params.toString();
+      router.replace(qs ? `/distributor/barang?${qs}` : "/distributor/barang", {
+        scroll: false,
+      });
+    };
+    const decoded = decodeURIComponent(nama.trim());
+    if (adminView && !distributorIdParam) {
+      stripNamaFromUrl();
+      return;
+    }
+    openedNamaFromUrlRef.current = true;
+    openTambahProdukModal({ seedNama: decoded });
+    stripNamaFromUrl();
+  }, [
+    searchParams,
+    router,
+    openTambahProdukModal,
+    adminView,
+    distributorIdParam,
+  ]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

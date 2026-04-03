@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,11 @@ import {
   resolveJenisKelaminFromRow,
 } from "../lib/displayTindakanRow";
 import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
+import ReportExportActionBar from "./ReportExportActionBar";
+import {
+  buildTindakanHariIniReportHtml,
+  buildTindakanHariIniWhatsAppText,
+} from "../lib/tindakanReportTemplates";
 
 function todayWibYmd(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -50,6 +55,33 @@ export default function TindakanHariIniModal({
     [rows, today],
   );
 
+  const tanggalLabel = useMemo(() => {
+    return new Intl.DateTimeFormat("id-ID", {
+      timeZone: "Asia/Jakarta",
+      dateStyle: "long",
+    }).format(new Date(`${today}T12:00:00+07:00`));
+  }, [today]);
+
+  const buildExportHtml = useCallback(
+    () =>
+      buildTindakanHariIniReportHtml({
+        tanggalIso: today,
+        tanggalLabel,
+        rows: todayRows,
+      }),
+    [today, tanggalLabel, todayRows],
+  );
+
+  const buildExportWhatsApp = useCallback(
+    () => buildTindakanHariIniWhatsAppText(tanggalLabel, todayRows),
+    [tanggalLabel, todayRows],
+  );
+
+  const exportFileBase = useMemo(
+    () => `laporan-tindakan-hari-ini-${today}`,
+    [today],
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -64,11 +96,29 @@ export default function TindakanHariIniModal({
             "text-slate-900 dark:text-white",
           )}
         >
-          <DialogHeader className="space-y-1">
-            <DialogTitle className="text-left font-bold tracking-wide">
-              Tindakan hari ini
-            </DialogTitle>
-          </DialogHeader>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <DialogHeader className="space-y-1 sm:pr-2">
+              <DialogTitle className="text-left font-bold tracking-wide">
+                Tindakan hari ini
+              </DialogTitle>
+              <p
+                className={cn(
+                  "text-[12px] font-semibold",
+                  "text-slate-600 dark:text-white/85",
+                )}
+              >
+                {tanggalLabel}
+              </p>
+            </DialogHeader>
+            <ReportExportActionBar
+              className="shrink-0 sm:pt-0.5"
+              disabled={loading}
+              empty={!loading && todayRows.length === 0}
+              fileNameBase={exportFileBase}
+              buildHtml={buildExportHtml}
+              buildWhatsAppText={buildExportWhatsApp}
+            />
+          </div>
 
           {loading ? (
             <div

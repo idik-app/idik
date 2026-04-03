@@ -55,7 +55,8 @@ export default function TindakanDashboard() {
     <div
       key="tindakan-dashboard"
       className={cn(
-        "relative flex h-full min-h-0 flex-col overflow-hidden transition-colors duration-500",
+        "relative flex min-h-0 flex-col transition-colors duration-500",
+        "h-full overflow-hidden max-md:h-auto max-md:overflow-visible md:h-full md:overflow-hidden",
         "font-semibold text-slate-900 dark:text-white",
         "bg-gradient-to-br from-slate-50 via-white to-cyan-50/45 dark:from-slate-950 dark:via-black dark:to-cyan-950",
       )}
@@ -88,10 +89,10 @@ export default function TindakanDashboard() {
         />
       </header>
 
-      <main className="relative flex min-h-0 flex-1 flex-col gap-0 px-1.5 pb-2 pt-0.5 sm:px-2 sm:pb-2.5 md:px-3">
+      <main className="relative flex min-h-0 flex-1 flex-col gap-0 px-1.5 pb-2 pt-0.5 max-md:flex-none sm:px-2 sm:pb-2.5 md:px-3">
         <section
           ref={tableRef}
-          className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
+          className="relative flex min-h-0 flex-1 flex-col overflow-hidden max-md:flex-none max-md:overflow-visible"
           id="tindakan-table-section"
         >
           <TindakanTable

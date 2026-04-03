@@ -11,6 +11,7 @@ import { useUI } from "@/contexts/UIContext";
 import { useSession } from "@/contexts/SessionContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
+import { runDeduped } from "@/lib/api/runDeduped";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import LayoutSidebar from "./LayoutSidebar";
 import LayoutHeader from "./LayoutHeader";
@@ -58,9 +59,11 @@ export default function LayoutContainer() {
   useEffect(() => {
     const refresh = async () => {
       try {
-        const res = await fetch("/api/auth/refresh", {
-          method: "GET",
-          credentials: "include",
+        const res = await runDeduped("GET:/api/auth/refresh", async () => {
+          return fetch("/api/auth/refresh", {
+            method: "GET",
+            credentials: "include",
+          });
         });
         const data = await res.json();
         if (data.ok) {

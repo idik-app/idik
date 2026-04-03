@@ -2,8 +2,6 @@
 
 import { useEffect } from "react";
 import { LayoutContainer } from "@/components/layout";
-import { EventBridgeProvider } from "@/contexts/EventBridgeContext";
-import { DiagnosticsHUDProvider } from "@/contexts/DiagnosticsHUDContext";
 import EventBridgeToHUD from "@/dashboard/ui/EventBridgeToHUD";
 import DiagnosticsHUD from "@/dashboard/ui/DiagnosticsHUD";
 
@@ -16,12 +14,8 @@ export default function DashboardLayout() {
   return (
     <>
       <LayoutContainer />
-      <EventBridgeProvider>
-        <DiagnosticsHUDProvider>
-          <EventBridgeToHUD />
-          <DiagnosticsHUD />
-        </DiagnosticsHUDProvider>
-      </EventBridgeProvider>
+      <EventBridgeToHUD />
+      <DiagnosticsHUD />
     </>
   );
 }

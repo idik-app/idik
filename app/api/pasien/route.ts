@@ -95,7 +95,7 @@ export async function GET(request: Request) {
           : 0;
 
     const columns = compact
-      ? "id,nama,no_rm,jenis_kelamin,jk,created_at"
+      ? "id,nama,no_rm,jenis_kelamin,jk,created_at,jenis_pembiayaan,kelas_perawatan"
       : "*";
 
     let listQuery = supabase

@@ -41,6 +41,7 @@ export default function TableContainer({
       data-table="tindakan"
       className={cn(
         "relative flex h-full min-h-0 flex-col overflow-hidden min-w-0 max-w-full transition-colors duration-500",
+        "max-md:h-auto max-md:overflow-visible",
         "bg-transparent",
         isFullscreen &&
           `fixed inset-0 ${UI_LAYERS.fullscreen} p-3 md:p-4 bg-slate-100/98 dark:bg-black/90`,

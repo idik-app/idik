@@ -58,7 +58,7 @@ export default function LayoutMain() {
             "flex flex-col transition-colors duration-500",
             /* Tab tindakan: rantai flex + overflow untuk tabel; lainnya: biarkan konten memanjang, scroll di <main>. */
             flushContent
-              ? "h-full min-h-0 overflow-x-hidden overflow-hidden"
+              ? "h-full min-h-0 overflow-x-hidden overflow-hidden max-md:h-auto max-md:min-h-0 max-md:overflow-y-visible max-md:overflow-x-hidden"
               : "min-h-full min-w-0 overflow-x-hidden",
             flushContent
               ? "rounded-none border-0 bg-transparent p-0 shadow-none"
@@ -73,7 +73,9 @@ export default function LayoutMain() {
           <div
             className={cn(
               "relative min-h-0",
-              flushContent ? "flex flex-1 flex-col" : "min-h-full",
+              flushContent
+                ? "flex flex-1 flex-col max-md:h-auto max-md:flex-none"
+                : "min-h-full",
             )}
           >
             <TabContent />

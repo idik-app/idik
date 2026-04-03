@@ -49,6 +49,23 @@ export function inferStentAlkesFromNamaBarang(nama: string): boolean {
   return false;
 }
 
+/**
+ * Kategori dropdown order pemakaian dari baris master/mapping (variants API).
+ * Prioritas: kolom kategori master → jenis bila nilainya salah satu enum → infer nama (mis. GENOSS → STENT).
+ */
+export function kategoriAlkesFromVariantPickRow(v: {
+  kategori: string | null;
+  nama: string;
+  jenis?: string | null;
+}): string | undefined {
+  const fromKategori = normalizeKategoriAlkesLine(v.kategori);
+  if (fromKategori) return fromKategori;
+  const fromJenis = normalizeKategoriAlkesLine(v.jenis ?? "");
+  if (fromJenis) return fromJenis;
+  if (inferStentAlkesFromNamaBarang(v.nama)) return "STENT";
+  return undefined;
+}
+
 /** True jika nama mengarah ke GENOSS (harga referensi tersendiri). */
 export function inferGenossFromNamaBarang(nama: string): boolean {
   const u = String(nama ?? "")

@@ -47,6 +47,9 @@ import {
 import { useTindakanBridgeAdapter } from "../bridge/useTindakanBridgeAdapter";
 import TableContainer from "../components/TableContainer";
 import TableToolbar from "../components/TableToolbar";
+import FastTrackListModal from "../components/FastTrackListModal";
+import TindakanTerbanyakLabModal from "../components/TindakanTerbanyakLabModal";
+import TindakanLaporanModal from "../components/TindakanLaporanModal";
 import TablePagination from "../components/TablePagination";
 import PemakaianAlkesModal from "./PemakaianAlkesModal";
 import { computeTindakanStatsFromRows } from "../hooks/useTindakanStats";
@@ -60,11 +63,17 @@ import {
   parsePasienAktifFilter,
   pickFirstString,
   resolveJenisKelaminFromRow,
+  NAMA_FIELD_KEYS,
   RM_FIELD_KEYS,
   rowMatchesPasienAktifFilter,
   splitNamaDanRmDalamKurung,
 } from "../lib/displayTindakanRow";
 import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
+import {
+  fetchPasienCompactDeduped,
+  invalidatePasienCompactDedupedCache,
+} from "../lib/fetchPasienCompactDeduped";
+import { runDeduped } from "@/lib/api/runDeduped";
 
 type Adapter = ReturnType<typeof useTindakanBridgeAdapter>;
 
@@ -75,6 +84,10 @@ const TINDAKAN_TABLE_INPUT_TEXT =
 /** Kolom No–Dokter — amber di siang; putih terang di mode malam. */
 const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
   "text-amber-800 placeholder:text-amber-700/55 dark:text-slate-100 dark:placeholder:text-white/90";
+
+/** Sel tabel: grid jelas seperti spreadsheet (border-collapse di `<table>`). */
+const TINDAKAN_SHEET_CELL =
+  "border border-amber-200/60 dark:border-amber-800/45";
 
 function useDebouncedValue(value: string, ms: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -222,12 +235,34 @@ function mapApiPasienRow(r: Record<string, unknown>): PasienOption | null {
           : null;
   /** Selaras `mapFromSupabase` (pasien): null di DB → fallback "L", supaya daftar tindakan = drawer detail. */
   const jk = normalizeJenisKelamin(r.jenis_kelamin ?? r.jk ?? "L");
+  const jenis_pembiayaan =
+    typeof r.jenis_pembiayaan === "string"
+      ? r.jenis_pembiayaan
+      : r.jenis_pembiayaan != null
+        ? String(r.jenis_pembiayaan)
+        : null;
+  const kelas_perawatan =
+    typeof r.kelas_perawatan === "string"
+      ? r.kelas_perawatan
+      : r.kelas_perawatan != null
+        ? String(r.kelas_perawatan)
+        : null;
+  const legacyPem = typeof r.pembiayaan === "string" ? r.pembiayaan : null;
+  const legacyKelas = typeof r.kelas === "string" ? r.kelas : null;
   return {
     id,
     nama,
     no_rm,
     created_at,
     ...(jk ? { jenis_kelamin: jk } : {}),
+    ...(jenis_pembiayaan != null && jenis_pembiayaan !== ""
+      ? { jenis_pembiayaan }
+      : {}),
+    ...(kelas_perawatan != null && kelas_perawatan !== ""
+      ? { kelas_perawatan }
+      : {}),
+    ...(legacyPem != null && legacyPem !== "" ? { pembiayaan: legacyPem } : {}),
+    ...(legacyKelas != null && legacyKelas !== "" ? { kelas: legacyKelas } : {}),
   };
 }
 
@@ -496,6 +531,15 @@ function resolvePasienFromRow(
       );
       if (byRm.length === 1) return byRm[0]!;
     }
+  }
+
+  // Fallback penting untuk data legacy: jika `pasien_id` belum tersimpan konsisten
+  // atau nama di tindakan sudah berubah casing/format, tetap coba resolve via RM.
+  if (rowRmDigits.length >= 3) {
+    const byRm = options.filter(
+      (p) => normalizeDigitsOnly(p.no_rm ?? "") === rowRmDigits,
+    );
+    if (byRm.length === 1) return byRm[0]!;
   }
   return null;
 }
@@ -802,6 +846,10 @@ export default function TindakanTable({
   const [filterRuangan, setFilterRuangan] = useState("");
   const [filterTanggalFrom, setFilterTanggalFrom] = useState("");
   const [filterTanggalTo, setFilterTanggalTo] = useState("");
+  const [fastTrackModalOpen, setFastTrackModalOpen] = useState(false);
+  const [tindakanTerbanyakLabOpen, setTindakanTerbanyakLabOpen] =
+    useState(false);
+  const [laporanModalOpen, setLaporanModalOpen] = useState(false);
   const [creatingForPasien, setCreatingForPasien] = useState(false);
   const [lastAutoCreateKey, setLastAutoCreateKey] = useState("");
   /** Riwayat tindakan (RM duplikat): default tertutup; kunci = id baris / fallback key. */
@@ -817,14 +865,20 @@ export default function TindakanTable({
 
   const refreshPemakaianOrderIndex = useCallback(async () => {
     try {
-      const res = await fetch("/api/pemakaian-orders", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const j = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        orders?: Array<Record<string, unknown>>;
-      };
+      const { res, j } = await runDeduped(
+        "GET:/api/pemakaian-orders",
+        async () => {
+          const res = await fetch("/api/pemakaian-orders", {
+            credentials: "include",
+            cache: "no-store",
+          });
+          const j = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            orders?: Array<Record<string, unknown>>;
+          };
+          return { res, j };
+        },
+      );
       if (!res.ok || !j?.ok || !Array.isArray(j.orders)) {
         setPemakaianOrdersRaw([]);
         return;
@@ -854,15 +908,18 @@ export default function TindakanTable({
     setRuanganLoading(true);
     setRuanganError(null);
     try {
-      const res = await fetch("/api/ruangan", {
-        credentials: "include",
-        cache: "no-store",
+      const { res, json } = await runDeduped("GET:/api/ruangan", async () => {
+        const res = await fetch("/api/ruangan", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          ruangan?: RuanganOption[];
+          message?: string;
+        };
+        return { res, json };
       });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        ruangan?: RuanganOption[];
-        message?: string;
-      };
       if (!res.ok || !json?.ok) {
         throw new Error(json?.message || "Gagal mengambil master ruangan.");
       }
@@ -897,15 +954,21 @@ export default function TindakanTable({
     setMasterTindakanLoading(true);
     setMasterTindakanError(null);
     try {
-      const res = await fetch("/api/master-tindakan", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        masterTindakan?: MasterTindakanOption[];
-        message?: string;
-      };
+      const { res, json } = await runDeduped(
+        "GET:/api/master-tindakan",
+        async () => {
+          const res = await fetch("/api/master-tindakan", {
+            credentials: "include",
+            cache: "no-store",
+          });
+          const json = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            masterTindakan?: MasterTindakanOption[];
+            message?: string;
+          };
+          return { res, json };
+        },
+      );
       if (!res.ok || !json?.ok) {
         throw new Error(
           json?.message || "Gagal mengambil master jenis tindakan.",
@@ -940,19 +1003,7 @@ export default function TindakanTable({
     setPasienError(null);
     (async () => {
       try {
-        const res = await fetch("/api/pasien?compact=1", {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          data?: unknown;
-          error?: string;
-        };
-        if (!res.ok || !json?.ok) {
-          throw new Error(json?.error || "Gagal mengambil data pasien.");
-        }
-        const rows = Array.isArray(json.data) ? json.data : [];
+        const rows = await fetchPasienCompactDeduped();
         const mapped = rows
           .map((r) =>
             r && typeof r === "object" ? mapApiPasienRow(r as any) : null,
@@ -983,15 +1034,18 @@ export default function TindakanTable({
     setDoctorError(null);
     (async () => {
       try {
-        const res = await fetch("/api/doctors", {
-          credentials: "include",
-          cache: "no-store",
+        const { res, json } = await runDeduped("GET:/api/doctors", async () => {
+          const res = await fetch("/api/doctors", {
+            credentials: "include",
+            cache: "no-store",
+          });
+          const json = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            doctors?: unknown;
+            message?: string;
+          };
+          return { res, json };
         });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          doctors?: unknown;
-          message?: string;
-        };
         if (!res.ok || !json?.ok) {
           throw new Error(json?.message || "Gagal mengambil data dokter.");
         }
@@ -1205,14 +1259,6 @@ export default function TindakanTable({
     if (!pemakaianModalRow) return null;
     const id = String(pemakaianModalRow.id ?? "").trim();
     const raw = pemakaianModalRow as unknown as Record<string, unknown>;
-    const tindakan = String(pemakaianModalRow.tindakan ?? "").trim();
-    const tanggal = String(pemakaianModalRow.tanggal ?? "").trim();
-    const catatan =
-      tindakan && tanggal
-        ? `Kasus tindakan: ${tindakan} (${tanggal}).`
-        : tindakan
-          ? `Kasus tindakan: ${tindakan}.`
-          : "";
     const tindakanIdForApi = id || null;
     const linkedOrderId =
       tindakanIdForApi && pemakaianOrderByTindakanId[tindakanIdForApi]
@@ -1228,7 +1274,6 @@ export default function TindakanTable({
           String(pemakaianModalRow.dokter ?? ""),
         ),
       initialRuangan: String(pemakaianModalRow.ruangan ?? ""),
-      initialCatatan: catatan,
       tindakanId: tindakanIdForApi,
       initialPemakaianOrderId: linkedOrderId,
     };
@@ -1738,11 +1783,11 @@ export default function TindakanTable({
         no_rm: rmResolved || null,
         nama: namaResolved,
         nama_pasien: namaResolved,
-        dokter: "Belum ditentukan",
+        dokter: "Belum diisi",
         tindakan: "Belum diisi",
         status: "Menunggu",
-        kategori: "Cathlab",
-        ruangan: "Cathlab",
+        kategori: "Belum diisi",
+        ruangan: "Belum diisi",
       };
       try {
         await createRecord(payload);
@@ -1891,6 +1936,73 @@ export default function TindakanTable({
     [notify, saveEditor],
   );
 
+  /**
+   * Simpan nama pasien setelah edit manual (bukan hanya pilih dari list).
+   * Jika RM mengarah ke satu baris master, pakai nama master + PATCH `pasien_id`/`no_rm`
+   * agar konsisten dengan biodata dan tidak kembali ke teks denormal lama saat reload.
+   */
+  const commitPasienInputBlur = useCallback(
+    async (
+      rowId: string,
+      stateKey: string,
+      raw: Record<string, unknown>,
+      finalText: string,
+    ) => {
+      const idStr = String(rowId ?? "").trim();
+      if (!idStr) return;
+      const trimmed = finalText.trim();
+      const { baseNama, rmDalamKurung } = splitNamaDanRmDalamKurung(trimmed);
+      const labelRmDigits = normalizeDigitsOnly(rmDalamKurung);
+      const rowRmDisp = displayRm(raw);
+      const rowRm = rowRmDisp === "—" ? "" : rowRmDisp;
+      const digitsFromRow = normalizeDigitsOnly(rowRm);
+      const p = resolvePasienFromRow(pasienOptions, raw);
+      const digitsFromPasien = normalizeDigitsOnly(p?.no_rm ?? "");
+      const digits = labelRmDigits || digitsFromRow || digitsFromPasien;
+
+      const rawPasienId = String(raw.pasien_id ?? "").trim();
+      const rawNoRm = pickFirstString(raw, [...RM_FIELD_KEYS]);
+      const rawNama = pickFirstString(raw, [...NAMA_FIELD_KEYS]);
+
+      if (digits.length >= 3) {
+        const matches = pasienOptions.filter(
+          (o) => normalizeDigitsOnly(o.no_rm ?? "") === digits,
+        );
+        if (matches.length === 1) {
+          const opt = matches[0]!;
+          const nextNama = String(opt.nama ?? "").trim();
+          const nextRm = String(opt.no_rm ?? "").trim();
+          const nextId = String(opt.id ?? "").trim();
+          const namaChanged =
+            normalizeNamaPasien(rawNama) !== normalizeNamaPasien(nextNama);
+          const rmChanged =
+            normalizeDigitsOnly(rawNoRm) !== normalizeDigitsOnly(nextRm);
+          const idChanged = rawPasienId !== nextId;
+          if (namaChanged || rmChanged || idChanged) {
+            setPasienLabelByRowId((prev) => ({
+              ...prev,
+              [stateKey]: formatPasienLabel(opt),
+            }));
+            await patchRowField(idStr, {
+              pasien_id: nextId || null,
+              no_rm: nextRm || null,
+              nama_pasien: nextNama,
+            });
+          }
+          return;
+        }
+      }
+
+      const namaOnly = (baseNama || trimmed).trim();
+      if (!namaOnly) return;
+      if (normalizeNamaPasien(namaOnly) === normalizeNamaPasien(rawNama)) {
+        return;
+      }
+      await patchRowField(idStr, { nama_pasien: namaOnly });
+    },
+    [pasienOptions, patchRowField],
+  );
+
   const commitRuanganForRow = useCallback(
     async (id: string, next: string) => {
       const ok = await patchRowField(id, { ruangan: next || null });
@@ -1948,6 +2060,7 @@ export default function TindakanTable({
         await refresh();
 
         // Refresh combobox pasien agar item baru langsung muncul.
+        invalidatePasienCompactDedupedCache();
         setPasienLoading(true);
         setPasienError(null);
         try {
@@ -2047,7 +2160,7 @@ export default function TindakanTable({
 
   return (
     <TableContainer>
-      <div className="relative z-10 flex h-full min-h-0 max-h-full flex-1 flex-col min-w-0">
+      <div className="relative z-10 flex h-full min-h-0 max-h-full flex-1 flex-col min-w-0 max-md:h-auto max-md:max-h-none max-md:flex-none">
         <TableToolbar
           onSearch={setSearch}
           onRefresh={refresh}
@@ -2063,6 +2176,34 @@ export default function TindakanTable({
           ruanganOptions={ruanganFilterOptions}
           isSyncing={isSyncing}
           isSyncingMasterPasien={isSyncingMasterPasien}
+          onOpenFastTrack={() => setFastTrackModalOpen(true)}
+          onOpenTindakanTerbanyakLab={() => setTindakanTerbanyakLabOpen(true)}
+          onOpenLaporan={() => setLaporanModalOpen(true)}
+        />
+
+        <TindakanLaporanModal
+          open={laporanModalOpen}
+          onOpenChange={setLaporanModalOpen}
+          rows={filteredRecords}
+          loading={loading}
+          filterSummaryLines={filterSummaryLines}
+          pasienOptions={pasienOptions}
+        />
+
+        <FastTrackListModal
+          open={fastTrackModalOpen}
+          onOpenChange={setFastTrackModalOpen}
+          rows={rowsForPemakaianLink}
+          loading={loading}
+          doctorOptionsMaster={doctorOptionsMaster}
+        />
+
+        <TindakanTerbanyakLabModal
+          open={tindakanTerbanyakLabOpen}
+          onOpenChange={setTindakanTerbanyakLabOpen}
+          rows={rowsForPemakaianLink}
+          loading={loading}
+          doctorOptionsMaster={doctorOptionsMaster}
         />
 
         {error ? (
@@ -2097,6 +2238,7 @@ export default function TindakanTable({
           <div
             className={cn(
               "flex min-h-0 flex-1 items-center justify-center py-6 text-sm font-semibold",
+              "max-md:flex-none",
               "text-cyan-950 dark:text-cyan-300",
             )}
           >
@@ -2106,11 +2248,11 @@ export default function TindakanTable({
           <>
             <div
               className={cn(
-                "min-h-0 flex-1 overflow-auto",
+                "min-h-0 flex-1 overflow-auto max-md:flex-none max-md:overflow-x-auto max-md:overflow-y-visible",
                 "bg-white/85 dark:bg-black/20",
               )}
             >
-              <table className="w-full min-w-[1200px] text-sm font-semibold border-separate border-spacing-0">
+              <table className="w-full min-w-[1200px] text-sm font-semibold border-collapse border border-amber-200/65 dark:border-amber-800/50">
                 <thead className="sticky top-0 z-10">
                   <tr
                     className={cn(
@@ -2121,6 +2263,7 @@ export default function TindakanTable({
                   >
                     <th
                       className={cn(
+                        TINDAKAN_SHEET_CELL,
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap w-10",
                         "text-cyan-950 dark:text-slate-100",
                       )}
@@ -2129,6 +2272,7 @@ export default function TindakanTable({
                     </th>
                     <th
                       className={cn(
+                        TINDAKAN_SHEET_CELL,
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
                         "text-cyan-950 dark:text-slate-100",
                       )}
@@ -2137,6 +2281,7 @@ export default function TindakanTable({
                     </th>
                     <th
                       className={cn(
+                        TINDAKAN_SHEET_CELL,
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
                         "text-cyan-950 dark:text-slate-100",
                       )}
@@ -2145,6 +2290,7 @@ export default function TindakanTable({
                     </th>
                     <th
                       className={cn(
+                        TINDAKAN_SHEET_CELL,
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
                         "text-cyan-950 dark:text-slate-100",
                       )}
@@ -2153,6 +2299,7 @@ export default function TindakanTable({
                     </th>
                     <th
                       className={cn(
+                        TINDAKAN_SHEET_CELL,
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
                         "text-cyan-950 dark:text-slate-100",
                       )}
@@ -2161,6 +2308,7 @@ export default function TindakanTable({
                     </th>
                     <th
                       className={cn(
+                        TINDAKAN_SHEET_CELL,
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
                         "text-cyan-950 dark:text-slate-100",
                       )}
@@ -2169,6 +2317,7 @@ export default function TindakanTable({
                     </th>
                     <th
                       className={cn(
+                        TINDAKAN_SHEET_CELL,
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
                         "text-cyan-950 dark:text-slate-100",
                       )}
@@ -2177,6 +2326,7 @@ export default function TindakanTable({
                     </th>
                     <th
                       className={cn(
+                        TINDAKAN_SHEET_CELL,
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
                         "text-cyan-950 dark:text-slate-100",
                       )}
@@ -2185,6 +2335,7 @@ export default function TindakanTable({
                     </th>
                     <th
                       className={cn(
+                        TINDAKAN_SHEET_CELL,
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
                         "text-cyan-950 dark:text-slate-100",
                       )}
@@ -2193,6 +2344,7 @@ export default function TindakanTable({
                     </th>
                     <th
                       className={cn(
+                        TINDAKAN_SHEET_CELL,
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
                         "text-cyan-950 dark:text-slate-100",
                       )}
@@ -2207,6 +2359,7 @@ export default function TindakanTable({
                       <td
                         colSpan={10}
                         className={cn(
+                          TINDAKAN_SHEET_CELL,
                           "px-4 py-10 text-center font-semibold",
                           "text-cyan-950/90 dark:text-cyan-500/70",
                         )}
@@ -2285,20 +2438,20 @@ export default function TindakanTable({
                             role={id ? "button" : undefined}
                             tabIndex={id ? 0 : undefined}
                             className={cn(
-                              "group border-b transition-all duration-200",
-                              "border-cyan-200/70 dark:border-cyan-900/25",
+                              "group transition-colors duration-150",
                               isDuplicateRm
-                                ? "bg-amber-100/75 border-l-[3px] border-l-amber-500 shadow-[inset_0_0_0_1px_rgba(245,158,11,0.2)] dark:bg-amber-950/35 dark:border-l-[3px] dark:border-l-amber-500/65 dark:shadow-[inset_0_0_0_1px_rgba(245,158,11,0.14)]"
+                                ? "bg-amber-100/75 dark:bg-amber-950/35"
                                 : "",
                               id
                                 ? isDuplicateRm
-                                  ? "cursor-pointer hover:bg-amber-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600/50 dark:hover:bg-amber-950/45 dark:hover:shadow-[inset_2px_0_0_rgba(245,158,11,0.5)] dark:focus-visible:outline-amber-500/50"
-                                  : "cursor-pointer hover:bg-cyan-50/90 hover:shadow-[inset_2px_0_0_rgba(6,182,212,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600/50 dark:hover:bg-cyan-950/30 dark:hover:shadow-[inset_2px_0_0_rgba(34,211,238,0.45)] dark:focus-visible:outline-cyan-500/50"
+                                  ? "cursor-pointer hover:bg-amber-100/95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600/50 dark:hover:bg-amber-950/45 dark:focus-visible:outline-amber-500/50"
+                                  : "cursor-pointer hover:bg-cyan-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600/50 dark:hover:bg-cyan-950/25 dark:focus-visible:outline-cyan-500/50"
                                 : "opacity-60",
                             )}
                           >
                             <td
                               className={cn(
+                                TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center tabular-nums",
                                 "text-cyan-800 dark:text-slate-100",
                               )}
@@ -2307,6 +2460,7 @@ export default function TindakanTable({
                             </td>
                             <td
                               className={cn(
+                                TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle",
                                 "text-amber-800 dark:text-slate-100",
                               )}
@@ -2322,6 +2476,7 @@ export default function TindakanTable({
                             </td>
                             <td
                               className={cn(
+                                TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle tabular-nums",
                                 "text-slate-800 dark:text-slate-100",
                               )}
@@ -2332,6 +2487,7 @@ export default function TindakanTable({
                             </td>
                             <td
                               className={cn(
+                                TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 font-mono text-[11px] text-center align-middle",
                                 "text-amber-800 dark:text-slate-100",
                               )}
@@ -2353,6 +2509,7 @@ export default function TindakanTable({
                             </td>
                             <td
                               className={cn(
+                                TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 max-w-[18rem] text-center align-middle",
                                 "text-amber-800 dark:text-slate-100",
                               )}
@@ -2390,12 +2547,22 @@ export default function TindakanTable({
                                       nama_pasien: picked.nama,
                                     });
                                   }}
+                                  onInputBlur={(finalText) => {
+                                    if (!id) return;
+                                    void commitPasienInputBlur(
+                                      id,
+                                      stateKey,
+                                      raw,
+                                      finalText,
+                                    );
+                                  }}
                                   options={pasienOptions}
                                   loading={pasienLoading}
                                   className="max-w-[18rem]"
-                                  inputClassName={
-                                    TINDAKAN_TABLE_PRIMARY_COL_INPUT
-                                  }
+                                  inputClassName={cn(
+                                    TINDAKAN_TABLE_PRIMARY_COL_INPUT,
+                                    "rounded-sm",
+                                  )}
                                 />
                                 {!pasienLoading &&
                                 pasienOptions.length === 0 &&
@@ -2415,6 +2582,7 @@ export default function TindakanTable({
                             </td>
                             <td
                               className={cn(
+                                TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 text-[11px] text-center align-middle whitespace-nowrap",
                                 "text-slate-800 dark:text-slate-100",
                               )}
@@ -2428,6 +2596,7 @@ export default function TindakanTable({
                             </td>
                             <td
                               className={cn(
+                                TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
                                 "text-amber-800 dark:text-slate-100",
                               )}
@@ -2525,6 +2694,7 @@ export default function TindakanTable({
                             </td>
                             <td
                               className={cn(
+                                TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
                                 "text-amber-800 dark:text-amber-300",
                               )}
@@ -2563,6 +2733,7 @@ export default function TindakanTable({
                             </td>
                             <td
                               className={cn(
+                                TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
                                 "text-amber-800 dark:text-amber-300",
                               )}
@@ -2600,7 +2771,10 @@ export default function TindakanTable({
                               </div>
                             </td>
                             <td
-                              className="px-2 sm:px-2.5 py-1 align-middle text-center"
+                              className={cn(
+                                TINDAKAN_SHEET_CELL,
+                                "px-2 sm:px-2.5 py-1 align-middle text-center",
+                              )}
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => e.stopPropagation()}
                             >
@@ -2675,7 +2849,10 @@ export default function TindakanTable({
                             >
                               <td
                                 colSpan={10}
-                                className="px-3 py-1.5 align-top text-left"
+                                className={cn(
+                                  TINDAKAN_SHEET_CELL,
+                                  "px-3 py-1.5 align-top text-left",
+                                )}
                                 onClick={(e) => e.stopPropagation()}
                                 onKeyDown={(e) => e.stopPropagation()}
                               >
@@ -2830,7 +3007,6 @@ export default function TindakanTable({
           initialPasienLabel={pemakaianModalInitial.initialPasienLabel}
           initialDokter={pemakaianModalInitial.initialDokter}
           initialRuangan={pemakaianModalInitial.initialRuangan}
-          initialCatatan={pemakaianModalInitial.initialCatatan}
           tindakanId={pemakaianModalInitial.tindakanId}
           initialPemakaianOrderId={
             pemakaianModalInitial.initialPemakaianOrderId

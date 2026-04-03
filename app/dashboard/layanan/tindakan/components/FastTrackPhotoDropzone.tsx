@@ -14,32 +14,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { compressImageForUpload } from "../lib/compressImageForUpload";
+import { parseFastTrackFotosUrls } from "../lib/fastTrackFotos";
 import { UI_LAYERS } from "@/lib/ui/layers";
-
-function parseFotosUrls(raw: unknown): string[] {
-  if (raw == null || raw === "") return [];
-  if (Array.isArray(raw)) {
-    return raw.filter(
-      (x): x is string =>
-        typeof x === "string" &&
-        (x.startsWith("http://") || x.startsWith("https://")),
-    );
-  }
-  const s = String(raw).trim();
-  if (!s) return [];
-  try {
-    const j = JSON.parse(s) as unknown;
-    if (!Array.isArray(j)) return [];
-    return j.filter(
-      (x): x is string =>
-        typeof x === "string" &&
-        (x.startsWith("http://") || x.startsWith("https://")),
-    );
-  } catch {
-    if (s.startsWith("http://") || s.startsWith("https://")) return [s];
-    return [];
-  }
-}
 
 type Props = {
   tindakanId: string;
@@ -54,7 +30,9 @@ export default function FastTrackPhotoDropzone({
   canEdit,
   onSaved,
 }: Props) {
-  const [urls, setUrls] = useState<string[]>(() => parseFotosUrls(fotosValue));
+  const [urls, setUrls] = useState<string[]>(() =>
+    parseFastTrackFotosUrls(fotosValue),
+  );
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +41,7 @@ export default function FastTrackPhotoDropzone({
   const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
-    setUrls(parseFotosUrls(fotosValue));
+    setUrls(parseFastTrackFotosUrls(fotosValue));
   }, [fotosValue, tindakanId]);
 
   useEffect(() => {

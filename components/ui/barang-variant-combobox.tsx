@@ -8,8 +8,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
-import { Loader2 } from "lucide-react";
+import { createPortal, flushSync } from "react-dom";
+import { Loader2, PackagePlus, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
@@ -56,6 +56,39 @@ function normalize(s: string): string {
   return s.trim().toLowerCase();
 }
 
+function alnumOnly(s: string): string {
+  return s.replace(/[^a-z0-9]/g, "");
+}
+
+/** Cocokkan teks pencarian ke satu baris master (substring + tanpa separator + kata berturut). */
+export function rowMatchesBarangQuery(
+  v: MasterBarangPickRow,
+  qRaw: string,
+): boolean {
+  const q = normalize(qRaw);
+  if (!q) return true;
+  const hay = pickRowSearchHaystack(v);
+  if (hay.includes(q)) return true;
+  const tokens = q.split(/\s+/).filter((t) => t.length > 0);
+  if (tokens.length > 1) {
+    return tokens.every((t) => hay.includes(t));
+  }
+  const qc = alnumOnly(q);
+  if (qc.length >= 2) {
+    const hayC = alnumOnly(hay);
+    if (hayC.includes(qc)) return true;
+  }
+  /** Huruf query muncul berurutan di haystack (ringan, min. 3 karakter). */
+  if (q.length >= 3) {
+    let i = 0;
+    for (let j = 0; j < hay.length && i < q.length; j++) {
+      if (hay[j] === q[i]) i++;
+    }
+    if (i === q.length) return true;
+  }
+  return false;
+}
+
 /** Konteks baris untuk membedakan varian (nama/kode sama, LOT/ED/distributor beda). */
 export type BlurResolveLine = {
   distributor?: string;
@@ -96,7 +129,7 @@ function narrowPickRowsByLine(
 }
 
 /**
- * Cocokkan teks kolom Barang ke satu baris master (barcode / kode / nama persis).
+ * Cocokkan teks kolom Barang ke satu baris master (barcode / kode / LOT / nama persis).
  * Bila banyak varian, sempitkan dengan LOT, ukuran, ED, distributor pada baris bila ada.
  */
 export function resolvePickRowFromBarangInput(
@@ -115,6 +148,16 @@ export function resolvePickRowFromBarangInput(
   if (byKode.length === 1) return byKode[0];
   if (byKode.length > 1) {
     const narrowed = narrowPickRowsByLine(byKode, line);
+    return narrowed.length === 1 ? narrowed[0] : undefined;
+  }
+
+  const byLot = options.filter((v) => {
+    const raw = (v.lot ?? "").trim();
+    return raw.length > 0 && L(v.lot) === q;
+  });
+  if (byLot.length === 1) return byLot[0];
+  if (byLot.length > 1) {
+    const narrowed = narrowPickRowsByLine(byLot, line);
     return narrowed.length === 1 ? narrowed[0] : undefined;
   }
 
@@ -139,6 +182,7 @@ export function BarangVariantCombobox({
   listboxId,
   variant = "default",
   blurResolveLine,
+  onRequestAddProduct,
 }: {
   value: string;
   onChange: (nama: string) => void;
@@ -149,17 +193,25 @@ export function BarangVariantCombobox({
   variant?: "default" | "table";
   /** Isi kolom lain pada baris yang sama agar resolusi varian tidak ambigu. */
   blurResolveLine?: BlurResolveLine;
+  /** Saat tidak ada hasil / katalog kosong: tombol membuka alur tambah produk (mis. modal induk). */
+  onRequestAddProduct?: (draftQuery: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const emptyPanelRef = useRef<HTMLDivElement>(null);
+  const loadingPanelRef = useRef<HTMLDivElement>(null);
+  const blurCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
   const [menuPos, setMenuPos] = useState<MenuPos | null>(null);
 
   const filtered = useMemo(() => {
     const q = normalize(value);
     if (!q) return options;
-    return options.filter((v) => pickRowSearchHaystack(v).includes(q));
+    return options.filter((v) => rowMatchesBarangQuery(v, value));
   }, [options, value]);
 
   const updateFixedPosition = useCallback(() => {
@@ -173,6 +225,27 @@ export function BarangVariantCombobox({
     });
   }, []);
 
+  /** Di modal/stacking tinggi: posisi harus ada di frame yang sama agar portal terlihat. */
+  const syncMenuPositionImmediate = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    flushSync(() => {
+      setMenuPos({
+        top: r.bottom + 4,
+        left: r.left,
+        width: Math.max(r.width, 280),
+      });
+    });
+  }, []);
+
+  const clearBlurCloseTimer = useCallback(() => {
+    if (blurCloseTimerRef.current) {
+      clearTimeout(blurCloseTimerRef.current);
+      blurCloseTimerRef.current = null;
+    }
+  }, []);
+
   useLayoutEffect(() => {
     if (!open || variant !== "table") return;
     updateFixedPosition();
@@ -183,7 +256,7 @@ export function BarangVariantCombobox({
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onScroll);
     };
-  }, [open, variant, updateFixedPosition, filtered.length]);
+  }, [open, variant, updateFixedPosition, filtered.length, value]);
 
   useEffect(() => {
     if (!open) return;
@@ -191,11 +264,24 @@ export function BarangVariantCombobox({
       const t = e.target as Node;
       if (wrapRef.current?.contains(t)) return;
       if (variant === "table" && listRef.current?.contains(t)) return;
+      if (variant === "table" && emptyPanelRef.current?.contains(t)) return;
+      if (variant === "table" && loadingPanelRef.current?.contains(t)) return;
+      clearBlurCloseTimer();
       setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
-  }, [open, variant]);
+  }, [open, variant, clearBlurCloseTimer]);
+
+  useEffect(
+    () => () => {
+      if (blurCloseTimerRef.current) {
+        clearTimeout(blurCloseTimerRef.current);
+        blurCloseTimerRef.current = null;
+      }
+    },
+    [],
+  );
 
   const inputCls =
     variant === "table"
@@ -203,8 +289,9 @@ export function BarangVariantCombobox({
       : "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40";
 
   const listCls = cn(
-    `max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl ${UI_LAYERS.popover}`,
-    variant === "table" ? "text-[10px]" : "text-[11px]"
+    "max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl pointer-events-auto",
+    variant === "table" ? "text-[10px]" : "text-[11px]",
+    variant === "table" ? UI_LAYERS.pickerFloating : UI_LAYERS.popover,
   );
 
   const renderListItems = () => (
@@ -248,8 +335,38 @@ export function BarangVariantCombobox({
 
   const qActive = normalize(value).length > 0;
 
+  const tableListReady = variant !== "table" || menuPos != null;
+
+  const loadingEl =
+    open && loading && tableListReady ? (
+      <div
+        ref={variant === "table" ? loadingPanelRef : undefined}
+        className={cn(
+          "rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 shadow-xl pointer-events-auto",
+          variant === "table" ? UI_LAYERS.pickerFloating : UI_LAYERS.popover,
+          variant === "default" &&
+            "absolute left-0 right-0 top-full z-[60] mt-1"
+        )}
+        style={
+          variant === "table" && menuPos
+            ? {
+                position: "fixed",
+                top: menuPos.top,
+                left: menuPos.left,
+                width: menuPos.width,
+              }
+            : undefined
+        }
+      >
+        <div className="flex items-center gap-2 px-1 py-1.5 text-[10px] text-white/75 dark:text-white/90">
+          <Loader2 className="h-3 w-3 shrink-0 animate-spin text-[#E8C547]/80" />
+          Memuat katalog…
+        </div>
+      </div>
+    ) : null;
+
   const listInner =
-    open && !loading && filtered.length > 0 ? (
+    open && !loading && filtered.length > 0 && tableListReady ? (
       <ul
         ref={variant === "table" ? listRef : undefined}
         id={listboxId}
@@ -282,9 +399,11 @@ export function BarangVariantCombobox({
         : null;
 
   const emptyEl = emptyMsg ? (
-    <p
+    <div
+      ref={emptyPanelRef}
       className={cn(
-        `rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/55 ${UI_LAYERS.popover}`,
+        "rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] pointer-events-auto",
+        variant === "table" ? UI_LAYERS.pickerFloating : UI_LAYERS.popover,
         variant === "default" &&
           "absolute left-0 right-0 top-full mt-1 z-[60]"
       )}
@@ -299,8 +418,30 @@ export function BarangVariantCombobox({
           : undefined
       }
     >
-      {emptyMsg}
-    </p>
+      <p className="text-white/55 dark:text-white/85">{emptyMsg}</p>
+      {onRequestAddProduct ? (
+        <button
+          type="button"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onRequestAddProduct(value.trim());
+            setOpen(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            e.stopPropagation();
+            onRequestAddProduct(value.trim());
+            setOpen(false);
+          }}
+          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-[#E8C547]/40 bg-[#E8C547]/10 px-2 py-1.5 text-[10px] font-semibold text-[#E8C547] hover:bg-[#E8C547]/20 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+        >
+          <PackagePlus className="h-3 w-3 shrink-0" aria-hidden />
+          Tambah produk
+        </button>
+      ) : null}
+    </div>
   ) : null;
 
   return (
@@ -309,29 +450,71 @@ export function BarangVariantCombobox({
         <input
           ref={inputRef}
           value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
+            onChange={(e) => {
+            clearBlurCloseTimer();
+            const next = e.target.value;
+            onChange(next);
             setOpen(true);
-          }}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
-            if (loading || !open) return;
-            if (filtered.length !== 1) return;
-            e.preventDefault();
-            onPickVariant(filtered[0]);
-            setOpen(false);
-          }}
-          onBlur={() => {
-            setOpen(false);
+            if (variant === "table") {
+              syncMenuPositionImmediate();
+            }
+            // Autofill kolom varian (sama seperti onBlur) begitu teks persis cocok barcode/kode/LOT/nama.
             if (loading || options.length === 0) return;
             const picked = resolvePickRowFromBarangInput(
-              value,
+              next,
               options,
               blurResolveLine,
             );
             if (picked) onPickVariant(picked);
           }}
-          onFocus={() => setOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              if (!open && options.length > 0 && !loading) {
+                e.preventDefault();
+                setOpen(true);
+                if (variant === "table") {
+                  syncMenuPositionImmediate();
+                }
+              }
+              return;
+            }
+            if (e.key !== "Enter") return;
+            if (loading || !open) return;
+            if (filtered.length === 0) return;
+            e.preventDefault();
+            onPickVariant(filtered[0]);
+            setOpen(false);
+          }}
+          onBlur={(e) => {
+            const rt = e.relatedTarget;
+            if (
+              rt instanceof Node &&
+              (listRef.current?.contains(rt) ||
+                emptyPanelRef.current?.contains(rt) ||
+                loadingPanelRef.current?.contains(rt))
+            ) {
+              return;
+            }
+            clearBlurCloseTimer();
+            blurCloseTimerRef.current = setTimeout(() => {
+              blurCloseTimerRef.current = null;
+              setOpen(false);
+              if (loading || options.length === 0) return;
+              const picked = resolvePickRowFromBarangInput(
+                valueRef.current,
+                options,
+                blurResolveLine,
+              );
+              if (picked) onPickVariant(picked);
+            }, 200);
+          }}
+          onFocus={() => {
+            clearBlurCloseTimer();
+            setOpen(true);
+            if (variant === "table") {
+              syncMenuPositionImmediate();
+            }
+          }}
           autoComplete="off"
           placeholder={
             loading
@@ -351,14 +534,36 @@ export function BarangVariantCombobox({
             )}
             aria-hidden
           />
+        ) : normalize(value).length > 0 ? (
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              clearBlurCloseTimer();
+              onChange("");
+              setOpen(false);
+              requestAnimationFrame(() => inputRef.current?.focus());
+            }}
+            className={cn(
+              "absolute top-1/2 -translate-y-1/2 rounded p-0.5 text-white/70 hover:text-white hover:bg-white/10 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50 dark:text-white/85",
+              variant === "table" ? "right-1" : "right-1.5"
+            )}
+            aria-label="Hapus teks"
+            title="Hapus teks"
+          >
+            <X className={cn("shrink-0", variant === "table" ? "h-3 w-3" : "h-3.5 w-3.5")} />
+          </button>
         ) : null}
       </div>
       {variant === "table" && listInner && typeof document !== "undefined"
         ? createPortal(listInner, document.body)
         : listInner}
-      {variant !== "table" && listInner}
+      {variant === "table" && loadingEl && typeof document !== "undefined"
+        ? createPortal(loadingEl, document.body)
+        : loadingEl}
       {(() => {
         if (!open || loading || !emptyMsg) return null;
+        if (variant === "table" && !menuPos) return null;
         if (variant === "table" && typeof document !== "undefined") {
           return createPortal(emptyEl, document.body);
         }

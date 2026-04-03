@@ -14,6 +14,7 @@ import { format, parseISO } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { Mail, MessageCircle, Search } from "lucide-react";
 
+import { runDeduped } from "@/lib/api/runDeduped";
 import { DateYmdPicker } from "@/components/ui/date-ymd-picker";
 import {
   Dialog,
@@ -622,16 +623,17 @@ function DistributorPemakaianPageContent() {
         ? `&distributor_id=${encodeURIComponent(distributorIdParam)}`
         : "";
       const modeQ = `&mode=${encodeURIComponent(mode)}`;
-      const res = await fetch(
-        `/api/distributor/pemakaian?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${distQ}${modeQ}`,
-        { cache: "no-store" },
-      );
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        data?: PemakaianRow[];
-        message?: string;
-        hint?: string;
-      };
+      const url = `/api/distributor/pemakaian?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${distQ}${modeQ}`;
+      const { res, json } = await runDeduped(`GET:${url}`, async () => {
+        const res = await fetch(url, { cache: "no-store" });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          data?: PemakaianRow[];
+          message?: string;
+          hint?: string;
+        };
+        return { res, json };
+      });
       if (!res.ok || json?.ok === false) {
         setRows([]);
         setLoadError(

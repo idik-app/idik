@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import {
   ClipboardList,
+  PackagePlus,
   PlusCircle,
   ScanLine,
   Search,
@@ -15,7 +17,7 @@ import {
 
 import {
   BarangVariantCombobox,
-  pickRowSearchHaystack,
+  rowMatchesBarangQuery,
   type MasterBarangPickRow,
 } from "@/components/ui/barang-variant-combobox";
 import {
@@ -42,9 +44,19 @@ import {
 } from "@/lib/pemakaian/templateInputBarang";
 import {
   DISTRIBUTOR_PRODUK_KATEGORI,
+  kategoriAlkesFromVariantPickRow,
   normalizeKategoriAlkesLine,
 } from "@/lib/distributorCatalog";
+import { runDeduped } from "@/lib/api/runDeduped";
 import { UI_LAYERS } from "@/lib/ui/layers";
+import {
+  RincianBarangTemplateTabs,
+  type RincianBarangTab,
+} from "@/app/dashboard/pemakaian/components/RincianBarangTemplateTabs";
+import {
+  TEMPLATE_KOMPONEN,
+  TEMPLATE_OBAT_ALKES,
+} from "@/app/dashboard/pemakaian/data/templateInputBarangRows";
 
 const DatetimeLocalPicker = dynamic(
   () =>
@@ -152,6 +164,18 @@ function resolveHargaFromBarangInput(
   if (byBarcode) return hargaFromPickRow(byBarcode, options);
   const byKode = options.find((v) => v.kode.trim().toLowerCase() === q);
   if (byKode) return hargaFromPickRow(byKode, options);
+  const byLot = options.filter((v) => {
+    const t = (v.lot ?? "").trim();
+    return t.length > 0 && t.toLowerCase() === q;
+  });
+  if (byLot.length > 0) {
+    const narrowed = line ? narrowByLineFields(byLot, line) : byLot;
+    if (narrowed.length === 1) return hargaFromPickRow(narrowed[0], options);
+    for (const c of narrowed) {
+      const h = hargaFromPickRow(c, options);
+      if (h !== undefined) return h;
+    }
+  }
   const sameNama = options.filter((v) => v.nama.trim().toLowerCase() === q);
   let candidates = sameNama;
   if (sameNama.length === 0) {
@@ -177,10 +201,25 @@ function resolveDistributorFromBarangInput(
   const byBarcode = options.find(
     (v) => (v.barcode ?? "").trim().toLowerCase() === q,
   );
-  if (byBarcode?.distributor_nama?.trim()) return byBarcode.distributor_nama.trim();
+  if (byBarcode?.distributor_nama?.trim())
+    return byBarcode.distributor_nama.trim();
 
   const byKode = options.find((v) => v.kode.trim().toLowerCase() === q);
   if (byKode?.distributor_nama?.trim()) return byKode.distributor_nama.trim();
+
+  const byLot = options.filter((v) => {
+    const t = (v.lot ?? "").trim();
+    return t.length > 0 && t.toLowerCase() === q;
+  });
+  if (byLot.length > 0) {
+    const narrowed = line ? narrowByLineFields(byLot, line) : byLot;
+    if (narrowed.length === 1 && narrowed[0].distributor_nama?.trim()) {
+      return narrowed[0].distributor_nama.trim();
+    }
+    for (const c of narrowed) {
+      if (c.distributor_nama?.trim()) return c.distributor_nama.trim();
+    }
+  }
 
   const sameNama = options.filter((v) => v.nama.trim().toLowerCase() === q);
   let candidates = sameNama;
@@ -198,10 +237,6 @@ function resolveDistributorFromBarangInput(
 
 function newDrawerLineId() {
   return `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function kategoriFromPickRow(v: MasterBarangPickRow): string | undefined {
-  return normalizeKategoriAlkesLine(v.kategori);
 }
 
 function orderTanggalToDatetimeLocal(tanggal: string): string {
@@ -277,14 +312,25 @@ function cleanFormText(s: string): string {
 function LabeledField({
   label,
   children,
+  errorMessage,
 }: {
   label: string;
   children: React.ReactNode;
+  /** Pesan validasi ringkas di bawah field (mis. wajib isi). */
+  errorMessage?: string;
 }) {
   return (
     <label className="flex flex-col gap-1 text-[11px] text-white/85">
       <span className="font-semibold text-white/90">{label}</span>
       {children}
+      {errorMessage ? (
+        <span
+          className="text-[10px] font-medium text-amber-200 dark:text-amber-200"
+          role="alert"
+        >
+          {errorMessage}
+        </span>
+      ) : null}
     </label>
   );
 }
@@ -299,7 +345,6 @@ export type PemakaianAlkesModalProps = {
   initialPasienLabel: string;
   initialDokter: string;
   initialRuangan: string;
-  initialCatatan: string;
   tindakanId?: string | null;
   /** Order terkait (dari `tindakan_id` atau fallback pasien+tanggal di tabel Tindakan). */
   initialPemakaianOrderId?: string | null;
@@ -317,7 +362,6 @@ export default function PemakaianAlkesModal({
   initialPasienLabel,
   initialDokter,
   initialRuangan,
-  initialCatatan,
   tindakanId,
   initialPemakaianOrderId,
   onSaved,
@@ -331,15 +375,19 @@ export default function PemakaianAlkesModal({
   const [drawerDokter, setDrawerDokter] = useState("");
   const [drawerDepo, setDrawerDepo] = useState(DEFAULT_DRAWER_DEPO);
   const [drawerRuangan, setDrawerRuangan] = useState("");
-  const [drawerCatatan, setDrawerCatatan] = useState("");
   const [drawerDateTime, setDrawerDateTime] = useState("");
   const [drawerLines, setDrawerLines] = useState<PemakaianLine[]>([]);
   const [drawerSaving, setDrawerSaving] = useState(false);
+  /** Highlight field wajib setelah submit gagal (header). */
+  const [dokterFieldInvalid, setDokterFieldInvalid] = useState(false);
+  const [ruanganFieldInvalid, setRuanganFieldInvalid] = useState(false);
   const [existingOrderId, setExistingOrderId] = useState<string | null>(null);
   const [editingTemplateInputBarang, setEditingTemplateInputBarang] =
     useState<TemplateInputBarangPayload>(() =>
       normalizeTemplateInputBarang(undefined),
     );
+  const [rincianBarangTab, setRincianBarangTab] =
+    useState<RincianBarangTab>("struk");
 
   const [ruanganList, setRuanganList] = useState<RuanganOption[]>([]);
   const [ruanganListLoading, setRuanganListLoading] = useState(false);
@@ -351,12 +399,13 @@ export default function PemakaianAlkesModal({
   const [barangPickerOpen, setBarangPickerOpen] = useState(false);
   const [barangPickerQuery, setBarangPickerQuery] = useState("");
   const [barangScanOpen, setBarangScanOpen] = useState(false);
+  const [tambahProdukOpen, setTambahProdukOpen] = useState(false);
+  const [tambahProdukDraft, setTambahProdukDraft] = useState("");
 
   const resetFormFromProps = useCallback(() => {
     setDrawerPasien(initialPasienLabel.trim());
     setDrawerDokter(initialDokter.trim());
     setDrawerRuangan(initialRuangan.trim());
-    setDrawerCatatan(initialCatatan.trim());
     setDrawerDepo(DEFAULT_DRAWER_DEPO);
     setDrawerDateTime(toDatetimeLocalValue(new Date()));
     setDrawerLines([
@@ -373,9 +422,14 @@ export default function PemakaianAlkesModal({
     setBarangPickerOpen(false);
     setBarangPickerQuery("");
     setBarangScanOpen(false);
+    setTambahProdukOpen(false);
+    setTambahProdukDraft("");
     setExistingOrderId(null);
     setEditingTemplateInputBarang(normalizeTemplateInputBarang(undefined));
-  }, [initialPasienLabel, initialDokter, initialRuangan, initialCatatan]);
+    setRincianBarangTab("struk");
+    setDokterFieldInvalid(false);
+    setRuanganFieldInvalid(false);
+  }, [initialPasienLabel, initialDokter, initialRuangan]);
 
   const bootstrapSeqRef = useRef(0);
 
@@ -413,11 +467,6 @@ export default function PemakaianAlkesModal({
       );
       setDrawerRuangan(String(first.ruangan ?? "").trim());
       setDrawerDepo(String(first.depo ?? "").trim() || DEFAULT_DRAWER_DEPO);
-      setDrawerCatatan(
-        typeof first.catatan === "string" && first.catatan.trim()
-          ? first.catatan.trim()
-          : "",
-      );
       setDrawerDateTime(
         orderTanggalToDatetimeLocal(String(first.tanggal ?? "")),
       );
@@ -439,6 +488,7 @@ export default function PemakaianAlkesModal({
       setEditingTemplateInputBarang(
         normalizeTemplateInputBarang(first.template_input_barang),
       );
+      setRincianBarangTab("struk");
       setExistingOrderId(oid);
       setDrawerSaving(false);
       setBarangPickerOpen(false);
@@ -450,20 +500,28 @@ export default function PemakaianAlkesModal({
     const enrichFromTindakanApi = async () => {
       if (!tid) return;
       try {
-        const res = await fetch(`/api/tindakan/${encodeURIComponent(tid)}`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const j = (await res.json()) as {
-          ok?: boolean;
-          data?: {
-            dokter?: string | null;
-            ruangan?: string | null;
-            tindakan?: string | null;
-            tanggal?: string | null;
-            pasien_id?: string | null;
-          };
-        };
+        const j = await runDeduped(
+          `GET:/api/tindakan/${encodeURIComponent(tid)}`,
+          async () => {
+            const res = await fetch(
+              `/api/tindakan/${encodeURIComponent(tid)}`,
+              {
+                credentials: "include",
+                cache: "no-store",
+              },
+            );
+            return (await res.json()) as {
+              ok?: boolean;
+              data?: {
+                dokter?: string | null;
+                ruangan?: string | null;
+                tindakan?: string | null;
+                tanggal?: string | null;
+                pasien_id?: string | null;
+              };
+            };
+          },
+        );
         if (seq !== bootstrapSeqRef.current || !j?.ok || !j.data) return;
         const d = j.data;
         setDrawerDokter((prev) =>
@@ -477,15 +535,6 @@ export default function PemakaianAlkesModal({
         setDrawerRuangan((prev) =>
           prev.trim() ? prev : String(d.ruangan ?? "").trim(),
         );
-        const hint =
-          d.tindakan && d.tanggal
-            ? `Kasus tindakan: ${d.tindakan} (${d.tanggal}).`
-            : d.tindakan
-              ? `Kasus tindakan: ${d.tindakan}.`
-              : "";
-        if (hint) {
-          setDrawerCatatan((prev) => (prev.trim() ? prev : hint));
-        }
         const pid =
           typeof d.pasien_id === "string" && d.pasien_id.trim()
             ? d.pasien_id.trim()
@@ -506,14 +555,19 @@ export default function PemakaianAlkesModal({
     void (async () => {
       if (orderIdHint) {
         try {
-          const res = await fetch(
-            `/api/pemakaian-orders/${encodeURIComponent(orderIdHint)}`,
-            { credentials: "include", cache: "no-store" },
+          const j = await runDeduped(
+            `GET:/api/pemakaian-orders/${encodeURIComponent(orderIdHint)}`,
+            async () => {
+              const res = await fetch(
+                `/api/pemakaian-orders/${encodeURIComponent(orderIdHint)}`,
+                { credentials: "include", cache: "no-store" },
+              );
+              return (await res.json().catch(() => ({}))) as {
+                ok?: boolean;
+                order?: Record<string, unknown>;
+              };
+            },
           );
-          const j = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            order?: Record<string, unknown>;
-          };
           if (seq !== bootstrapSeqRef.current) return;
           const ord =
             j?.ok && j.order && typeof j.order === "object" ? j.order : null;
@@ -525,14 +579,19 @@ export default function PemakaianAlkesModal({
 
       if (tid) {
         try {
-          const res = await fetch(
-            `/api/pemakaian-orders?tindakanId=${encodeURIComponent(tid)}`,
-            { credentials: "include", cache: "no-store" },
+          const j = await runDeduped(
+            `GET:/api/pemakaian-orders?tindakanId=${encodeURIComponent(tid)}`,
+            async () => {
+              const res = await fetch(
+                `/api/pemakaian-orders?tindakanId=${encodeURIComponent(tid)}`,
+                { credentials: "include", cache: "no-store" },
+              );
+              return (await res.json().catch(() => ({}))) as {
+                ok?: boolean;
+                orders?: Array<Record<string, unknown>>;
+              };
+            },
           );
-          const j = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            orders?: Array<Record<string, unknown>>;
-          };
           if (seq !== bootstrapSeqRef.current) return;
           const list = Array.isArray(j?.orders) ? j.orders : [];
           const first = list[0];
@@ -559,7 +618,6 @@ export default function PemakaianAlkesModal({
     initialPasienLabel,
     initialDokter,
     initialRuangan,
-    initialCatatan,
     resetFormFromProps,
   ]);
 
@@ -571,14 +629,22 @@ export default function PemakaianAlkesModal({
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch(`/api/tindakan/${encodeURIComponent(tid)}`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const j = (await res.json()) as {
-          ok?: boolean;
-          data?: { pasien_id?: string | null };
-        };
+        const j = await runDeduped(
+          `GET:/api/tindakan/${encodeURIComponent(tid)}`,
+          async () => {
+            const res = await fetch(
+              `/api/tindakan/${encodeURIComponent(tid)}`,
+              {
+                credentials: "include",
+                cache: "no-store",
+              },
+            );
+            return (await res.json()) as {
+              ok?: boolean;
+              data?: { pasien_id?: string | null };
+            };
+          },
+        );
         if (cancelled || !j?.ok || !j.data) return;
         const pid =
           typeof j.data.pasien_id === "string" && j.data.pasien_id.trim()
@@ -600,48 +666,56 @@ export default function PemakaianAlkesModal({
     };
   }, [open, tindakanId, existingOrderId, pasienOptions]);
 
+  /** Satu gelombang paralel: ruangan + katalog variant (hindari dua effect terpisah mengantre). */
   useEffect(() => {
     if (!open) return;
     let alive = true;
     setRuanganListLoading(true);
-    void fetch("/api/ruangan", { credentials: "include", cache: "no-store" })
-      .then((r) => r.json())
-      .then((j: { ok?: boolean; ruangan?: RuanganOption[] }) => {
-        if (!alive) return;
+    setBarangVariantLoading(true);
+    void (async () => {
+      const [ruOutcome, vrOutcome] = await Promise.allSettled([
+        runDeduped("GET:/api/ruangan", async () => {
+          const r = await fetch("/api/ruangan", {
+            credentials: "include",
+            cache: "no-store",
+          });
+          return r.json() as Promise<{
+            ok?: boolean;
+            ruangan?: RuanganOption[];
+          }>;
+        }),
+        runDeduped("GET:/api/master-barang/variants", async () => {
+          const r = await fetch("/api/master-barang/variants", {
+            credentials: "include",
+            cache: "no-store",
+          });
+          return r.json() as Promise<{
+            ok?: boolean;
+            items?: MasterBarangPickRow[];
+          }>;
+        }),
+      ]);
+      if (!alive) return;
+      if (ruOutcome.status === "fulfilled") {
+        const j = ruOutcome.value;
         if (j?.ok && Array.isArray(j.ruangan)) setRuanganList(j.ruangan);
         else setRuanganList([]);
-      })
-      .catch(() => {
-        if (alive) setRuanganList([]);
-      })
-      .finally(() => {
-        if (alive) setRuanganListLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    setBarangVariantLoading(true);
-    void fetch("/api/master-barang/variants", {
-      credentials: "include",
-      cache: "no-store",
-    })
-      .then((r) => r.json())
-      .then((j: { ok?: boolean; items?: MasterBarangPickRow[] }) => {
-        if (!alive) return;
+      } else {
+        setRuanganList([]);
+      }
+      if (vrOutcome.status === "fulfilled") {
+        const j = vrOutcome.value;
         if (j?.ok && Array.isArray(j.items)) setBarangVariantList(j.items);
         else setBarangVariantList([]);
-      })
-      .catch(() => {
-        if (alive) setBarangVariantList([]);
-      })
-      .finally(() => {
-        if (alive) setBarangVariantLoading(false);
-      });
+      } else {
+        setBarangVariantList([]);
+      }
+    })().finally(() => {
+      if (alive) {
+        setRuanganListLoading(false);
+        setBarangVariantLoading(false);
+      }
+    });
     return () => {
       alive = false;
     };
@@ -703,10 +777,32 @@ export default function PemakaianAlkesModal({
     });
   }, [open, barangVariantList]);
 
+  const patchTemplateObatAlkes = useCallback((id: string, value: string) => {
+    setEditingTemplateInputBarang((prev) => ({
+      ...prev,
+      obatAlkes: { ...prev.obatAlkes, [id]: value },
+    }));
+  }, []);
+
+  const patchTemplateKomponen = useCallback((id: string, value: string) => {
+    setEditingTemplateInputBarang((prev) => ({
+      ...prev,
+      komponen: { ...prev.komponen, [id]: value },
+    }));
+  }, []);
+
   const closeBarangPicker = useCallback(() => {
     setBarangPickerOpen(false);
     setBarangPickerQuery("");
     setBarangScanOpen(false);
+  }, []);
+
+  const openTambahProdukModal = useCallback((draft: string) => {
+    setTambahProdukDraft(draft);
+    // Tunda satu task agar mouseup/click tidak mengenai backdrop modal baru (z tinggi) dan langsung menutup.
+    window.setTimeout(() => {
+      setTambahProdukOpen(true);
+    }, 0);
   }, []);
 
   useEffect(() => {
@@ -728,6 +824,11 @@ export default function PemakaianAlkesModal({
         setBarangScanOpen(false);
         return;
       }
+      if (tambahProdukOpen) {
+        e.preventDefault();
+        setTambahProdukOpen(false);
+        return;
+      }
       if (barangPickerOpen) {
         e.preventDefault();
         closeBarangPicker();
@@ -742,6 +843,7 @@ export default function PemakaianAlkesModal({
     open,
     drawerSaving,
     barangScanOpen,
+    tambahProdukOpen,
     barangPickerOpen,
     closeBarangPicker,
     onClose,
@@ -766,7 +868,7 @@ export default function PemakaianAlkesModal({
   function applyBarangPick(pick: MasterBarangPickRow) {
     const suffix = Date.now().toString(36);
     const hPick = hargaFromPickRow(pick, barangVariantList);
-    const kCat = kategoriFromPickRow(pick);
+    const kCat = kategoriAlkesFromVariantPickRow(pick);
     const line: PemakaianLine = {
       lineId: `draft-new-${suffix}`,
       barang: pick.nama.trim(),
@@ -797,7 +899,7 @@ export default function PemakaianAlkesModal({
       return;
     }
     const matches = barangVariantList.filter((v) =>
-      pickRowSearchHaystack(v).includes(q),
+      rowMatchesBarangQuery(v, raw),
     );
     if (matches.length === 1) {
       applyBarangPick(matches[0]);
@@ -807,11 +909,9 @@ export default function PemakaianAlkesModal({
   }
 
   const filteredBarangPicks = useMemo(() => {
-    const q = barangPickerQuery.trim().toLowerCase();
-    if (!q) return barangVariantList;
-    return barangVariantList.filter((v) =>
-      pickRowSearchHaystack(v).includes(q),
-    );
+    const raw = barangPickerQuery.trim();
+    if (!raw) return barangVariantList;
+    return barangVariantList.filter((v) => rowMatchesBarangQuery(v, raw));
   }, [barangPickerQuery, barangVariantList]);
 
   function handlePrint() {
@@ -820,8 +920,11 @@ export default function PemakaianAlkesModal({
 
   async function submitDrawerPemakaian() {
     if (drawerSaving) return;
+    setDokterFieldInvalid(false);
+    setRuanganFieldInvalid(false);
     const pasien = cleanFormText(drawerPasien);
     const dokterRaw = cleanFormText(drawerDokter);
+    const ruanganRaw = cleanFormText(drawerRuangan);
     const dokterResolved =
       doctorOptions.length > 0
         ? resolveDoctorFromLooseInput(doctorOptions, dokterRaw)
@@ -838,8 +941,11 @@ export default function PemakaianAlkesModal({
     const missing: string[] = [];
     if (!pasien) missing.push("Pasien");
     if (!dokterRaw) missing.push("Dokter / Operator");
+    if (!ruanganRaw) missing.push("Ruangan");
     if (!depo) missing.push("Depo");
     if (missing.length > 0) {
+      setDokterFieldInvalid(!dokterRaw);
+      setRuanganFieldInvalid(!ruanganRaw);
       void appAlert({
         variant: "warning",
         title: "Data belum lengkap",
@@ -865,27 +971,25 @@ export default function PemakaianAlkesModal({
     const nBarang = drawerLines.filter(
       (l) => cleanFormText(l.barang).length > 0,
     ).length;
-    const ruangan = cleanFormText(drawerRuangan);
+    const ruangan = ruanganRaw;
     const isEdit = Boolean(existingOrderId?.trim());
     const konfirmasi = isEdit
       ? `Simpan perubahan order pemakaian?\n\n` +
         `• Pasien: ${pasien}\n` +
-        (ruangan ? `• Ruangan: ${ruangan}\n` : "") +
+        `• Ruangan: ${ruangan}\n` +
         `• Dokter: ${dokterKonfirmasi}\n` +
         `• Depo: ${depo}\n` +
         `• ${nBarang} jenis barang`
       : `Kirim order ke Depo Farmasi?\n\n` +
         `• Pasien: ${pasien}\n` +
-        (ruangan ? `• Ruangan: ${ruangan}\n` : "") +
+        `• Ruangan: ${ruangan}\n` +
         `• Dokter: ${dokterKonfirmasi}\n` +
         `• Depo: ${depo}\n` +
         `• ${nBarang} jenis barang\n\n` +
         `Order juga akan diteruskan ke distributor sesuai barang.\n` +
         `Status akan diset “menunggu validasi Depo”.`;
     const okSubmit = await appConfirm({
-      title: isEdit
-        ? "Simpan perubahan?"
-        : "Kirim ke Depo + Distributor?",
+      title: isEdit ? "Simpan perubahan?" : "Kirim ke Depo + Distributor?",
       message: konfirmasi,
       confirmLabel: isEdit ? "Simpan" : "Simpan & kirim semua",
       cancelLabel: "Batal",
@@ -927,7 +1031,6 @@ export default function PemakaianAlkesModal({
               dokter,
               depo,
               items: itemsPayload,
-              catatan: drawerCatatan.trim() || null,
               templateInputBarang: editingTemplateInputBarang,
             }),
           },
@@ -969,8 +1072,8 @@ export default function PemakaianAlkesModal({
           dokter,
           depo,
           items: itemsPayload,
-          catatan: drawerCatatan.trim() || undefined,
           ...(tindakanId?.trim() ? { tindakanId: tindakanId.trim() } : {}),
+          templateInputBarang: editingTemplateInputBarang,
         }),
       });
       const j = (await res.json().catch(() => ({}))) as {
@@ -1078,11 +1181,21 @@ export default function PemakaianAlkesModal({
                   loading={pasienLoading}
                 />
               </LabeledField>
-              <LabeledField label="Dokter / Operator">
+              <LabeledField
+                label="Dokter / Operator"
+                errorMessage={
+                  dokterFieldInvalid
+                    ? "Wajib diisi — ketik nama atau pilih dari daftar."
+                    : undefined
+                }
+              >
                 <DoctorCombobox
                   listboxId="tindakan-pemakaian-modal-doctor"
                   value={drawerDokter}
-                  onChange={setDrawerDokter}
+                  onChange={(v) => {
+                    setDrawerDokter(v);
+                    setDokterFieldInvalid(false);
+                  }}
                   onInputBlur={(t) => {
                     const resolved =
                       doctorOptions.length > 0
@@ -1094,25 +1207,46 @@ export default function PemakaianAlkesModal({
                   }}
                   onSelectOption={(picked) => {
                     setDrawerDokter(formatDoctorLabel(picked));
+                    setDokterFieldInvalid(false);
                   }}
                   options={doctorOptions}
                   loading={doctorLoading}
+                  inputClassName={
+                    dokterFieldInvalid
+                      ? "border-amber-400/70 ring-1 ring-amber-400/40 focus:ring-amber-400/50"
+                      : undefined
+                  }
                 />
               </LabeledField>
-              <LabeledField label="Ruangan">
+              <LabeledField
+                label="Ruangan"
+                errorMessage={
+                  ruanganFieldInvalid
+                    ? "Wajib diisi — ketik nama atau pilih dari daftar."
+                    : undefined
+                }
+              >
                 <RuanganCombobox
                   listboxId="tindakan-pemakaian-modal-ruangan"
                   value={drawerRuangan}
-                  onChange={setDrawerRuangan}
+                  onChange={(v) => {
+                    setDrawerRuangan(v);
+                    setRuanganFieldInvalid(false);
+                  }}
                   options={ruanganList}
                   loading={ruanganListLoading}
+                  inputClassName={
+                    ruanganFieldInvalid
+                      ? "border-amber-400/70 ring-1 ring-amber-400/40 focus:ring-amber-400/50"
+                      : undefined
+                  }
                 />
               </LabeledField>
               <LabeledField label="Depo">
                 <input
                   value={drawerDepo}
                   onChange={(e) => setDrawerDepo(e.target.value)}
-                  placeholder="Depo Cathlab / Depo Farmasi"
+                  placeholder="Depo Cathlab"
                   className="w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 text-[11px] text-white placeholder:text-white/90 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40"
                 />
               </LabeledField>
@@ -1127,7 +1261,7 @@ export default function PemakaianAlkesModal({
             </div>
 
             <div className="mt-2">
-              <div className="text-[#E8C547] font-semibold mb-2 flex flex-col gap-2 min-[400px]:flex-row min-[400px]:items-center min-[400px]:justify-between min-w-0">
+              <div className="text-[#E8C547] font-semibold mb-1 flex flex-col gap-2 min-[400px]:flex-row min-[400px]:items-center min-[400px]:justify-between min-w-0">
                 <span className="text-xs shrink-0">Detail Barang Alkes</span>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-white/85 font-normal text-[10px]">
@@ -1157,248 +1291,258 @@ export default function PemakaianAlkesModal({
                   </button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 mb-2 text-[10px] text-white/85">
-                <span>
-                  Total qty resep:{" "}
-                  <span className="text-white/90 tabular-nums font-medium">
-                    {drawerLines.reduce((a, l) => a + l.qtyRencana, 0)}
-                  </span>
-                </span>
-                <span>
-                  Total qty dipakai:{" "}
-                  <span className="text-white/90 tabular-nums font-medium">
-                    {drawerLines.reduce((a, l) => a + l.qtyDipakai, 0)}
-                  </span>
-                </span>
-              </div>
+              <RincianBarangTemplateTabs
+                tab={rincianBarangTab}
+                onTabChange={setRincianBarangTab}
+                rowsObatAlkes={TEMPLATE_OBAT_ALKES}
+                rowsKomponen={TEMPLATE_KOMPONEN}
+                obatAlkes={editingTemplateInputBarang.obatAlkes}
+                komponen={editingTemplateInputBarang.komponen}
+                onChangeObatAlkes={patchTemplateObatAlkes}
+                onChangeKomponen={patchTemplateKomponen}
+              >
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2 text-[10px] text-white/85">
+                    <span>
+                      Total qty resep:{" "}
+                      <span className="text-white/90 tabular-nums font-medium">
+                        {drawerLines.reduce((a, l) => a + l.qtyRencana, 0)}
+                      </span>
+                    </span>
+                    <span>
+                      Total qty dipakai:{" "}
+                      <span className="text-white/90 tabular-nums font-medium">
+                        {drawerLines.reduce((a, l) => a + l.qtyDipakai, 0)}
+                      </span>
+                    </span>
+                  </div>
 
-              <div className="rounded-xl border border-white/10 overflow-x-auto -mx-0.5 px-0.5 sm:mx-0 sm:px-0 touch-pan-x">
-                <table className="w-full text-[10px] min-w-[920px]">
-                  <thead>
-                    <tr className="bg-[#0a1628] text-white/90">
-                      <th className="text-left font-semibold px-2 py-1.5 min-w-[100px]">
-                        Barang
-                      </th>
-                      <th className="text-left font-semibold px-2 py-1.5 min-w-[5.5rem]">
-                        Kategori
-                      </th>
-                      <th className="text-left font-semibold px-2 py-1.5 min-w-[88px]">
-                        Distributor
-                      </th>
-                      <th className="text-left font-semibold px-2 py-1.5 min-w-[64px]">
-                        Ukuran
-                      </th>
-                      <th className="text-left font-semibold px-2 py-1.5 min-w-[56px]">
-                        LOT
-                      </th>
-                      <th className="text-left font-semibold px-2 py-1.5 min-w-[52px]">
-                        ED
-                      </th>
-                      <th className="text-right font-semibold px-2 py-1.5 whitespace-nowrap min-w-[6.5rem]">
-                        Harga
-                      </th>
-                      <th className="text-center font-semibold px-2 py-1.5 whitespace-nowrap min-w-[4.25rem]">
-                        Resep
-                      </th>
-                      <th className="text-center font-semibold px-2 py-1.5 whitespace-nowrap min-w-[3.5rem]">
-                        Stok
-                      </th>
-                      <th className="text-center font-semibold px-1 py-1.5 w-[72px]">
-                        Tipe
-                      </th>
-                      <th className="text-center font-semibold px-1 py-1.5 w-[1%] whitespace-nowrap">
-                        Aksi
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/[0.06]">
-                    {drawerLines.map((line) => (
-                      <tr key={line.lineId} className="bg-black/20">
-                        <td className="px-1.5 py-1 align-top">
-                          <BarangVariantCombobox
-                            variant="table"
-                            listboxId={`tindakan-pemakaian-modal-barang-${line.lineId}`}
-                            value={line.barang}
-                            blurResolveLine={{
-                              distributor: line.distributor,
-                              lot: line.lot,
-                              ukuran: line.ukuran,
-                              ed: line.ed,
-                            }}
-                            onChange={(nama) =>
-                              patchDrawerLine(line.lineId, { barang: nama })
-                            }
-                            onPickVariant={(v) => {
-                              const h = hargaFromPickRow(v, barangVariantList);
-                              const kCat = kategoriFromPickRow(v);
-                              patchDrawerLine(line.lineId, {
-                                barang: v.nama.trim(),
-                                ...(kCat ? { kategori: kCat } : {}),
-                                distributor:
-                                  v.distributor_nama?.trim() || undefined,
-                                lot: v.lot?.trim() || undefined,
-                                ukuran: v.ukuran?.trim() || undefined,
-                                ed: v.ed?.trim() || undefined,
-                                ...(h !== undefined ? { harga: h } : {}),
-                              });
-                            }}
-                            options={barangVariantList}
-                            loading={barangVariantLoading}
-                          />
-                        </td>
-                        <td className="px-1.5 py-1 align-top">
-                          <select
-                            suppressHydrationWarning
-                            aria-label="Kategori alkes"
-                            value={line.kategori ?? ""}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              patchDrawerLine(line.lineId, {
-                                kategori: v
-                                  ? normalizeKategoriAlkesLine(v)
-                                  : undefined,
-                              });
-                            }}
-                            className="w-full min-w-[5rem] bg-black/50 border border-white/15 rounded px-0.5 py-1 text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                          >
-                            <option value="">— Pilih —</option>
-                            {DISTRIBUTOR_PRODUK_KATEGORI.map((k) => (
-                              <option key={k} value={k}>
-                                {k}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-1.5 py-1 align-top">
-                          <input
-                            type="text"
-                            value={line.distributor ?? ""}
-                            onChange={(e) =>
-                              patchDrawerLine(line.lineId, {
-                                distributor: e.target.value || undefined,
-                              })
-                            }
-                            className="w-full min-w-[76px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                          />
-                        </td>
-                        <td className="px-1.5 py-1 align-top">
-                          <input
-                            type="text"
-                            value={line.ukuran ?? ""}
-                            onChange={(e) =>
-                              patchDrawerLine(line.lineId, {
-                                ukuran: e.target.value.trim() || undefined,
-                              })
-                            }
-                            placeholder="—"
-                            className="w-full min-w-[56px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                          />
-                        </td>
-                        <td className="px-1.5 py-1 align-top">
-                          <input
-                            type="text"
-                            value={line.lot ?? ""}
-                            onChange={(e) =>
-                              patchDrawerLine(line.lineId, {
-                                lot: e.target.value.trim() || undefined,
-                              })
-                            }
-                            placeholder="—"
-                            className="w-full min-w-[52px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                          />
-                        </td>
-                        <td className="px-1.5 py-1 align-top">
-                          <input
-                            type="text"
-                            value={line.ed ?? ""}
-                            onChange={(e) =>
-                              patchDrawerLine(line.lineId, {
-                                ed: e.target.value.trim() || undefined,
-                              })
-                            }
-                            placeholder="MM-YYYY"
-                            className="w-full min-w-[52px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                          />
-                        </td>
-                        <td className="px-1.5 py-1.5 align-middle text-right tabular-nums text-white/90 text-[10px]">
-                          {formatHargaCell(line.harga)}
-                        </td>
-                        <td className="px-1 py-1 align-top">
-                          <input
-                            type="number"
-                            min={0}
-                            value={line.qtyRencana}
-                            onChange={(e) =>
-                              patchDrawerLine(line.lineId, {
-                                qtyRencana: Math.max(
-                                  0,
-                                  Number(e.target.value) || 0,
-                                ),
-                              })
-                            }
-                            className="w-full bg-black/50 border border-white/15 rounded px-1 py-1 text-center tabular-nums text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                          />
-                        </td>
-                        <td className="px-1 py-1 align-top">
-                          <input
-                            type="number"
-                            min={0}
-                            value={line.qtyDipakai}
-                            onChange={(e) =>
-                              patchDrawerLine(line.lineId, {
-                                qtyDipakai: Math.max(
-                                  0,
-                                  Number(e.target.value) || 0,
-                                ),
-                              })
-                            }
-                            className="w-full bg-black/50 border border-white/15 rounded px-1 py-1 text-center tabular-nums text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                          />
-                        </td>
-                        <td className="px-1 py-1 align-top">
-                          <select
-                            suppressHydrationWarning
-                            value={line.tipe}
-                            onChange={(e) =>
-                              patchDrawerLine(line.lineId, {
-                                tipe: e.target.value as PemakaianLine["tipe"],
-                              })
-                            }
-                            className="w-full bg-black/50 border border-white/15 rounded px-0.5 py-1 text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                          >
-                            <option value="BARU">BARU</option>
-                            <option value="REUSE">REUSE</option>
-                          </select>
-                        </td>
-                        <td className="px-1 py-1 align-middle text-center">
-                          <button
-                            suppressHydrationWarning
-                            type="button"
-                            onClick={() => removeDrawerLine(line.lineId)}
-                            className="inline-flex items-center gap-0.5 rounded-lg border border-rose-500/50 bg-rose-950/50 px-1.5 py-0.5 text-[9px] font-semibold text-rose-200 hover:bg-rose-900/60 focus:outline-none focus:ring-1 focus:ring-rose-400/50"
-                            aria-label={`Hapus baris ${line.barang || line.lineId}`}
-                            title="Hapus baris"
-                          >
-                            <Trash2 className="h-3 w-3 shrink-0" aria-hidden />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div>
-              <LabeledField label="Catatan ke Depo">
-                <textarea
-                  rows={2}
-                  value={drawerCatatan}
-                  onChange={(e) => setDrawerCatatan(e.target.value)}
-                  placeholder="Catatan klinis / instruksi ke Depo..."
-                  className="w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 text-[11px] text-white placeholder:text-white/90 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40"
-                />
-              </LabeledField>
+                  <div className="rounded-xl border border-white/10 overflow-x-auto -mx-0.5 px-0.5 sm:mx-0 sm:px-0 touch-pan-x">
+                    <table className="w-full text-[10px] min-w-[920px]">
+                      <thead>
+                        <tr className="bg-[#0a1628] text-white/90">
+                          <th className="text-left font-semibold px-2 py-1.5 min-w-[100px]">
+                            Barang
+                          </th>
+                          <th className="text-left font-semibold px-2 py-1.5 min-w-[5.5rem]">
+                            Kategori
+                          </th>
+                          <th className="text-left font-semibold px-2 py-1.5 min-w-[88px]">
+                            Distributor
+                          </th>
+                          <th className="text-left font-semibold px-2 py-1.5 min-w-[64px]">
+                            Ukuran
+                          </th>
+                          <th className="text-left font-semibold px-2 py-1.5 min-w-[56px]">
+                            LOT
+                          </th>
+                          <th className="text-left font-semibold px-2 py-1.5 min-w-[52px]">
+                            ED
+                          </th>
+                          <th className="text-right font-semibold px-2 py-1.5 whitespace-nowrap min-w-[6.5rem]">
+                            Harga
+                          </th>
+                          <th className="text-center font-semibold px-2 py-1.5 whitespace-nowrap min-w-[4.25rem]">
+                            Resep
+                          </th>
+                          <th className="text-center font-semibold px-2 py-1.5 whitespace-nowrap min-w-[3.5rem]">
+                            Stok
+                          </th>
+                          <th className="text-center font-semibold px-1 py-1.5 w-[72px]">
+                            Tipe
+                          </th>
+                          <th className="text-center font-semibold px-1 py-1.5 w-[1%] whitespace-nowrap">
+                            Aksi
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.06]">
+                        {drawerLines.map((line) => (
+                          <tr key={line.lineId} className="bg-black/20">
+                            <td className="px-1.5 py-1 align-top">
+                              <BarangVariantCombobox
+                                variant="table"
+                                listboxId={`tindakan-pemakaian-modal-barang-${line.lineId}`}
+                                value={line.barang}
+                                blurResolveLine={{
+                                  distributor: line.distributor,
+                                  lot: line.lot,
+                                  ukuran: line.ukuran,
+                                  ed: line.ed,
+                                }}
+                                onChange={(nama) =>
+                                  patchDrawerLine(line.lineId, { barang: nama })
+                                }
+                                onPickVariant={(v) => {
+                                  const h = hargaFromPickRow(
+                                    v,
+                                    barangVariantList,
+                                  );
+                                  const kCat =
+                                    kategoriAlkesFromVariantPickRow(v);
+                                  patchDrawerLine(line.lineId, {
+                                    barang: v.nama.trim(),
+                                    ...(kCat ? { kategori: kCat } : {}),
+                                    distributor:
+                                      v.distributor_nama?.trim() || undefined,
+                                    lot: v.lot?.trim() || undefined,
+                                    ukuran: v.ukuran?.trim() || undefined,
+                                    ed: v.ed?.trim() || undefined,
+                                    ...(h !== undefined ? { harga: h } : {}),
+                                  });
+                                }}
+                                options={barangVariantList}
+                                loading={barangVariantLoading}
+                                onRequestAddProduct={openTambahProdukModal}
+                              />
+                            </td>
+                            <td className="px-1.5 py-1 align-top">
+                              <select
+                                suppressHydrationWarning
+                                aria-label="Kategori alkes"
+                                value={line.kategori ?? ""}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  patchDrawerLine(line.lineId, {
+                                    kategori: v
+                                      ? normalizeKategoriAlkesLine(v)
+                                      : undefined,
+                                  });
+                                }}
+                                className="w-full min-w-[5rem] bg-black/50 border border-white/15 rounded px-0.5 py-1 text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                              >
+                                <option value="">— Pilih —</option>
+                                {DISTRIBUTOR_PRODUK_KATEGORI.map((k) => (
+                                  <option key={k} value={k}>
+                                    {k}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-1.5 py-1 align-top">
+                              <input
+                                type="text"
+                                value={line.distributor ?? ""}
+                                onChange={(e) =>
+                                  patchDrawerLine(line.lineId, {
+                                    distributor: e.target.value || undefined,
+                                  })
+                                }
+                                className="w-full min-w-[76px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                              />
+                            </td>
+                            <td className="px-1.5 py-1 align-top">
+                              <input
+                                type="text"
+                                value={line.ukuran ?? ""}
+                                onChange={(e) =>
+                                  patchDrawerLine(line.lineId, {
+                                    ukuran: e.target.value.trim() || undefined,
+                                  })
+                                }
+                                placeholder="—"
+                                className="w-full min-w-[56px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                              />
+                            </td>
+                            <td className="px-1.5 py-1 align-top">
+                              <input
+                                type="text"
+                                value={line.lot ?? ""}
+                                onChange={(e) =>
+                                  patchDrawerLine(line.lineId, {
+                                    lot: e.target.value.trim() || undefined,
+                                  })
+                                }
+                                placeholder="—"
+                                className="w-full min-w-[52px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                              />
+                            </td>
+                            <td className="px-1.5 py-1 align-top">
+                              <input
+                                type="text"
+                                value={line.ed ?? ""}
+                                onChange={(e) =>
+                                  patchDrawerLine(line.lineId, {
+                                    ed: e.target.value.trim() || undefined,
+                                  })
+                                }
+                                placeholder="MM-YYYY"
+                                className="w-full min-w-[52px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                              />
+                            </td>
+                            <td className="px-1.5 py-1.5 align-middle text-right tabular-nums text-white/90 text-[10px]">
+                              {formatHargaCell(line.harga)}
+                            </td>
+                            <td className="px-1 py-1 align-top">
+                              <input
+                                type="number"
+                                min={0}
+                                value={line.qtyRencana}
+                                onChange={(e) =>
+                                  patchDrawerLine(line.lineId, {
+                                    qtyRencana: Math.max(
+                                      0,
+                                      Number(e.target.value) || 0,
+                                    ),
+                                  })
+                                }
+                                className="w-full bg-black/50 border border-white/15 rounded px-1 py-1 text-center tabular-nums text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                              />
+                            </td>
+                            <td className="px-1 py-1 align-top">
+                              <input
+                                type="number"
+                                min={0}
+                                value={line.qtyDipakai}
+                                onChange={(e) =>
+                                  patchDrawerLine(line.lineId, {
+                                    qtyDipakai: Math.max(
+                                      0,
+                                      Number(e.target.value) || 0,
+                                    ),
+                                  })
+                                }
+                                className="w-full bg-black/50 border border-white/15 rounded px-1 py-1 text-center tabular-nums text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                              />
+                            </td>
+                            <td className="px-1 py-1 align-top">
+                              <select
+                                suppressHydrationWarning
+                                value={line.tipe}
+                                onChange={(e) =>
+                                  patchDrawerLine(line.lineId, {
+                                    tipe: e.target
+                                      .value as PemakaianLine["tipe"],
+                                  })
+                                }
+                                className="w-full bg-black/50 border border-white/15 rounded px-0.5 py-1 text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                              >
+                                <option value="BARU">BARU</option>
+                                <option value="REUSE">REUSE</option>
+                              </select>
+                            </td>
+                            <td className="px-1 py-1 align-middle text-center">
+                              <button
+                                suppressHydrationWarning
+                                type="button"
+                                onClick={() => removeDrawerLine(line.lineId)}
+                                className="inline-flex items-center gap-0.5 rounded-lg border border-rose-500/50 bg-rose-950/50 px-1.5 py-0.5 text-[9px] font-semibold text-rose-200 hover:bg-rose-900/60 focus:outline-none focus:ring-1 focus:ring-rose-400/50"
+                                aria-label={`Hapus baris ${line.barang || line.lineId}`}
+                                title="Hapus baris"
+                              >
+                                <Trash2
+                                  className="h-3 w-3 shrink-0"
+                                  aria-hidden
+                                />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </RincianBarangTemplateTabs>
             </div>
           </div>
 
@@ -1487,11 +1631,36 @@ export default function PemakaianAlkesModal({
                   Memuat katalog…
                 </p>
               ) : filteredBarangPicks.length === 0 ? (
-                <p className="px-3 py-6 text-center text-[11px] text-white/85">
-                  {barangVariantList.length === 0
-                    ? "Belum ada data master / mapping distributor."
-                    : "Tidak ada baris yang cocok dengan pencarian."}
-                </p>
+                <div className="px-3 py-6 text-center">
+                  <p className="text-[11px] text-white/85 dark:text-white/90">
+                    {barangVariantList.length === 0
+                      ? "Belum ada data master / mapping distributor."
+                      : "Tidak ada baris yang cocok dengan pencarian."}
+                  </p>
+                  <button
+                    suppressHydrationWarning
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const d = barangPickerQuery.trim();
+                      setTambahProdukDraft(d);
+                      window.setTimeout(() => setTambahProdukOpen(true), 0);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter" && e.key !== " ") return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const d = barangPickerQuery.trim();
+                      setTambahProdukDraft(d);
+                      window.setTimeout(() => setTambahProdukOpen(true), 0);
+                    }}
+                    className="mt-3 inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#E8C547]/40 bg-[#E8C547]/10 px-3 py-2 text-[10px] font-semibold text-[#E8C547] hover:bg-[#E8C547]/20"
+                  >
+                    <PackagePlus className="h-3.5 w-3.5" aria-hidden />
+                    Tambah produk
+                  </button>
+                </div>
               ) : (
                 <ul className="py-1">
                   {filteredBarangPicks.map((v) => (
@@ -1542,6 +1711,96 @@ export default function PemakaianAlkesModal({
                 type="button"
                 onClick={closeBarangPicker}
                 className="px-2.5 py-1 rounded-lg text-[10px] border border-white/20 text-white/85 hover:bg-white/5"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {tambahProdukOpen ? (
+        <div
+          className={`fixed inset-0 ${UI_LAYERS.dialogOverlayTop} flex items-end sm:items-center justify-center p-3 bg-black/80 print:hidden`}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="tindakan-alkes-tambah-produk-title"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setTambahProdukOpen(false);
+          }}
+        >
+          <div
+            className={`relative w-full max-w-md rounded-2xl border border-white/15 bg-[#0a1628] shadow-2xl overflow-hidden ${UI_LAYERS.dialogContentTop}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-3 py-2.5 border-b border-white/10 flex items-center justify-between gap-2">
+              <h4
+                id="tindakan-alkes-tambah-produk-title"
+                className="text-[11px] font-semibold text-[#E8C547]"
+              >
+                Tambah produk (master &amp; distributor)
+              </h4>
+              <button
+                suppressHydrationWarning
+                type="button"
+                onClick={() => setTambahProdukOpen(false)}
+                className="rounded-lg p-1 text-white/85 hover:bg-white/10 hover:text-white"
+                aria-label="Tutup"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="px-3 py-3 space-y-2 text-[11px] text-white/90 dark:text-white">
+              <p>
+                Barang belum ada di katalog master / mapping distributor. Anda
+                bisa menambahkannya di Master Barang, di panel distributor
+                (produk &amp; stok), atau melanjutkan lewat pencarian &amp; baris
+                manual.
+              </p>
+              {tambahProdukDraft.trim() ? (
+                <p className="rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 font-mono text-[10px] text-white/90 break-all">
+                  {tambahProdukDraft.trim()}
+                </p>
+              ) : null}
+            </div>
+            <div className="px-3 py-2.5 border-t border-white/10 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <Link
+                href={
+                  tambahProdukDraft.trim()
+                    ? `/distributor/barang?nama=${encodeURIComponent(tambahProdukDraft.trim())}`
+                    : "/distributor/barang"
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 rounded-lg text-[10px] font-semibold bg-gradient-to-r from-[#0ea5e9] via-[#22d3ee] to-[#2dd4bf] text-[#0a0f18] hover:opacity-95"
+              >
+                Tambah Produk Distributor
+              </Link>
+              <Link
+                href="/dashboard/farmasi/master-barang"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 rounded-lg text-[10px] font-semibold bg-gradient-to-r from-[#C9A227] via-[#E8C547] to-[#2dd4bf] text-[#0a0f18] hover:opacity-95"
+              >
+                Buka Master Barang
+              </Link>
+              <button
+                suppressHydrationWarning
+                type="button"
+                onClick={() => {
+                  setBarangPickerQuery(tambahProdukDraft);
+                  setTambahProdukOpen(false);
+                  setBarangPickerOpen(true);
+                }}
+                className="w-full sm:w-auto px-3 py-2 rounded-lg text-[10px] border border-white/20 text-white/90 hover:bg-white/10"
+              >
+                Cari &amp; tambah barang (manual)
+              </button>
+              <button
+                suppressHydrationWarning
+                type="button"
+                onClick={() => setTambahProdukOpen(false)}
+                className="w-full sm:w-auto px-3 py-2 rounded-lg text-[10px] border border-white/20 text-white/85 hover:bg-white/5"
               >
                 Batal
               </button>

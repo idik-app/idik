@@ -25,8 +25,8 @@ const initialForm = (): Omit<Pasien, "id"> => ({
   tanggalLahir: "",
   alamat: "",
   noHP: "",
-  // Backend/types saat ini hanya mengenal "BPJS" (BPJS-PBI ditampilkan via label UI).
-  // Jika jenis pembiayaan adalah BPJS, kelas perawatan otomatis Kelas 3.
+  // DB: jenis_pembiayaan "BPJS" = BPJS-PBI / PBI Kelas 3; laporan: baris PBI.
+  // "NPBI" + kelas → tab Biaya "Kelas pembiayaan" NPBI - 1|2|3; laporan: BPJS NON PBI KLS *.
   jenisPembiayaan: "BPJS",
   kelasPerawatan: "Kelas 3",
   asuransi: "",
@@ -61,7 +61,8 @@ function coerceJenisPembiayaan(
 ): Pasien["jenisPembiayaan"] {
   const v = String(raw ?? "").trim();
   if (v === "BPJS-PBI") return "BPJS";
-  if (v === "BPJS" || v === "NPBI" || v === "Umum" || v === "Asuransi") return v;
+  if (v === "BPJS" || v === "NPBI" || v === "Umum" || v === "Asuransi")
+    return v;
   return "Umum";
 }
 
@@ -512,6 +513,41 @@ export default function TambahPasienQuickModal({
                 <option value="Umum">Umum</option>
                 <option value="Asuransi">Asuransi</option>
               </select>
+              {formData.jenisPembiayaan === "BPJS" && (
+                <p
+                  className={cn(
+                    "mt-1.5 text-xs leading-snug",
+                    isDark ? "text-white/90" : "text-slate-600",
+                  )}
+                >
+                  Disimpan sebagai{" "}
+                  <span className="font-medium dark:text-white">
+                    PBI Kelas 3
+                  </span>
+                  ; sama dengan baris laporan{" "}
+                  <span className="font-medium dark:text-white">PBI</span>.
+                </p>
+              )}
+              {formData.jenisPembiayaan === "NPBI" && (
+                <p
+                  className={cn(
+                    "mt-1.5 text-xs leading-snug",
+                    isDark ? "text-white/90" : "text-slate-600",
+                  )}
+                >
+                  Bersama angka kelas di bawah membentuk kolom{" "}
+                  <span className="font-medium dark:text-white">
+                    Kelas pembiayaan
+                  </span>{" "}
+                  di tab Biaya (mis.{" "}
+                  <span className="font-medium dark:text-white">NPBI - 1</span>
+                  ), sama dengan laporan{" "}
+                  <span className="font-medium dark:text-white">
+                    BPJS NON PBI KLS 1–3
+                  </span>
+                  .
+                </p>
+              )}
             </div>
 
             <div>

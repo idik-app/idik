@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useEventBridge } from "@/contexts/EventBridgeContext";
 import { useDiagnosticsHUD } from "@/contexts/DiagnosticsHUDContext";
 import { useDiagnosticsBridge } from "@/core/idik-autonomous/DiagnosticsBridge";
 import { JARVIS } from "@/lib/copy/jarvis";
+import { UI_LAYERS } from "@/lib/ui/layers";
 import {
   Cpu,
   Activity,
@@ -24,14 +24,9 @@ const AUTO_COLLAPSE_MS = 12_000;
 
 export default function DiagnosticsHUD() {
   const { events, clearEvents } = useDiagnosticsHUD();
-  const { subscribe, emit } = useEventBridge();
   const { supabaseStatus, realtimeEvents: bridgeEvents } = useDiagnosticsBridge();
-  const [meta, setMeta] = useState({
-    events: 0,
-    anomalies: 0,
-    cpu: 0,
-    stable: true,
-  });
+  // AutonomousKernel sudah tidak dipakai lagi; HUD tetap tampil namun tanpa update meta dari kernel.
+  const stable = true;
   const [showLog, setShowLog] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -57,36 +52,12 @@ export default function DiagnosticsHUD() {
     return () => clearAutoCollapse();
   }, [minimized, armAutoCollapse, clearAutoCollapse]);
 
-  // Emit kernel:update saat jumlah event berubah; subscriber di bawah akan update meta
-  useEffect(() => {
-    emit("kernel:update", {
-      events: events.length,
-      anomalies: meta.anomalies,
-      cpu: meta.cpu,
-      stable: meta.stable,
-    });
-  }, [events.length, emit]);
-
-  // Subscribe ke kernel:update (dari emit kita sendiri atau kernel lain)
-  useEffect(() => {
-    const unsub = subscribe("kernel:update", (data: Record<string, unknown>) => {
-      setMeta((prev) => ({
-        ...prev,
-        events: (data.events as number) ?? prev.events,
-        anomalies: (data.anomalies as number) ?? prev.anomalies,
-        cpu: (data.cpu as number) ?? prev.cpu,
-        stable: (data.stable as boolean) ?? prev.stable,
-      }));
-    });
-    return () => unsub();
-  }, [subscribe]);
-
   if (minimized) {
     return (
       <button
         type="button"
         onClick={() => setMinimized(false)}
-        className="fixed z-[55] flex max-w-[calc(100vw-1.25rem)] items-center gap-1.5 rounded-full border border-cyan-500/50 bg-black/70 px-2.5 py-1.5 text-[10px] text-cyan-200 shadow-[0_0_12px_rgba(0,255,255,0.4)] hover:border-cyan-300/80 sm:gap-2 sm:px-3 sm:text-[11px] max-md:bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] max-md:right-3 md:bottom-4 md:right-4"
+        className={`fixed ${UI_LAYERS.hud} flex max-w-[calc(100vw-1.25rem)] items-center gap-1.5 rounded-full border border-cyan-500/50 bg-black/70 px-2.5 py-1.5 text-[10px] text-cyan-200 shadow-[0_0_12px_rgba(0,255,255,0.4)] hover:border-cyan-300/80 sm:gap-2 sm:px-3 sm:text-[11px] max-md:bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] max-md:right-3 md:bottom-4 md:right-4`}
       >
         <Cpu size={14} className="text-cyan-300" />
         <span className="font-semibold">{JARVIS.hud.kernelTitle}</span>
@@ -98,8 +69,8 @@ export default function DiagnosticsHUD() {
 
   return (
     <div
-      className="
-      fixed z-[55] flex flex-col gap-2
+      className={`
+      fixed ${UI_LAYERS.hud} flex flex-col gap-2
       max-md:inset-x-3 max-md:bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))] max-md:w-auto
       md:inset-x-auto md:bottom-4 md:right-4 md:left-auto md:w-72
       bg-black/60 backdrop-blur-xl 
@@ -107,7 +78,7 @@ export default function DiagnosticsHUD() {
       rounded-xl p-2.5 sm:p-3 text-xs text-cyan-200
       shadow-[0_0_15px_rgba(0,255,255,0.4)]
       max-h-[min(80vh,32rem)] md:max-h-[80vh]
-    "
+    `}
       onPointerEnter={clearAutoCollapse}
       onPointerLeave={armAutoCollapse}
     >
@@ -139,15 +110,15 @@ export default function DiagnosticsHUD() {
       <Row
         icon={<Activity size={14} />}
         label={JARVIS.hud.realtimeEvents}
-        value={bridgeEvents + meta.events}
+        value={bridgeEvents + events.length}
       />
       <Row
         icon={<ShieldAlert size={14} />}
         label={JARVIS.hud.integrity}
-        value={meta.stable ? JARVIS.hud.stable : JARVIS.hud.recoveryMode}
+        value={stable ? JARVIS.hud.stable : JARVIS.hud.recoveryMode}
       />
 
-      {!meta.stable && (
+      {!stable && (
         <div className="text-red-400 text-[11px] shrink-0">
           Kernel mendeteksi anomali — rollback guard aktif.
         </div>

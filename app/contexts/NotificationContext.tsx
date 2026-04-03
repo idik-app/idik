@@ -8,6 +8,7 @@ import React, {
   useEffect,
   useMemo,
 } from "react";
+import { runDeduped } from "@/lib/api/runDeduped";
 import dynamic from "next/dynamic";
 
 const NotificationPanel = dynamic(() => import("@/components/NotificationPanel"), {
@@ -92,8 +93,10 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
   // Muat notifikasi dari DB saat mount
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/notifications")
-      .then((res) => res.json())
+    void runDeduped("GET:/api/notifications", async () => {
+      const res = await fetch("/api/notifications");
+      return res.json();
+    })
       .then((json) => {
         if (cancelled || !json?.ok || !Array.isArray(json.data)) return;
         setBellAlerts(

@@ -42,10 +42,11 @@ import {
 } from "@/components/ui/ruangan-combobox";
 import {
   BarangVariantCombobox,
-  pickRowSearchHaystack,
+  rowMatchesBarangQuery,
   type MasterBarangPickRow,
 } from "@/components/ui/barang-variant-combobox";
 import { ConsumableAngiografiPrintTemplate } from "@/app/dashboard/pemakaian/components/ConsumableAngiografiTemplate";
+import { runDeduped } from "@/lib/api/runDeduped";
 import { useAppDialog } from "@/contexts/AppDialogContext";
 import { PrintIcon } from "@/components/icons/PrintIcon";
 import {
@@ -577,15 +578,21 @@ export default function PemakaianPage() {
       setOrdersFetchError(null);
     }
     try {
-      const res = await fetch("/api/pemakaian-orders", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const j = (await res.json()) as {
-        ok?: boolean;
-        orders?: unknown[];
-        message?: string;
-      };
+      const { res, j } = await runDeduped(
+        "GET:/api/pemakaian-orders",
+        async () => {
+          const res = await fetch("/api/pemakaian-orders", {
+            credentials: "include",
+            cache: "no-store",
+          });
+          const j = (await res.json()) as {
+            ok?: boolean;
+            orders?: unknown[];
+            message?: string;
+          };
+          return { res, j };
+        },
+      );
       if (!res.ok || !j?.ok) {
         setOrders([]);
         setOrdersFetchError(
@@ -662,9 +669,18 @@ export default function PemakaianPage() {
 
   useEffect(() => {
     let alive = true;
-    fetch("/api/auth/me", { credentials: "include", cache: "no-store" })
-      .then((r) => r.json())
-      .then((j: { ok?: boolean; role?: string; username?: string }) => {
+    void runDeduped("GET:/api/auth/me", async () => {
+      const r = await fetch("/api/auth/me", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      return r.json() as Promise<{
+        ok?: boolean;
+        role?: string;
+        username?: string;
+      }>;
+    })
+      .then((j) => {
         if (!alive) return;
         if (j?.ok && typeof j.role === "string") {
           setRole(j.role.trim().toLowerCase());
@@ -683,9 +699,17 @@ export default function PemakaianPage() {
   useEffect(() => {
     let alive = true;
     setRuanganListLoading(true);
-    void fetch("/api/ruangan", { credentials: "include", cache: "no-store" })
-      .then((r) => r.json())
-      .then((j: { ok?: boolean; ruangan?: RuanganOption[] }) => {
+    void runDeduped("GET:/api/ruangan", async () => {
+      const r = await fetch("/api/ruangan", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      return r.json() as Promise<{
+        ok?: boolean;
+        ruangan?: RuanganOption[];
+      }>;
+    })
+      .then((j) => {
         if (!alive) return;
         if (j?.ok && Array.isArray(j.ruangan)) setRuanganList(j.ruangan);
         else setRuanganList([]);
@@ -718,19 +742,21 @@ export default function PemakaianPage() {
     setPasienListLoading(true);
     setBarangVariantLoading(true);
     void Promise.all([
-      fetch("/api/doctors", { credentials: "include", cache: "no-store" }),
-      fetch("/api/pasien", { credentials: "include", cache: "no-store" }),
-      fetch("/api/master-barang/variants", {
-        credentials: "include",
-        cache: "no-store",
+      fetch("/api/doctors", { credentials: "include", cache: "no-store" }).then(
+        (r) => r.json(),
+      ),
+      fetch("/api/pasien", { credentials: "include", cache: "no-store" }).then(
+        (r) => r.json(),
+      ),
+      runDeduped("GET:/api/master-barang/variants", async () => {
+        const r = await fetch("/api/master-barang/variants", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        return r.json();
       }),
     ])
-      .then(async ([dr, ps, vr]) => {
-        const [dj, pj, vj] = await Promise.all([
-          dr.json(),
-          ps.json(),
-          vr.json(),
-        ]);
+      .then(([dj, pj, vj]) => {
         if (!alive) return;
         if (dj?.ok && Array.isArray(dj.doctors)) setDoctorList(dj.doctors);
         else setDoctorList([]);
@@ -1383,7 +1409,7 @@ export default function PemakaianPage() {
       return;
     }
     const matches = barangVariantList.filter((v) =>
-      pickRowSearchHaystack(v).includes(q),
+      rowMatchesBarangQuery(v, raw),
     );
     if (matches.length === 1) {
       applyBarangPick(matches[0]);
@@ -1393,11 +1419,9 @@ export default function PemakaianPage() {
   }
 
   const filteredBarangPicks = useMemo(() => {
-    const q = barangPickerQuery.trim().toLowerCase();
-    if (!q) return barangVariantList;
-    return barangVariantList.filter((v) =>
-      pickRowSearchHaystack(v).includes(q),
-    );
+    const raw = barangPickerQuery.trim();
+    if (!raw) return barangVariantList;
+    return barangVariantList.filter((v) => rowMatchesBarangQuery(v, raw));
   }, [barangPickerQuery, barangVariantList]);
 
   function patchDetailLine(lineId: string, patch: Partial<PemakaianLine>) {

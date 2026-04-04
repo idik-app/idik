@@ -1080,24 +1080,33 @@ export default function TindakanTable({
     return [];
   }, [tindakanList, cathlabFallbackRows]);
 
-  const dokterOptions = useMemo(() => {
-    const set = new Set<string>();
+  const { dokterOptions, ruanganFilterOptions } = useMemo(() => {
+    const dSet = new Set<string>();
+    const rSet = new Set<string>();
     const master = doctorOptionsMaster;
     for (const r of dokterSourceRows) {
       const d = String(r.dokter ?? "").trim();
-      if (!d) continue;
-      const canon =
-        master.length > 0 ? canonicalDoctorStoredValue(master, d) : d;
-      set.add(canon);
+      if (d) dSet.add(master.length > 0 ? canonicalDoctorStoredValue(master, d) : d);
+      const rx = String(r.ruangan ?? "").trim();
+      if (rx) rSet.add(rx);
     }
-    return [...set].sort((a, b) => a.localeCompare(b, "id"));
-  }, [dokterSourceRows, doctorOptionsMaster]);
+    for (const opt of ruanganMaster) {
+      const label = formatRuanganLabel(opt).trim();
+      if (label) rSet.add(label);
+      const nama = String(opt.nama ?? "").trim();
+      if (nama) rSet.add(nama);
+    }
+    return {
+      dokterOptions: Array.from(dSet).sort((a, b) => a.localeCompare(b, "id")),
+      ruanganFilterOptions: Array.from(rSet).sort((a, b) => a.localeCompare(b, "id")),
+    };
+  }, [dokterSourceRows, doctorOptionsMaster, ruanganMaster]);
 
   const doctorOptionsForPemakaianModal = useMemo(
     () =>
       doctorOptionsMaster.length
         ? doctorOptionsMaster
-        : dokterOptions.map((nama, idx) => ({
+        : (dokterOptions as string[]).map((nama, idx) => ({
             id: `local:${idx}`,
             nama_dokter: nama,
             spesialis: null,
@@ -1105,21 +1114,6 @@ export default function TindakanTable({
           })),
     [doctorOptionsMaster, dokterOptions],
   );
-
-  const ruanganFilterOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of dokterSourceRows) {
-      const x = String(r.ruangan ?? "").trim();
-      if (x) set.add(x);
-    }
-    for (const opt of ruanganMaster) {
-      const label = formatRuanganLabel(opt).trim();
-      if (label) set.add(label);
-      const nama = String(opt.nama ?? "").trim();
-      if (nama) set.add(nama);
-    }
-    return [...set].sort((a, b) => a.localeCompare(b, "id"));
-  }, [dokterSourceRows, ruanganMaster]);
 
   useEffect(() => {
     const pasienActive = Boolean(filterPasienId.trim() || filterRm.trim());
@@ -1487,133 +1481,94 @@ export default function TindakanTable({
     });
   }, [filteredRecords]);
 
-  const totalTindakanToday = useMemo(() => {
-    const distinct = new Set<string>();
-    for (const rec of todayRowsForKpi) {
-      const td = String(rec.tindakan ?? "").trim();
-      if (td) distinct.add(td);
-    }
-    return distinct.size;
-  }, [todayRowsForKpi]);
+  const {
+    tindakanBreakdownToday,
+    dokterBreakdownToday,
+    totalTindakanToday,
+    totalDokterToday,
+    filteredRowGender,
+    tindakanBreakdownFiltered,
+    dokterBreakdownFiltered,
+  } = useMemo(() => {
+    const tTodayMap = new Map<string, number>();
+    const dTodayMap = new Map<string, { count: number; display: string }>();
+    const dTodaySet = new Set<string>();
+    const master = doctorOptionsMaster;
 
-  const tindakanBreakdownToday = useMemo(() => {
-    const counter = new Map<string, number>();
-    for (const rec of todayRowsForKpi) {
-      const tindakan = String(rec.tindakan ?? "").trim();
-      if (!tindakan) continue;
-      counter.set(tindakan, (counter.get(tindakan) ?? 0) + 1);
-    }
-    return Array.from(counter.entries())
-      .sort((a, b) => {
-        const byCount = b[1] - a[1];
-        if (byCount !== 0) return byCount;
-        return a[0].localeCompare(b[0], "id");
-      })
-      .slice(0, 6)
-      .map(([name, count]) => `${count}. ${name}`);
-  }, [todayRowsForKpi]);
-
-  const dokterBreakdownToday = useMemo(() => {
-    const counter = new Map<string, { count: number; display: string }>();
-    for (const rec of todayRowsForKpi) {
-      const raw = String(rec.dokter ?? "").trim();
-      if (!raw || raw === "—") continue;
-      const key = doctorOptionsMaster.length
-        ? canonicalDoctorStoredValue(doctorOptionsMaster, raw)
-        : raw;
-      if (!key) continue;
-      const display = doctorOptionsMaster.length
-        ? canonicalDoctorDisplayValue(doctorOptionsMaster, key) || key
-        : raw;
-      const prev = counter.get(key);
-      if (prev) {
-        counter.set(key, { ...prev, count: prev.count + 1 });
-      } else {
-        counter.set(key, { count: 1, display });
-      }
-    }
-    return Array.from(counter.values())
-      .sort((a, b) => {
-        const byCount = b.count - a.count;
-        if (byCount !== 0) return byCount;
-        return a.display.localeCompare(b.display, "id");
-      })
-      .slice(0, 6)
-      .map((x) => `${x.count}. ${x.display}`);
-  }, [todayRowsForKpi, doctorOptionsMaster]);
-
-  const totalDokterToday = useMemo(() => {
-    const distinct = new Set<string>();
-    for (const rec of todayRowsForKpi) {
-      const raw = String(rec.dokter ?? "").trim();
-      if (!raw || raw === "—") continue;
-      const key = doctorOptionsMaster.length
-        ? canonicalDoctorStoredValue(doctorOptionsMaster, raw)
-        : raw;
-      if (key) distinct.add(key);
-    }
-    return distinct.size;
-  }, [todayRowsForKpi, doctorOptionsMaster]);
-
-  const filteredRowGender = useMemo(() => {
+    const tFilteredMap = new Map<string, number>();
+    const dFilteredMap = new Map<string, { count: number; display: string }>();
     let laki = 0;
     let perempuan = 0;
-    const sourceRows = hasTanggalFilter ? filteredRecords : todayRowsForKpi;
-    for (const rec of sourceRows) {
-      const raw = rec as unknown as Record<string, unknown>;
-      const p = resolvePasienFromRow(pasienOptions, raw);
-      const jk = resolveJenisKelaminFromRow(raw, p);
-      if (jk === "L") laki += 1;
-      else if (jk === "P") perempuan += 1;
-    }
-    return { laki, perempuan };
-  }, [hasTanggalFilter, filteredRecords, todayRowsForKpi, pasienOptions]);
 
-  const tindakanBreakdownFiltered = useMemo(() => {
-    const counter = new Map<string, number>();
-    for (const rec of filteredRecords) {
-      const tindakan = String(rec.tindakan ?? "").trim();
-      if (!tindakan) continue;
-      counter.set(tindakan, (counter.get(tindakan) ?? 0) + 1);
-    }
-    return Array.from(counter.entries())
-      .sort((a, b) => {
-        const byCount = b[1] - a[1];
-        if (byCount !== 0) return byCount;
-        return a[0].localeCompare(b[0], "id");
-      })
-      .slice(0, 6)
-      .map(([name, count]) => `${count}. ${name}`);
-  }, [filteredRecords]);
+    const todaySet = new Set(todayRowsForKpi);
+    const genderSourceSet = new Set(hasTanggalFilter ? filteredRecords : todayRowsForKpi);
 
-  const dokterBreakdownFiltered = useMemo(() => {
-    const counter = new Map<string, { count: number; display: string }>();
     for (const rec of filteredRecords) {
-      const raw = String(rec.dokter ?? "").trim();
-      if (!raw || raw === "—") continue;
-      const key = doctorOptionsMaster.length
-        ? canonicalDoctorStoredValue(doctorOptionsMaster, raw)
-        : raw;
-      if (!key) continue;
-      const display = doctorOptionsMaster.length
-        ? canonicalDoctorDisplayValue(doctorOptionsMaster, key) || key
-        : raw;
-      const prev = counter.get(key);
-      if (prev) {
-        counter.set(key, { ...prev, count: prev.count + 1 });
-      } else {
-        counter.set(key, { count: 1, display });
+      const isToday = todaySet.has(rec);
+      const isGenderSource = genderSourceSet.has(rec);
+
+      const t = String(rec.tindakan ?? "").trim();
+      const dr = String(rec.dokter ?? "").trim();
+
+      // Stats Filtered
+      if (t) tFilteredMap.set(t, (tFilteredMap.get(t) ?? 0) + 1);
+      if (dr && dr !== "—") {
+        const k = master.length ? canonicalDoctorStoredValue(master, dr) : dr;
+        if (k) {
+          const disp = master.length ? canonicalDoctorDisplayValue(master, k) || k : dr;
+          const prev = dFilteredMap.get(k);
+          if (prev) dFilteredMap.set(k, { ...prev, count: prev.count + 1 });
+          else dFilteredMap.set(k, { count: 1, display: disp });
+        }
+      }
+
+      // Stats Today
+      if (isToday) {
+        if (t) tTodayMap.set(t, (tTodayMap.get(t) ?? 0) + 1);
+        if (dr && dr !== "—") {
+          const k = master.length ? canonicalDoctorStoredValue(master, dr) : dr;
+          if (k) {
+            dTodaySet.add(k);
+            const disp = master.length ? canonicalDoctorDisplayValue(master, k) || k : dr;
+            const prev = dTodayMap.get(k);
+            if (prev) dTodayMap.set(k, { ...prev, count: prev.count + 1 });
+            else dTodayMap.set(k, { count: 1, display: disp });
+          }
+        }
+      }
+
+      // Gender
+      if (isGenderSource) {
+        const raw = rec as unknown as Record<string, unknown>;
+        const p = resolvePasienFromRow(pasienOptions, raw);
+        const jk = resolveJenisKelaminFromRow(raw, p);
+        if (jk === "L") laki += 1;
+        else if (jk === "P") perempuan += 1;
       }
     }
-    return Array.from(counter.values())
-      .sort((a, b) => {
-        const byCount = b.count - a.count;
-        if (byCount !== 0) return byCount;
-        return a.display.localeCompare(b.display, "id");
-      })
-      .slice(0, 6)
-      .map((x) => `${x.count}. ${x.display}`);
-  }, [filteredRecords, doctorOptionsMaster]);
+
+    const fmt = (m: Map<string, number>) =>
+      Array.from(m.entries())
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "id"))
+        .slice(0, 6)
+        .map(([n, c]) => `${c}. ${n}`);
+
+    const fmtD = (m: Map<string, { count: number; display: string }>) =>
+      Array.from(m.values())
+        .sort((a, b) => b.count - a.count || a.display.localeCompare(b.display, "id"))
+        .slice(0, 6)
+        .map((x) => `${x.count}. ${x.display}`);
+
+    return {
+      tindakanBreakdownToday: fmt(tTodayMap),
+      dokterBreakdownToday: fmtD(dTodayMap),
+      totalTindakanToday: todayRowsForKpi.length,
+      totalDokterToday: dTodaySet.size,
+      filteredRowGender: { laki, perempuan },
+      tindakanBreakdownFiltered: fmt(tFilteredMap),
+      dokterBreakdownFiltered: fmtD(dFilteredMap),
+    };
+  }, [filteredRecords, todayRowsForKpi, hasTanggalFilter, doctorOptionsMaster, pasienOptions]);
 
   const filteredRowStatsTodayAdjusted = useMemo(
     () => ({

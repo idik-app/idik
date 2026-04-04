@@ -70,8 +70,8 @@ function extractMissingColumnFromSchemaCacheError(message: string): string | nul
  * Satu baris `tindakan` — untuk deep link Pemakaian (`?tindakanId=`).
  */
 export async function GET(_req: Request, ctx: Params) {
-  const { requireUser } = await import("@/lib/auth/guards");
-  const auth = await requireUser();
+  const { requireRole } = await import("@/lib/auth/guards");
+  const auth = await requireRole(["perawat", "admin", "administrator", "superadmin"]);
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
@@ -135,8 +135,8 @@ export async function GET(_req: Request, ctx: Params) {
  * Patch sebagian baris `tindakan` — service role (tahan RLS), dipakai UI inline edit.
  */
 export async function PATCH(req: Request, ctx: Params) {
-  const { requireUser } = await import("@/lib/auth/guards");
-  const auth = await requireUser();
+  const { requireRole } = await import("@/lib/auth/guards");
+  const auth = await requireRole(["perawat", "admin", "administrator", "superadmin"]);
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
@@ -264,8 +264,8 @@ function isMissingRelationOrTableError(err: { message?: string } | null): boolea
  * dan tidak bergantung pada RLS klien anon.
  */
 export async function DELETE(_req: Request, ctx: Params) {
-  const { requireUser } = await import("@/lib/auth/guards");
-  const auth = await requireUser();
+  const { requireRole } = await import("@/lib/auth/guards");
+  const auth = await requireRole(["perawat", "admin", "administrator", "superadmin"]);
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;

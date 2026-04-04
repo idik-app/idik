@@ -36,7 +36,7 @@ export async function GET(
   }
 
   try {
-    const supabase = createAdminClient();
+    const supabase = createAdminClient(true);
     const { data, error } = await supabase
       .from("app_users")
       .select(

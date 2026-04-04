@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guards";
-import { getServiceSupabaseAdmin } from "@/lib/auth/serviceSupabase";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
 async function countBy(
-  supabase: ReturnType<typeof getServiceSupabaseAdmin>,
+  supabase: ReturnType<typeof createAdminClient>,
   build: (q: any) => any
 ) {
   const q = build(supabase.from("pasien").select("id", { count: "exact", head: true }));
@@ -23,17 +23,7 @@ export async function GET() {
     const user = await requireUser();
     if (!user.ok) return user.response;
 
-    const supabase = getServiceSupabaseAdmin();
-    if (!supabase) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Server tidak dikonfigurasi (NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY).",
-        },
-        { status: 503 }
-      );
-    }
+    const supabase = createAdminClient(true);
 
     const [total, laki, perempuan, bpjs, umum, asuransi] = await Promise.all([
       countBy(supabase, (q) => q),

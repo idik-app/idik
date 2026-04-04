@@ -165,6 +165,14 @@ export async function middleware(req: NextRequest) {
         );
         return redirectToUnauthorized(req);
       }
+    } else if (pathname.startsWith("/dashboard/layanan/tindakan")) {
+      const allowed = ["perawat", ...ADMIN_ROLES];
+      if (!allowed.includes(role)) {
+        console.warn(
+          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
+        );
+        return redirectToUnauthorized(req);
+      }
     } else if (pathname.startsWith("/dashboard/admin")) {
       if (!ADMIN_ROLES.includes(role)) {
         console.warn(

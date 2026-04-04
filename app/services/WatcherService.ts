@@ -1,8 +1,9 @@
 import fs from "fs";
 import path from "path";
-import { supabaseServer } from "@/app/api/_supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export function watchProjectDir(basePath: string) {
+  const supabaseServer = createAdminClient();
   fs.watch(basePath, { recursive: true }, async (event, filename) => {
     if (!filename) return;
     const full = path.join(basePath, filename);

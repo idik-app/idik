@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, PanelLeftOpen } from "lucide-react";
 import { useUI } from "@/contexts/UIContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useTabs } from "@/contexts/TabContext";
+import { useSession } from "@/app/contexts/SessionContext";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import { useRouter } from "next/navigation";
@@ -23,6 +24,7 @@ type MenuItem = {
   label: string;
   href?: string;
   icon?: React.ReactNode;
+  noHrefForRoles?: string[];
 };
 
 type MenuGroup = {
@@ -51,6 +53,7 @@ export default function Sidebar() {
   const { theme } = useTheme();
   const lightMode = theme === "light";
   const { addTab, activeTab, setActiveTab } = useTabs();
+  const { role } = useSession();
   const router = useRouter();
 
   const [hovered, setHovered] = useState<string | null>(null);
@@ -143,20 +146,28 @@ export default function Sidebar() {
     window.dispatchEvent(
       new CustomEvent("jarvis-neuralpulse", { detail: { tab: item.id } })
     ); // 🔗 send pulse
+
+    const effectiveHref = item.noHrefForRoles?.includes(role)
+      ? undefined
+      : item.href;
+
     // URL = sumber kebenaran; push + scroll:false mengurangi lompatan scroll
-    if (item.href) router.push(item.href, { scroll: false });
+    if (effectiveHref) router.push(effectiveHref, { scroll: false });
     else setActiveTab(item.id);
     if (isMobile) toggleSidebar();
   };
 
   const prefetchHref = useCallback(
-    (href?: string) => {
-      if (!href) return;
-      if (prefetchedRef.current.has(href)) return;
-      prefetchedRef.current.add(href);
-      void router.prefetch(href);
+    (item: MenuItem) => {
+      const effectiveHref = item.noHrefForRoles?.includes(role)
+        ? undefined
+        : item.href;
+      if (!effectiveHref) return;
+      if (prefetchedRef.current.has(effectiveHref)) return;
+      prefetchedRef.current.add(effectiveHref);
+      void router.prefetch(effectiveHref);
     },
-    [router]
+    [router, role]
   );
 
   const toggleGroup = (g: string) => {
@@ -387,9 +398,9 @@ export default function Sidebar() {
                                 layout
                                 aria-label={item.label}
                                 onClick={() => handleMenuClick(item)}
-                                onFocus={() => prefetchHref(item.href)}
+                                onFocus={() => prefetchHref(item)}
                                 onMouseEnter={() => setHovered(item.id)}
-                                onMouseMove={() => prefetchHref(item.href)}
+                                onMouseMove={() => prefetchHref(item)}
                                 onMouseLeave={() => setHovered(null)}
                                 type="button"
                                 whileHover={

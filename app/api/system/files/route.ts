@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSupabase } from "@/app/api/_supabase/server";
-import { requireAdmin } from "@/lib/auth/guards";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
-  const supabaseServer = await getServerSupabase();
+  const supabaseServer = await createClient();
   const { data, error } = await supabaseServer
     .from("system_filelog")
     .select("*")

@@ -34,6 +34,9 @@ const URL_SEGMENT_TO_TAB: Record<string, { id: string; label: string }> = {
   laporan: { id: "report", label: "Report Generator" },
   audit: { id: "audit", label: "Audit Log" },
   master: { id: "farmasi-master-data", label: "Master Data Farmasi" },
+  "stok-opname": { id: "farmasi-stok-opname", label: "Stok Opname" },
+  keluar: { id: "farmasi-laporan-keluar", label: "Lap. Barang Keluar" },
+  "stok-alkes": { id: "farmasi-laporan-stok-alkes", label: "Lap. Stok Alkes" },
   "koronar-3d": { id: "koronar-3d", label: "Anotasi Koronar 3D" },
 };
 

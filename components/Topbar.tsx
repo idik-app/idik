@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import {
-  motion,
-  useAnimationControls,
-} from "framer-motion";
+import { motion, useAnimationControls } from "framer-motion";
 import { useUI } from "@/contexts/UIContext";
 import { useSession } from "@/contexts/SessionContext";
 import { LogOut, Loader2, Sun, Moon, Settings } from "lucide-react";
@@ -19,8 +16,7 @@ const JARVIS_LOGOUT_KEY = "jarvis_logout";
 const THEME_STYLES = {
   "gold-cyan": {
     glow: "shadow-[0_2px_25px_rgba(255,215,0,0.3)]",
-    gradient:
-      "from-[#081118]/85 via-[#0d1924]/80 to-[#142a2f]/70",
+    gradient: "from-[#081118]/85 via-[#0d1924]/80 to-[#142a2f]/70",
   },
   "neo-white": {
     glow: "shadow-[0_2px_25px_rgba(255,255,255,0.25)]",
@@ -29,8 +25,7 @@ const THEME_STYLES = {
   },
   "dark-clinical": {
     glow: "shadow-[0_2px_25px_rgba(0,255,255,0.25)]",
-    gradient:
-      "from-[#081118]/85 via-[#0d1924]/80 to-[#142a2f]/70",
+    gradient: "from-[#081118]/85 via-[#0d1924]/80 to-[#142a2f]/70",
   },
 } as const;
 
@@ -63,7 +58,7 @@ export default function Topbar() {
   /* 🕒 Realtime Clock */
   const days = useMemo(
     () => ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"],
-    []
+    [],
   );
   useEffect(() => {
     if (!mounted) return;
@@ -75,14 +70,14 @@ export default function Topbar() {
           day: "2-digit",
           month: "long",
           year: "numeric",
-        })
+        }),
       );
       setTime(
         now.toLocaleTimeString("id-ID", {
           hour: "2-digit",
           minute: "2-digit",
           second: "2-digit",
-        })
+        }),
       );
     };
     tick();
@@ -164,7 +159,7 @@ export default function Topbar() {
   /* 🎨 Theme Style — mode siang pakai header terang; malam ikut themeMode (gold-cyan / dll.) */
   const themeStyles = lightMode
     ? THEME_STYLES["neo-white"]
-    : THEME_STYLES[themeMode] ?? THEME_STYLES["dark-clinical"];
+    : (THEME_STYLES[themeMode] ?? THEME_STYLES["dark-clinical"]);
   const { glow: themeGlow, gradient: gradientClass } = themeStyles;
 
   if (!mounted)
@@ -198,31 +193,31 @@ export default function Topbar() {
 
         {/* Toggle sidebar: ikon Menu (hamburger) di mobile, JARVIS di desktop */}
         <motion.button
-            type="button"
-            whileHover={{ scale: 1.06 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleJarvisToggle}
-            className={`p-2 relative rounded-lg border transition flex-shrink-0 ${
-              lightMode
-                ? "border-cyan-600/30 bg-white/50 hover:bg-cyan-100/60"
-                : "border-cyan-500/30 bg-black/10 hover:bg-cyan-500/10"
-            }`}
-            title="Buka/tutup sidebar (JARVIS)"
-            aria-label="Buka atau tutup sidebar"
+          type="button"
+          whileHover={{ scale: 1.06 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleJarvisToggle}
+          className={`p-2 relative rounded-lg border transition flex-shrink-0 ${
+            lightMode
+              ? "border-cyan-600/30 bg-white/50 hover:bg-cyan-100/60"
+              : "border-cyan-500/30 bg-black/10 hover:bg-cyan-500/10"
+          }`}
+          title="Buka/tutup sidebar (JARVIS)"
+          aria-label="Buka atau tutup sidebar"
+        >
+          <motion.svg
+            viewBox="0 0 512 512"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-8 h-8 md:w-10 md:h-10"
           >
-            <motion.svg
-              viewBox="0 0 512 512"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-8 h-8 md:w-10 md:h-10"
-            >
-              <path
-                d="M256 20C150 20 60 110 60 216c0 84 48 156 120 190v60h152v-60c72-34 120-106 120-190 0-106-90-196-196-196zM180 216h-40v-56h40v56zm192 0h-40v-56h40v56z"
-                fill="#00ffff"
-                stroke="#f4b400"
-                strokeWidth="4"
-              />
-            </motion.svg>
+            <path
+              d="M256 20C150 20 60 110 60 216c0 84 48 156 120 190v60h152v-60c72-34 120-106 120-190 0-106-90-196-196-196zM180 216h-40v-56h40v56zm192 0h-40v-56h40v56z"
+              fill="#00ffff"
+              stroke="#f4b400"
+              strokeWidth="4"
+            />
+          </motion.svg>
         </motion.button>
 
         {/* 🏥 Judul: IDIK di mobile, lengkap di desktop */}
@@ -248,7 +243,11 @@ export default function Topbar() {
               >
                 Instalasi Diagnostik Intervensi{" "}
                 <span
-                  className={lightMode ? "text-amber-800 font-extrabold" : "text-amber-400 font-extrabold"}
+                  className={
+                    lightMode
+                      ? "text-amber-800 font-extrabold"
+                      : "text-amber-400 font-extrabold"
+                  }
                 >
                   Kardiovaskular
                 </span>
@@ -312,7 +311,9 @@ export default function Topbar() {
               whileTap={{ scale: 0.95 }}
               onClick={toggleTheme}
               title={lightMode ? "Mode malam" : "Mode siang"}
-              aria-label={lightMode ? "Aktifkan mode malam" : "Aktifkan mode siang"}
+              aria-label={
+                lightMode ? "Aktifkan mode malam" : "Aktifkan mode siang"
+              }
               className={`p-2 rounded-lg border transition flex-shrink-0 ${
                 lightMode
                   ? "border-cyan-600/35 bg-white/60 text-amber-600 hover:bg-amber-50"

@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 interface DataPoint {
   day: string;
@@ -10,11 +10,7 @@ interface DataPoint {
 /** Jumlah tindakan per hari (7 hari terakhir) dari Supabase; jika gagal → 0 per hari. */
 export async function getTindakanMingguan(): Promise<DataPoint[]> {
   try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) throw new Error("Supabase belum dikonfigurasi");
-
-    const supabase = createClient(url, key);
+    const supabase = createAdminClient(true);
 
     const { data, error } = await supabase
       .from("tindakan")

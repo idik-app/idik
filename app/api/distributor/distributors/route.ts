@@ -10,7 +10,7 @@ export async function GET() {
 
   let supabase: ReturnType<typeof createAdminClient>;
   try {
-    supabase = createAdminClient();
+    supabase = createAdminClient(true);
   } catch {
     return NextResponse.json(
       { ok: false, message: "Supabase admin env not configured" },

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireUser } from "@/lib/auth/guards";
+import { requireRole } from "@/lib/auth/guards";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +28,7 @@ function parseFotosJson(s: string | null | undefined): string[] {
  * Unggah satu gambar Fast-Track ke bucket `uploads` dan tambahkan URL ke kolom JSON.
  */
 export async function POST(req: Request, ctx: Params) {
-  const auth = await requireUser();
+  const auth = await requireRole(["perawat", "admin", "administrator", "superadmin"]);
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;

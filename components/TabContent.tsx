@@ -28,6 +28,15 @@ const PemakaianPage = dynamic(() => import("@/app/dashboard/pemakaian/page"));
 const MasterFarmasiPage = dynamic(
   () => import("@/app/dashboard/farmasi/master/page")
 );
+const DepoDashboardPage = dynamic(
+  () => import("@/app/depo/(main)/dashboard/page")
+);
+const DistributorPortalPage = dynamic(
+  () => import("@/app/distributor/pemakaian/page")
+);
+const FarmasiPlaceholder = dynamic(
+  () => import("@/components/farmasi/FarmasiModulePlaceholder")
+);
 const TindakanPage = dynamic(
   () => import("@/app/dashboard/layanan/tindakan/page")
 );
@@ -85,6 +94,12 @@ export default function TabContent() {
       case "farmasi-master-data":
       case "master":
         return <MasterFarmasiPage />;
+      case "farmasi-stok-opname":
+        return <FarmasiPlaceholder slug={["stok-opname"]} />;
+      case "farmasi-laporan-keluar":
+        return <FarmasiPlaceholder slug={["laporan", "keluar"]} />;
+      case "farmasi-laporan-stok-alkes":
+        return <FarmasiPlaceholder slug={["laporan", "stok-alkes"]} />;
       case "database":
         return <DatabasePage />;
       case "console":
@@ -124,6 +139,10 @@ export default function TabContent() {
       case "pengaturan":
       case "settings":
         return <SettingsPage />;
+      case "portal-depo":
+        return <DepoDashboardPage />;
+      case "portal-distributor":
+        return <DistributorPortalPage />;
 
       default:
         return (

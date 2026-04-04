@@ -13,11 +13,11 @@ export default function UiZoomControl() {
   const { uiZoomPercent, setUiZoomPercent } = useUI();
 
   const btn =
-    "inline-flex h-8 min-w-[2rem] items-center justify-center rounded-lg border px-1.5 text-[11px] font-semibold transition flex-shrink-0 disabled:opacity-40 disabled:pointer-events-none border-cyan-600/35 bg-white/70 text-cyan-900 hover:bg-cyan-50 dark:border-cyan-500/35 dark:bg-cyan-500/10 dark:text-cyan-200 dark:hover:bg-cyan-500/20";
+    "inline-flex h-8 min-w-[2rem] items-center justify-center rounded-lg border px-1.5 text-[11px] font-semibold transition flex-shrink-0 disabled:opacity-40 disabled:pointer-events-none border-cyan-600/35 bg-white/70 text-cyan-900 hover:bg-cyan-50 dark:border-cyan-700/50 dark:bg-slate-900/80 dark:text-white dark:hover:bg-slate-800/90";
 
   return (
     <div
-      className="flex items-center gap-0.5 rounded-lg border px-0.5 py-0.5 flex-shrink-0 border-cyan-600/25 bg-white/40 dark:border-cyan-600/30 dark:bg-black/20"
+      className="flex items-center gap-0.5 rounded-lg border px-0.5 py-0.5 flex-shrink-0 border-cyan-600/25 bg-white/40 dark:border-cyan-600/30 dark:bg-black/40"
       title="Zoom isi halaman (di bawah tab menu)"
       role="group"
       aria-label="Zoom tampilan"
@@ -27,15 +27,11 @@ export default function UiZoomControl() {
         className={btn}
         aria-label="Perkecil tampilan"
         disabled={uiZoomPercent <= UI_ZOOM_MIN}
-        onClick={() =>
-          setUiZoomPercent((z) => z - UI_ZOOM_STEP)
-        }
+        onClick={() => setUiZoomPercent((z) => z - UI_ZOOM_STEP)}
       >
         <Minus className="h-3.5 w-3.5" aria-hidden />
       </button>
-      <span
-        className="min-w-[2.75rem] text-center font-mono text-[10px] font-bold tabular-nums sm:text-[11px] text-cyan-950 dark:text-cyan-200"
-      >
+      <span className="min-w-[2.75rem] text-center font-mono text-[10px] font-bold tabular-nums sm:text-[11px] text-cyan-950 dark:text-white">
         {uiZoomPercent}%
       </span>
       <button
@@ -43,9 +39,7 @@ export default function UiZoomControl() {
         className={btn}
         aria-label="Perbesar tampilan"
         disabled={uiZoomPercent >= UI_ZOOM_MAX}
-        onClick={() =>
-          setUiZoomPercent((z) => z + UI_ZOOM_STEP)
-        }
+        onClick={() => setUiZoomPercent((z) => z + UI_ZOOM_STEP)}
       >
         <Plus className="h-3.5 w-3.5" aria-hidden />
       </button>

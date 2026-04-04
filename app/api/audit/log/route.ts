@@ -20,7 +20,7 @@ export async function GET() {
   const isAdminTier = adminRoles.has(id.role);
 
   try {
-    const supabase = createAdminClient();
+    const supabase = createAdminClient(true);
     let q = supabase
       .from("audit_log")
       .select(

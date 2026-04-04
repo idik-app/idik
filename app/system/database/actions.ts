@@ -1,10 +1,10 @@
 "use server";
 
-import { getServerSupabase } from "@/api/supabase/client";
+import { createClient } from "@/lib/supabase/server";
 
 /** Ambil daftar tabel dan metadata database */
 export async function getTables() {
-  const supabase = await getServerSupabase(); // server-only client
+  const supabase = await createClient(true); // server-only client
 
   const {
     data: { session },
@@ -22,7 +22,7 @@ export async function getTables() {
 
 /** Ambil isi tabel tertentu */
 export async function getData(table: string, limit = 100) {
-  const supabase = await getServerSupabase();
+  const supabase = await createClient(true);
   const { data, error } = await supabase.from(table).select("*").limit(limit);
   if (error) {
     console.error(`Error fetching data for ${table}:`, error);

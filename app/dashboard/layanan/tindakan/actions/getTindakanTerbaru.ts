@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 interface Tindakan {
   tanggal: string;
@@ -11,11 +11,7 @@ interface Tindakan {
 /** Mengambil 5 tindakan terbaru dari Supabase (tanpa data lokal palsu). */
 export async function getTindakanTerbaru(): Promise<Tindakan[]> {
   try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) throw new Error("Supabase belum dikonfigurasi");
-
-    const supabase = createClient(url, key);
+    const supabase = createAdminClient(true);
 
     const { data, error } = await supabase
       .from("tindakan")

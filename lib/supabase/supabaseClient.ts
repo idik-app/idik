@@ -25,10 +25,15 @@ export function isSupabaseConfigured(): boolean {
   );
 }
 
-function getClient(): SupabaseClient<Database> {
-  if (_client) return _client;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+function getClient(isReadOnly: boolean = false): SupabaseClient<Database> {
+  if (!isReadOnly && _client) return _client;
+  
+  const url = isReadOnly 
+    ? (process.env.NEXT_PUBLIC_SUPABASE_READ_URL || process.env.NEXT_PUBLIC_SUPABASE_URL)
+    : process.env.NEXT_PUBLIC_SUPABASE_URL;
+
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
   if (!url || !key) {
     throw new Error(
       "Supabase env vars missing. Add to .env.local:\n" +
@@ -36,16 +41,36 @@ function getClient(): SupabaseClient<Database> {
         "  NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key"
     );
   }
-  _client = createClient<Database>(url, key, options);
-  return _client;
+
+  const client = createClient<Database>(url, key, options);
+  
+  if (!isReadOnly) {
+    _client = client;
+  }
+  
+  return client;
 }
 
 /*───────────────────────────────────────────────
 🧩 Supabase Client – Lazy init (no throw at module load)
 ───────────────────────────────────────────────*/
+
+/** 
+ * Client utama (Master/Primary) - Digunakan untuk TULIS dan BACA Kritis.
+ */
 export const supabase = new Proxy({} as SupabaseClient<Database>, {
   get(_, prop) {
-    return (getClient() as unknown as Record<string | symbol, unknown>)[prop];
+    return (getClient(false) as unknown as Record<string | symbol, unknown>)[prop];
+  },
+});
+
+/**
+ * Client khusus BACA (Slave/Replica) - Digunakan untuk fetch data non-kritis/laporan.
+ * Jika NEXT_PUBLIC_SUPABASE_READ_URL tidak ada, otomatis pakai URL Primary.
+ */
+export const supabaseRead = new Proxy({} as SupabaseClient<Database>, {
+  get(_, prop) {
+    return (getClient(true) as unknown as Record<string | symbol, unknown>)[prop];
   },
 });
 

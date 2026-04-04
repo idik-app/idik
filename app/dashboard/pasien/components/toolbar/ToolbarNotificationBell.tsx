@@ -10,13 +10,13 @@ export function ToolbarNotificationBell() {
   const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const {
-    bellAlerts,
-    clearBellAlert,
-    clearAllBellAlerts,
-  } = useNotificationBell();
+  const { bellAlerts, clearBellAlert, clearAllBellAlerts } =
+    useNotificationBell();
 
-  const [dropdownRect, setDropdownRect] = useState<{ top: number; right: number } | null>(null);
+  const [dropdownRect, setDropdownRect] = useState<{
+    top: number;
+    right: number;
+  } | null>(null);
 
   useEffect(() => setMounted(true), []);
 
@@ -56,7 +56,7 @@ export function ToolbarNotificationBell() {
         <Bell className="w-4 h-4 text-cyan-300" />
         {bellAlerts.length > 0 && (
           <span
-              className="absolute top-0 right-0 bg-amber-400 text-black dark:text-white text-[9px]
+            className="absolute top-0 right-0 bg-amber-400 text-black dark:text-white text-[9px]
                            font-bold rounded-full px-1 min-w-[14px] text-center"
           >
             {bellAlerts.length > 99 ? "99+" : bellAlerts.length}
@@ -98,7 +98,9 @@ export function ToolbarNotificationBell() {
                 </div>
                 <div className="overflow-y-auto p-2 space-y-1">
                   {bellAlerts.length === 0 ? (
-                    <p className="py-4 text-center text-cyan-400/70">Tidak ada notifikasi</p>
+                    <p className="py-4 text-center text-cyan-400/70">
+                      Tidak ada notifikasi
+                    </p>
                   ) : (
                     bellAlerts.map((a) => (
                       <div
@@ -121,7 +123,7 @@ export function ToolbarNotificationBell() {
               </div>
             )}
           </>,
-          document.body
+          document.body,
         )}
     </div>
   );

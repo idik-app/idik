@@ -301,7 +301,7 @@ export function aggregateMonthlyJenisOperasi(
     const day = dayOfMonthFromTanggal(row.tanggal);
     if (day == null || day < 1 || day > dim) continue;
     const di = day - 1;
-    const cat = categorizeTindakanLab(row.tindakan);
+    const cat = categorizeTindakanLab(row);
     if (cat && byLabel.has(cat)) {
       byLabel.get(cat)![di] += 1;
     } else {

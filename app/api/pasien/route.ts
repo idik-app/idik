@@ -12,6 +12,59 @@ export const dynamic = "force-dynamic";
  - ?noRm= / ?no_rm= : satu pasien by no_rm (object | null) — hydrate drawer tindakan.
  - ?nama= : satu pasien jika nama unik (ilike, case-insensitive exact).
 ───────────────────────────────────────────────*/
+const POSTGREST_SAFE_CHUNK = 1000;
+
+async function fetchTableOrderedInChunks(
+  supabase: any,
+  columns: string,
+  maxRows: number
+): Promise<{ data: any[]; error: any | null }> {
+  // 1. Cek validitas proyeksi pada chunk pertama (Fast Fail)
+  const firstRes = await supabase
+    .from("pasien")
+    .select(columns)
+    .order("created_at", { ascending: false })
+    .range(0, POSTGREST_SAFE_CHUNK - 1);
+
+  if (firstRes.error) {
+    return { data: [], error: firstRes.error };
+  }
+
+  const firstBatch = Array.isArray(firstRes.data) ? firstRes.data : [];
+  if (firstBatch.length === 0 || maxRows <= POSTGREST_SAFE_CHUNK) {
+    return { data: firstBatch.slice(0, maxRows), error: null };
+  }
+
+  // 2. Jika valid dan data banyak, ambil sisanya secara paralel
+  const numChunks = Math.ceil(maxRows / POSTGREST_SAFE_CHUNK);
+  const ranges = Array.from({ length: numChunks - 1 }, (_, i) => {
+    const from = (i + 1) * POSTGREST_SAFE_CHUNK;
+    const to = from + POSTGREST_SAFE_CHUNK - 1;
+    return { from, to };
+  });
+
+  const results = await Promise.all(
+    ranges.map(({ from, to }) =>
+      supabase
+        .from("pasien")
+        .select(columns)
+        .order("created_at", { ascending: false })
+        .range(from, to)
+    )
+  );
+
+  const out: any[] = [...firstBatch];
+  for (const res of results) {
+    if (res.error) break;
+    const batch = Array.isArray(res.data) ? res.data : [];
+    if (batch.length === 0) break;
+    out.push(...batch);
+    if (out.length >= maxRows) break;
+  }
+
+  return { data: out.slice(0, maxRows), error: null };
+}
+
 export async function GET(request: Request) {
   try {
     const user = await requireUser();
@@ -98,16 +151,8 @@ export async function GET(request: Request) {
       ? "id,nama,no_rm,jenis_kelamin,jk,created_at,jenis_pembiayaan,kelas_perawatan"
       : "*";
 
-    let listQuery = supabase
-      .from("pasien")
-      .select(columns)
-      .order("created_at", { ascending: false });
-
-    if (limit > 0) {
-      listQuery = listQuery.limit(limit);
-    }
-
-    const { data, error } = await listQuery;
+    // Gunakan chunked fetching jika limit > 1000 untuk melewati batas default PostgREST
+    const { data, error } = await fetchTableOrderedInChunks(supabase, columns, limit || 20000);
 
     if (error) {
       return NextResponse.json(

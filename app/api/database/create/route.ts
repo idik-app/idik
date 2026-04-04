@@ -1,26 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requireEnvFlag } from "@/lib/auth/guards";
-
-/** Lazy init agar `next build` tidak gagal saat env belum ada (mis. CI tanpa secret). */
-let supabaseAdmin: SupabaseClient | null = null;
-function getSupabaseAdmin(): SupabaseClient {
-  if (supabaseAdmin) return supabaseAdmin;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-  if (!url || !key) {
-    throw new Error(
-      "Supabase tidak dikonfigurasi: set NEXT_PUBLIC_SUPABASE_URL dan SUPABASE_SERVICE_ROLE_KEY (atau SUPABASE_SERVICE_KEY)"
-    );
-  }
-  supabaseAdmin = createClient(url, key);
-  return supabaseAdmin;
-}
-
-function isSafeIdentifier(name: unknown) {
-  return typeof name === "string" && /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
-}
 
 function normalizeColumnType(type: unknown) {
   if (typeof type !== "string") return null;
@@ -87,7 +67,8 @@ export async function POST(req: Request) {
     const sql = `CREATE TABLE IF NOT EXISTS ${tableName} (${columnDefs});`;
 
     // jalankan query SQL
-    const { error } = await getSupabaseAdmin().rpc("exec_sql", { query: sql });
+    const supabaseAdmin = createAdminClient();
+    const { error } = await supabaseAdmin.rpc("exec_sql", { query: sql });
 
     if (error) throw error;
 

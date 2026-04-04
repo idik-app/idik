@@ -555,6 +555,10 @@ export default function PemakaianAlkesModal({
             );
           }
         }
+
+        if (d.tanggal) {
+          setDrawerDateTime(orderTanggalToDatetimeLocal(String(d.tanggal)));
+        }
       } catch {
         /* ignore */
       }

@@ -25,9 +25,30 @@ async function fetchTableOrderedInChunks(
   projection: string,
   maxRows: number,
 ): Promise<{ data: Record<string, unknown>[]; error: { message?: string } | null }> {
+  // 1. Cek validitas proyeksi pada chunk pertama (Fast Fail) agar tidak mubazir paralel jika kolom salah
+  const firstRes = await supabase
+    .from(table)
+    .select(projection)
+    .order("tanggal", { ascending: false, nullsFirst: false })
+    .order("id", { ascending: false })
+    .range(0, POSTGREST_SAFE_CHUNK - 1);
+
+  if (firstRes.error) {
+    return { data: [], error: firstRes.error as { message?: string } };
+  }
+
+  const firstBatch = Array.isArray(firstRes.data)
+    ? (firstRes.data as unknown as Record<string, unknown>[])
+    : [];
+
+  if (firstBatch.length === 0 || maxRows <= POSTGREST_SAFE_CHUNK) {
+    return { data: firstBatch.slice(0, maxRows), error: null };
+  }
+
+  // 2. Ambil sisanya secara paralel hanya jika chunk pertama sukses
   const numChunks = Math.ceil(maxRows / POSTGREST_SAFE_CHUNK);
-  const ranges = Array.from({ length: numChunks }, (_, i) => {
-    const from = i * POSTGREST_SAFE_CHUNK;
+  const ranges = Array.from({ length: numChunks - 1 }, (_, i) => {
+    const from = (i + 1) * POSTGREST_SAFE_CHUNK;
     const to = from + POSTGREST_SAFE_CHUNK - 1;
     return { from, to };
   });
@@ -43,17 +64,14 @@ async function fetchTableOrderedInChunks(
     ),
   );
 
-  const out: Record<string, unknown>[] = [];
+  const out: Record<string, unknown>[] = [...firstBatch];
   for (const res of results) {
-    if (res.error) {
-      return { data: out, error: res.error as { message?: string } };
-    }
+    if (res.error) break;
     const batch = Array.isArray(res.data)
       ? (res.data as unknown as Record<string, unknown>[])
       : [];
     if (batch.length === 0) break;
-    const remaining = maxRows - out.length;
-    out.push(...batch.slice(0, remaining));
+    out.push(...batch);
     if (out.length >= maxRows) break;
   }
 
@@ -82,7 +100,8 @@ function mapLegacyTindakanMedikRow(
 /** Daftar tindakan untuk dashboard (server-side service role, tahan RLS). */
 export async function GET(request: Request) {
   try {
-    const auth = await requireUser();
+    const { requireRole } = await import("@/lib/auth/guards");
+    const auth = await requireRole(["perawat", "admin", "administrator", "superadmin"]);
     if (!auth.ok) return auth.response;
 
     const supabase = getServiceSupabaseAdmin();
@@ -120,10 +139,16 @@ export async function GET(request: Request) {
       if (!chunkError) {
         const rows = rawRows;
         data = rows.map((row) => {
-          const enriched = enrichTindakanRowForApi(row);
-          const withTarif = enrichTindakanRowTarifFromMasterMap(enriched, tarifMap);
-          const noRm = coalesceNoRm(row);
-          return noRm ? { ...withTarif, no_rm: noRm } : withTarif;
+          // Optimized mapping: Gabungkan logic enrichment untuk mengurangi object spreading
+          const noRm = coalesceNoRm(row) || (row.no_rm as string) || null;
+          const withApiFields = {
+            ...row,
+            nama_pasien: toText(row.nama_pasien) || toText(row.nama) || null,
+            no_rm: noRm,
+            ruangan: row.ruangan || null,
+            created_at: row.created_at || row.inserted_at || null,
+          };
+          return enrichTindakanRowTarifFromMasterMap(withApiFields, tarifMap);
         });
         lastError = null;
         break;

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, LayoutGroup } from "framer-motion";
 import { X, Trash2 } from "lucide-react";
 import { useTabContext } from "@/contexts/TabContext";
+import { useSession } from "@/app/contexts/SessionContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -20,6 +21,7 @@ import { menuConfig } from "@/app/config/menuConfig";
 export default function TabBar() {
   const { tabs, activeTab, setActiveTab, closeTab, addTab, closeAllTabs } = useTabContext();
   const { theme } = useTheme();
+  const { role } = useSession();
   const lightMode = theme === "light";
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -31,9 +33,15 @@ export default function TabBar() {
   const hrefByTabId = useMemo(() => {
     const map = new Map<string, string>();
     try {
-      for (const group of menuConfig as Array<{ items?: Array<{ id: string; href?: string }> }>) {
+      for (const group of menuConfig as Array<{
+        items?: Array<{ id: string; href?: string; noHrefForRoles?: string[] }>;
+      }>) {
         for (const item of group.items ?? []) {
-          if (item?.id && item?.href) map.set(item.id, item.href);
+          if (item?.id && item?.href) {
+            if (!item.noHrefForRoles?.includes(role)) {
+              map.set(item.id, item.href);
+            }
+          }
         }
       }
     } catch {
@@ -42,7 +50,7 @@ export default function TabBar() {
     if (!map.has("dashboard")) map.set("dashboard", "/dashboard");
     if (!map.has("tindakan")) map.set("tindakan", "/dashboard/layanan/tindakan");
     return map;
-  }, []);
+  }, [role]);
 
   /* 🧭 Prevent SSR mismatch */
   useEffect(() => setMounted(true), []);

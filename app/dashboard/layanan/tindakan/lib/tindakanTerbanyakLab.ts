@@ -1,88 +1,114 @@
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 
 /** Urutan baris mengikuti contoh laporan Lab Kateterisasi. */
-const ROW_DEFS: readonly { label: string; test: (n: string) => boolean }[] = [
+const ROW_DEFS: readonly {
+  label: string;
+  test: (tindakan: string, kategori: string) => boolean;
+}[] = [
   {
-    label: "Primary PCI",
-    test: (n) =>
-      /\bppci\b/i.test(n) ||
-      /primary\s*pci/i.test(n) ||
-      n.includes("primary pci") ||
-      /(?:^|\s)primary\s+ptca\b/i.test(n),
+    label: "PPCI",
+    test: (t) =>
+      /\bppci\b/i.test(t) ||
+      /primary\s*pci/i.test(t) ||
+      t.includes("primary pci") ||
+      /(?:^|\s)primary\s+ptca\b/i.test(t),
   },
   {
-    label: "Elektif PCI",
-    test: (n) => {
+    label: "PTCA",
+    test: (t) => {
       const hit =
-        /\bptca\b/i.test(n) ||
-        (/elektif|elective/i.test(n) && /\bpci\b|kateter/i.test(n)) ||
-        /pci\s*elektif|elektif\s*pci/i.test(n);
+        /\bptca\b/i.test(t) ||
+        (/elektif|elective/i.test(t) && /\bpci\b|kateter/i.test(t)) ||
+        /pci\s*elektif|elektif\s*pci/i.test(t);
       const isPrimaryLike =
-        /\bppci\b/i.test(n) ||
-        /(?:^|\s)primary\s+(?:pci|ptca)\b/i.test(n);
+        /\bppci\b/i.test(t) || /(?:^|\s)primary\s+(?:pci|ptca)\b/i.test(t);
       return hit && !isPrimaryLike;
     },
   },
   {
-    label: "Angioplasty",
-    test: (n) =>
-      /angioplast/i.test(n) &&
-      !/\bppci\b|primary(\s*pci)?/i.test(n) &&
-      !/elektif|elective/i.test(n),
+    label: "ANGIOPLASTY",
+    test: (t) =>
+      /angioplast/i.test(t) &&
+      !/\bppci\b|primary(\s*pci)?/i.test(t) &&
+      !/elektif|elective/i.test(t),
+  },
+  {
+    label: "DCA",
+    test: (t) => /\bdca\b/i.test(t),
+  },
+  {
+    label: "ROTA",
+    test: (t) => /\brota\b/i.test(t),
+  },
+  {
+    label: "FFR",
+    test: (t) => /\bffr\b/i.test(t),
   },
   {
     label: "CTO",
-    test: (n) => /(?:^|\s)cto(?:\s|$)|chronic\s+total/i.test(n),
+    test: (t, k) =>
+      /cto/i.test(k) || /(?:^|\s)cto(?:\s|$)|chronic\s+total/i.test(t),
   },
   {
-    label: "Bifurcation",
-    test: (n) => /bifurcat|bifurkasi/i.test(n),
+    label: "BIFURKASI",
+    test: (t, k) => /bifurc|bifurkas/i.test(k) || /bifurcat|bifurkasi/i.test(t),
   },
   {
     label: "TPM",
-    test: (n) =>
+    test: (t) =>
       /\btpm\b|temporary\s*pacemaker|pacemaker\s*sementara|pace\s*maker\s*temp/i.test(
-        n,
+        t,
       ),
   },
   {
     label: "PPM",
-    test: (n) =>
-      /\bppm\b|permanent\s*pacemaker|pacemaker\s*permanen/i.test(n) &&
-      !/\btpm\b/i.test(n),
+    test: (t) =>
+      /\bppm\b|permanent\s*pacemaker|pacemaker\s*permanen/i.test(t) &&
+      !/\btpm\b/i.test(t),
   },
   {
-    label: "EP Study",
-    test: (n) => /ep\s*study|estudi\s*ep/i.test(n),
+    label: "EP STUDY",
+    test: (t) => /ep\s*study|estudi\s*ep/i.test(t),
   },
   {
-    label: "Ablasi",
-    test: (n) => /ablasi|ablation/i.test(n),
+    label: "ABLASI",
+    test: (t) => /ablasi|ablation/i.test(t),
   },
   {
     label: "EVLA",
-    test: (n) => /evla|endovenous|laser\s*ven/i.test(n),
+    test: (t) => /evla|endovenous|laser\s*ven/i.test(t),
   },
   {
-    label: "Arteriografi",
-    test: (n) =>
-      /arteriograf|arteriography|arterio\s*graph/i.test(n) &&
-      !/veno/i.test(n),
+    label: "ARTERIOGRAPHY",
+    test: (t) =>
+      /arteriograf|arteriography|arterio\s*graph/i.test(t) && !/veno/i.test(t),
   },
   {
-    label: "Pericardiosintesis",
-    test: (n) => /pericardio/i.test(n),
-  },
-  {
-    label: "Venoplasty",
-    test: (n) => /venoplast|venograph|veno\s*graph|venografi/i.test(n),
+    label: "VENOGRAPHY",
+    test: (t) => /venoplast|venograph|veno\s*graph|venografi/i.test(t),
   },
   {
     label: "DSA",
-    test: (n) =>
+    test: (t) =>
       /\bdsa\b|digital\s*subtraction|angiografi\s*serebral|cerebral\s*angio/i.test(
-        n,
+        t,
       ),
+  },
+  {
+    label: "CHEMOPORT",
+    test: (t) => /chemoport/i.test(t),
+  },
+  {
+    label: "DOUBLE LUMEN",
+    test: (t) => /double\s*lumen|dl/i.test(t),
+  },
+  {
+    label: "PE",
+    test: (t) => /\bpe\b/i.test(t) && !/pericardio/i.test(t),
+  },
+  {
+    label: "PTE",
+    test: (t) => /\bpte\b/i.test(t),
   },
 ];
 
@@ -90,7 +116,7 @@ export const LAB_TINDAKAN_ROW_LABELS: readonly string[] = ROW_DEFS.map(
   (r) => r.label,
 );
 
-function normalizeTindakan(raw: unknown): string {
+function normalizeString(raw: unknown): string {
   return String(raw ?? "")
     .toLowerCase()
     .replace(/\s+/g, " ")
@@ -98,11 +124,12 @@ function normalizeTindakan(raw: unknown): string {
 }
 
 /** Kategori pertama yang cocok, atau null → masuk "Lainnya". */
-export function categorizeTindakanLab(rawTindakan: unknown): string | null {
-  const n = normalizeTindakan(rawTindakan);
-  if (!n) return null;
+export function categorizeTindakanLab(row: TindakanJoinResult): string | null {
+  const t = normalizeString(row.tindakan);
+  const k = normalizeString(row.kategori);
+  if (!t && !k) return null;
   for (const def of ROW_DEFS) {
-    if (def.test(n)) return def.label;
+    if (def.test(t, k)) return def.label;
   }
   return null;
 }
@@ -167,7 +194,7 @@ export function aggregateLabTerbanyakMatrix(
     const ii = idx(y);
     if (ii < 0) continue;
 
-    const cat = categorizeTindakanLab(row.tindakan);
+    const cat = categorizeTindakanLab(row);
     if (cat && countsByLabel[cat]) {
       countsByLabel[cat][ii] += 1;
     } else {

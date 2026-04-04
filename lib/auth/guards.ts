@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
-import { createClient } from "@/lib/supabase/server-";
+import { createClient } from "@/lib/supabase/server";
 
 type GuardOk = { ok: true; userId: string; role: string };
 type GuardFail = { ok: false; response: NextResponse };

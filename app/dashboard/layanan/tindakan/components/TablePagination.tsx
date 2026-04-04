@@ -42,14 +42,14 @@ export default function TablePagination({
       <p
         className={cn(
           "text-center sm:text-left text-[11px] sm:text-xs font-semibold",
-          "text-slate-800 dark:text-cyan-200/90",
+          "text-slate-800 dark:text-white/90",
         )}
       >
         Menampilkan{" "}
         <span
           className={cn(
             "font-mono font-bold tabular-nums",
-            "text-slate-950 dark:text-cyan-100",
+            "text-slate-950 dark:text-white",
           )}
         >
           {start}–{end}
@@ -58,7 +58,7 @@ export default function TablePagination({
         <span
           className={cn(
             "font-mono font-bold tabular-nums",
-            "text-slate-950 dark:text-cyan-100",
+            "text-slate-950 dark:text-white",
           )}
         >
           {totalItems.toLocaleString("id-ID")}
@@ -68,7 +68,7 @@ export default function TablePagination({
         <label
           className={cn(
             "flex items-center gap-2 text-[11px] sm:text-xs font-bold",
-            "text-cyan-950 dark:text-cyan-400/90",
+            "text-cyan-950 dark:text-white/90",
           )}
         >
           <span className="whitespace-nowrap">Baris / halaman</span>
@@ -77,11 +77,11 @@ export default function TablePagination({
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
             className={cn(
               "rounded-md border px-2 py-1.5 text-xs font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/45",
-              "border-cyan-500/45 bg-white text-slate-950 [color-scheme:light] dark:border-cyan-700/50 dark:bg-black/60 dark:text-cyan-100 dark:[color-scheme:dark]",
+              "border-cyan-500/45 bg-white text-slate-950 [color-scheme:light] dark:border-cyan-700/50 dark:bg-black/60 dark:text-white dark:[color-scheme:dark]",
             )}
           >
             {sizeChoices.map((n) => (
-              <option key={n} value={n}>
+              <option key={n} value={n} className="dark:bg-slate-900">
                 {n}
               </option>
             ))}
@@ -94,7 +94,7 @@ export default function TablePagination({
             onClick={() => onPageChange(currentPage - 1)}
             className={cn(
               "p-2 rounded-md border disabled:opacity-30 disabled:cursor-not-allowed transition",
-              "border-cyan-500/40 hover:bg-cyan-100 text-cyan-900 dark:border-cyan-700/40 dark:hover:bg-cyan-900/40 dark:text-cyan-300",
+              "border-cyan-500/40 hover:bg-cyan-100 text-cyan-900 dark:border-cyan-700/40 dark:hover:bg-cyan-900/40 dark:text-white",
             )}
             aria-label="Halaman sebelumnya"
           >
@@ -103,7 +103,7 @@ export default function TablePagination({
           <span
             className={cn(
               "text-xs sm:text-sm font-bold whitespace-nowrap min-w-[7.5rem] text-center tabular-nums",
-              "text-slate-950 dark:text-cyan-200",
+              "text-slate-950 dark:text-white",
             )}
           >
             Halaman {currentPage} / {totalPages}
@@ -114,7 +114,7 @@ export default function TablePagination({
             onClick={() => onPageChange(currentPage + 1)}
             className={cn(
               "p-2 rounded-md border disabled:opacity-30 disabled:cursor-not-allowed transition",
-              "border-cyan-500/40 hover:bg-cyan-100 text-cyan-900 dark:border-cyan-700/40 dark:hover:bg-cyan-900/40 dark:text-cyan-300",
+              "border-cyan-500/40 hover:bg-cyan-100 text-cyan-900 dark:border-cyan-700/40 dark:hover:bg-cyan-900/40 dark:text-white",
             )}
             aria-label="Halaman berikutnya"
           >

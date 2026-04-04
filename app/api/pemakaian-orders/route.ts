@@ -127,7 +127,7 @@ export async function POST(req: Request) {
           typeof it.qtyDipakai === "number" && !Number.isNaN(it.qtyDipakai)
             ? Math.max(0, it.qtyDipakai)
             : 0,
-        tipe: it.tipe === "REUSE" ? "REUSE" : "BARU",
+        tipe: (it.tipe === "R" || it.tipe === "REUSE") ? "R" : "N",
         lot:
           typeof it.lot === "string" && it.lot.trim()
             ? it.lot.trim()

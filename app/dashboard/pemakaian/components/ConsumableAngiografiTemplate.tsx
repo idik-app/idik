@@ -54,7 +54,7 @@ export type ConsumableAngiografiOrderPayload = {
     harga?: number;
     qtyRencana: number;
     qtyDipakai: number;
-    tipe: "BARU" | "REUSE";
+    tipe: "N" | "R";
   }[];
   /** Isian checklist (id baris → nilai dipisah "|"). */
   templateInputBarang?: {

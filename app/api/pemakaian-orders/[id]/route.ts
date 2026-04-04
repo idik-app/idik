@@ -38,7 +38,7 @@ type NormalizedLine = {
   distributor?: string;
   qtyRencana: number;
   qtyDipakai: number;
-  tipe: "BARU" | "REUSE";
+  tipe: "N" | "R";
   lot?: string;
   ukuran?: string;
   ed?: string;
@@ -73,7 +73,7 @@ function normalizeItems(
           typeof it.qtyDipakai === "number" && !Number.isNaN(it.qtyDipakai)
             ? Math.max(0, it.qtyDipakai)
             : 0,
-        tipe: (it.tipe === "REUSE" ? "REUSE" : "BARU") as "BARU" | "REUSE",
+        tipe: (it.tipe === "R" || it.tipe === "REUSE" ? "R" : "N") as "N" | "R",
         lot:
           typeof it.lot === "string" && it.lot.trim()
             ? it.lot.trim()

@@ -23,7 +23,6 @@ import MasterPerawatTimField, {
 } from "./MasterPerawatTimField";
 import MasterDokterField from "./MasterDokterField";
 import MasterJenisTindakanField from "./MasterJenisTindakanField";
-import TambahKeMasterPerawatForm from "./TambahKeMasterPerawatForm";
 import RadiologiAutosaveField, {
   type RadiologiFieldKey,
 } from "./RadiologiAutosaveField";
@@ -254,7 +253,6 @@ export default function TindakanDetailDrawer({
   const [detailTarifFromApi, setDetailTarifFromApi] = useState<number | null>(
     null,
   );
-  const [perawatMasterReloadToken, setPerawatMasterReloadToken] = useState(0);
   const [waCopied, setWaCopied] = useState(false);
 
   useEffect(() => {
@@ -1059,7 +1057,6 @@ export default function TindakanDetailDrawer({
                                     : String(rawVal)
                                 }
                                 onSaved={onRecordPatch}
-                                masterReloadToken={perawatMasterReloadToken}
                               />
                             ) : isCathlabEditable ? (
                               <CathlabSlotField
@@ -1145,11 +1142,6 @@ export default function TindakanDetailDrawer({
                   ) : null}
                   </>
                   )}
-                  {def.id === "tim" ? (
-                    <TambahKeMasterPerawatForm
-                      onAdded={() => setPerawatMasterReloadToken((t) => t + 1)}
-                    />
-                  ) : null}
                 </div>
               ))}
             </>

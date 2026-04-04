@@ -1923,6 +1923,14 @@ export default function TindakanTable({
       if (!id) return false;
       try {
         await saveEditor(id, updates);
+        // Update local fallback rows immediately so changes reflect without re-fetching
+        setCathlabFallbackRows((prev) =>
+          prev.map((r) =>
+            String(r.id ?? "").trim() === String(id).trim()
+              ? { ...r, ...updates }
+              : r,
+          ),
+        );
         return true;
       } catch (e) {
         notify({

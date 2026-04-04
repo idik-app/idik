@@ -160,11 +160,8 @@ function barangMatchesTenantSet(
   tenantBarangNames: Set<string>,
 ): boolean {
   if (!barangKey) return false;
+  // Perketat: harus ada di set (exact match setelah normalisasi)
   if (tenantBarangNames.has(barangKey)) return true;
-  for (const tn of tenantBarangNames) {
-    if (tn.length < 4 || barangKey.length < 4) continue;
-    if (tn.includes(barangKey) || barangKey.includes(tn)) return true;
-  }
   return false;
 }
 
@@ -540,12 +537,23 @@ export async function GET(req: Request) {
     ): boolean {
       const qty = lineQtyForPemakaianReport(line, orderStatus);
       if (qty <= 0) return false;
+
       const rawDist = String(line.distributor ?? "").trim();
-      if (rawDist && namaPtStr && distributorLineMatchesTenant(rawDist, namaPtStr))
-        return true;
+      // 1. Jika di baris order tertulis nama distributor secara eksplisit:
+      if (rawDist && namaPtStr) {
+        // Jika cocok dengan distributor Anda, tampilkan.
+        if (distributorLineMatchesTenant(rawDist, namaPtStr)) return true;
+
+        // Jika distributornya eksplisit BUKAN Anda (misal Wikaton), maka JANGAN tampilkan,
+        // meskipun nama barangnya mirip (mencegah kebocoran antar distributor).
+        return false;
+      }
+
+      // 2. Jika kolom distributor kosong/null, baru gunakan fallback pencocokan nama barang.
       const barangKey = normKey(String(line.barang ?? ""));
       if (barangKey && barangMatchesTenantSet(barangKey, tenantBarangNames))
         return true;
+
       return false;
     }
 

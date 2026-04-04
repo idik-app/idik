@@ -79,7 +79,7 @@ type PemakaianLine = {
   distributor?: string;
   qtyRencana: number;
   qtyDipakai: number;
-  tipe: "BARU" | "REUSE";
+  tipe: "N" | "R";
   lot?: string;
   ukuran?: string;
   ed?: string;
@@ -292,7 +292,7 @@ function linesFromOrderItemsJson(raw: unknown): PemakaianLine[] {
         typeof o.qtyDipakai === "number"
           ? o.qtyDipakai
           : Number(o.qtyDipakai) || 0,
-      tipe: o.tipe === "REUSE" ? "REUSE" : "BARU",
+      tipe: (o.tipe === "R" || o.tipe === "REUSE") ? "R" : "N",
       lot: typeof o.lot === "string" ? o.lot : undefined,
       ukuran: typeof o.ukuran === "string" ? o.ukuran : undefined,
       ed: typeof o.ed === "string" ? o.ed : undefined,
@@ -378,6 +378,9 @@ export default function PemakaianAlkesModal({
   const [drawerDateTime, setDrawerDateTime] = useState("");
   const [drawerLines, setDrawerLines] = useState<PemakaianLine[]>([]);
   const [drawerSaving, setDrawerSaving] = useState(false);
+  const [drawerFocusLineId, setDrawerFocusLineId] = useState<string | null>(
+    null,
+  );
   /** Highlight field wajib setelah submit gagal (header). */
   const [dokterFieldInvalid, setDokterFieldInvalid] = useState(false);
   const [ruanganFieldInvalid, setRuanganFieldInvalid] = useState(false);
@@ -403,6 +406,7 @@ export default function PemakaianAlkesModal({
   const [tambahProdukDraft, setTambahProdukDraft] = useState("");
 
   const resetFormFromProps = useCallback(() => {
+    const firstId = newDrawerLineId();
     setDrawerPasien(initialPasienLabel.trim());
     setDrawerDokter(initialDokter.trim());
     setDrawerRuangan(initialRuangan.trim());
@@ -410,14 +414,15 @@ export default function PemakaianAlkesModal({
     setDrawerDateTime(toDatetimeLocalValue(new Date()));
     setDrawerLines([
       {
-        lineId: newDrawerLineId(),
+        lineId: firstId,
         barang: "",
         distributor: "",
         qtyRencana: 1,
         qtyDipakai: 0,
-        tipe: "BARU",
+        tipe: "N",
       },
     ]);
+    setDrawerFocusLineId(firstId);
     setDrawerSaving(false);
     setBarangPickerOpen(false);
     setBarangPickerQuery("");
@@ -471,20 +476,23 @@ export default function PemakaianAlkesModal({
         orderTanggalToDatetimeLocal(String(first.tanggal ?? "")),
       );
       const parsed = linesFromOrderItemsJson(first.items);
-      setDrawerLines(
-        parsed.length > 0
-          ? parsed
-          : [
-              {
-                lineId: newDrawerLineId(),
-                barang: "",
-                distributor: "",
-                qtyRencana: 1,
-                qtyDipakai: 0,
-                tipe: "BARU",
-              },
-            ],
-      );
+      if (parsed.length > 0) {
+        setDrawerLines(parsed);
+        setDrawerFocusLineId(parsed[0].lineId);
+      } else {
+        const firstId = newDrawerLineId();
+        setDrawerLines([
+          {
+            lineId: firstId,
+            barang: "",
+            distributor: "",
+            qtyRencana: 1,
+            qtyDipakai: 0,
+            tipe: "N",
+          },
+        ]);
+        setDrawerFocusLineId(firstId);
+      }
       setEditingTemplateInputBarang(
         normalizeTemplateInputBarang(first.template_input_barang),
       );
@@ -751,7 +759,7 @@ export default function PemakaianAlkesModal({
               distributor: "",
               qtyRencana: 1,
               qtyDipakai: 0,
-              tipe: "BARU",
+              tipe: "N",
             },
           ];
     });
@@ -851,17 +859,19 @@ export default function PemakaianAlkesModal({
 
   function addEmptyLineFromPicker() {
     const suffix = Date.now().toString(36);
+    const nextId = `draft-new-${suffix}`;
     setDrawerLines((rows) => [
       ...rows,
       {
-        lineId: `draft-new-${suffix}`,
+        lineId: nextId,
         barang: "",
         distributor: "",
         qtyRencana: 1,
         qtyDipakai: 0,
-        tipe: "BARU",
+        tipe: "N",
       },
     ]);
+    setDrawerFocusLineId(nextId);
     closeBarangPicker();
   }
 
@@ -869,20 +879,22 @@ export default function PemakaianAlkesModal({
     const suffix = Date.now().toString(36);
     const hPick = hargaFromPickRow(pick, barangVariantList);
     const kCat = kategoriAlkesFromVariantPickRow(pick);
+    const nextId = `draft-new-${suffix}`;
     const line: PemakaianLine = {
-      lineId: `draft-new-${suffix}`,
+      lineId: nextId,
       barang: pick.nama.trim(),
       ...(kCat ? { kategori: kCat } : {}),
       distributor: pick.distributor_nama?.trim() || undefined,
       qtyRencana: 1,
       qtyDipakai: 0,
-      tipe: "BARU",
+      tipe: "N",
       lot: pick.lot?.trim() || undefined,
       ukuran: pick.ukuran?.trim() || undefined,
       ed: pick.ed?.trim() || undefined,
       ...(hPick !== undefined ? { harga: hPick } : {}),
     };
     setDrawerLines((rows) => [...rows, line]);
+    setDrawerFocusLineId(nextId);
     closeBarangPicker();
   }
 
@@ -917,6 +929,268 @@ export default function PemakaianAlkesModal({
   function handlePrint() {
     window.print();
   }
+
+  const printOnlyUi = (
+    <div className="hidden print:block print:fixed print:inset-0 print:z-[9999] print:bg-white print:text-black print:p-8 text-[12pt] print-area">
+      <div className="flex flex-col items-center mb-6 text-center">
+        <div className="flex items-center justify-center gap-3 mb-2">
+          {/* Logo atau Identitas RS bisa ditambahkan di sini */}
+          <div className="flex flex-col items-center">
+            <h1 className="text-xl font-bold uppercase tracking-wide">
+              Instalasi Diagnostik Intervensi Kardiovaskular
+            </h1>
+            <h2 className="text-lg font-semibold uppercase">
+              RSUD dr. M. Soewandhie - Surabaya
+            </h2>
+          </div>
+        </div>
+        <h3 className="text-md font-bold uppercase border-t-2 border-black pt-2 w-full mt-2">
+          Catatan Pemakaian Alkes & Obat-Obatan
+        </h3>
+      </div>
+
+      <div className="grid grid-cols-2 gap-y-2 mb-6 text-sm">
+        <div className="flex">
+          <span className="w-32 font-semibold">Nama Pasien</span>
+          <span className="mr-2">:</span>
+          <span className="flex-1 border-b border-gray-300 min-h-[1.2rem]">
+            {drawerPasien}
+          </span>
+        </div>
+        <div className="flex">
+          <span className="w-32 font-semibold">Tanggal / Jam</span>
+          <span className="mr-2">:</span>
+          <span className="flex-1 border-b border-gray-300 min-h-[1.2rem]">
+            {drawerDateTime
+              ? new Date(drawerDateTime).toLocaleString("id-ID", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })
+              : "—"}
+          </span>
+        </div>
+        <div className="flex">
+          <span className="w-32 font-semibold">Dokter Operator</span>
+          <span className="mr-2">:</span>
+          <span className="flex-1 border-b border-gray-300 min-h-[1.2rem]">
+            {drawerDokter}
+          </span>
+        </div>
+        <div className="flex">
+          <span className="w-32 font-semibold">Ruangan</span>
+          <span className="mr-2">:</span>
+          <span className="flex-1 border-b border-gray-300 min-h-[1.2rem]">
+            {drawerRuangan}
+          </span>
+        </div>
+        <div className="flex">
+          <span className="w-32 font-semibold">Depo</span>
+          <span className="mr-2">:</span>
+          <span className="flex-1 border-b border-gray-300 min-h-[1.2rem]">
+            {drawerDepo}
+          </span>
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <h3 className="font-bold mb-2 uppercase text-xs tracking-wider border-b border-black pb-1">
+          Daftar Barang Alkes
+        </h3>
+        <table className="w-full border-collapse border border-black text-[10pt]">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border border-black px-2 py-1 text-center w-8">
+                No
+              </th>
+              <th className="border border-black px-2 py-1 text-left">
+                Nama Barang
+              </th>
+              <th className="border border-black px-2 py-1 text-left">
+                Kategori
+              </th>
+              <th className="border border-black px-2 py-1 text-left">
+                LOT / Ukuran
+              </th>
+              <th className="border border-black px-2 py-1 text-center w-16">
+                Resep
+              </th>
+              <th className="border border-black px-2 py-1 text-center w-16">
+                Pakai
+              </th>
+              <th className="border border-black px-2 py-1 text-center w-20">
+                Tipe
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {drawerLines
+              .filter((l) => l.barang.trim())
+              .map((line, idx) => (
+                <tr key={line.lineId}>
+                  <td className="border border-black px-2 py-1 text-center">
+                    {idx + 1}
+                  </td>
+                  <td className="border border-black px-2 py-1">
+                    {line.barang}
+                  </td>
+                  <td className="border border-black px-2 py-1">
+                    {line.kategori || "—"}
+                  </td>
+                  <td className="border border-black px-2 py-1">
+                    {[
+                      line.lot && `L:${line.lot}`,
+                      line.ukuran && `U:${line.ukuran}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" / ") || "—"}
+                  </td>
+                  <td className="border border-black px-2 py-1 text-center">
+                    {line.qtyRencana}
+                  </td>
+                  <td className="border border-black px-2 py-1 text-center font-semibold">
+                    {line.qtyDipakai}
+                  </td>
+                  <td className="border border-black px-2 py-1 text-center text-xs">
+                    {line.tipe}
+                  </td>
+                </tr>
+              ))}
+            {drawerLines.filter((l) => l.barang.trim()).length === 0 && (
+              <tr>
+                <td
+                  colSpan={7}
+                  className="border border-black px-2 py-4 text-center text-gray-500 italic"
+                >
+                  Tidak ada data barang terinput.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {(() => {
+        const hasObat = TEMPLATE_OBAT_ALKES.some(
+          (row) =>
+            (editingTemplateInputBarang.obatAlkes[row.id] || "")
+              .replace(/\|/g, "")
+              .trim().length > 0,
+        );
+        const hasKomponen = TEMPLATE_KOMPONEN.some(
+          (row) =>
+            (editingTemplateInputBarang.komponen[row.id] || "")
+              .replace(/\|/g, "")
+              .trim().length > 0,
+        );
+
+        if (!hasObat && !hasKomponen) return null;
+
+        return (
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            {hasObat && (
+              <div>
+                <h3 className="font-bold mb-2 uppercase text-[9pt] border-b border-black">
+                  Obat / Alkes (Template)
+                </h3>
+                <table className="w-full border-collapse border border-black text-[9pt]">
+                  <thead>
+                    <tr className="bg-gray-50 text-[8pt]">
+                      <th className="border border-black px-2 py-0.5 text-left">
+                        Item
+                      </th>
+                      <th className="border border-black px-2 py-0.5 text-center w-16">
+                        Jumlah
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {TEMPLATE_OBAT_ALKES.filter(
+                      (row) =>
+                        (editingTemplateInputBarang.obatAlkes[row.id] || "")
+                          .replace(/\|/g, "")
+                          .trim().length > 0,
+                    ).map((row) => (
+                      <tr key={row.id}>
+                        <td className="border border-black px-2 py-0.5">
+                          {row.label}
+                        </td>
+                        <td className="border border-black px-2 py-0.5 text-center">
+                          {editingTemplateInputBarang.obatAlkes[row.id].replace(
+                            /\|/g,
+                            " / ",
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {hasKomponen && (
+              <div>
+                <h3 className="font-bold mb-2 uppercase text-[9pt] border-b border-black">
+                  Komponen (Template)
+                </h3>
+                <table className="w-full border-collapse border border-black text-[9pt]">
+                  <thead>
+                    <tr className="bg-gray-50 text-[8pt]">
+                      <th className="border border-black px-2 py-0.5 text-left">
+                        Item
+                      </th>
+                      <th className="border border-black px-2 py-0.5 text-center w-16">
+                        Jumlah
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {TEMPLATE_KOMPONEN.filter(
+                      (row) =>
+                        (editingTemplateInputBarang.komponen[row.id] || "")
+                          .replace(/\|/g, "")
+                          .trim().length > 0,
+                    ).map((row) => (
+                      <tr key={row.id}>
+                        <td className="border border-black px-2 py-0.5">
+                          {row.label}
+                        </td>
+                        <td className="border border-black px-2 py-0.5 text-center">
+                          {editingTemplateInputBarang.komponen[row.id].replace(
+                            /\|/g,
+                            " / ",
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      <div className="mt-12 grid grid-cols-3 gap-8 text-center text-sm">
+        <div>
+          <p className="mb-16">Perawat / Petugas,</p>
+          <div className="border-b border-black w-40 mx-auto"></div>
+          <p className="mt-1 text-xs text-gray-500">( Nama Terang )</p>
+        </div>
+        <div></div>
+        <div>
+          <p className="mb-16">Dokter Operator,</p>
+          <div className="border-b border-black w-40 mx-auto"></div>
+          <p className="mt-1 font-semibold">
+            {drawerDokter || "( Nama Terang )"}
+          </p>
+        </div>
+      </div>
+
+      <div className="fixed bottom-4 right-8 text-[8pt] italic text-gray-400 print:block hidden">
+        Dicetak otomatis oleh Sistem IDIK Cathlab pada{" "}
+        {new Date().toLocaleString("id-ID")}
+      </div>
+    </div>
+  );
 
   async function submitDrawerPemakaian() {
     if (drawerSaving) return;
@@ -1125,6 +1399,23 @@ export default function PemakaianAlkesModal({
           __html: `
 @media print {
   @page { margin: 12mm; size: A4 landscape; }
+  body * { visibility: hidden !important; background-color: transparent !important; }
+  .print-area, .print-area * { visibility: visible !important; }
+  .print-area { 
+    display: block !important;
+    position: fixed !important; 
+    left: 0 !important; 
+    top: 0 !important; 
+    width: 100vw !important; 
+    height: 100vh !important;
+    background-color: white !important; 
+    z-index: 999999 !important;
+    margin: 0 !important;
+    padding: 12mm !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }
 `,
         }}
@@ -1139,7 +1430,7 @@ export default function PemakaianAlkesModal({
         />
         <div
           onClick={(e) => e.stopPropagation()}
-          className="relative z-10 w-full max-w-[min(42rem,calc(100vw-1rem))] max-h-[min(92dvh,calc(100vh-1rem))] sm:max-h-[90dvh] bg-[#050b14] border border-white/15 rounded-t-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col min-h-0 animate-in fade-in slide-in-from-bottom-6 duration-200"
+          className="relative z-10 w-full max-w-[min(42rem,calc(100vw-1rem))] lg:max-w-5xl max-h-[min(92dvh,calc(100vh-1rem))] sm:max-h-[90dvh] bg-[#050b14] border border-white/15 rounded-t-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col min-h-0 animate-in fade-in slide-in-from-bottom-6 duration-200"
         >
           <div className="px-3 py-2.5 sm:px-4 sm:py-3 border-b border-white/10 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between shrink-0 min-w-0">
             <div className="min-w-0 pr-6 sm:pr-0">
@@ -1363,6 +1654,7 @@ export default function PemakaianAlkesModal({
                               <BarangVariantCombobox
                                 variant="table"
                                 listboxId={`tindakan-pemakaian-modal-barang-${line.lineId}`}
+                                autoFocus={line.lineId === drawerFocusLineId}
                                 value={line.barang}
                                 blurResolveLine={{
                                   distributor: line.distributor,
@@ -1389,6 +1681,27 @@ export default function PemakaianAlkesModal({
                                     ukuran: v.ukuran?.trim() || undefined,
                                     ed: v.ed?.trim() || undefined,
                                     ...(h !== undefined ? { harga: h } : {}),
+                                  });
+                                  setDrawerLines((rows) => {
+                                    const idx = rows.findIndex(
+                                      (r) => r.lineId === line.lineId,
+                                    );
+                                    if (idx === rows.length - 1) {
+                                      const nextId = newDrawerLineId();
+                                      setDrawerFocusLineId(nextId);
+                                      return [
+                                        ...rows,
+                                        {
+                                          lineId: nextId,
+                                          barang: "",
+                                          distributor: "",
+                                          qtyRencana: 1,
+                                          qtyDipakai: 0,
+                                          tipe: "N",
+                                        },
+                                      ];
+                                    }
+                                    return rows;
                                   });
                                 }}
                                 options={barangVariantList}
@@ -1517,8 +1830,8 @@ export default function PemakaianAlkesModal({
                                 }
                                 className="w-full bg-black/50 border border-white/15 rounded px-0.5 py-1 text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
                               >
-                                <option value="BARU">BARU</option>
-                                <option value="REUSE">REUSE</option>
+                                <option value="N">N</option>
+                                <option value="R">R</option>
                               </select>
                             </td>
                             <td className="px-1 py-1 align-middle text-center">
@@ -1754,8 +2067,8 @@ export default function PemakaianAlkesModal({
               <p>
                 Barang belum ada di katalog master / mapping distributor. Anda
                 bisa menambahkannya di Master Barang, di panel distributor
-                (produk &amp; stok), atau melanjutkan lewat pencarian &amp; baris
-                manual.
+                (produk &amp; stok), atau melanjutkan lewat pencarian &amp;
+                baris manual.
               </p>
               {tambahProdukDraft.trim() ? (
                 <p className="rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 font-mono text-[10px] text-white/90 break-all">
@@ -1814,6 +2127,7 @@ export default function PemakaianAlkesModal({
         onClose={() => setBarangScanOpen(false)}
         onDecoded={handleBarangScanDecoded}
       />
+      {printOnlyUi}
     </>
   );
 

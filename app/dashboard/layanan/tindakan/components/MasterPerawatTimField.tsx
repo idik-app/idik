@@ -15,8 +15,6 @@ type Props = {
   field: TimPerawatFieldKey;
   value: string | null | undefined;
   onSaved?: () => void;
-  /** Naikkan dari parent (mis. setelah tambah master) agar daftar di-fetch ulang. */
-  masterReloadToken?: number;
 };
 
 function norm(s: string) {
@@ -28,7 +26,6 @@ export default function MasterPerawatTimField({
   field,
   value,
   onSaved,
-  masterReloadToken = 0,
 }: Props) {
   const { show } = useNotification();
   const listId = useId();
@@ -73,7 +70,7 @@ export default function MasterPerawatTimField({
 
   useEffect(() => {
     void load();
-  }, [load, masterReloadToken]);
+  }, [load]);
 
   useEffect(() => {
     setDraft(norm(String(value ?? "")));

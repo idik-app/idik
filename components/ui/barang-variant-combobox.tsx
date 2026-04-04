@@ -60,7 +60,13 @@ function alnumOnly(s: string): string {
   return s.replace(/[^a-z0-9]/g, "");
 }
 
-/** Cocokkan teks pencarian ke satu baris master (substring + tanpa separator + kata berturut). */
+/**
+ * Cocokkan teks pencarian ke satu baris master:
+ * substring pada haystack gabungan, atau tiap kata (spasi) harus muncul sebagai substring,
+ * atau substring pada versi haystack alfanumerik saja (abaikan spasi/tanda).
+ * Tanpa pencocokan subsekuens di seluruh haystack — itu menimbulkan false positive
+ * (mis. "genoss" cocok ke nama lain karena huruf tersebar di nama+kode+distributor).
+ */
 export function rowMatchesBarangQuery(
   v: MasterBarangPickRow,
   qRaw: string,
@@ -77,14 +83,6 @@ export function rowMatchesBarangQuery(
   if (qc.length >= 2) {
     const hayC = alnumOnly(hay);
     if (hayC.includes(qc)) return true;
-  }
-  /** Huruf query muncul berurutan di haystack (ringan, min. 3 karakter). */
-  if (q.length >= 3) {
-    let i = 0;
-    for (let j = 0; j < hay.length && i < q.length; j++) {
-      if (hay[j] === q[i]) i++;
-    }
-    if (i === q.length) return true;
   }
   return false;
 }
@@ -183,6 +181,7 @@ export function BarangVariantCombobox({
   variant = "default",
   blurResolveLine,
   onRequestAddProduct,
+  autoFocus,
 }: {
   value: string;
   onChange: (nama: string) => void;
@@ -195,6 +194,7 @@ export function BarangVariantCombobox({
   blurResolveLine?: BlurResolveLine;
   /** Saat tidak ada hasil / katalog kosong: tombol membuka alur tambah produk (mis. modal induk). */
   onRequestAddProduct?: (draftQuery: string) => void;
+  autoFocus?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -206,11 +206,18 @@ export function BarangVariantCombobox({
   const valueRef = useRef(value);
   valueRef.current = value;
 
+  useEffect(() => {
+    if (autoFocus) {
+      inputRef.current?.focus();
+    }
+  }, [autoFocus]);
+
   const [menuPos, setMenuPos] = useState<MenuPos | null>(null);
 
   const filtered = useMemo(() => {
     const q = normalize(value);
-    if (!q) return options;
+    /** Tanpa teks pencarian jangan tampilkan seluruh katalog — cukup ketik nama/kode/dll. */
+    if (!q) return [];
     return options.filter((v) => rowMatchesBarangQuery(v, value));
   }, [options, value]);
 
@@ -469,7 +476,12 @@ export function BarangVariantCombobox({
           }}
           onKeyDown={(e) => {
             if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-              if (!open && options.length > 0 && !loading) {
+              if (
+                !open &&
+                options.length > 0 &&
+                !loading &&
+                normalize(value).length > 0
+              ) {
                 e.preventDefault();
                 setOpen(true);
                 if (variant === "table") {
@@ -510,9 +522,11 @@ export function BarangVariantCombobox({
           }}
           onFocus={() => {
             clearBlurCloseTimer();
-            setOpen(true);
-            if (variant === "table") {
-              syncMenuPositionImmediate();
+            if (normalize(value).length > 0) {
+              setOpen(true);
+              if (variant === "table") {
+                syncMenuPositionImmediate();
+              }
             }
           }}
           autoComplete="off"
@@ -525,6 +539,7 @@ export function BarangVariantCombobox({
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={listboxId}
+          autoFocus={autoFocus}
         />
         {loading ? (
           <Loader2

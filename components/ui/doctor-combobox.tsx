@@ -64,6 +64,55 @@ function tokenMatchesDoctorHaystack(haystack: string, token: string): boolean {
   return new RegExp(`\\b${escapeRegex(token)}\\b`, "i").test(haystack);
 }
 
+/** Kunci alias: tanpa prefiks dr., lowercase, spasi tunggal. */
+function normalizeDoctorAliasKey(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/^dr\.?\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Panggilan / teks lama di kolom `tindakan.dokter` → baris master (via pola nama).
+ * Hanya dipakai jika cocok ke 0 atau 1 kandidat kuat; jika ambigu, abaikan.
+ */
+const LEGACY_DOCTOR_ALIAS_RESOLVERS: Array<{
+  aliasKeys: string[];
+  matchesNormalizedNama: (namaNorm: string) => boolean;
+}> = [
+  {
+    aliasKeys: ["yuyung"],
+    matchesNormalizedNama: (namaNorm) =>
+      namaNorm.includes("nurpatria") && namaNorm.includes("rachman"),
+  },
+];
+
+function resolveDoctorByLegacyAlias(
+  options: DoctorOption[],
+  input: string,
+): DoctorOption | null {
+  const key = normalizeDoctorAliasKey(input);
+  if (!key) return null;
+  for (const rule of LEGACY_DOCTOR_ALIAS_RESOLVERS) {
+    if (!rule.aliasKeys.includes(key)) continue;
+    const hits = options.filter((d) => {
+      const hay = normalize(
+        `${String(d.nama_dokter ?? "")} ${String(d.spesialis ?? "")}`,
+      );
+      return rule.matchesNormalizedNama(hay);
+    });
+    if (hits.length === 1) return hits[0]!;
+    if (hits.length > 1) {
+      return [...hits].sort(
+        (a, b) => b.nama_dokter.length - a.nama_dokter.length,
+      )[0]!;
+    }
+  }
+  return null;
+}
+
 /**
  * Samakan panggilan / nama pendek dengan satu baris master dokter (hanya jika hasilnya tunggal).
  */
@@ -74,6 +123,9 @@ export function resolveDoctorFromLooseInput(
   if (!options.length) return null;
   const exact = resolveDoctorExactMatch(options, input);
   if (exact) return exact;
+
+  const aliasHit = resolveDoctorByLegacyAlias(options, input);
+  if (aliasHit) return aliasHit;
 
   const tokens = doctorQueryTokens(input);
   if (tokens.length === 0) return null;

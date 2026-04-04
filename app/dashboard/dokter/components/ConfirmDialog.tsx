@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { AlertTriangle, Loader2, Trash2, X } from "lucide-react";
-import { UI_LAYERS } from "@/lib/ui/layers";
+import { Loader2, Trash2 } from "lucide-react";
 
 export interface ConfirmDeleteDoctorProps {
   /** Nama dokter yang ditampilkan di teks konfirmasi */
@@ -49,87 +47,83 @@ export default function ConfirmDialog({
 
   if (!mounted) return null;
 
-  return createPortal(
+  return (
     <div
-      className={`fixed inset-0 ${UI_LAYERS.dialogOverlayTop} flex items-center justify-center p-4 pointer-events-auto bg-black/0`}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 999999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        padding: '1rem',
+        pointerEvents: 'auto'
+      }}
       role="alertdialog"
       aria-modal="true"
-      aria-labelledby="confirm-delete-title"
-      aria-describedby="confirm-delete-desc"
     >
         <div
-          className="absolute inset-0 bg-black/75 cursor-pointer animate-in fade-in"
-          aria-hidden
+          style={{ position: 'absolute', inset: 0, cursor: 'pointer' }}
           onClick={() => !busy && onCancel()}
         />
         <div
-          onMouseDown={(e) => e.stopPropagation()}
-          className="relative z-10 w-full max-w-md rounded-2xl border border-red-500/25 bg-gradient-to-b from-gray-900 via-[#0c1222] to-gray-950 shadow-[0_0_0_1px_rgba(239,68,68,0.12),0_24px_48px_rgba(0,0,0,0.55)] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            width: '100%',
+            maxWidth: '28rem',
+            backgroundColor: '#0c1222',
+            borderRadius: '1rem',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+            overflow: 'hidden',
+            padding: '1.5rem'
+          }}
         >
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-red-500/40 to-transparent" />
-
-          <div className="p-6 pb-4">
-            <div className="flex justify-between items-start gap-3">
-              <div className="flex items-start gap-3 min-w-0">
-                <div
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-red-500/35 bg-red-950/50 shadow-[0_0_24px_rgba(239,68,68,0.2)]"
-                  aria-hidden
-                >
-                  <Trash2 className="h-6 w-6 text-red-400" strokeWidth={2} />
-                </div>
-                <div className="min-w-0 text-left">
-                  <h2
-                    id="confirm-delete-title"
-                    className="text-lg font-semibold text-white tracking-tight"
-                  >
-                    Hapus data dokter?
-                  </h2>
-                  <p
-                    id="confirm-delete-desc"
-                    className="mt-2 text-sm text-gray-300 leading-relaxed"
-                  >
-                    Anda akan menghapus{" "}
-                    <span className="font-semibold text-yellow-300/95 break-words">
-                      {itemName.trim() || "(tanpa nama)"}
-                    </span>{" "}
-                    secara permanen dari database. Baris ini akan hilang dari
-                    tabel setelah penghapusan berhasil.
-                  </p>
-                </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+              <div style={{
+                height: '3rem',
+                width: '3rem',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '0.75rem',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                backgroundColor: 'rgba(69, 10, 10, 0.5)'
+              }}>
+                <Trash2 style={{ height: '1.5rem', width: '1.5rem', color: '#f87171' }} />
               </div>
-              <button
-                type="button"
-                onClick={() => !busy && onCancel()}
-                disabled={busy}
-                className="shrink-0 rounded-lg p-1.5 text-gray-500 hover:text-gray-200 hover:bg-white/5 transition-colors disabled:opacity-40"
-                title="Tutup"
-              >
-                <X size={20} />
-              </button>
+              <div style={{ textAlign: 'left' }}>
+                <h2 style={{ fontSize: '1.125rem', fontWeight: 600, color: 'white', margin: 0 }}>
+                  Hapus data dokter?
+                </h2>
+                <p style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#d1d5db', lineHeight: 1.5 }}>
+                  Anda akan menghapus <span style={{ fontWeight: 600, color: '#fde047' }}>{itemName}</span> secara permanen.
+                </p>
+              </div>
             </div>
-
-            <div className="mt-4 flex gap-2 rounded-lg border border-amber-500/20 bg-amber-950/25 px-3 py-2.5 text-left">
-              <AlertTriangle
-                className="h-4 w-4 shrink-0 text-amber-400 mt-0.5"
-                aria-hidden
-              />
-              <p className="text-xs text-amber-100/85 leading-snug">
-                Tindakan ini tidak dapat dibatalkan. Pastikan Anda memilih data
-                yang benar sebelum mengonfirmasi.
-              </p>
-            </div>
-
-            {error && (
-              <p className="mt-3 text-sm text-red-400 text-center">{error}</p>
-            )}
           </div>
 
-          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end px-6 pb-6 pt-0">
+          <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
             <button
               type="button"
-              onClick={() => !busy && onCancel()}
+              onClick={onCancel}
               disabled={busy}
-              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gray-800/90 hover:bg-gray-700/90 text-gray-100 text-sm font-medium border border-gray-600/50 transition-colors disabled:opacity-45"
+              style={{
+                padding: '0.5rem 1rem',
+                borderRadius: '0.75rem',
+                backgroundColor: '#1f2937',
+                color: 'white',
+                border: '1px solid #374151',
+                cursor: 'pointer'
+              }}
             >
               Batal
             </button>
@@ -137,23 +131,24 @@ export default function ConfirmDialog({
               type="button"
               onClick={handleConfirm}
               disabled={busy}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-700/90 hover:bg-red-600 text-white text-sm font-medium border border-red-500/40 shadow-[0_0_20px_rgba(220,38,38,0.25)] transition-colors disabled:opacity-60"
+              style={{
+                padding: '0.5rem 1rem',
+                borderRadius: '0.75rem',
+                backgroundColor: '#b91c1c',
+                color: 'white',
+                border: '1px solid #ef4444',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
             >
-              {busy ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Menghapus…
-                </>
-              ) : (
-                <>
-                  <Trash2 className="h-4 w-4" />
-                  Hapus
-                </>
-              )}
+              {busy ? <Loader2 style={{ height: '1rem', width: '1rem', animation: 'spin 1s linear infinite' }} /> : <Trash2 style={{ height: '1rem', width: '1rem' }} />}
+              Hapus
             </button>
           </div>
+          {error && <p style={{ color: '#f87171', fontSize: '0.875rem', textAlign: 'center', marginTop: '1rem' }}>{error}</p>}
         </div>
-    </div>,
-    document.body
+    </div>
   );
 }

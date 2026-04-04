@@ -8,6 +8,7 @@ import {
   BarChart3,
   FileSpreadsheet,
   ChevronDown,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
@@ -381,7 +382,7 @@ export default function TableToolbar({
       </div>
 
       <div className="relative z-0 flex flex-wrap items-end gap-1.5 sm:gap-2 min-w-0">
-        <div className="relative min-w-0 w-full min-[480px]:w-auto min-[480px]:flex-1 min-[480px]:min-w-[12rem] min-[480px]:max-w-2xl">
+        <div className="relative min-w-0 w-full min-[480px]:w-auto min-[480px]:flex-1 min-[480px]:min-w-[12rem] min-[480px]:max-w-2xl group">
           <Search
             size={13}
             className={cn(
@@ -395,76 +396,161 @@ export default function TableToolbar({
             placeholder="Cari (RM, nama, JK, dokter, tindakan, ruangan…)"
             onChange={(e) => handleUserTyping(e.target.value)}
             className={cn(
-              "w-full pl-7 pr-2.5 py-1 text-[13px] font-semibold leading-snug rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500",
+              "w-full pl-7 pr-8 py-1 text-[13px] font-semibold leading-snug rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
               "bg-white border-cyan-500/40 text-slate-900 placeholder:text-slate-600 [color-scheme:light]",
               "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:placeholder:text-white/90 dark:[color-scheme:dark]",
             )}
           />
+          {searchValue && (
+            <button
+              type="button"
+              onClick={() => handleUserTyping("")}
+              className={cn(
+                "absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-md transition-colors",
+                "text-slate-400 hover:text-cyan-600 hover:bg-cyan-50",
+                "dark:text-slate-500 dark:hover:text-cyan-400 dark:hover:bg-cyan-950/30",
+              )}
+              title="Bersihkan pencarian"
+            >
+              <X size={14} strokeWidth={2.5} />
+            </button>
+          )}
         </div>
         {/* Filter dokter — domain tab Dokter & tim (wireframe) */}
-        <select
-          value={dokter}
-          onChange={(e) => {
-            const v = e.target.value;
-            setDokter(v);
-            onFilter(v, ruangan, tanggalFrom, tanggalTo);
-          }}
-          className={cn(
-            "text-[13px] font-semibold px-2 py-1 rounded-md border focus:outline-none min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem]",
-            "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
-            "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:[color-scheme:dark]",
-          )}
-        >
-          <option value="">Semua dokter</option>
-          {dokterOptions.map((d, idx) => (
-            <option key={idx} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
-
-        {/* Filter ruangan — master lokasi */}
-        <select
-          value={ruangan}
-          onChange={(e) => {
-            const v = e.target.value;
-            setRuangan(v);
-            onFilter(dokter, v, tanggalFrom, tanggalTo);
-          }}
-          className={cn(
-            "text-[13px] font-semibold px-2 py-1 rounded-md border focus:outline-none min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem]",
-            "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
-            "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:[color-scheme:dark]",
-          )}
-        >
-          <option value="">Semua ruangan</option>
-          {ruanganOptions.map((s, idx) => (
-            <option key={idx} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-
-        {/* 📅 Filter tanggal (range) */}
-        <div className="flex flex-wrap items-center gap-2 min-w-0">
-          <input
-            type="date"
-            value={tanggalFrom}
-            min="1900-01-01"
-            onClick={(e) => openNativeDatePicker(e.currentTarget)}
+        <div className="relative min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem] group">
+          <select
+            value={dokter}
             onChange={(e) => {
               const v = e.target.value;
-              setTanggalFrom(v);
-              onFilter(dokter, ruangan, v, tanggalTo);
+              setDokter(v);
+              onFilter(v, ruangan, tanggalFrom, tanggalTo);
             }}
             className={cn(
-              "cursor-pointer text-[13px] font-semibold px-2 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500",
-              "[color-scheme:light] bg-white border-cyan-500/40 text-slate-900",
-              "dark:[color-scheme:dark] dark:bg-black dark:border-white/20 dark:text-slate-100",
+              "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
+              "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
+              "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:[color-scheme:dark]",
             )}
-            title="Tanggal dari"
-            aria-label="Tanggal dari"
-          />
+          >
+            <option value="">Semua dokter</option>
+            {dokterOptions.map((d, idx) => (
+              <option key={idx} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+          <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none group-focus-within:pointer-events-auto">
+            {dokter ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setDokter("");
+                  onFilter("", ruangan, tanggalFrom, tanggalTo);
+                }}
+                className={cn(
+                  "p-0.5 rounded-md transition-colors pointer-events-auto",
+                  "text-slate-400 hover:text-red-500 hover:bg-red-50",
+                  "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
+                )}
+                title="Bersihkan filter dokter"
+              >
+                <X size={13} strokeWidth={2.5} />
+              </button>
+            ) : (
+              <ChevronDown
+                size={14}
+                className="text-cyan-700/60 dark:text-slate-400/60"
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Filter ruangan — master lokasi */}
+        <div className="relative min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem] group">
+          <select
+            value={ruangan}
+            onChange={(e) => {
+              const v = e.target.value;
+              setRuangan(v);
+              onFilter(dokter, v, tanggalFrom, tanggalTo);
+            }}
+            className={cn(
+              "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
+              "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
+              "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:[color-scheme:dark]",
+            )}
+          >
+            <option value="">Semua ruangan</option>
+            {ruanganOptions.map((s, idx) => (
+              <option key={idx} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+          <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none group-focus-within:pointer-events-auto">
+            {ruangan ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setRuangan("");
+                  onFilter(dokter, "", tanggalFrom, tanggalTo);
+                }}
+                className={cn(
+                  "p-0.5 rounded-md transition-colors pointer-events-auto",
+                  "text-slate-400 hover:text-red-500 hover:bg-red-50",
+                  "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
+                )}
+                title="Bersihkan filter ruangan"
+              >
+                <X size={13} strokeWidth={2.5} />
+              </button>
+            ) : (
+              <ChevronDown
+                size={14}
+                className="text-cyan-700/60 dark:text-slate-400/60"
+              />
+            )}
+          </div>
+        </div>
+
+        {/* 📅 Filter tanggal (range) */}
+        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+          <div className="relative group">
+            <input
+              type="date"
+              value={tanggalFrom}
+              min="1900-01-01"
+              onClick={(e) => openNativeDatePicker(e.currentTarget)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setTanggalFrom(v);
+                onFilter(dokter, ruangan, v, tanggalTo);
+              }}
+              className={cn(
+                "cursor-pointer text-[13px] font-semibold pl-2 pr-8 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
+                "[color-scheme:light] bg-white border-cyan-500/40 text-slate-900",
+                "dark:[color-scheme:dark] dark:bg-black dark:border-white/20 dark:text-slate-100",
+              )}
+              title="Tanggal dari"
+              aria-label="Tanggal dari"
+            />
+            {tanggalFrom && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTanggalFrom("");
+                  onFilter(dokter, ruangan, "", tanggalTo);
+                }}
+                className={cn(
+                  "absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md transition-colors",
+                  "text-slate-400 hover:text-red-500 hover:bg-red-50",
+                  "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
+                )}
+                title="Bersihkan tanggal dari"
+              >
+                <X size={13} strokeWidth={2.5} />
+              </button>
+            )}
+          </div>
           <span
             className={cn(
               "text-xs font-mono",
@@ -473,25 +559,69 @@ export default function TableToolbar({
           >
             —
           </span>
-          <input
-            type="date"
-            value={tanggalTo}
-            min="1900-01-01"
-            onClick={(e) => openNativeDatePicker(e.currentTarget)}
-            onChange={(e) => {
-              const v = e.target.value;
-              setTanggalTo(v);
-              onFilter(dokter, ruangan, tanggalFrom, v);
+          <div className="relative group">
+            <input
+              type="date"
+              value={tanggalTo}
+              min="1900-01-01"
+              onClick={(e) => openNativeDatePicker(e.currentTarget)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setTanggalTo(v);
+                onFilter(dokter, ruangan, tanggalFrom, v);
+              }}
+              className={cn(
+                "cursor-pointer text-[13px] font-semibold pl-2 pr-8 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
+                "[color-scheme:light] bg-white border-cyan-500/40 text-slate-900",
+                "dark:[color-scheme:dark] dark:bg-black dark:border-white/20 dark:text-slate-100",
+              )}
+              title="Tanggal sampai"
+              aria-label="Tanggal sampai"
+            />
+            {tanggalTo && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTanggalTo("");
+                  onFilter(dokter, ruangan, tanggalFrom, "");
+                }}
+                className={cn(
+                  "absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md transition-colors",
+                  "text-slate-400 hover:text-red-500 hover:bg-red-50",
+                  "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
+                )}
+                title="Bersihkan tanggal sampai"
+              >
+                <X size={13} strokeWidth={2.5} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 🔄 Reset All Filters */}
+        {(searchValue || dokter || ruangan || tanggalFrom || tanggalTo) && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchValue("");
+              onSearch("");
+              setDokter("");
+              setRuangan("");
+              setTanggalFrom("");
+              setTanggalTo("");
+              onFilter("", "", "", "");
             }}
             className={cn(
-              "cursor-pointer text-[13px] font-semibold px-2 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500",
-              "[color-scheme:light] bg-white border-cyan-500/40 text-slate-900",
-              "dark:[color-scheme:dark] dark:bg-black dark:border-white/20 dark:text-slate-100",
+              "flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all",
+              "text-red-600 bg-red-50 hover:bg-red-100 border border-red-200",
+              "dark:text-red-400 dark:bg-red-950/20 dark:hover:bg-red-950/40 dark:border-red-900/50",
             )}
-            title="Tanggal sampai"
-            aria-label="Tanggal sampai"
-          />
-        </div>
+            title="Bersihkan semua filter"
+          >
+            <X size={12} strokeWidth={3} />
+            <span>Reset</span>
+          </button>
+        )}
       </div>
 
       <TambahPasienQuickModal

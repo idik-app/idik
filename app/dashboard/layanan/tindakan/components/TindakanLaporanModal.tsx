@@ -45,7 +45,7 @@ function parseYyyyMm(s: string): { y: number; m: number } | null {
 }
 
 function formatCell(n: number): string {
-  return n === 0 ? "—" : String(n);
+  return n === 0 ? "" : String(n);
 }
 
 type ReportTab = "jenis" | "cara";

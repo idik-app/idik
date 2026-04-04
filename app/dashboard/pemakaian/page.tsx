@@ -112,7 +112,7 @@ type PemakaianLine = {
   distributor?: string;
   qtyRencana: number;
   qtyDipakai: number;
-  tipe: "BARU" | "REUSE";
+  tipe: "N" | "R";
   /** Dari mapping distributor / pencarian tambah barang (LOT, ukuran, ED). */
   lot?: string;
   ukuran?: string;
@@ -305,7 +305,7 @@ function mapCathlabOrderRow(r: Record<string, unknown>): PemakaianOrder | null {
           typeof o.qtyDipakai === "number"
             ? o.qtyDipakai
             : Number(o.qtyDipakai) || 0,
-        tipe: o.tipe === "REUSE" ? "REUSE" : "BARU",
+        tipe: (o.tipe === "R" || o.tipe === "REUSE") ? "R" : "N",
         lot: typeof o.lot === "string" ? o.lot : undefined,
         ukuran: typeof o.ukuran === "string" ? o.ukuran : undefined,
         ed: typeof o.ed === "string" ? o.ed : undefined,
@@ -488,6 +488,12 @@ export default function PemakaianPage() {
   const [drawerRuangan, setDrawerRuangan] = useState("");
   const [drawerCatatan, setDrawerCatatan] = useState("");
   const [drawerSaving, setDrawerSaving] = useState(false);
+  const [drawerFocusLineId, setDrawerFocusLineId] = useState<string | null>(
+    null,
+  );
+  const [detailFocusLineId, setDetailFocusLineId] = useState<string | null>(
+    null,
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [filterTanggalDari, setFilterTanggalDari] = useState("");
   const [filterTanggalSampai, setFilterTanggalSampai] = useState("");
@@ -524,6 +530,7 @@ export default function PemakaianPage() {
     setDetailRow(null);
     setDetailDraft(null);
     setDetailRincianTab("struk");
+    setDetailFocusLineId(null);
   }
 
   function patchDetailTemplateField(
@@ -885,7 +892,7 @@ export default function PemakaianPage() {
               distributor: "",
               qtyRencana: 1,
               qtyDipakai: 0,
-              tipe: "BARU",
+              tipe: "N",
             },
           ];
     });
@@ -894,6 +901,7 @@ export default function PemakaianPage() {
   const DEFAULT_DRAWER_DEPO = "Depo Cathlab / Depo Farmasi";
 
   function openPemakaianDrawer() {
+    const firstId = newDrawerLineId();
     closeOrderDetail();
     drawerAutofillRef.current = { pasien: false, dokter: false };
     setDrawerPasien("");
@@ -904,14 +912,15 @@ export default function PemakaianPage() {
     setDrawerDateTime(toDatetimeLocalValue(new Date()));
     setDrawerLines([
       {
-        lineId: newDrawerLineId(),
+        lineId: firstId,
         barang: "",
         distributor: "",
         qtyRencana: 1,
         qtyDipakai: 0,
-        tipe: "BARU",
+        tipe: "N",
       },
     ]);
+    setDrawerFocusLineId(firstId);
     setIsDrawerOpen(true);
   }
 
@@ -1213,6 +1222,7 @@ export default function PemakaianPage() {
     closeBarangPicker();
     setDrawerSaving(false);
     setIsDrawerOpen(false);
+    setDrawerFocusLineId(null);
   }
 
   /** Hilangkan karakter tak terlihat yang kadang membuat .trim() tetap “kosong” di UI. */
@@ -1337,30 +1347,34 @@ export default function PemakaianPage() {
   function addEmptyLineFromPicker() {
     const suffix = Date.now().toString(36);
     if (barangPickerTarget === "detail" && detailDraft) {
+      const nextId = `${detailDraft.id}-new-${suffix}`;
+      setDetailFocusLineId(nextId);
       setDetailDraft({
         ...detailDraft,
         items: [
           ...detailDraft.items,
           {
-            lineId: `${detailDraft.id}-new-${suffix}`,
+            lineId: nextId,
             barang: "",
             distributor: "",
             qtyRencana: 1,
             qtyDipakai: 0,
-            tipe: "BARU",
+            tipe: "N",
           },
         ],
       });
     } else if (barangPickerTarget === "drawer") {
+      const nextId = `draft-new-${suffix}`;
+      setDrawerFocusLineId(nextId);
       setDrawerLines((rows) => [
         ...rows,
         {
-          lineId: `draft-new-${suffix}`,
+          lineId: nextId,
           barang: "",
           distributor: "",
           qtyRencana: 1,
           qtyDipakai: 0,
-          tipe: "BARU",
+          tipe: "N",
         },
       ]);
     }
@@ -1370,26 +1384,30 @@ export default function PemakaianPage() {
   function applyBarangPick(pick: MasterBarangPickRow) {
     const suffix = Date.now().toString(36);
     const hPick = hargaFromPickRow(pick, barangVariantList);
+    const nextId =
+      barangPickerTarget === "detail" && detailDraft
+        ? `${detailDraft.id}-new-${suffix}`
+        : `draft-new-${suffix}`;
     const line: PemakaianLine = {
-      lineId: "",
+      lineId: nextId,
       barang: pick.nama.trim(),
       distributor: pick.distributor_nama?.trim() || undefined,
       qtyRencana: 1,
       qtyDipakai: 0,
-      tipe: "BARU",
+      tipe: "N",
       lot: pick.lot?.trim() || undefined,
       ukuran: pick.ukuran?.trim() || undefined,
       ed: pick.ed?.trim() || undefined,
       ...(hPick !== undefined ? { harga: hPick } : {}),
     };
     if (barangPickerTarget === "detail" && detailDraft) {
-      line.lineId = `${detailDraft.id}-new-${suffix}`;
+      setDetailFocusLineId(nextId);
       setDetailDraft({
         ...detailDraft,
         items: [...detailDraft.items, line],
       });
     } else if (barangPickerTarget === "drawer") {
-      line.lineId = `draft-new-${suffix}`;
+      setDrawerFocusLineId(nextId);
       setDrawerLines((rows) => [...rows, line]);
     }
     closeBarangPicker();
@@ -1539,7 +1557,9 @@ export default function PemakaianPage() {
     const visibleIds = new Set(list.map((o) => o.id));
     return indexedOrders
       .filter(
-        (x) => visibleIds.has(x.order.id) && x.searchHaystack.includes(trimmedSearch),
+        (x) =>
+          visibleIds.has(x.order.id) &&
+          x.searchHaystack.includes(trimmedSearch),
       )
       .map((x) => x.order);
   }, [
@@ -1570,8 +1590,9 @@ export default function PemakaianPage() {
   const visibleEnd = shouldVirtualizeRows
     ? Math.min(
         paginatedData.length,
-        Math.ceil((tableScrollTop + tableViewportHeight) / TABLE_ROW_HEIGHT_PX) +
-          TABLE_OVERSCAN_ROWS,
+        Math.ceil(
+          (tableScrollTop + tableViewportHeight) / TABLE_ROW_HEIGHT_PX,
+        ) + TABLE_OVERSCAN_ROWS,
       )
     : paginatedData.length;
   const visibleRows = shouldVirtualizeRows
@@ -1601,7 +1622,14 @@ export default function PemakaianPage() {
     setTableScrollTop(0);
     const el = tableViewportRef.current;
     if (el) el.scrollTop = 0;
-  }, [safePage, pageSize, trimmedSearch, selectedStatus, filterTanggalDari, filterTanggalSampai]);
+  }, [
+    safePage,
+    pageSize,
+    trimmedSearch,
+    selectedStatus,
+    filterTanggalDari,
+    filterTanggalSampai,
+  ]);
   useEffect(() => {
     const el = tableViewportRef.current;
     if (!el) return;
@@ -1638,7 +1666,7 @@ export default function PemakaianPage() {
         (acc, o) =>
           acc +
           o.items
-            .filter((l) => l.tipe === "BARU")
+            .filter((l) => l.tipe === "N")
             .reduce((a, l) => a + l.qtyDipakai, 0),
         0,
       ),
@@ -1650,7 +1678,7 @@ export default function PemakaianPage() {
         (acc, o) =>
           acc +
           o.items
-            .filter((l) => l.tipe === "REUSE")
+            .filter((l) => l.tipe === "R")
             .reduce((a, l) => a + l.qtyDipakai, 0),
         0,
       ),
@@ -1962,93 +1990,96 @@ export default function PemakaianPage() {
                       </tr>
                     ) : null}
                     {visibleRows.map((row) => (
-                    <tr
-                      key={row.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => openOrderDetail(row)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          openOrderDetail(row);
-                        }
-                      }}
-                      aria-label={`Buka detail order ${row.id}`}
-                      className={[
-                        "hover:bg-white/[0.06] cursor-pointer transition outline-none focus-visible:ring-2 focus-visible:ring-[#E8C547]/50 focus-visible:ring-inset",
-                        detailRow?.id === row.id
-                          ? "bg-white/[0.08] ring-1 ring-inset ring-[#E8C547]/35"
-                          : "",
-                      ].join(" ")}
-                    >
-                      <Td>{row.id}</Td>
-                      <Td>{row.tanggal}</Td>
-                      <Td className="tabular-nums whitespace-nowrap">
-                        {orderNoRm(row) ? (
-                          <span className="text-white/90">
-                            {orderNoRm(row)}
-                          </span>
-                        ) : (
-                          <span className="text-white/35">—</span>
-                        )}
-                      </Td>
-                      <Td>{orderPasienDisplayName(row)}</Td>
-                      <Td className="max-w-[140px]">
-                        {row.ruangan ? (
-                          <span className="text-white/90">{row.ruangan}</span>
-                        ) : (
-                          <span className="text-white/35">—</span>
-                        )}
-                      </Td>
-                      <Td>{row.dokter}</Td>
-                      <Td>{row.depo}</Td>
-                      <Td className="align-middle">
-                        <div className="flex flex-wrap items-center gap-2 min-w-[140px]">
-                          <StatusBadge status={row.status} />
-                          {canVerifyDepo &&
-                            row.status === "MENUNGGU_VALIDASI" && (
-                              <button
-                                suppressHydrationWarning
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  void verifyRow(row.id);
-                                }}
-                                className="inline-flex items-center gap-1 rounded-full border border-emerald-500/70 bg-emerald-950/80 px-2 py-0.5 text-[10px] font-semibold text-emerald-100 shadow-[0_0_12px_rgba(52,211,153,0.2)] hover:bg-emerald-900/90 hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
-                              >
-                                <CheckCircle2
-                                  className="h-3 w-3 shrink-0"
-                                  aria-hidden
-                                />
-                                Verifikasi
-                              </button>
-                            )}
-                        </div>
-                      </Td>
-                      <Td className="align-middle text-center">
-                        <button
-                          suppressHydrationWarning
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void deleteOrder(
-                              row.id,
-                              orderPasienDisplayName(row) || row.pasien,
-                            );
-                          }}
-                          disabled={deletingOrderId === row.id}
-                          className="inline-flex items-center gap-1 rounded-lg border border-rose-500/50 bg-rose-950/60 px-2 py-1 text-[10px] font-semibold text-rose-200 hover:bg-rose-900/70 hover:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-400/50 disabled:opacity-50 disabled:pointer-events-none"
-                          aria-label={`Hapus order ${row.id}`}
-                        >
-                          <Trash2 className="h-3 w-3 shrink-0" aria-hidden />
-                          Hapus
-                        </button>
-                      </Td>
-                    </tr>
+                      <tr
+                        key={row.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => openOrderDetail(row)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            openOrderDetail(row);
+                          }
+                        }}
+                        aria-label={`Buka detail order ${row.id}`}
+                        className={[
+                          "hover:bg-white/[0.06] cursor-pointer transition outline-none focus-visible:ring-2 focus-visible:ring-[#E8C547]/50 focus-visible:ring-inset",
+                          detailRow?.id === row.id
+                            ? "bg-white/[0.08] ring-1 ring-inset ring-[#E8C547]/35"
+                            : "",
+                        ].join(" ")}
+                      >
+                        <Td>{row.id}</Td>
+                        <Td>{row.tanggal}</Td>
+                        <Td className="tabular-nums whitespace-nowrap">
+                          {orderNoRm(row) ? (
+                            <span className="text-white/90">
+                              {orderNoRm(row)}
+                            </span>
+                          ) : (
+                            <span className="text-white/35">—</span>
+                          )}
+                        </Td>
+                        <Td>{orderPasienDisplayName(row)}</Td>
+                        <Td className="max-w-[140px]">
+                          {row.ruangan ? (
+                            <span className="text-white/90">{row.ruangan}</span>
+                          ) : (
+                            <span className="text-white/35">—</span>
+                          )}
+                        </Td>
+                        <Td>{row.dokter}</Td>
+                        <Td>{row.depo}</Td>
+                        <Td className="align-middle">
+                          <div className="flex flex-wrap items-center gap-2 min-w-[140px]">
+                            <StatusBadge status={row.status} />
+                            {canVerifyDepo &&
+                              row.status === "MENUNGGU_VALIDASI" && (
+                                <button
+                                  suppressHydrationWarning
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void verifyRow(row.id);
+                                  }}
+                                  className="inline-flex items-center gap-1 rounded-full border border-emerald-500/70 bg-emerald-950/80 px-2 py-0.5 text-[10px] font-semibold text-emerald-100 shadow-[0_0_12px_rgba(52,211,153,0.2)] hover:bg-emerald-900/90 hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/60"
+                                >
+                                  <CheckCircle2
+                                    className="h-3 w-3 shrink-0"
+                                    aria-hidden
+                                  />
+                                  Verifikasi
+                                </button>
+                              )}
+                          </div>
+                        </Td>
+                        <Td className="align-middle text-center">
+                          <button
+                            suppressHydrationWarning
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void deleteOrder(
+                                row.id,
+                                orderPasienDisplayName(row) || row.pasien,
+                              );
+                            }}
+                            disabled={deletingOrderId === row.id}
+                            className="inline-flex items-center gap-1 rounded-lg border border-rose-500/50 bg-rose-950/60 px-2 py-1 text-[10px] font-semibold text-rose-200 hover:bg-rose-900/70 hover:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-400/50 disabled:opacity-50 disabled:pointer-events-none"
+                            aria-label={`Hapus order ${row.id}`}
+                          >
+                            <Trash2 className="h-3 w-3 shrink-0" aria-hidden />
+                            Hapus
+                          </button>
+                        </Td>
+                      </tr>
                     ))}
                     {bottomSpacerHeight > 0 ? (
                       <tr aria-hidden>
-                        <td colSpan={9} style={{ height: bottomSpacerHeight }} />
+                        <td
+                          colSpan={9}
+                          style={{ height: bottomSpacerHeight }}
+                        />
                       </tr>
                     ) : null}
                   </>
@@ -2351,6 +2382,7 @@ export default function PemakaianPage() {
                                 <BarangVariantCombobox
                                   variant="table"
                                   listboxId={`pemakaian-barang-${line.lineId}`}
+                                  autoFocus={line.lineId === detailFocusLineId}
                                   value={line.barang}
                                   blurResolveLine={{
                                     distributor: line.distributor,
@@ -2376,6 +2408,31 @@ export default function PemakaianPage() {
                                       ukuran: v.ukuran?.trim() || undefined,
                                       ed: v.ed?.trim() || undefined,
                                       ...(h !== undefined ? { harga: h } : {}),
+                                    });
+                                    setDetailDraft((d) => {
+                                      if (!d) return d;
+                                      const idx = d.items.findIndex(
+                                        (r) => r.lineId === line.lineId,
+                                      );
+                                      if (idx === d.items.length - 1) {
+                                        const nextId = `${d.id}-new-${Date.now().toString(36)}`;
+                                        setDetailFocusLineId(nextId);
+                                        return {
+                                          ...d,
+                                          items: [
+                                            ...d.items,
+                                            {
+                                              lineId: nextId,
+                                              barang: "",
+                                              distributor: "",
+                                              qtyRencana: 1,
+                                              qtyDipakai: 0,
+                                              tipe: "N",
+                                            },
+                                          ],
+                                        };
+                                      }
+                                      return d;
                                     });
                                   }}
                                   options={barangVariantList}
@@ -2481,8 +2538,8 @@ export default function PemakaianPage() {
                                   }
                                   className="w-full bg-black/50 border border-white/15 rounded px-0.5 py-1 text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
                                 >
-                                  <option value="BARU">BARU</option>
-                                  <option value="REUSE">REUSE</option>
+                                  <option value="N">N</option>
+                                  <option value="R">R</option>
                                 </select>
                               </td>
                               <td className="px-1 py-1 align-middle text-center">
@@ -2770,6 +2827,7 @@ export default function PemakaianPage() {
                               <BarangVariantCombobox
                                 variant="table"
                                 listboxId={`pemakaian-drawer-barang-${line.lineId}`}
+                                autoFocus={line.lineId === drawerFocusLineId}
                                 value={line.barang}
                                 blurResolveLine={{
                                   distributor: line.distributor,
@@ -2793,6 +2851,27 @@ export default function PemakaianPage() {
                                     ukuran: v.ukuran?.trim() || undefined,
                                     ed: v.ed?.trim() || undefined,
                                     ...(h !== undefined ? { harga: h } : {}),
+                                  });
+                                  setDrawerLines((rows) => {
+                                    const idx = rows.findIndex(
+                                      (r) => r.lineId === line.lineId,
+                                    );
+                                    if (idx === rows.length - 1) {
+                                      const nextId = newDrawerLineId();
+                                      setDrawerFocusLineId(nextId);
+                                      return [
+                                        ...rows,
+                                        {
+                                          lineId: nextId,
+                                          barang: "",
+                                          distributor: "",
+                                          qtyRencana: 1,
+                                          qtyDipakai: 0,
+                                          tipe: "N",
+                                        },
+                                      ];
+                                    }
+                                    return rows;
                                   });
                                 }}
                                 options={barangVariantList}
@@ -2897,8 +2976,8 @@ export default function PemakaianPage() {
                                 }
                                 className="w-full bg-black/50 border border-white/15 rounded px-0.5 py-1 text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
                               >
-                                <option value="BARU">BARU</option>
-                                <option value="REUSE">REUSE</option>
+                                <option value="N">N</option>
+                                <option value="R">R</option>
                               </select>
                             </td>
                             <td className="px-1 py-1 align-middle text-center">

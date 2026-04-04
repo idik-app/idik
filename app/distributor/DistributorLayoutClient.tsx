@@ -162,6 +162,39 @@ export default function DistributorLayoutClient({
     return hit ? `Administrator • ${hit.nama_pt}` : "Administrator";
   }, [adminView, distributors, header, selectedDistributorId]);
 
+  const isPublicView = !header && !!searchParams.get("focus_order");
+
+  if (isPublicView) {
+    return (
+      <div className="min-h-app min-w-0 bg-[#020617] text-cyan-100 flex flex-col">
+        <header className="border-b border-cyan-900/60 bg-slate-950/60 backdrop-blur px-4 py-4">
+          <div className="mx-auto max-w-4xl flex items-center justify-between">
+            <div>
+              <div className="text-[11px] text-cyan-400/80">
+                IDIK-App • Portal Distributor
+              </div>
+              <div className="text-sm font-semibold text-[#D4AF37]">
+                Focused Order View
+              </div>
+            </div>
+            <Link
+              href="/"
+              className="px-4 py-1.5 rounded-full text-[12px] bg-slate-900/70 border border-cyan-800/70 hover:bg-slate-900 transition-colors"
+            >
+              Login
+            </Link>
+          </div>
+        </header>
+        <main className="flex-1 mx-auto w-full max-w-4xl px-4 py-8">
+          {children}
+        </main>
+        <footer className="py-8 text-center text-[11px] text-cyan-700/50">
+          &copy; {new Date().getFullYear()} IDIK-App. Semua hak dilindungi.
+        </footer>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-app min-w-0 bg-[#020617] text-cyan-100">
       <div className="border-b border-cyan-900/60 bg-slate-950/60 backdrop-blur">

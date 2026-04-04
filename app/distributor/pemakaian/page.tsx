@@ -623,7 +623,10 @@ function DistributorPemakaianPageContent() {
         ? `&distributor_id=${encodeURIComponent(distributorIdParam)}`
         : "";
       const modeQ = `&mode=${encodeURIComponent(mode)}`;
-      const url = `/api/distributor/pemakaian?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${distQ}${modeQ}`;
+      const focusQ = focusOrderParam
+        ? `&focus_order=${encodeURIComponent(focusOrderParam)}`
+        : "";
+      const url = `/api/distributor/pemakaian?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${distQ}${modeQ}${focusQ}`;
       const { res, json } = await runDeduped(`GET:${url}`, async () => {
         const res = await fetch(url, { cache: "no-store" });
         const json = (await res.json().catch(() => ({}))) as {
@@ -702,6 +705,29 @@ function DistributorPemakaianPageContent() {
   const showingFrom = totalFiltered === 0 ? 0 : pageStart + 1;
   const showingTo = Math.min(pageStart + PAGE_SIZE, totalFiltered);
 
+  const [isMeLoading, setIsMeLoading] = useState(true);
+  const [hasSession, setHasSession] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void runDeduped("GET:/api/distributor/me", async () => {
+      const r = await fetch("/api/distributor/me", { cache: "no-store" });
+      return r.json() as Promise<{ ok: boolean }>;
+    })
+      .then((j) => {
+        if (!alive) return;
+        setHasSession(j.ok);
+      })
+      .finally(() => {
+        if (alive) setIsMeLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const isPublicFocusedView = !hasSession && !isMeLoading && !!focusOrderParam;
+
   useEffect(() => {
     setPage(1);
   }, [searchQuery, filterPt, from, to, distributorIdParam, groupedRows.length]);
@@ -748,9 +774,24 @@ function DistributorPemakaianPageContent() {
     );
     if (!target) return;
 
-    setDetailGroup(target);
+    if (!isPublicFocusedView) {
+      setDetailGroup(target);
+    }
     autoOpenedFocusRef.current = focusKey;
-  }, [focusOrderParam, focusOrderSet, groupedRows, loading]);
+  }, [focusOrderParam, focusOrderSet, groupedRows, loading, isPublicFocusedView]);
+
+  const focusedDataGroup = useMemo(() => {
+    if (!isPublicFocusedView) return null;
+    const focusKey = String(focusOrderParam ?? "").trim();
+    if (!focusKey) return null;
+    const target = groupedRows.find((grp) =>
+      grp.some((r) => {
+        const oid = displayOrderId(r, rowKParts(r));
+        return focusOrderSet.has(oid);
+      }),
+    );
+    return target || null;
+  }, [isPublicFocusedView, focusOrderParam, groupedRows, focusOrderSet]);
 
   const buildShareInfoLink = useCallback((focusOrderIds?: string): string => {
     const qs = new URLSearchParams();
@@ -768,17 +809,18 @@ function DistributorPemakaianPageContent() {
 
   const openSharePreview = useCallback(
     (channel: ShareChannel) => {
-      if (!detailGroup?.length) return;
-      const focusOrderIds = displayOrderIdsGroup(detailGroup, "|");
+      const group = isPublicFocusedView ? focusedDataGroup : detailGroup;
+      if (!group?.length) return;
+      const focusOrderIds = displayOrderIdsGroup(group, "|");
       const infoLink = buildShareInfoLink(focusOrderIds);
-      const subject = `Pemakaian alkes — ${displayOrderIdsGroup(detailGroup)}`;
+      const subject = `Pemakaian alkes — ${displayOrderIdsGroup(group)}`;
       const body =
         channel === "wa"
-          ? buildWhatsAppBodyFromGroup(detailGroup, infoLink)
-          : buildShareBodyGroup(detailGroup, infoLink);
+          ? buildWhatsAppBodyFromGroup(group, infoLink)
+          : buildShareBodyGroup(group, infoLink);
       setSharePreview({ channel, subject, body, infoLink });
     },
-    [buildShareInfoLink, detailGroup],
+    [buildShareInfoLink, detailGroup, focusedDataGroup, isPublicFocusedView],
   );
 
   const sendFromPreview = useCallback(() => {
@@ -790,6 +832,125 @@ function DistributorPemakaianPageContent() {
     }
     setSharePreview(null);
   }, [sharePreview]);
+
+  if (isPublicFocusedView) {
+    const head = focusedDataGroup?.[0] ?? null;
+    const kParts = parseKeteranganParts(head?.keterangan);
+    const pLine = head ? formatPasienDetailLine(head, kParts) : null;
+    const dMerged = focusedDataGroup ? detailDokterLine(focusedDataGroup) : null;
+
+    return (
+      <div className="space-y-6">
+        <div className="rounded-2xl border border-cyan-800/60 bg-slate-950/40 p-6 shadow-2xl">
+          <h2 className="text-xl font-bold text-[#D4AF37] mb-6 border-b border-cyan-900/40 pb-4">
+            Detail Pemakaian
+          </h2>
+
+          {loading ? (
+            <div className="py-12 text-center text-cyan-500/80">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-cyan-500 border-t-transparent mb-4" />
+              <p>Memuat data pesanan...</p>
+            </div>
+          ) : focusedDataGroup ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-cyan-500/70 mb-1">
+                      Tanggal Pesanan
+                    </p>
+                    <p className="text-cyan-50 text-base">
+                      {formatReceiptDateGroup(focusedDataGroup)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-cyan-500/70 mb-1">
+                      ID Order
+                    </p>
+                    <p className="text-cyan-50 text-base font-mono">
+                      {displayOrderIdsGroup(focusedDataGroup)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-cyan-500/70 mb-1">
+                      Pasien
+                    </p>
+                    <p className="text-cyan-50 text-base">
+                      {pLine || "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-cyan-500/70 mb-1">
+                      Dokter
+                    </p>
+                    <p className="text-cyan-50 text-base">
+                      {dMerged || "—"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-cyan-900/50 pt-6">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#D4AF37] mb-4">
+                  Daftar Barang Dipakai
+                </p>
+                <div className="space-y-4">
+                  {focusedDataGroup.map((line) => (
+                    <div key={line.id} className="rounded-lg bg-slate-900/40 border border-cyan-900/30 p-4">
+                      <p className="text-cyan-50 font-medium text-lg mb-2">
+                        {line.inventaris?.nama ?? "—"}
+                        {line.jumlah != null && Number(line.jumlah) !== 1 && (
+                          <span className="text-cyan-400 ml-2">
+                            (×{line.jumlah})
+                          </span>
+                        )}
+                      </p>
+                      <div className="grid grid-cols-2 gap-y-2 text-sm">
+                        {line.lot?.trim() && (
+                          <div>
+                            <span className="text-cyan-500/60 mr-2">LOT:</span>
+                            <span className="text-cyan-200">{line.lot.trim()}</span>
+                          </div>
+                        )}
+                        {line.ukuran?.trim() && (
+                          <div>
+                            <span className="text-cyan-500/60 mr-2">Ukuran:</span>
+                            <span className="text-cyan-200">{line.ukuran.trim()}</span>
+                          </div>
+                        )}
+                        {line.ed?.trim() && (
+                          <div>
+                            <span className="text-cyan-500/60 mr-2">ED:</span>
+                            <span className="text-cyan-200">{line.ed.trim()}</span>
+                          </div>
+                        )}
+                        {line.inventaris?.satuan?.trim() && (
+                          <div>
+                            <span className="text-cyan-500/60 mr-2">Satuan:</span>
+                            <span className="text-cyan-200">{line.inventaris.satuan}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="py-12 text-center text-amber-300/80">
+              <p className="text-lg">Pesanan tidak ditemukan atau tautan sudah tidak valid.</p>
+              <p className="text-sm mt-2 text-amber-200/50">
+                Hubungi petugas Cathlab jika tautan informasi tidak menampilkan data.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

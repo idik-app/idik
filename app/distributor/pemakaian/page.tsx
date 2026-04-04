@@ -445,22 +445,22 @@ function buildWhatsAppBodyFromGroup(rows: PemakaianRow[], infoLink?: string): st
     const r = rows[0]!;
     const p = rowKParts(r);
     const lines: string[] = [];
-    lines.push("*Tanggal*");
+    lines.push("Tanggal");
     lines.push(formatReceiptDate(r));
     const pasienLine = formatPasienDetailLine(r, p);
     if (pasienLine) {
       lines.push("");
-      lines.push("*Pasien*");
+      lines.push("Pasien");
       lines.push(pasienLine);
     }
     const d = r.dokter?.trim() || p.dokter?.trim();
     if (d) {
       lines.push("");
-      lines.push("*Dokter*");
+      lines.push("Dokter");
       lines.push(d);
     }
     lines.push("");
-    lines.push("*Barang dipakai*");
+    lines.push("Barang dipakai");
     appendWaPemakaianLines(lines, r, 1);
     lines.push("");
     appendInfoAndSuggestion(lines, infoLink);
@@ -472,20 +472,20 @@ function buildWhatsAppBodyFromGroup(rows: PemakaianRow[], infoLink?: string): st
   const pasienLine = formatPasienDetailLine(head, headParts);
   const dokters = waDokterText(rows);
   const lines: string[] = [];
-  lines.push("*Tanggal*");
+  lines.push("Tanggal");
   lines.push(formatReceiptDateGroup(rows));
   if (pasienLine) {
     lines.push("");
-    lines.push("*Pasien*");
+    lines.push("Pasien");
     lines.push(pasienLine);
   }
   if (dokters) {
     lines.push("");
-    lines.push("*Dokter*");
+    lines.push("Dokter");
     lines.push(dokters);
   }
   lines.push("");
-  lines.push("*Barang dipakai*");
+  lines.push("Barang dipakai");
   let n = 1;
   for (const r of rows) {
     appendWaPemakaianLines(lines, r, n);

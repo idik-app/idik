@@ -211,18 +211,26 @@ function parseAdminAllMode(value: string | null): AdminAllMode {
 
 export async function GET(req: Request) {
   const id = await getDistributorIdentity();
-  if (!id.ok)
+  const { searchParams } = new URL(req.url);
+  const focusOrderRaw = searchParams.get("focus_order");
+  const focusOrderIds = focusOrderRaw
+    ?.split("|")
+    .map((v) => v.trim())
+    .filter(Boolean) || [];
+
+  if (!id.ok && focusOrderIds.length === 0) {
     return NextResponse.json(
       { ok: false, message: "Unauthorized" },
       { status: 401 },
     );
+  }
 
-  const { searchParams } = new URL(req.url);
   const from = parseDate(searchParams.get("from"));
   const to = parseDate(searchParams.get("to"));
   const adminAllMode = parseAdminAllMode(searchParams.get("mode"));
   const distributorIdParam = (searchParams.get("distributor_id") ?? "").trim();
   if (
+    id.ok &&
     id.isAdminView &&
     distributorIdParam &&
     !isValidUuidParam(distributorIdParam)
@@ -237,12 +245,13 @@ export async function GET(req: Request) {
     );
   }
 
-  const scope = id.isAdminView
-    ? distributorIdParam || null
-    : (id.distributorId ?? null);
-  const adminShowAll = Boolean(id.isAdminView && !scope);
+  const scope =
+    id.ok && id.isAdminView
+      ? distributorIdParam || null
+      : (id.ok ? (id.distributorId ?? null) : null);
+  const adminShowAll = Boolean((id.ok && id.isAdminView && !scope) || !id.ok);
 
-  if (!id.isAdminView && !scope) {
+  if (id.ok && !id.isAdminView && !scope) {
     return NextResponse.json(
       { ok: false, message: "Akun distributor tidak terikat ke master PT." },
       { status: 403 },
@@ -294,7 +303,10 @@ export async function GET(req: Request) {
   if (from) pemQ = pemQ.gte("tanggal", from);
   if (to) pemQ = pemQ.lte("tanggal", to);
 
-  const { data: pemFromTable, error: pemErr } = await pemQ;
+  const { data: pemFromTable, error: pemErr } =
+    !id.ok && focusOrderIds.length > 0
+      ? { data: [], error: null }
+      : await pemQ;
 
   if (pemErr && isPemakaianTableSchemaMismatch(pemErr)) {
     let mutQ = supabase
@@ -558,19 +570,20 @@ export async function GET(req: Request) {
     }
 
     // Realtime distributor: sertakan status sebelum dan sesudah validasi Depo.
-    const { data: orderRows, error: orderErr } = await supabase
+    let orderQ = supabase
       .from("cathlab_pemakaian_order")
       .select(
         "id, tanggal, pasien, dokter, status, items, catatan, created_at, no_rm",
       )
-      .in("status", [
-        "DIAJUKAN",
-        "MENUNGGU_VALIDASI",
-        "TERVERIFIKASI",
-        "SELESAI",
-      ])
+      .in("status", ["DIAJUKAN", "MENUNGGU_VALIDASI", "TERVERIFIKASI", "SELESAI"]);
+
+    if (focusOrderIds.length > 0) {
+      orderQ = orderQ.in("id", focusOrderIds);
+    }
+
+    const { data: orderRows, error: orderErr } = await orderQ
       .order("created_at", { ascending: false })
-      .limit(8000);
+      .limit(focusOrderIds.length > 0 ? 100 : 8000);
 
     if (orderErr) {
       return NextResponse.json(
@@ -683,19 +696,20 @@ export async function GET(req: Request) {
       return raw.trim();
     }
 
-    const { data: orderRowsAdmin, error: orderErrAdmin } = await supabase
+    let orderQAdmin = supabase
       .from("cathlab_pemakaian_order")
       .select(
         "id, tanggal, pasien, dokter, status, items, catatan, created_at, no_rm",
       )
-      .in("status", [
-        "DIAJUKAN",
-        "MENUNGGU_VALIDASI",
-        "TERVERIFIKASI",
-        "SELESAI",
-      ])
+      .in("status", ["DIAJUKAN", "MENUNGGU_VALIDASI", "TERVERIFIKASI", "SELESAI"]);
+
+    if (focusOrderIds.length > 0) {
+      orderQAdmin = orderQAdmin.in("id", focusOrderIds);
+    }
+
+    const { data: orderRowsAdmin, error: orderErrAdmin } = await orderQAdmin
       .order("created_at", { ascending: false })
-      .limit(8000);
+      .limit(focusOrderIds.length > 0 ? 100 : 8000);
 
     if (orderErrAdmin) {
       return NextResponse.json(

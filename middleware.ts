@@ -42,6 +42,14 @@ export async function middleware(req: NextRequest) {
   if (!isDashboard && !isSystem && !isDistributor && !isDepo)
     return NextResponse.next();
 
+  /** 🔓 Public access untuk link WhatsApp (Portal Pemakaian) bila ada focus_order. */
+  if (
+    pathname === "/distributor/pemakaian" &&
+    req.nextUrl.searchParams.get("focus_order")
+  ) {
+    return NextResponse.next();
+  }
+
   const token = req.cookies.get("session")?.value;
   if (!token) {
     console.log(

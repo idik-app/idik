@@ -604,9 +604,13 @@ export async function GET(req: Request) {
         );
         let dateKey =
           orderTanggalDateKey(tanggalStr) ?? orderTanggalDateKey(createdStr);
-        if (fromKey && dateKey && dateKey < fromKey) continue;
-        if (toKey && dateKey && dateKey > toKey) continue;
-        if ((fromKey || toKey) && !dateKey) continue;
+
+        // Jika ada focus_order, abaikan filter tanggal
+        if (focusOrderIds.length === 0) {
+          if (fromKey && dateKey && dateKey < fromKey) continue;
+          if (toKey && dateKey && dateKey > toKey) continue;
+          if ((fromKey || toKey) && !dateKey) continue;
+        }
 
         const pasien = String(
           (orow as { pasien?: unknown }).pasien ?? "",
@@ -730,9 +734,13 @@ export async function GET(req: Request) {
         );
         let dateKey =
           orderTanggalDateKey(tanggalStr) ?? orderTanggalDateKey(createdStr);
-        if (fromKey && dateKey && dateKey < fromKey) continue;
-        if (toKey && dateKey && dateKey > toKey) continue;
-        if ((fromKey || toKey) && !dateKey) continue;
+
+        // Jika ada focus_order, abaikan filter tanggal
+        if (focusOrderIds.length === 0) {
+          if (fromKey && dateKey && dateKey < fromKey) continue;
+          if (toKey && dateKey && dateKey > toKey) continue;
+          if ((fromKey || toKey) && !dateKey) continue;
+        }
 
         const pasien = String(
           (orow as { pasien?: unknown }).pasien ?? "",

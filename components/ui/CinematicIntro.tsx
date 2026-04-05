@@ -305,7 +305,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [phase, handleOpenLogin]);
 
-  const handleLoginFinish = (target?: string) => {
+  const handleLoginFinish = useCallback((target?: string) => {
     const url = target || "/dashboard";
     playSfx("/sfx/confirm.mp3", 1);
 
@@ -328,15 +328,15 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
       pendingLoginUrlRef.current = null;
       router.replace(next);
     }, 920);
-  };
+  }, [playSfx, reducedMotion, router]);
 
-  const handleLoginError = () => {
+  const handleLoginError = useCallback(() => {
     playSfx("/sfx/denied.mp3", 1);
     setPhase("accessDenied");
     deniedTimeoutRef.current = setTimeout(() => {
       setPhase("login");
     }, 2000);
-  };
+  }, [playSfx]);
 
   useEffect(() => {
     return () => {
@@ -353,6 +353,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
      ✨ Partikel Deterministik
   --------------------------------------------------------- */
   const particles = useMemo(() => {
+    if (phase === "login") return [];
     const rand = mulberry32(20251013);
     const count = reducedMotion ? 16 : 40;
 
@@ -384,7 +385,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
           aria-hidden
         >
         {/* ---- Aurora Layer (statis di mobile = lebih ringan) ---- */}
-        {lite ? (
+        {lite || phase === "login" ? (
           <>
             <div className="absolute left-1/2 top-1/2 z-[0] h-[min(92vw,1000px)] w-[min(92vw,1000px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-tr from-blue-600/22 via-purple-600/12 to-pink-600/18 blur-[100px] sm:h-[1000px] sm:w-[1000px] sm:blur-[200px]" />
             <div className="absolute left-1/2 top-1/2 z-[0] h-[min(96vw,1200px)] w-[min(96vw,1200px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-bl from-indigo-700/18 via-fuchsia-600/12 to-blue-700/22 blur-[120px] sm:h-[1200px] sm:w-[1200px] sm:blur-[250px]" />
@@ -413,12 +414,12 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
         <div className="absolute left-1/2 top-1/2 z-[10] -translate-x-1/2 -translate-y-1/2">
           <motion.div
             animate={{
-              rotate: lite ? 0 : 360,
-              scale: lite ? 1 : [1, 1.05, 1],
-              opacity: lite ? 1 : [0.65, 1, 0.65],
+              rotate: lite || phase === "login" ? 0 : 360,
+              scale: lite || phase === "login" ? 1 : [1, 1.05, 1],
+              opacity: lite || phase === "login" ? 1 : [0.65, 1, 0.65],
             }}
             transition={
-              lite
+              lite || phase === "login"
                 ? { duration: 0.01 }
                 : { duration: 10, repeat: Infinity, ease: "easeInOut" }
             }
@@ -429,12 +430,12 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
         <div className="absolute left-1/2 top-1/2 z-[11] -translate-x-1/2 -translate-y-1/2">
           <motion.div
             animate={{
-              rotate: lite ? 0 : -360,
-              scale: lite ? 1 : [1, 1.08, 1],
-              opacity: lite ? 0.9 : [0.55, 0.95, 0.55],
+              rotate: lite || phase === "login" ? 0 : -360,
+              scale: lite || phase === "login" ? 1 : [1, 1.08, 1],
+              opacity: lite || phase === "login" ? 0.9 : [0.55, 0.95, 0.55],
             }}
             transition={
-              lite
+              lite || phase === "login"
                 ? { duration: 0.01 }
                 : { duration: 14, repeat: Infinity, ease: "easeInOut" }
             }
@@ -447,12 +448,12 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
         <div className="absolute left-1/2 top-1/2 z-[12] -translate-x-1/2 -translate-y-1/2">
           <motion.div
             animate={
-              lite
+              lite || phase === "login"
                 ? { scale: 1, opacity: 1 }
                 : { scale: [0.98, 1.02, 0.98], opacity: [0.25, 0.85, 0.25] }
             }
             transition={
-              lite
+              lite || phase === "login"
                 ? { duration: 0.01 }
                 : { duration: 2.6, repeat: Infinity, ease: "easeInOut" }
             }
@@ -582,12 +583,12 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
             className="h-[min(36vw,160px)] w-[min(36vw,160px)] rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.55),transparent_70%)] blur-xl sm:h-[190px] sm:w-[190px] sm:blur-2xl"
             style={{ transformOrigin: "center center" }}
             animate={
-              lite
+              lite || phase === "login"
                 ? { scale: 1, opacity: 0.88 }
                 : { scale: [0.9, 1.12, 0.9], opacity: [0.45, 0.9, 0.45] }
             }
             transition={
-              lite
+              lite || phase === "login"
                 ? { duration: 0.01 }
                 : { duration: 2.4, repeat: Infinity, ease: "easeInOut" }
             }

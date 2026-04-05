@@ -43,7 +43,12 @@ import {
 import {
   BarangVariantCombobox,
   rowMatchesBarangQuery,
+  createBarangVariantIndex,
+  useBarangVariantIndex,
+  resolvePickRowFromIndexedOptions,
+  resolvePickRowFromBarangInput,
   type MasterBarangPickRow,
+  type BarangVariantIndex,
 } from "@/components/ui/barang-variant-combobox";
 import { ConsumableAngiografiPrintTemplate } from "@/app/dashboard/pemakaian/components/ConsumableAngiografiTemplate";
 import { runDeduped } from "@/lib/api/runDeduped";
@@ -225,31 +230,20 @@ function narrowByLineFields(
   return filtered.length ? filtered : candidates;
 }
 
-/** Cocokkan nama/kode/barcode; bila banyak varian sama nama, sempitkan dengan LOT/ED/ukuran/distributor pada baris. */
 function resolveHargaFromBarangInput(
   label: string,
   options: MasterBarangPickRow[],
   line?: Pick<PemakaianLine, "distributor" | "lot" | "ukuran" | "ed">,
+  index?: BarangVariantIndex,
 ): number | undefined {
   const q = label.trim().toLowerCase();
   if (!q) return undefined;
-  const byBarcode = options.find(
-    (v) => (v.barcode ?? "").trim().toLowerCase() === q,
-  );
-  if (byBarcode) return hargaFromPickRow(byBarcode, options);
-  const byKode = options.find((v) => v.kode.trim().toLowerCase() === q);
-  if (byKode) return hargaFromPickRow(byKode, options);
-  const sameNama = options.filter((v) => v.nama.trim().toLowerCase() === q);
-  let candidates = sameNama;
-  if (sameNama.length === 0) {
-    candidates = options.filter((v) => v.kode.trim().toLowerCase() === q);
-  }
-  if (candidates.length === 0) return undefined;
-  const narrowed = line ? narrowByLineFields(candidates, line) : candidates;
-  for (const c of narrowed) {
-    const h = hargaFromPickRow(c, options);
-    if (h !== undefined) return h;
-  }
+
+  const row = index 
+    ? resolvePickRowFromIndexedOptions(q, index, options, line)
+    : resolvePickRowFromBarangInput(q, options, line);
+
+  if (row) return hargaFromPickRow(row, options);
   return undefined;
 }
 
@@ -474,6 +468,7 @@ export default function PemakaianPage() {
   const [barangVariantList, setBarangVariantList] = useState<
     MasterBarangPickRow[]
   >([]);
+  const barangVariantIndex = useBarangVariantIndex(barangVariantList);
   const [barangVariantLoading, setBarangVariantLoading] = useState(false);
   const [barangPickerOpen, setBarangPickerOpen] = useState(false);
   /** Modal tambah barang: dari panel Edit order atau form Input Pemakaian. */
@@ -873,6 +868,7 @@ export default function PemakaianPage() {
           next.barang,
           barangVariantList,
           next,
+          barangVariantIndex,
         );
         if (h !== undefined) return { ...next, harga: h };
         return next;
@@ -1456,6 +1452,7 @@ export default function PemakaianPage() {
             next.barang,
             barangVariantList,
             next,
+            barangVariantIndex,
           );
           if (h !== undefined) return { ...next, harga: h };
           return next;
@@ -1474,7 +1471,6 @@ export default function PemakaianPage() {
     });
   }
 
-  /** Setelah katalog master termuat / buka edit order: isi kolom harga yang masih kosong dari master. */
   useEffect(() => {
     if (barangVariantList.length === 0) return;
     setDetailDraft((d) => {
@@ -1487,6 +1483,7 @@ export default function PemakaianPage() {
           line.barang,
           barangVariantList,
           line,
+          barangVariantIndex,
         );
         if (h === undefined) return line;
         changed = true;
@@ -1494,7 +1491,7 @@ export default function PemakaianPage() {
       });
       return changed ? { ...d, items } : d;
     });
-  }, [barangVariantList, detailDraft?.id]);
+  }, [barangVariantList, barangVariantIndex, detailDraft?.id]);
 
   useEffect(() => {
     if (barangVariantList.length === 0) return;
@@ -1507,6 +1504,7 @@ export default function PemakaianPage() {
           line.barang,
           barangVariantList,
           line,
+          barangVariantIndex,
         );
         if (h === undefined) return line;
         changed = true;
@@ -1514,7 +1512,7 @@ export default function PemakaianPage() {
       });
       return changed ? next : rows;
     });
-  }, [barangVariantList, isDrawerOpen]);
+  }, [barangVariantList, barangVariantIndex, isDrawerOpen]);
 
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const trimmedSearch = deferredSearchQuery.trim().toLowerCase();

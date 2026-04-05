@@ -78,22 +78,25 @@ export async function GET() {
 
   const masterIds = activeMasters.map((m) => m.id);
 
-  const { data: dbRows, error: dbe } =
+  // PARALEL: Ambil detail variant dan distributor sekaligus
+  const [dbResult, distResult] = await Promise.all([
     masterIds.length > 0
-      ? await supabase
+      ? supabase
           .from("distributor_barang")
           .select(
             "id, master_barang_id, lot, ukuran, ed, barcode, distributor_id, is_active, harga_jual"
           )
           .in("master_barang_id", masterIds)
-      : { data: [], error: null };
+      : Promise.resolve({ data: [], error: null }),
+    supabase.from("master_distributor").select("id, nama_pt")
+  ]);
 
-  if (dbe) {
-    return NextResponse.json(
-      { ok: false, message: dbe.message },
-      { status: 500 }
-    );
+  if (dbResult.error) {
+    return NextResponse.json({ ok: false, message: dbResult.error.message }, { status: 500 });
   }
+
+  const dbRows = dbResult.data;
+  const distRows = distResult.data;
 
   const byMaster = new Map<string, DbRow[]>();
   for (const r of dbRows ?? []) {
@@ -104,29 +107,12 @@ export async function GET() {
     byMaster.set(mbId, list);
   }
 
-  const distIds = new Set<string>();
-  for (const m of activeMasters) {
-    if (m.distributor_id) distIds.add(String(m.distributor_id));
-  }
-  for (const row of dbRows ?? []) {
-    const did = String((row as { distributor_id: string }).distributor_id);
-    if (did) distIds.add(did);
-  }
-
   const distMap = new Map<string, string>();
-  if (distIds.size > 0) {
-    const { data: dists, error: de } = await supabase
-      .from("master_distributor")
-      .select("id, nama_pt")
-      .in("id", [...distIds]);
-    if (!de) {
-      for (const d of dists ?? []) {
-        distMap.set(
-          String((d as { id: string }).id),
-          String((d as { nama_pt?: string }).nama_pt ?? "").trim()
-        );
-      }
-    }
+  for (const d of distRows ?? []) {
+    distMap.set(
+      String((d as { id: string }).id),
+      String((d as { nama_pt?: string }).nama_pt ?? "").trim()
+    );
   }
 
   const items: {

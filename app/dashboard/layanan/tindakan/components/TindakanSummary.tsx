@@ -138,6 +138,14 @@ function extractTextAccentClass(iconWrap: string): string {
   return tokens.find((t) => t.startsWith("text-")) ?? "";
 }
 
+function getEmptyHint(label: string): string | null {
+  const k = label.toLowerCase();
+  if (k.includes("hari")) return "Belum ada jadwal hari ini";
+  if (k.includes("tindakan")) return "Input alkes di baris tabel";
+  if (k.includes("dokter")) return "Pilih dokter di tabel";
+  return null;
+}
+
 export default function TindakanSummary({
   stats,
   loading,
@@ -391,11 +399,23 @@ export default function TindakanSummary({
                             ? "mt-0 text-sm sm:text-base"
                             : "mt-0.5 text-base sm:text-lg",
                           accentText || "text-slate-900",
-                          "dark:text-white",
+                          item.value === 0
+                            ? "text-slate-400 dark:text-white/40"
+                            : "dark:text-white",
                         )}
                       >
                         {item.value.toLocaleString("id-ID")}
                       </p>
+                      {item.value === 0 && getEmptyHint(item.label) ? (
+                        <p
+                          className={cn(
+                            "mt-0.5 text-[8px] sm:text-[9px] font-medium leading-tight",
+                            "text-slate-500/80 dark:text-white/50",
+                          )}
+                        >
+                          {getEmptyHint(item.label)}
+                        </p>
+                      ) : null}
                       {item.filterLines?.length ? (
                         <p
                           className={cn(

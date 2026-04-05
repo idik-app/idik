@@ -139,7 +139,7 @@ export async function GET(request: Request) {
       searchParams.get("compact") === "1" ||
       searchParams.get("lite") === "1";
     const limitRaw = Number(searchParams.get("limit") ?? "");
-    const defaultLimit = compact ? 15000 : 0;
+    const defaultLimit = compact ? 5000 : 0;
     const limit =
       Number.isFinite(limitRaw) && limitRaw > 0
         ? Math.min(Math.trunc(limitRaw), 20000)

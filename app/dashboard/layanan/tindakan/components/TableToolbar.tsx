@@ -9,11 +9,19 @@ import {
   FileSpreadsheet,
   ChevronDown,
   X,
+  Receipt,
+  ClipboardList,
+  BarChart2,
+  CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import type { Pasien } from "@/app/dashboard/pasien/types/pasien";
 import TambahPasienQuickModal from "./TambahPasienQuickModal";
+import TarifModal from "./TarifModal";
+import DiagnosaModal from "./DiagnosaModal";
+import SeverityLevelModal from "./SeverityLevelModal";
+import IndenanModal from "./IndenanModal";
 
 interface Props {
   onRefresh?: () => Promise<void> | void;
@@ -28,6 +36,7 @@ interface Props {
     ruangan: string,
     tanggalFrom?: string,
     tanggalTo?: string,
+    isPciOnly?: boolean,
   ) => void;
   dokterOptions: string[];
   ruanganOptions: string[];
@@ -75,11 +84,16 @@ export default function TableToolbar({
   const [ruangan, setRuangan] = useState("");
   const [tanggalFrom, setTanggalFrom] = useState("");
   const [tanggalTo, setTanggalTo] = useState("");
+  const [isPciOnly, setIsPciOnly] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [, setCountdown] = useState(POLL_INTERVAL_SEC);
   const [isPageVisible, setIsPageVisible] = useState(true);
   const [isUserTyping, setIsUserTyping] = useState(false);
   const [addPasienOpen, setAddPasienOpen] = useState(false);
+  const [tarifOpen, setTarifOpen] = useState(false);
+  const [diagnosaOpen, setDiagnosaOpen] = useState(false);
+  const [severityLevelOpen, setSeverityLevelOpen] = useState(false);
+  const [indenanOpen, setIndenanOpen] = useState(false);
   const [laporanMenuOpen, setLaporanMenuOpen] = useState(false);
   const laporanMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -165,6 +179,41 @@ export default function TableToolbar({
     }, 10000);
   };
 
+  /** 📅 Shortcut filter tanggal cepat */
+  const setShortcutDate = (type: "today" | "yesterday" | "thisWeek") => {
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Jakarta",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+
+    const now = new Date();
+    let from = "";
+    let to = formatter.format(now);
+
+    if (type === "today") {
+      from = to;
+    } else if (type === "yesterday") {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      from = formatter.format(yesterday);
+      to = from;
+    } else if (type === "thisWeek") {
+      const today = new Date();
+      const day = today.getDay(); // 0: Sun, 1: Mon, ...
+      const diffToMonday = day === 0 ? 6 : day - 1;
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - diffToMonday);
+      from = formatter.format(monday);
+      to = formatter.format(today);
+    }
+
+    setTanggalFrom(from);
+    setTanggalTo(to);
+    onFilter(dokter, ruangan, from, to, isPciOnly);
+  };
+
   useEffect(() => {
     return () => {
       if (typingTimeout.current) clearTimeout(typingTimeout.current);
@@ -234,44 +283,45 @@ export default function TableToolbar({
           type="button"
           onClick={() => setAddPasienOpen(true)}
           className={cn(
-            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[hsl(var(--cyan)/0.85)] bg-[hsl(var(--cyan))] px-3 text-xs font-extrabold shadow-[0_0_18px_hsl(var(--cyan)/0.4)] transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--cyan))]",
-            "text-black dark:text-slate-100",
+            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-cyan/50 bg-cyan px-3 text-xs font-black shadow-lg shadow-cyan/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan",
+            "text-white dark:text-black",
             "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
           )}
           title="Tambah saran pasien (tanpa pindah halaman)"
         >
           <Plus
             size={16}
-            strokeWidth={2.5}
+            strokeWidth={3}
             className={cn(
               "shrink-0 motion-safe:transition-transform group-hover:scale-110",
-              "text-black dark:text-slate-100",
+              "text-white dark:text-black",
             )}
           />
-          <span className={cn("tracking-wide text-black dark:text-slate-100")}>
+          <span className={cn("tracking-wide text-white dark:text-black uppercase")}>
             Tambah Pasien
           </span>
         </button>
+
         {typeof onOpenFastTrack === "function" ? (
           <button
             type="button"
             onClick={() => onOpenFastTrack()}
             className={cn(
-              "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-extrabold shadow-[0_0_14px_rgba(245,158,11,0.35)] transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/90",
-              "border-amber-600/85 bg-amber-500 text-black dark:border-amber-500/70 dark:bg-amber-600 dark:text-white",
+              "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-orange-700 bg-orange-600 px-3 text-xs font-black shadow-lg shadow-orange-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+              "text-white",
               "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
             )}
             title="Daftar Fast-Track: filter bulan, dokter, IGD, door-to-balloon, foto"
           >
             <Zap
               size={16}
-              strokeWidth={2.5}
+              strokeWidth={3}
               className={cn(
                 "shrink-0 motion-safe:transition-transform group-hover:scale-110",
-                "text-black dark:text-white",
+                "text-white",
               )}
             />
-            <span className={cn("tracking-wide text-black dark:text-white")}>
+            <span className={cn("tracking-wide text-white uppercase")}>
               Fast-Track
             </span>
           </button>
@@ -286,8 +336,8 @@ export default function TableToolbar({
               aria-controls="tindakan-toolbar-laporan-menu"
               onClick={() => setLaporanMenuOpen((o) => !o)}
               className={cn(
-                "group inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border px-2.5 pr-2 text-xs font-extrabold shadow-[0_0_14px_rgba(16,185,129,0.3)] transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/90",
-                "border-emerald-600/85 bg-emerald-600 text-white dark:border-emerald-500/70 dark:bg-emerald-700 dark:text-white",
+                "group inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-700 bg-emerald-600 px-2.5 pr-2 text-xs font-black shadow-lg shadow-emerald-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
+                "text-white",
                 "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
                 laporanMenuOpen && "brightness-110",
               )}
@@ -295,15 +345,15 @@ export default function TableToolbar({
             >
               <FileSpreadsheet
                 size={16}
-                strokeWidth={2.5}
-                className="shrink-0 motion-safe:transition-transform group-hover:scale-110"
+                strokeWidth={3}
+                className="shrink-0 motion-safe:transition-transform group-hover:scale-110 text-white"
               />
-              <span className="tracking-wide">Laporan</span>
+              <span className="tracking-wide text-white uppercase">Laporan</span>
               <ChevronDown
                 size={14}
-                strokeWidth={2.5}
+                strokeWidth={3}
                 className={cn(
-                  "shrink-0 opacity-90 motion-safe:transition-transform",
+                  "shrink-0 opacity-90 motion-safe:transition-transform text-white",
                   laporanMenuOpen && "rotate-180",
                 )}
                 aria-hidden
@@ -379,6 +429,98 @@ export default function TableToolbar({
             ) : null}
           </div>
         ) : null}
+
+        <button
+          type="button"
+          onClick={() => setTarifOpen(true)}
+          className={cn(
+            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-indigo-800 bg-indigo-700 px-3 text-xs font-black shadow-lg shadow-indigo-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
+            "text-white",
+            "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
+          )}
+          title="Lihat & Edit Tarif Tindakan (Autosave)"
+        >
+          <Receipt
+            size={16}
+            strokeWidth={3}
+            className={cn(
+              "shrink-0 motion-safe:transition-transform group-hover:scale-110",
+              "text-white",
+            )}
+          />
+          <span className={cn("tracking-wide text-white uppercase")}>
+            Tarif
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setDiagnosaOpen(true)}
+          className={cn(
+            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-teal-800 bg-teal-700 px-3 text-xs font-black shadow-lg shadow-teal-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500",
+            "text-white",
+            "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
+          )}
+          title="Lihat & Edit Daftar Diagnosa ICD 10 (Autosave)"
+        >
+          <ClipboardList
+            size={16}
+            strokeWidth={3}
+            className={cn(
+              "shrink-0 motion-safe:transition-transform group-hover:scale-110",
+              "text-white",
+            )}
+          />
+          <span className={cn("tracking-wide text-white uppercase")}>
+            Diagnosa
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setSeverityLevelOpen(true)}
+          className={cn(
+            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-rose-800 bg-rose-700 px-3 text-xs font-black shadow-lg shadow-rose-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500",
+            "text-white",
+            "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
+          )}
+          title="Lihat & Edit Severity Level Tarif (Autosave)"
+        >
+          <BarChart2
+            size={16}
+            strokeWidth={3}
+            className={cn(
+              "shrink-0 motion-safe:transition-transform group-hover:scale-110",
+              "text-white",
+            )}
+          />
+          <span className={cn("tracking-wide text-white uppercase")}>
+            Severity Level
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setIndenanOpen(true)}
+          className={cn(
+            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-blue-800 bg-blue-700 px-3 text-xs font-black shadow-lg shadow-blue-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+            "text-white",
+            "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
+          )}
+          title="Lihat Jadwal Indenan Pasien (Google Sheets)"
+        >
+          <CalendarDays
+            size={16}
+            strokeWidth={3}
+            className={cn(
+              "shrink-0 motion-safe:transition-transform group-hover:scale-110",
+              "text-white",
+            )}
+          />
+          <span className={cn("tracking-wide text-white uppercase")}>
+            Indenan
+          </span>
+        </button>
       </div>
 
       <div className="relative z-0 flex flex-wrap items-end gap-1.5 sm:gap-2 min-w-0">
@@ -423,7 +565,7 @@ export default function TableToolbar({
             onChange={(e) => {
               const v = e.target.value;
               setDokter(v);
-              onFilter(v, ruangan, tanggalFrom, tanggalTo);
+              onFilter(v, ruangan, tanggalFrom, tanggalTo, isPciOnly);
             }}
             className={cn(
               "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
@@ -444,7 +586,7 @@ export default function TableToolbar({
                 type="button"
                 onClick={() => {
                   setDokter("");
-                  onFilter("", ruangan, tanggalFrom, tanggalTo);
+                  onFilter("", ruangan, tanggalFrom, tanggalTo, isPciOnly);
                 }}
                 className={cn(
                   "p-0.5 rounded-md transition-colors pointer-events-auto",
@@ -471,7 +613,7 @@ export default function TableToolbar({
             onChange={(e) => {
               const v = e.target.value;
               setRuangan(v);
-              onFilter(dokter, v, tanggalFrom, tanggalTo);
+              onFilter(dokter, v, tanggalFrom, tanggalTo, isPciOnly);
             }}
             className={cn(
               "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
@@ -492,7 +634,7 @@ export default function TableToolbar({
                 type="button"
                 onClick={() => {
                   setRuangan("");
-                  onFilter(dokter, "", tanggalFrom, tanggalTo);
+                  onFilter(dokter, "", tanggalFrom, tanggalTo, isPciOnly);
                 }}
                 className={cn(
                   "p-0.5 rounded-md transition-colors pointer-events-auto",
@@ -512,8 +654,48 @@ export default function TableToolbar({
           </div>
         </div>
 
-        {/* 📅 Filter tanggal (range) */}
+        {/* 📅 Filter tanggal (range) & Shortcuts */}
         <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+          {/* Shortcuts Filter Tanggal */}
+          <div className="flex items-center gap-1 mr-1">
+            <button
+              type="button"
+              onClick={() => setShortcutDate("today")}
+              className={cn(
+                "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
+                "border-cyan-500/40 bg-cyan-100/90 text-cyan-950 hover:bg-cyan-200/90",
+                "dark:border-cyan-500/30 dark:bg-cyan-950/40 dark:text-cyan-200 dark:hover:bg-cyan-900/40",
+              )}
+              title="Filter tindakan hari ini"
+            >
+              Hari Ini
+            </button>
+            <button
+              type="button"
+              onClick={() => setShortcutDate("yesterday")}
+              className={cn(
+                "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
+                "border-amber-500/40 bg-amber-100/90 text-amber-950 hover:bg-amber-200/90",
+                "dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/40",
+              )}
+              title="Filter tindakan kemarin"
+            >
+              Kemarin
+            </button>
+            <button
+              type="button"
+              onClick={() => setShortcutDate("thisWeek")}
+              className={cn(
+                "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
+                "border-emerald-500/40 bg-emerald-100/90 text-emerald-950 hover:bg-emerald-200/90",
+                "dark:border-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40",
+              )}
+              title="Filter tindakan minggu ini (dari Senin)"
+            >
+              Minggu Ini
+            </button>
+          </div>
+
           <div className="relative group">
             <input
               type="date"
@@ -523,7 +705,7 @@ export default function TableToolbar({
               onChange={(e) => {
                 const v = e.target.value;
                 setTanggalFrom(v);
-                onFilter(dokter, ruangan, v, tanggalTo);
+                onFilter(dokter, ruangan, v, tanggalTo, isPciOnly);
               }}
               className={cn(
                 "cursor-pointer text-[13px] font-semibold pl-2 pr-8 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
@@ -538,7 +720,7 @@ export default function TableToolbar({
                 type="button"
                 onClick={() => {
                   setTanggalFrom("");
-                  onFilter(dokter, ruangan, "", tanggalTo);
+                  onFilter(dokter, ruangan, "", tanggalTo, isPciOnly);
                 }}
                 className={cn(
                   "absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md transition-colors",
@@ -568,7 +750,7 @@ export default function TableToolbar({
               onChange={(e) => {
                 const v = e.target.value;
                 setTanggalTo(v);
-                onFilter(dokter, ruangan, tanggalFrom, v);
+                onFilter(dokter, ruangan, tanggalFrom, v, isPciOnly);
               }}
               className={cn(
                 "cursor-pointer text-[13px] font-semibold pl-2 pr-8 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
@@ -583,7 +765,7 @@ export default function TableToolbar({
                 type="button"
                 onClick={() => {
                   setTanggalTo("");
-                  onFilter(dokter, ruangan, tanggalFrom, "");
+                  onFilter(dokter, ruangan, tanggalFrom, "", isPciOnly);
                 }}
                 className={cn(
                   "absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md transition-colors",
@@ -598,8 +780,33 @@ export default function TableToolbar({
           </div>
         </div>
 
+        <div className="flex items-center gap-1 pl-1.5 border-l border-slate-300/40 dark:border-white/10">
+          <button
+            type="button"
+            onClick={() => {
+              const next = !isPciOnly;
+              setIsPciOnly(next);
+              onFilter(dokter, ruangan, tanggalFrom, tanggalTo, next);
+            }}
+            className={cn(
+              "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
+              isPciOnly
+                ? "border-cyan-600 bg-cyan-600 text-white shadow-[0_0_10px_rgba(8,145,178,0.3)] dark:border-cyan-400 dark:bg-cyan-500"
+                : "border-cyan-500/40 bg-cyan-50/50 text-cyan-800 hover:bg-cyan-100 dark:border-cyan-500/30 dark:bg-cyan-950/20 dark:text-cyan-400 dark:hover:bg-cyan-900/30",
+            )}
+            title="Filter gabungan tindakan PCI (PPCI, PTCA, dsb.)"
+          >
+            PCI
+          </button>
+        </div>
+
         {/* 🔄 Reset All Filters */}
-        {(searchValue || dokter || ruangan || tanggalFrom || tanggalTo) && (
+        {(searchValue ||
+          dokter ||
+          ruangan ||
+          tanggalFrom ||
+          tanggalTo ||
+          isPciOnly) && (
           <button
             type="button"
             onClick={() => {
@@ -609,7 +816,8 @@ export default function TableToolbar({
               setRuangan("");
               setTanggalFrom("");
               setTanggalTo("");
-              onFilter("", "", "", "");
+              setIsPciOnly(false);
+              onFilter("", "", "", "", false);
             }}
             className={cn(
               "flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all",
@@ -628,6 +836,26 @@ export default function TableToolbar({
         open={addPasienOpen}
         onClose={() => setAddPasienOpen(false)}
         onSaved={handleSavedPasien}
+      />
+
+      <TarifModal
+        open={tarifOpen}
+        onClose={() => setTarifOpen(false)}
+      />
+
+      <DiagnosaModal
+        open={diagnosaOpen}
+        onClose={() => setDiagnosaOpen(false)}
+      />
+
+      <SeverityLevelModal
+        open={severityLevelOpen}
+        onClose={() => setSeverityLevelOpen(false)}
+      />
+
+      <IndenanModal
+        open={indenanOpen}
+        onClose={() => setIndenanOpen(false)}
       />
     </div>
   );

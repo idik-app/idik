@@ -1,6 +1,7 @@
 "use client";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, ReactNode, useCallback } from "react";
+import { cn } from "@/lib/utils";
 
 /**
  * ✅ ModalWrapper v2 — kompatibel dengan nested modal
@@ -13,6 +14,8 @@ interface ModalWrapperProps {
   title?: string;
   className?: string;
   zIndex?: number; // tambahan: bisa dikontrol manual
+  /** Jika true, modal tidak dibatasi max-w kecil (default false) */
+  isWide?: boolean;
 }
 
 export function ModalWrapperContent({
@@ -21,6 +24,7 @@ export function ModalWrapperContent({
   title,
   className,
   zIndex = 300,
+  isWide = false,
 }: ModalWrapperProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -49,7 +53,9 @@ export function ModalWrapperContent({
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.removeChild(el);
+      if (ref.current && ref.current.parentNode) {
+        document.body.removeChild(ref.current);
+      }
       document.body.style.overflow = "";
       window.removeEventListener("keydown", handleKeyDown);
     };
@@ -63,12 +69,16 @@ export function ModalWrapperContent({
       style={{ zIndex }}
       className="fixed inset-0 overflow-y-auto overflow-x-hidden bg-black/45 backdrop-blur-[2px] sm:bg-black/60 sm:backdrop-blur-sm"
     >
-      <div className="flex min-h-full items-center justify-center px-5 py-6 sm:px-4 sm:py-6 pb-[max(1.25rem,env(safe-area-inset-bottom,0px))] pt-[max(1rem,env(safe-area-inset-top,0px))]">
+      <div className="flex min-h-full items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`relative my-auto w-full max-h-[80dvh] max-w-[min(30rem,86vw)] overflow-y-auto overscroll-y-contain rounded-xl border border-cyan-700/40 bg-gray-900/90 p-2.5 shadow-[0_0_18px_rgba(0,255,255,0.18)] sm:max-h-none sm:max-w-[min(32rem,calc(100vw-1.5rem))] sm:overflow-visible sm:rounded-2xl sm:p-6 sm:shadow-[0_0_25px_rgba(0,255,255,0.25)] ${
-            className || ""
-          } text-[hsl(var(--foreground))]`}
+          className={cn(
+            "relative my-auto w-full overflow-y-auto overscroll-y-contain rounded-xl border p-2.5 shadow-xl transition-all sm:rounded-2xl sm:p-6",
+            !isWide && "max-w-[min(30rem,86vw)] sm:max-w-[min(32rem,calc(100vw-1.5rem))]",
+            isWide && "max-w-[min(95vw,90rem)]",
+            "border-cyan-700/40 bg-gray-900/90 text-[hsl(var(--foreground))]",
+            className
+          )}
         >
           {title ? (
             <div className="mb-2 text-sm font-semibold tracking-wide text-cyan-200 sm:mb-4 sm:text-base">
@@ -79,7 +89,7 @@ export function ModalWrapperContent({
         </div>
       </div>
     </div>,
-    ref.current
+    ref.current,
   );
 }
 

@@ -251,7 +251,7 @@ export default function LoginModal({
     <>
       {/* 🔹 Modal Login — max-sm: tampilan ringan (kurang blur/shadow, layout rapat) */}
       <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 backdrop-blur-sm sm:bg-black/40 sm:backdrop-blur-lg"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 sm:bg-black/80"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}

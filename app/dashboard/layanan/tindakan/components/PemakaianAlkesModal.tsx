@@ -18,7 +18,12 @@ import {
 import {
   BarangVariantCombobox,
   rowMatchesBarangQuery,
+  createBarangVariantIndex,
+  useBarangVariantIndex,
+  resolvePickRowFromIndexedOptions,
+  resolvePickRowFromBarangInput,
   type MasterBarangPickRow,
+  type BarangVariantIndex,
 } from "@/components/ui/barang-variant-combobox";
 import {
   DoctorCombobox,
@@ -155,38 +160,16 @@ function resolveHargaFromBarangInput(
   label: string,
   options: MasterBarangPickRow[],
   line?: Pick<PemakaianLine, "distributor" | "lot" | "ukuran" | "ed">,
+  index?: BarangVariantIndex,
 ): number | undefined {
   const q = label.trim().toLowerCase();
   if (!q) return undefined;
-  const byBarcode = options.find(
-    (v) => (v.barcode ?? "").trim().toLowerCase() === q,
-  );
-  if (byBarcode) return hargaFromPickRow(byBarcode, options);
-  const byKode = options.find((v) => v.kode.trim().toLowerCase() === q);
-  if (byKode) return hargaFromPickRow(byKode, options);
-  const byLot = options.filter((v) => {
-    const t = (v.lot ?? "").trim();
-    return t.length > 0 && t.toLowerCase() === q;
-  });
-  if (byLot.length > 0) {
-    const narrowed = line ? narrowByLineFields(byLot, line) : byLot;
-    if (narrowed.length === 1) return hargaFromPickRow(narrowed[0], options);
-    for (const c of narrowed) {
-      const h = hargaFromPickRow(c, options);
-      if (h !== undefined) return h;
-    }
-  }
-  const sameNama = options.filter((v) => v.nama.trim().toLowerCase() === q);
-  let candidates = sameNama;
-  if (sameNama.length === 0) {
-    candidates = options.filter((v) => v.kode.trim().toLowerCase() === q);
-  }
-  if (candidates.length === 0) return undefined;
-  const narrowed = line ? narrowByLineFields(candidates, line) : candidates;
-  for (const c of narrowed) {
-    const h = hargaFromPickRow(c, options);
-    if (h !== undefined) return h;
-  }
+
+  const row = index 
+    ? resolvePickRowFromIndexedOptions(q, index, options, line)
+    : resolvePickRowFromBarangInput(q, options, line);
+
+  if (row) return hargaFromPickRow(row, options);
   return undefined;
 }
 
@@ -194,44 +177,16 @@ function resolveDistributorFromBarangInput(
   label: string,
   options: MasterBarangPickRow[],
   line?: Pick<PemakaianLine, "distributor" | "lot" | "ukuran" | "ed">,
+  index?: BarangVariantIndex,
 ): string | undefined {
   const q = label.trim().toLowerCase();
   if (!q) return undefined;
 
-  const byBarcode = options.find(
-    (v) => (v.barcode ?? "").trim().toLowerCase() === q,
-  );
-  if (byBarcode?.distributor_nama?.trim())
-    return byBarcode.distributor_nama.trim();
+  const row = index 
+    ? resolvePickRowFromIndexedOptions(q, index, options, line)
+    : resolvePickRowFromBarangInput(q, options, line);
 
-  const byKode = options.find((v) => v.kode.trim().toLowerCase() === q);
-  if (byKode?.distributor_nama?.trim()) return byKode.distributor_nama.trim();
-
-  const byLot = options.filter((v) => {
-    const t = (v.lot ?? "").trim();
-    return t.length > 0 && t.toLowerCase() === q;
-  });
-  if (byLot.length > 0) {
-    const narrowed = line ? narrowByLineFields(byLot, line) : byLot;
-    if (narrowed.length === 1 && narrowed[0].distributor_nama?.trim()) {
-      return narrowed[0].distributor_nama.trim();
-    }
-    for (const c of narrowed) {
-      if (c.distributor_nama?.trim()) return c.distributor_nama.trim();
-    }
-  }
-
-  const sameNama = options.filter((v) => v.nama.trim().toLowerCase() === q);
-  let candidates = sameNama;
-  if (sameNama.length === 0) {
-    candidates = options.filter((v) => v.kode.trim().toLowerCase() === q);
-  }
-  if (candidates.length === 0) return undefined;
-
-  const narrowed = line ? narrowByLineFields(candidates, line) : candidates;
-  for (const c of narrowed) {
-    if (c.distributor_nama?.trim()) return c.distributor_nama.trim();
-  }
+  if (row?.distributor_nama?.trim()) return row.distributor_nama.trim();
   return undefined;
 }
 
@@ -398,6 +353,7 @@ export default function PemakaianAlkesModal({
   const [barangVariantList, setBarangVariantList] = useState<
     MasterBarangPickRow[]
   >([]);
+  const barangVariantIndex = useBarangVariantIndex(barangVariantList);
   const [barangVariantLoading, setBarangVariantLoading] = useState(false);
   const [barangPickerOpen, setBarangPickerOpen] = useState(false);
   const [barangPickerQuery, setBarangPickerQuery] = useState("");
@@ -744,6 +700,7 @@ export default function PemakaianAlkesModal({
           next.barang,
           barangVariantList,
           next,
+          barangVariantIndex,
         );
         if (h !== undefined) return { ...next, harga: h };
         return next;
@@ -780,6 +737,7 @@ export default function PemakaianAlkesModal({
           line.barang,
           barangVariantList,
           line,
+          barangVariantIndex,
         );
         if (h === undefined) return line;
         changed = true;
@@ -787,7 +745,7 @@ export default function PemakaianAlkesModal({
       });
       return changed ? next : rows;
     });
-  }, [open, barangVariantList]);
+  }, [open, barangVariantList, barangVariantIndex]);
 
   const patchTemplateObatAlkes = useCallback((id: string, value: string) => {
     setEditingTemplateInputBarang((prev) => ({
@@ -1280,12 +1238,17 @@ export default function PemakaianAlkesModal({
         const distributorManual = cleanFormText(line.distributor ?? "");
         const distributorResolved = distributorManual
           ? distributorManual
-          : resolveDistributorFromBarangInput(line.barang, barangVariantList, {
-              distributor: line.distributor,
-              lot: line.lot,
-              ukuran: line.ukuran,
-              ed: line.ed,
-            });
+          : resolveDistributorFromBarangInput(
+              line.barang,
+              barangVariantList,
+              {
+                distributor: line.distributor,
+                lot: line.lot,
+                ukuran: line.ukuran,
+                ed: line.ed,
+              },
+              barangVariantIndex,
+            );
         return {
           ...line,
           distributor: distributorResolved || undefined,

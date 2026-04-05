@@ -39,29 +39,10 @@ function orderTanggalDateKey(tanggal: string): string | null {
   if (!t) return null;
   if (t.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
   const idMonthMap: Record<string, string> = {
-    jan: "01",
-    januari: "01",
-    feb: "02",
-    februari: "02",
-    mar: "03",
-    maret: "03",
-    apr: "04",
-    april: "04",
-    mei: "05",
-    jun: "06",
-    juni: "06",
-    jul: "07",
-    juli: "07",
-    agu: "08",
-    agustus: "08",
-    sep: "09",
-    september: "09",
-    okt: "10",
-    oktober: "10",
-    nov: "11",
-    november: "11",
-    des: "12",
-    desember: "12",
+    jan: "01", januari: "01", feb: "02", februari: "02", mar: "03", maret: "03",
+    apr: "04", april: "04", mei: "05", jun: "06", juni: "06", jul: "07", juli: "07",
+    agu: "08", agustus: "08", sep: "09", september: "09", okt: "10", oktober: "10",
+    nov: "11", november: "11", des: "12", desember: "12",
   };
   const m = t.match(
     /^(\d{1,2})\s+(Jan(?:uari)?|Feb(?:ruari)?|Mar(?:et)?|Apr(?:il)?|Mei|Jun(?:i)?|Jul(?:i)?|Agu(?:stus)?|Sep(?:tember)?|Okt(?:ober)?|Nov(?:ember)?|Des(?:ember)?)\s+(\d{4})/i,
@@ -82,8 +63,7 @@ function distributorLineMatchesTenant(
   lineDistributorRaw: string,
   namaPtRaw: string,
 ): boolean {
-  const stripPt = (s: string) =>
-    normKey(s).replace(/^pt\.?\s*/u, "").trim();
+  const stripPt = (s: string) => normKey(s).replace(/^pt\.?\s*/u, "").trim();
   const distLine = stripPt(lineDistributorRaw);
   const namaPt = stripPt(namaPtRaw);
   if (!distLine || !namaPt) return false;
@@ -108,10 +88,6 @@ function orderLineQtyRencana(line: Record<string, unknown>): number {
   return Number.isFinite(n) ? Math.max(0, n) : 0;
 }
 
-/**
- * Untuk visibilitas distributor realtime, gunakan qty dipakai bila ada;
- * jika belum terisi, fallback ke qty rencana pada semua status order.
- */
 function lineQtyForPemakaianReport(
   line: Record<string, unknown>,
   _orderStatus: string,
@@ -129,17 +105,12 @@ function parseOrderItemsJson(itemsRaw: unknown): Record<string, unknown>[] {
     try {
       const p = JSON.parse(itemsRaw) as unknown;
       return Array.isArray(p) ? (p as Record<string, unknown>[]) : [];
-    } catch {
-      return [];
-    }
+    } catch { return []; }
   }
   return [];
 }
 
-function strFromLine(
-  line: Record<string, unknown>,
-  ...keys: string[]
-): string | null {
+function strFromLine(line: Record<string, unknown>, ...keys: string[]): string | null {
   for (const k of keys) {
     const v = line[k];
     if (typeof v === "string" && v.trim()) return v.trim();
@@ -148,43 +119,21 @@ function strFromLine(
   return null;
 }
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isValidUuidParam(s: string): boolean { return UUID_RE.test(s.trim()); }
 
-function isValidUuidParam(s: string): boolean {
-  return UUID_RE.test(s.trim());
+function barangMatchesTenantSet(barangKey: string, tenantBarangNames: Set<string>): boolean {
+  return barangKey ? tenantBarangNames.has(barangKey) : false;
 }
 
-function barangMatchesTenantSet(
-  barangKey: string,
-  tenantBarangNames: Set<string>,
-): boolean {
-  if (!barangKey) return false;
-  // Perketat: harus ada di set (exact match setelah normalisasi)
-  if (tenantBarangNames.has(barangKey)) return true;
-  return false;
-}
-
-function masterBarangDistId(inv: {
-  master_barang?:
-    | { distributor_id?: string | null }
-    | { distributor_id?: string | null }[]
-    | null;
-}): string {
+function masterBarangDistId(inv: any): string {
   const mb = inv?.master_barang;
   const row = Array.isArray(mb) ? mb[0] : mb;
   const d = row?.distributor_id;
-  if (d == null || d === "") return "";
-  return String(d);
+  return (d == null || d === "") ? "" : String(d);
 }
 
-/**
- * DB lama dengan kolom pemakaian tidak lengkap (inventaris_id, jumlah, dll.) —
- * pakai buku besar mutasi (KELUAR_PEMAKAIAN) sebagai sumber baris.
- */
-function isPemakaianTableSchemaMismatch(
-  err: { message?: string } | null,
-): boolean {
+function isPemakaianTableSchemaMismatch(err: { message?: string } | null): boolean {
   const m = (err?.message ?? "").toLowerCase();
   return m.includes("pemakaian.") && m.includes("does not exist");
 }
@@ -200,636 +149,134 @@ type PemakaianRowBase = {
 };
 
 type AdminAllMode = "raw" | "distributor-only";
-
 function parseAdminAllMode(value: string | null): AdminAllMode {
-  const v = String(value ?? "")
-    .trim()
-    .toLowerCase();
-  if (v === "distributor-only") return "distributor-only";
-  return "raw";
+  return (String(value ?? "").trim().toLowerCase() === "distributor-only") ? "distributor-only" : "raw";
 }
 
 export async function GET(req: Request) {
   const id = await getDistributorIdentity();
   const { searchParams } = new URL(req.url);
   const focusOrderRaw = searchParams.get("focus_order");
-  const focusOrderIds = focusOrderRaw
-    ?.split("|")
-    .map((v) => v.trim())
-    .filter(Boolean) || [];
+  const focusOrderIds = focusOrderRaw?.split("|").map(v => v.trim()).filter(Boolean) || [];
 
   if (!id.ok && focusOrderIds.length === 0) {
-    return NextResponse.json(
-      { ok: false, message: "Unauthorized" },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
   }
 
   const from = parseDate(searchParams.get("from"));
   const to = parseDate(searchParams.get("to"));
   const adminAllMode = parseAdminAllMode(searchParams.get("mode"));
   const distributorIdParam = (searchParams.get("distributor_id") ?? "").trim();
-  if (
-    id.ok &&
-    id.isAdminView &&
-    distributorIdParam &&
-    !isValidUuidParam(distributorIdParam)
-  ) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message:
-          "Parameter distributor_id harus UUID valid dari tabel master_distributor (bukan placeholder). Admin: buka GET /api/distributor/distributors, salin nilai id PT yang ingin dilihat, lalu ?distributor_id=<id tersebut>.",
-      },
-      { status: 400 },
-    );
+
+  if (id.ok && id.isAdminView && distributorIdParam && !isValidUuidParam(distributorIdParam)) {
+    return NextResponse.json({ ok: false, message: "Invalid distributor_id" }, { status: 400 });
   }
 
-  const scope =
-    id.ok && id.isAdminView
-      ? distributorIdParam || null
-      : (id.ok ? (id.distributorId ?? null) : null);
+  const scope = id.ok && id.isAdminView ? (distributorIdParam || null) : (id.ok ? (id.distributorId ?? null) : null);
   const adminShowAll = Boolean((id.ok && id.isAdminView && !scope) || !id.ok);
 
   if (id.ok && !id.isAdminView && !scope) {
-    return NextResponse.json(
-      { ok: false, message: "Akun distributor tidak terikat ke master PT." },
-      { status: 403 },
-    );
+    return NextResponse.json({ ok: false, message: "No tenant scope" }, { status: 403 });
   }
 
-  let supabase: ReturnType<typeof createAdminClient>;
-  try {
-    supabase = createAdminClient();
-  } catch {
-    return NextResponse.json(
-      { ok: false, message: "Supabase admin env not configured" },
-      { status: 503 },
-    );
-  }
+  const supabase = createAdminClient();
 
-  /** Master barang yang ada di katalog distributor (fallback jika inventaris.distributor_id kosong). */
+  // 1. Ambil data katalog dan dasar secara paralel
+  const [catalogRows, pemFromTableRes, mbDirectRes, invNamedRes, distRowRes] = await Promise.all([
+    (!adminShowAll && scope) ? supabase.from("distributor_barang").select("master_barang_id").eq("distributor_id", scope) : Promise.resolve({ data: [], error: null }),
+    (!id.ok && focusOrderIds.length > 0) ? Promise.resolve({ data: [], error: null }) : supabase.from("pemakaian").select("id, created_at, inventaris_id, jumlah, tanggal, keterangan, tindakan_id").order("tanggal", { ascending: false }).gte("tanggal", from || "1900-01-01").lte("tanggal", to || "2100-01-01"),
+    (!adminShowAll && scope) ? supabase.from("master_barang").select("nama").eq("distributor_id", scope) : Promise.resolve({ data: [], error: null }),
+    (!adminShowAll && scope) ? supabase.from("inventaris").select("nama").eq("distributor_id", scope) : Promise.resolve({ data: [], error: null }),
+    (!adminShowAll && scope) ? supabase.from("master_distributor").select("nama_pt").eq("id", scope).maybeSingle() : Promise.resolve({ data: null, error: null }),
+  ]);
+
   let catalogMasterIds = new Set<string>();
-  if (!adminShowAll && scope) {
-    const { data: dbRows, error: dbErr } = await supabase
-      .from("distributor_barang")
-      .select("master_barang_id")
-      .eq("distributor_id", scope);
-    if (dbErr) {
-      return NextResponse.json(
-        { ok: false, message: dbErr.message },
-        { status: 500 },
-      );
-    }
-    for (const r of dbRows ?? []) {
-      const mb = String(
-        (r as { master_barang_id?: unknown }).master_barang_id ?? "",
-      ).trim();
-      if (mb) catalogMasterIds.add(mb);
-    }
+  for (const r of (catalogRows.data ?? [])) {
+    const mb = String((r as any).master_barang_id ?? "").trim();
+    if (mb) catalogMasterIds.add(mb);
   }
 
-  // Hindari embed `pemakaian -> inventaris` (PostgREST membutuhkan FK di schema cache).
-  // Jika kolom pemakaian.inventaris_id belum ada di DB, baca dari inventaris_stok_mutasi (KELUAR_PEMAKAIAN).
   let pemRows: PemakaianRowBase[] = [];
-
-  let pemQ = supabase
-    .from("pemakaian")
-    .select(
-      "id, created_at, inventaris_id, jumlah, tanggal, keterangan, tindakan_id",
-    )
-    .order("tanggal", { ascending: false });
-
-  if (from) pemQ = pemQ.gte("tanggal", from);
-  if (to) pemQ = pemQ.lte("tanggal", to);
-
-  const { data: pemFromTable, error: pemErr } =
-    !id.ok && focusOrderIds.length > 0
-      ? { data: [], error: null }
-      : await pemQ;
-
-  if (pemErr && isPemakaianTableSchemaMismatch(pemErr)) {
-    let mutQ = supabase
-      .from("inventaris_stok_mutasi")
-      .select(
-        "id, created_at, inventaris_id, qty_delta, ref_id, keterangan, ref_type",
-      )
-      .eq("tipe", "KELUAR_PEMAKAIAN")
-      .eq("ref_type", "pemakaian")
-      .order("created_at", { ascending: false });
-
-    if (from) mutQ = mutQ.gte("created_at", `${from}T00:00:00.000Z`);
-    if (to) mutQ = mutQ.lte("created_at", `${to}T23:59:59.999Z`);
-
-    const { data: mutRows, error: mutErr } = await mutQ;
-    if (mutErr) {
-      return NextResponse.json(
-        { ok: false, message: mutErr.message },
-        { status: 500 },
-      );
-    }
-
-    pemRows = (mutRows ?? []).map((r) => {
-      const created = String((r as { created_at?: unknown }).created_at ?? "");
-      const refId = (r as { ref_id?: unknown }).ref_id;
-      const mutId = String((r as { id?: unknown }).id ?? "");
-      const id = refId != null && refId !== "" ? String(refId) : mutId;
-      const qty = Number((r as { qty_delta?: unknown }).qty_delta);
-      const jumlah = Number.isFinite(qty) ? Math.abs(qty) : 0;
-      const invId = String(
-        (r as { inventaris_id?: unknown }).inventaris_id ?? "",
-      ).trim();
-      const tanggalSlice = created.length >= 10 ? created.slice(0, 10) : null;
-      return {
-        id,
-        created_at: created || null,
-        inventaris_id: invId || null,
-        jumlah,
-        tanggal: tanggalSlice,
-        keterangan: ((r as { keterangan?: unknown }).keterangan ?? null) as
-          | string
-          | null,
-        tindakan_id: null,
-      };
-    });
-  } else if (pemErr) {
-    return NextResponse.json(
-      { ok: false, message: pemErr.message },
-      { status: 500 },
-    );
+  if (pemFromTableRes.error && isPemakaianTableSchemaMismatch(pemFromTableRes.error)) {
+    // Fallback mutasi jika tabel pemakaian bermasalah
+    const { data: mutRows } = await supabase.from("inventaris_stok_mutasi").select("id, created_at, inventaris_id, qty_delta, ref_id, keterangan, ref_type").eq("tipe", "KELUAR_PEMAKAIAN").eq("ref_type", "pemakaian").gte("created_at", `${from || "1900-01-01"}T00:00:00.000Z`).lte("created_at", `${to || "2100-01-01"}T23:59:59.999Z`).order("created_at", { ascending: false });
+    pemRows = (mutRows ?? []).map((r: any) => ({
+      id: r.ref_id || String(r.id),
+      created_at: r.created_at,
+      inventaris_id: r.inventaris_id,
+      jumlah: Math.abs(Number(r.qty_delta)),
+      tanggal: r.created_at?.slice(0, 10),
+      keterangan: r.keterangan,
+      tindakan_id: null,
+    }));
   } else {
-    pemRows = (pemFromTable ?? []) as PemakaianRowBase[];
+    pemRows = (pemFromTableRes.data ?? []) as PemakaianRowBase[];
   }
 
-  const invIdList = [
-    ...new Set(
-      pemRows.map((r) => String(r.inventaris_id ?? "").trim()).filter(Boolean),
-    ),
-  ];
-
-  type InvRow = {
-    id: string;
-    nama?: string;
-    satuan?: string | null;
-    lokasi?: string | null;
-    distributor_id?: string | null;
-    master_barang_id?: string | null;
-    master_barang?:
-      | { distributor_id?: string | null }
-      | { distributor_id?: string | null }[]
-      | null;
-  };
-
-  const invById = new Map<string, InvRow>();
-  const chunkSize = 150;
-  for (let i = 0; i < invIdList.length; i += chunkSize) {
-    const slice = invIdList.slice(i, i + chunkSize);
-    const { data: invChunk, error: invErr } = await supabase
-      .from("inventaris")
-      .select(
-        `
-        id,
-        nama,
-        satuan,
-        lokasi,
-        distributor_id,
-        master_barang_id,
-        master_barang (
-          distributor_id
-        )
-      `,
-      )
-      .in("id", slice);
-    if (invErr) {
-      return NextResponse.json(
-        { ok: false, message: invErr.message },
-        { status: 500 },
-      );
-    }
-    for (const row of invChunk ?? []) {
-      const r = row as InvRow;
-      if (r.id) invById.set(String(r.id), r);
-    }
+  // 2. Ambil detail inventaris secara paralel (chunked)
+  const invIdList = [...new Set(pemRows.map(r => String(r.inventaris_id ?? "").trim()).filter(Boolean))];
+  const invById = new Map<string, any>();
+  const invChunks = [];
+  for (let i = 0; i < invIdList.length; i += 200) invChunks.push(invIdList.slice(i, i + 200));
+  const invResults = await Promise.all(invChunks.map(slice => supabase.from("inventaris").select("id, nama, satuan, lokasi, distributor_id, master_barang_id, master_barang(distributor_id)").in("id", slice)));
+  for (const res of invResults) {
+    for (const r of (res.data ?? [])) invById.set(String(r.id), r);
   }
 
-  const data = pemRows.map((row) => {
-    const invId = String(row.inventaris_id ?? "").trim();
-    const inventaris = invId ? (invById.get(invId) ?? null) : null;
-    return { ...row, inventaris };
-  });
-
-  const scopeStr = scope ? String(scope) : "";
-
-  function rowForTenant(row: Record<string, unknown>): boolean {
+  const enrichedPemakaian = pemRows.map(row => {
+    const inv = invById.get(String(row.inventaris_id));
+    return { ...row, inventaris: inv };
+  }).filter(row => {
+    const inv = row.inventaris;
+    if (!inv) return false;
+    const loc = (inv.lokasi ?? "").toLowerCase();
+    if (loc && !loc.includes("cathlab")) return false; // Filter Cathlab
     if (adminShowAll) return true;
-    const inv = row.inventaris as InvRow | null | undefined;
-    if (!inv) return false;
+    const distId = String(inv.distributor_id || "");
+    const mbDistId = masterBarangDistId(inv);
+    return distId === String(scope) || mbDistId === String(scope) || (inv.master_barang_id && catalogMasterIds.has(String(inv.master_barang_id)));
+  }).map(row => ({
+    id: row.id, created_at: row.created_at, jumlah: row.jumlah, tanggal: row.tanggal, keterangan: row.keterangan,
+    inventaris: { nama: row.inventaris.nama || "-", satuan: row.inventaris.satuan || null },
+    distributor_nama: null, order_id: null, pasien: null, dokter: null, no_rm: null, status_order: null, catatan: null, lot: null, ukuran: null, ed: null
+  }));
 
-    const invDist =
-      inv.distributor_id != null && inv.distributor_id !== ""
-        ? String(inv.distributor_id)
-        : "";
-    if (invDist === scopeStr) return true;
-
-    const mbId =
-      inv.master_barang_id != null && inv.master_barang_id !== ""
-        ? String(inv.master_barang_id)
-        : "";
-    const masterDist = masterBarangDistId(inv);
-
-    if (!invDist && masterDist === scopeStr) return true;
-
-    if (!invDist && !masterDist && mbId && catalogMasterIds.has(mbId))
-      return true;
-
-    return false;
-  }
-
-  function rowCathlab(row: Record<string, unknown>): boolean {
-    const inv = row.inventaris as { lokasi?: string | null } | null | undefined;
-    if (!inv) return false;
-    const loc = (inv.lokasi ?? "").trim().toLowerCase();
-    // Legacy: stok Cathlab sering tanpa `lokasi` terisi; FIFO memakai lokasi=Cathlab.
-    if (!loc) return true;
-    return loc === "cathlab" || loc.includes("cathlab");
-  }
-
-  const filtered = (data ?? [])
-    .filter((row) => rowCathlab(row as Record<string, unknown>))
-    .filter((row) => rowForTenant(row as Record<string, unknown>));
-
-  const enriched = filtered.map((row: any) => {
-    const inv = row.inventaris as {
-      nama?: string;
-      satuan?: string | null;
-    } | null;
-    return {
-      id: row.id,
-      created_at: row.created_at,
-      inventaris_id: row.inventaris_id,
-      jumlah: row.jumlah,
-      tanggal: row.tanggal,
-      keterangan: row.keterangan,
-      tindakan_id: row.tindakan_id,
-      distributor_nama: null as string | null,
-      inventaris: inv
-        ? {
-            nama: inv.nama ?? "-",
-            satuan: (inv.satuan as string | null) ?? null,
-          }
-        : null,
-      order_id: null as string | null,
-      pasien: null as string | null,
-      dokter: null as string | null,
-      no_rm: null as string | null,
-      status_order: null as string | null,
-      catatan: null as string | null,
-      tanggal_order_raw: null as string | null,
-      lot: null as string | null,
-      ukuran: null as string | null,
-      ed: null as string | null,
-    };
-  });
-
-  /**
-   * Input pemakaian Cathlab (dashboard) menyimpan di cathlab_pemakaian_order.items,
-   * terpisah dari FIFO pemakaian + mutasi. Tanpa ini, portal distributor kosong
-   * jika staf belum / tidak memanggil allocate_pemakaian_fifo.
-   * Baris order di-merge lintas status agar distributor melihat pergerakan realtime.
-   */
-  let fromOrders: typeof enriched = [];
+  // 3. Ambil data order realtime (jika bukan adminShowAll)
+  let fromOrders: any[] = [];
   if (!adminShowAll && scope) {
-    const fromKey = from ?? "";
-    const toKey = to ?? "";
-
-    const { data: distRow } = await supabase
-      .from("master_distributor")
-      .select("nama_pt")
-      .eq("id", scope)
-      .maybeSingle();
-    const namaPtStr = String(distRow?.nama_pt ?? "").trim();
-
+    const namaPtStr = String(distRowRes.data?.nama_pt ?? "").trim();
     const tenantBarangNames = new Set<string>();
-    const { data: mbDirect } = await supabase
-      .from("master_barang")
-      .select("nama")
-      .eq("distributor_id", scope);
-    for (const r of mbDirect ?? []) {
-      const n = normKey(String((r as { nama?: unknown }).nama ?? ""));
+    [...(mbDirectRes.data ?? []), ...(invNamedRes.data ?? [])].forEach((r: any) => {
+      const n = normKey(r.nama);
       if (n) tenantBarangNames.add(n);
-    }
+    });
 
-    const { data: invNamed } = await supabase
-      .from("inventaris")
-      .select("nama")
-      .eq("distributor_id", scope);
-    for (const r of invNamed ?? []) {
-      const n = normKey(String((r as { nama?: unknown }).nama ?? ""));
-      if (n) tenantBarangNames.add(n);
-    }
-    if (catalogMasterIds.size > 0) {
-      const ids = [...catalogMasterIds];
-      const chunk = 150;
-      for (let i = 0; i < ids.length; i += chunk) {
-        const slice = ids.slice(i, i + chunk);
-        const { data: mbCat } = await supabase
-          .from("master_barang")
-          .select("nama")
-          .in("id", slice);
-        for (const r of mbCat ?? []) {
-          const n = normKey(String((r as { nama?: unknown }).nama ?? ""));
-          if (n) tenantBarangNames.add(n);
-        }
+    const { data: orderRows } = await supabase.from("cathlab_pemakaian_order").select("id, tanggal, pasien, dokter, status, items, catatan, created_at, no_rm").in("status", ["DIAJUKAN", "MENUNGGU_VALIDASI", "TERVERIFIKASI", "SELESAI"]).order("created_at", { ascending: false }).limit(focusOrderIds.length > 0 ? 100 : 8000);
+
+    for (const orow of (orderRows ?? [])) {
+      const dateKey = orderTanggalDateKey(orow.tanggal) || orderTanggalDateKey(orow.created_at);
+      if (focusOrderIds.length === 0) {
+        if (from && dateKey && dateKey < from) continue;
+        if (to && dateKey && dateKey > to) continue;
       }
-    }
+      const items = parseOrderItemsJson(orow.items);
+      items.forEach((line, idx) => {
+        const qty = lineQtyForPemakaianReport(line, orow.status);
+        if (qty <= 0) return;
+        const rawDist = String(line.distributor || "").trim();
+        if (rawDist && namaPtStr && !distributorLineMatchesTenant(rawDist, namaPtStr)) return;
+        if (!rawDist && !barangMatchesTenantSet(normKey(String(line.barang || "")), tenantBarangNames)) return;
 
-    function orderItemForTenant(
-      line: Record<string, unknown>,
-      orderStatus: string,
-    ): boolean {
-      const qty = lineQtyForPemakaianReport(line, orderStatus);
-      if (qty <= 0) return false;
-
-      const rawDist = String(line.distributor ?? "").trim();
-      // 1. Jika di baris order tertulis nama distributor secara eksplisit:
-      if (rawDist && namaPtStr) {
-        // Jika cocok dengan distributor Anda, tampilkan.
-        if (distributorLineMatchesTenant(rawDist, namaPtStr)) return true;
-
-        // Jika distributornya eksplisit BUKAN Anda (misal Wikaton), maka JANGAN tampilkan,
-        // meskipun nama barangnya mirip (mencegah kebocoran antar distributor).
-        return false;
-      }
-
-      // 2. Jika kolom distributor kosong/null, baru gunakan fallback pencocokan nama barang.
-      const barangKey = normKey(String(line.barang ?? ""));
-      if (barangKey && barangMatchesTenantSet(barangKey, tenantBarangNames))
-        return true;
-
-      return false;
-    }
-
-    // Realtime distributor: sertakan status sebelum dan sesudah validasi Depo.
-    let orderQ = supabase
-      .from("cathlab_pemakaian_order")
-      .select(
-        "id, tanggal, pasien, dokter, status, items, catatan, created_at, no_rm",
-      )
-      .in("status", ["DIAJUKAN", "MENUNGGU_VALIDASI", "TERVERIFIKASI", "SELESAI"]);
-
-    if (focusOrderIds.length > 0) {
-      orderQ = orderQ.in("id", focusOrderIds);
-    }
-
-    const { data: orderRows, error: orderErr } = await orderQ
-      .order("created_at", { ascending: false })
-      .limit(focusOrderIds.length > 0 ? 100 : 8000);
-
-    if (orderErr) {
-      return NextResponse.json(
-        { ok: false, message: orderErr.message },
-        { status: 500 },
-      );
-    }
-
-    if (orderRows?.length) {
-      for (const orow of orderRows) {
-        const oid = String((orow as { id?: unknown }).id ?? "");
-        const ost = String((orow as { status?: unknown }).status ?? "").trim();
-        const tanggalStr = String(
-          (orow as { tanggal?: unknown }).tanggal ?? "",
-        );
-        const createdStr = String(
-          (orow as { created_at?: unknown }).created_at ?? "",
-        );
-        let dateKey =
-          orderTanggalDateKey(tanggalStr) ?? orderTanggalDateKey(createdStr);
-
-        // Jika ada focus_order, abaikan filter tanggal
-        if (focusOrderIds.length === 0) {
-          if (fromKey && dateKey && dateKey < fromKey) continue;
-          if (toKey && dateKey && dateKey > toKey) continue;
-          if ((fromKey || toKey) && !dateKey) continue;
-        }
-
-        const pasien = String(
-          (orow as { pasien?: unknown }).pasien ?? "",
-        ).trim();
-        const dokter = String(
-          (orow as { dokter?: unknown }).dokter ?? "",
-        ).trim();
-        const noRmOrder = String(
-          (orow as { no_rm?: unknown }).no_rm ?? "",
-        ).trim();
-        const catatan = String(
-          (orow as { catatan?: unknown }).catatan ?? "",
-        ).trim();
-        const itemsRaw = (orow as { items?: unknown }).items;
-        const items = parseOrderItemsJson(itemsRaw);
-
-        let idx = 0;
-        for (const line of items) {
-          idx += 1;
-          if (!orderItemForTenant(line, ost)) continue;
-          const lineId =
-            typeof line.lineId === "string" && line.lineId.trim()
-              ? line.lineId.trim()
-              : `L${idx}`;
-          const barang = String(line.barang ?? "").trim() || "-";
-          const qty = Math.abs(lineQtyForPemakaianReport(line, ost));
-          const parts = [
-            pasien ? `Pasien: ${pasien}` : null,
-            dokter ? `Dokter: ${dokter}` : null,
-            ost ? `Status: ${ost}` : null,
-            catatan ? `Cat: ${catatan}` : null,
-            oid ? `Order: ${oid}` : null,
-          ].filter(Boolean);
-          fromOrders.push({
-            id: `${oid}__${lineId}`,
-            created_at: String(
-              (orow as { created_at?: unknown }).created_at ?? null,
-            ),
-            inventaris_id: null,
-            jumlah: qty,
-            tanggal:
-              dateKey ??
-              (tanggalStr.length >= 10
-                ? tanggalStr.slice(0, 10)
-                : orderTanggalDateKey(createdStr)),
-            keterangan: parts.length ? parts.join(" · ") : null,
-            tindakan_id: null,
-            distributor_nama: String(distRow?.nama_pt ?? "").trim() || null,
-            inventaris: { nama: barang, satuan: null },
-            order_id: oid || null,
-            pasien: pasien || null,
-            dokter: dokter || null,
-            no_rm: noRmOrder || null,
-            status_order: ost || null,
-            catatan: catatan || null,
-            tanggal_order_raw: tanggalStr.trim() || null,
-            lot: strFromLine(line, "lot", "LOT"),
-            ukuran: strFromLine(line, "ukuran", "Ukuran"),
-            ed: strFromLine(line, "ed", "ED"),
-          });
-        }
-      }
-    }
-  } else if (adminShowAll) {
-    /** Admin “Semua Distributor”: sertakan lintas status agar realtime. */
-    const fromKey = from ?? "";
-    const toKey = to ?? "";
-
-    const { data: distListRaw } = await supabase
-      .from("master_distributor")
-      .select("id, nama_pt")
-      .order("nama_pt", { ascending: true });
-    const distList = (distListRaw ?? []) as { id: string; nama_pt: string }[];
-
-    function resolveDistributorLabel(raw: string): string {
-      const d = normKey(raw);
-      if (!d) return "";
-      for (const row of distList) {
-        const n = normKey(row.nama_pt);
-        if (n === d) return row.nama_pt;
-      }
-      for (const row of distList) {
-        const n = normKey(row.nama_pt);
-        if (n.length >= 4 && d.length >= 4 && (n.includes(d) || d.includes(n)))
-          return row.nama_pt;
-      }
-      return raw.trim();
-    }
-
-    let orderQAdmin = supabase
-      .from("cathlab_pemakaian_order")
-      .select(
-        "id, tanggal, pasien, dokter, status, items, catatan, created_at, no_rm",
-      )
-      .in("status", ["DIAJUKAN", "MENUNGGU_VALIDASI", "TERVERIFIKASI", "SELESAI"]);
-
-    if (focusOrderIds.length > 0) {
-      orderQAdmin = orderQAdmin.in("id", focusOrderIds);
-    }
-
-    const { data: orderRowsAdmin, error: orderErrAdmin } = await orderQAdmin
-      .order("created_at", { ascending: false })
-      .limit(focusOrderIds.length > 0 ? 100 : 8000);
-
-    if (orderErrAdmin) {
-      return NextResponse.json(
-        { ok: false, message: orderErrAdmin.message },
-        { status: 500 },
-      );
-    }
-
-    if (orderRowsAdmin?.length) {
-      for (const orow of orderRowsAdmin) {
-        const oid = String((orow as { id?: unknown }).id ?? "");
-        const ost = String((orow as { status?: unknown }).status ?? "").trim();
-        const tanggalStr = String(
-          (orow as { tanggal?: unknown }).tanggal ?? "",
-        );
-        const createdStr = String(
-          (orow as { created_at?: unknown }).created_at ?? "",
-        );
-        let dateKey =
-          orderTanggalDateKey(tanggalStr) ?? orderTanggalDateKey(createdStr);
-
-        // Jika ada focus_order, abaikan filter tanggal
-        if (focusOrderIds.length === 0) {
-          if (fromKey && dateKey && dateKey < fromKey) continue;
-          if (toKey && dateKey && dateKey > toKey) continue;
-          if ((fromKey || toKey) && !dateKey) continue;
-        }
-
-        const pasien = String(
-          (orow as { pasien?: unknown }).pasien ?? "",
-        ).trim();
-        const dokter = String(
-          (orow as { dokter?: unknown }).dokter ?? "",
-        ).trim();
-        const noRmOrder = String(
-          (orow as { no_rm?: unknown }).no_rm ?? "",
-        ).trim();
-        const catatan = String(
-          (orow as { catatan?: unknown }).catatan ?? "",
-        ).trim();
-        const itemsRaw = (orow as { items?: unknown }).items;
-        const items = parseOrderItemsJson(itemsRaw);
-
-        let idx = 0;
-        for (const line of items) {
-          idx += 1;
-          if (lineQtyForPemakaianReport(line, ost) <= 0) continue;
-          const lineId =
-            typeof line.lineId === "string" && line.lineId.trim()
-              ? line.lineId.trim()
-              : `L${idx}`;
-          const barang = String(line.barang ?? "").trim() || "-";
-          const qty = Math.abs(lineQtyForPemakaianReport(line, ost));
-          const rawDist = String(line.distributor ?? "").trim();
-          const labelPt = rawDist
-            ? resolveDistributorLabel(rawDist) || rawDist
-            : null;
-          const st = ost;
-          const parts = [
-            pasien ? `Pasien: ${pasien}` : null,
-            dokter ? `Dokter: ${dokter}` : null,
-            st ? `Status: ${st}` : null,
-            catatan ? `Cat: ${catatan}` : null,
-            oid ? `Order: ${oid}` : null,
-          ].filter(Boolean);
-          fromOrders.push({
-            id: `${oid}__${lineId}`,
-            created_at: String(
-              (orow as { created_at?: unknown }).created_at ?? null,
-            ),
-            inventaris_id: null,
-            jumlah: qty,
-            tanggal:
-              dateKey ??
-              (tanggalStr.length >= 10
-                ? tanggalStr.slice(0, 10)
-                : orderTanggalDateKey(createdStr)),
-            keterangan: parts.length ? parts.join(" · ") : null,
-            tindakan_id: null,
-            distributor_nama: labelPt,
-            inventaris: { nama: barang, satuan: null },
-            order_id: oid || null,
-            pasien: pasien || null,
-            dokter: dokter || null,
-            no_rm: noRmOrder || null,
-            status_order: st || null,
-            catatan: catatan || null,
-            tanggal_order_raw: tanggalStr.trim() || null,
-            lot: strFromLine(line, "lot", "LOT"),
-            ukuran: strFromLine(line, "ukuran", "Ukuran"),
-            ed: strFromLine(line, "ed", "ED"),
-          });
-        }
-      }
+        fromOrders.push({
+          id: `${orow.id}__${line.lineId || idx}`, created_at: orow.created_at, jumlah: qty, tanggal: dateKey || orow.tanggal?.slice(0, 10),
+          inventaris: { nama: String(line.barang || "-"), satuan: null }, distributor_nama: namaPtStr || null,
+          order_id: orow.id, pasien: orow.pasien, dokter: orow.dokter, no_rm: orow.no_rm, status_order: orow.status,
+          lot: strFromLine(line, "lot", "LOT"), ukuran: strFromLine(line, "ukuran", "Ukuran"), ed: strFromLine(line, "ed", "ED")
+        });
+      });
     }
   }
 
-  // Mode admin semua distributor:
-  // - raw: gabungkan order Cathlab + pemakaian FIFO mentah
-  // - distributor-only: hanya order Cathlab yang punya konteks distributor per item
-  const baseRows =
-    adminShowAll && adminAllMode === "distributor-only"
-      ? fromOrders
-      : [...fromOrders, ...enriched];
-
-  const merged = baseRows.sort((a, b) => {
-    const ta = String(a.tanggal ?? "");
-    const tb = String(b.tanggal ?? "");
-    return tb.localeCompare(ta);
-  });
-
-  const payload: Record<string, unknown> = { ok: true, data: merged };
-  if (merged.length === 0) {
-    payload.hint =
-      "Periksa rentang tanggal (From/To). Portal hanya menampilkan order Terverifikasi / Selesai. Order baru biasanya Menunggu validasi Depo — setelah Depo menyimpan di dashboard Pemakaian (atau tombol Verifikasi), status naik ke Terverifikasi dan baris muncul di sini.";
-  }
-
-  return NextResponse.json(payload, { status: 200 });
+  const merged = [...fromOrders, ...enrichedPemakaian].sort((a, b) => String(b.tanggal ?? "").localeCompare(String(a.tanggal ?? "")));
+  return NextResponse.json({ ok: true, data: merged }, { status: 200 });
 }

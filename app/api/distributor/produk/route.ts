@@ -64,42 +64,59 @@ export async function GET(req: Request) {
   if (masterIds.length === 0)
     return NextResponse.json({ ok: true, data: [] }, { status: 200 });
 
-  // 2) master_barang
-  const { data: masterRows, error: masterErr } = await supabase
-    .from("master_barang")
-    .select("id, kode, nama, kategori, satuan, jenis")
-    .in("id", masterIds);
-  if (masterErr)
-    return NextResponse.json(
-      { ok: false, message: masterErr.message },
-      { status: 500 },
-    );
-
-  const masterMap = new Map<string, any>();
-  for (const r of masterRows ?? []) masterMap.set(r.id, r);
-
   /** Admin + tanpa filter distributor_id: beberapa PT bisa pakai master yang sama — stok per (pt, master). */
   const aggregateInventarisByPair =
     Boolean(id.isAdminView && !targetDistributorId);
 
-  // 3) inventaris Cathlab — agregasi per master saat satu PT; per (distributor_id, master) saat admin lihat semua PT
-  let invQ = supabase
-    .from("inventaris")
-    .select("id, nama, master_barang_id, stok, distributor_id")
-    .eq("lokasi", "Cathlab")
-    .in("master_barang_id", masterIds);
+  // 2) PARALEL: Ambil master_barang, inventaris, dan distributor sekaligus
+  const distIdsToFetch = id.isAdminView
+    ? [
+        ...new Set(
+          (mappings ?? [])
+            .map((m: { distributor_id?: unknown }) =>
+              String(m.distributor_id ?? "").trim(),
+            )
+            .filter(Boolean),
+        ),
+      ]
+    : [];
 
-  if (!id.isAdminView && id.distributorId)
-    invQ = invQ.eq("distributor_id", id.distributorId);
-  if (id.isAdminView && targetDistributorId)
-    invQ = invQ.eq("distributor_id", targetDistributorId);
+  const [masterResult, invResult, distResult] = await Promise.all([
+    supabase
+      .from("master_barang")
+      .select("id, kode, nama, kategori, satuan, jenis")
+      .in("id", masterIds),
+    // Query Inventaris
+    (() => {
+      let invQ = supabase
+        .from("inventaris")
+        .select("id, nama, master_barang_id, stok, distributor_id")
+        .eq("lokasi", "Cathlab")
+        .in("master_barang_id", masterIds);
 
-  const { data: invRows, error: invErr } = await invQ;
-  if (invErr)
-    return NextResponse.json(
-      { ok: false, message: invErr.message },
-      { status: 500 },
-    );
+      if (!id.isAdminView && id.distributorId)
+        invQ = invQ.eq("distributor_id", id.distributorId);
+      if (id.isAdminView && targetDistributorId)
+        invQ = invQ.eq("distributor_id", targetDistributorId);
+      return invQ;
+    })(),
+    // Query Distributor Names (jika admin)
+    distIdsToFetch.length > 0
+      ? supabase.from("master_distributor").select("id, nama_pt").in("id", distIdsToFetch)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (masterResult.error)
+    return NextResponse.json({ ok: false, message: masterResult.error.message }, { status: 500 });
+  if (invResult.error)
+    return NextResponse.json({ ok: false, message: invResult.error.message }, { status: 500 });
+
+  const masterRows = masterResult.data;
+  const invRows = invResult.data;
+  const distRows = distResult.data;
+
+  const masterMap = new Map<string, any>();
+  for (const r of masterRows ?? []) masterMap.set(r.id, r);
 
   const invStock = new Map<string, number>();
   const invLinesByKey = new Map<
@@ -132,27 +149,8 @@ export async function GET(req: Request) {
   }
 
   const distNameMap = new Map<string, string>();
-  if (id.isAdminView) {
-    const distIds = [
-      ...new Set(
-        (mappings ?? [])
-          .map((m: { distributor_id?: unknown }) =>
-            String(m.distributor_id ?? "").trim(),
-          )
-          .filter(Boolean),
-      ),
-    ];
-    if (distIds.length > 0) {
-      const { data: distRows, error: distErr } = await supabase
-        .from("master_distributor")
-        .select("id, nama_pt")
-        .in("id", distIds);
-      if (!distErr) {
-        for (const d of distRows ?? []) {
-          distNameMap.set(String((d as { id: string }).id), String((d as { nama_pt?: string | null }).nama_pt ?? "").trim());
-        }
-      }
-    }
+  for (const d of distRows ?? []) {
+    distNameMap.set(String((d as { id: string }).id), String((d as { nama_pt?: string | null }).nama_pt ?? "").trim());
   }
 
   const enriched = (mappings ?? []).map((m: any) => {

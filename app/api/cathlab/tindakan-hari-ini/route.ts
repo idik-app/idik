@@ -417,35 +417,35 @@ export async function GET(request: Request) {
 
     if (pasienId || rm) {
       // Mode pasien: query terarah (pasien_id / no_rm) supaya tidak terpotong limit 1000 global.
-      // Jika kosong, fallback scan + filter token (legacy / format token).
       const pid = pasienId.trim();
       const rmT = rm.trim();
-      const acc: Raw[] = [];
+      
+      // PARALEL: Ambil data pasien dari berbagai kemungkinan kolom dan petunjuk dari tabel pasien
+      const [resPid, resRm, hints] = await Promise.all([
+        pid ? selectTindakanByPasienIdEq(supabase, pid) : Promise.resolve({ data: [], error: null }),
+        rmT ? selectTindakanByNoRmIlike(supabase, rmT) : Promise.resolve({ data: [], error: null }),
+        pid ? loadPasienHintsForFilter(supabase, pid) : Promise.resolve([])
+      ]);
 
-      if (pid) {
-        const res = await selectTindakanByPasienIdEq(supabase, pid);
-        if (res.error) {
-          const msg = String(res.error.message ?? "");
-          if (!isRecoverableSchemaError(msg)) {
-            error = res.error;
-          }
-        } else if (res.data?.length) acc.push(...res.data);
+      const acc: Raw[] = [];
+      if (resPid.error) {
+        const msg = String(resPid.error.message ?? "");
+        if (!isRecoverableSchemaError(msg)) error = resPid.error;
+      } else if (resPid.data?.length) {
+        acc.push(...resPid.data);
       }
-      if (!error && rmT) {
-        const res2 = await selectTindakanByNoRmIlike(supabase, rmT);
-        if (res2.error) {
-          const msg = String(res2.error.message ?? "");
-          if (!isRecoverableSchemaError(msg)) {
-            error = res2.error;
-          }
-        } else if (res2.data?.length) acc.push(...res2.data);
+
+      if (!error && resRm.error) {
+        const msg = String(resRm.error.message ?? "");
+        if (!isRecoverableSchemaError(msg)) error = resRm.error;
+      } else if (resRm.data?.length) {
+        acc.push(...resRm.data);
       }
 
       if (!error) {
         if (acc.length > 0) {
           data = mergeRowsById(acc);
         } else {
-          const hints = await loadPasienHintsForFilter(supabase, pid);
           const tokenCandidates = [rmT, ...hints].filter(Boolean);
           if (tokenCandidates.length > 0) {
             const byToken = await selectTindakanByTokenCandidates(
@@ -462,37 +462,33 @@ export async function GET(request: Request) {
       }
 
       if (!error && !data) {
-        const res = await selectTindakanRows(supabase);
-        data = res.data;
-        error = res.error;
-        if (!error && data) {
-          const hints = await loadPasienHintsForFilter(supabase, pid);
-          data = filterRowsByPasienTokens(data, pid, rmT, hints);
-        }
-        if (!error && (!data || data.length === 0)) {
-          const legacy = await selectLegacyTindakanMedikRows(supabase);
-          if (!legacy.error && legacy.data.length > 0) {
-            const hints = await loadPasienHintsForFilter(supabase, pid);
-            data = filterRowsByPasienTokens(legacy.data, pid, rmT, hints);
-          }
+        // Fallback scan + filter
+        const [resRows, legacyRows] = await Promise.all([
+          selectTindakanRows(supabase),
+          selectLegacyTindakanMedikRows(supabase)
+        ]);
+
+        if (resRows.error) {
+          error = resRows.error;
+        } else {
+          const combined = mergeRowsById([...(resRows.data ?? []), ...legacyRows.data]);
+          data = filterRowsByPasienTokens(combined, pid, rmT, hints);
         }
       }
     } else {
-      const res = await selectTindakanRows(supabase);
-      data = res.data;
-      error = res.error;
-      if (!error && data) {
-        data = data.filter(
+      // Mode hari ini: ambil dari kedua tabel secara paralel
+      const [resRows, legacyRows] = await Promise.all([
+        selectTindakanRows(supabase),
+        selectLegacyTindakanMedikRows(supabase)
+      ]);
+
+      if (resRows.error) {
+        error = resRows.error;
+      } else {
+        const combined = mergeRowsById([...(resRows.data ?? []), ...legacyRows.data]);
+        data = combined.filter(
           (r) => String(r.tanggal ?? "").slice(0, 10) === tanggal,
         );
-      }
-      if (!error && (!data || data.length === 0)) {
-        const legacy = await selectLegacyTindakanMedikRows(supabase);
-        if (!legacy.error && legacy.data.length > 0) {
-          data = legacy.data.filter(
-            (r) => String(r.tanggal ?? "").slice(0, 10) === tanggal,
-          );
-        }
       }
     }
 

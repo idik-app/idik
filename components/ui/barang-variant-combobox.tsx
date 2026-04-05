@@ -34,8 +34,17 @@ export type MasterBarangPickRow = {
   harga_jual: number | null;
 };
 
-export function pickRowSearchHaystack(v: MasterBarangPickRow): string {
-  return [
+/** 
+ * Pre-calculate haystack for faster searching.
+ * We can store this in a Map to avoid repeated string concatenation.
+ */
+const haystackCache = new WeakMap<MasterBarangPickRow, string>();
+const alnumHaystackCache = new WeakMap<MasterBarangPickRow, string>();
+
+function getHaystack(v: MasterBarangPickRow): string {
+  let h = haystackCache.get(v);
+  if (h != null) return h;
+  h = [
     v.nama,
     v.kode,
     v.barcode ?? "",
@@ -50,6 +59,20 @@ export function pickRowSearchHaystack(v: MasterBarangPickRow): string {
   ]
     .join(" ")
     .toLowerCase();
+  haystackCache.set(v, h);
+  return h;
+}
+
+function getAlnumHaystack(v: MasterBarangPickRow): string {
+  let h = alnumHaystackCache.get(v);
+  if (h != null) return h;
+  h = alnumOnly(getHaystack(v));
+  alnumHaystackCache.set(v, h);
+  return h;
+}
+
+export function pickRowSearchHaystack(v: MasterBarangPickRow): string {
+  return getHaystack(v);
 }
 
 function normalize(s: string): string {
@@ -64,8 +87,6 @@ function alnumOnly(s: string): string {
  * Cocokkan teks pencarian ke satu baris master:
  * substring pada haystack gabungan, atau tiap kata (spasi) harus muncul sebagai substring,
  * atau substring pada versi haystack alfanumerik saja (abaikan spasi/tanda).
- * Tanpa pencocokan subsekuens di seluruh haystack — itu menimbulkan false positive
- * (mis. "genoss" cocok ke nama lain karena huruf tersebar di nama+kode+distributor).
  */
 export function rowMatchesBarangQuery(
   v: MasterBarangPickRow,
@@ -73,15 +94,15 @@ export function rowMatchesBarangQuery(
 ): boolean {
   const q = normalize(qRaw);
   if (!q) return true;
-  const hay = pickRowSearchHaystack(v);
+  const hay = getHaystack(v);
   if (hay.includes(q)) return true;
   const tokens = q.split(/\s+/).filter((t) => t.length > 0);
   if (tokens.length > 1) {
-    return tokens.every((t) => hay.includes(t));
+    if (tokens.every((t) => hay.includes(t))) return true;
   }
   const qc = alnumOnly(q);
   if (qc.length >= 2) {
-    const hayC = alnumOnly(hay);
+    const hayC = getAlnumHaystack(v);
     if (hayC.includes(qc)) return true;
   }
   return false;
@@ -127,8 +148,102 @@ function narrowPickRowsByLine(
 }
 
 /**
+ * Hasil indexing katalog untuk pencarian O(1) di client-side (ribuan baris).
+ */
+export type BarangVariantIndex = {
+  barcodeMap: Map<string, MasterBarangPickRow>;
+  kodeMap: Map<string, MasterBarangPickRow[]>;
+  lotMap: Map<string, MasterBarangPickRow[]>;
+  namaMap: Map<string, MasterBarangPickRow[]>;
+};
+
+export function createBarangVariantIndex(
+  options: MasterBarangPickRow[],
+): BarangVariantIndex {
+  const barcodeMap = new Map<string, MasterBarangPickRow>();
+  const kodeMap = new Map<string, MasterBarangPickRow[]>();
+  const lotMap = new Map<string, MasterBarangPickRow[]>();
+  const namaMap = new Map<string, MasterBarangPickRow[]>();
+
+  const L = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+
+  for (const v of options) {
+    const bc = L(v.barcode);
+    if (bc && !barcodeMap.has(bc)) barcodeMap.set(bc, v);
+
+    const kd = L(v.kode);
+    if (kd) {
+      const list = kodeMap.get(kd) ?? [];
+      list.push(v);
+      kodeMap.set(kd, list);
+    }
+
+    const lt = L(v.lot);
+    if (lt) {
+      const list = lotMap.get(lt) ?? [];
+      list.push(v);
+      lotMap.set(lt, list);
+    }
+
+    const nm = L(v.nama);
+    if (nm) {
+      const list = namaMap.get(nm) ?? [];
+      list.push(v);
+      namaMap.set(nm, list);
+    }
+  }
+
+  return { barcodeMap, kodeMap, lotMap, namaMap };
+}
+
+/** Hook untuk memoize index katalog. */
+export function useBarangVariantIndex(
+  options: MasterBarangPickRow[],
+): BarangVariantIndex {
+  return useMemo(() => createBarangVariantIndex(options), [options]);
+}
+
+/**
+ * Versi cepat resolvePickRowFromBarangInput menggunakan index.
+ */
+export function resolvePickRowFromIndexedOptions(
+  label: string,
+  index: BarangVariantIndex,
+  optionsFallback: MasterBarangPickRow[],
+  line?: BlurResolveLine,
+): MasterBarangPickRow | undefined {
+  const q = label.trim().toLowerCase();
+  if (!q) return undefined;
+
+  const byBarcode = index.barcodeMap.get(q);
+  if (byBarcode) return byBarcode;
+
+  const byKode = index.kodeMap.get(q) ?? [];
+  if (byKode.length === 1) return byKode[0];
+  if (byKode.length > 1) {
+    const narrowed = narrowPickRowsByLine(byKode, line);
+    return narrowed.length === 1 ? narrowed[0] : undefined;
+  }
+
+  const byLot = index.lotMap.get(q) ?? [];
+  if (byLot.length === 1) return byLot[0];
+  if (byLot.length > 1) {
+    const narrowed = narrowPickRowsByLine(byLot, line);
+    return narrowed.length === 1 ? narrowed[0] : undefined;
+  }
+
+  const sameNama = index.namaMap.get(q) ?? [];
+  if (sameNama.length === 1) return sameNama[0];
+  if (sameNama.length > 1) {
+    const narrowed = narrowPickRowsByLine(sameNama, line);
+    return narrowed.length === 1 ? narrowed[0] : undefined;
+  }
+
+  return undefined;
+}
+
+/**
  * Cocokkan teks kolom Barang ke satu baris master (barcode / kode / LOT / nama persis).
- * Bila banyak varian, sempitkan dengan LOT, ukuran, ED, distributor pada baris bila ada.
  */
 export function resolvePickRowFromBarangInput(
   label: string,

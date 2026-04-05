@@ -2,33 +2,28 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { useState } from "react";
-import { BarChart3, ChevronLeft, Sparkles } from "lucide-react";
+import { Phone, ChevronLeft, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import type { AccessTarget } from "./TindakanRoleAccessModal";
-import TindakanDashboardModal from "./TindakanDashboardModal";
 
 type ThemeTone = "cyan" | "emerald";
 
 export default function TindakanHeader({
   themeTone,
   onRoleAccessClick,
+  onPhoneDirectoryOpen,
   summary,
-  dashboardRows,
-  dashboardLoading,
 }: {
   themeTone: ThemeTone;
   onRoleAccessClick: (target: AccessTarget) => void;
+  onPhoneDirectoryOpen: () => void;
   /** Ringkasan KPI (mis. Hari ini / Total) — dipasang di samping judul untuk hemat ruang vertikal */
   summary?: ReactNode;
-  /** Snapshot daftar tindakan (sumber yang sama dengan tabel utama) untuk modal dashboard */
+  /** @deprecated No longer used but kept for props compatibility */
   dashboardRows?: readonly TindakanJoinResult[];
   dashboardLoading?: boolean;
 }) {
-  const [dashboardOpen, setDashboardOpen] = useState(false);
-  const rows = dashboardRows ?? [];
-  const loadingDash = Boolean(dashboardLoading);
   const now = new Intl.DateTimeFormat("id-ID", {
     day: "2-digit",
     month: "long",
@@ -56,7 +51,10 @@ export default function TindakanHeader({
               : "border-cyan-500/40 bg-cyan-100/80 text-cyan-900 hover:border-cyan-600/60 dark:border-cyan-700/50 dark:bg-black dark:text-white dark:hover:border-cyan-500/55 dark:hover:text-white",
           )}
         >
-          <ChevronLeft size={14} className="shrink-0 opacity-90 dark:opacity-100" />
+          <ChevronLeft
+            size={14}
+            className="shrink-0 opacity-90 dark:opacity-100"
+          />
           Beranda Perawat
         </Link>
         <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:justify-between min-w-0">
@@ -70,21 +68,19 @@ export default function TindakanHeader({
           <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end lg:shrink-0 min-w-0">
             <button
               type="button"
-              onClick={() => setDashboardOpen(true)}
+              onClick={onPhoneDirectoryOpen}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-bold transition",
-                themeTone === "emerald"
-                  ? "border-emerald-500/45 bg-emerald-100/90 text-emerald-900 hover:border-emerald-600/55 dark:border-emerald-700/50 dark:bg-black dark:text-white dark:hover:border-emerald-500/55"
-                  : "border-cyan-500/45 bg-cyan-100/90 text-cyan-900 hover:border-cyan-600/55 dark:border-cyan-700/50 dark:bg-black dark:text-white dark:hover:border-cyan-500/55",
+                "border-amber-500/45 bg-amber-100/90 text-amber-900 hover:border-amber-600/55 dark:border-amber-700/50 dark:bg-black dark:text-white dark:hover:border-amber-500/55",
               )}
             >
-              <BarChart3 className="h-4 w-4 shrink-0 opacity-95 dark:opacity-100" />
-              Dashboard
+              <Phone className="h-4 w-4 shrink-0 opacity-95 dark:opacity-100" />
+              Daftar Telp
             </button>
             <div
               className={cn(
                 "inline-flex items-center gap-1 rounded-xl border p-1",
-                "border-cyan-400/45 bg-cyan-50/90 dark:border-cyan-700/45 dark:bg-black",
+                "border-slate-200 bg-slate-50/50 dark:border-zinc-800 dark:bg-black",
               )}
             >
               <button
@@ -103,8 +99,8 @@ export default function TindakanHeader({
                 onClick={() => onRoleAccessClick("distributor")}
                 className={cn(
                   "rounded-lg px-2.5 py-1 text-xs font-bold transition",
-                  "text-emerald-800 hover:text-emerald-950 hover:bg-emerald-100/80",
-                  "dark:text-white/90 dark:hover:text-white dark:hover:bg-emerald-500/25",
+                  "bg-emerald-100 text-emerald-900 hover:bg-emerald-200",
+                  "dark:bg-emerald-500/30 dark:text-white dark:hover:bg-emerald-500/40",
                 )}
               >
                 Distributor Cathlab
@@ -141,14 +137,6 @@ export default function TindakanHeader({
           </div>
         </div>
       </div>
-
-      <TindakanDashboardModal
-        open={dashboardOpen}
-        onOpenChange={setDashboardOpen}
-        rows={rows}
-        loading={loadingDash}
-        themeTone={themeTone}
-      />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useRef, useState } from "react";
+import { Phone } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { emptyTindakanKpiStats } from "./hooks/useTindakanStats";
@@ -9,6 +10,8 @@ import type { TindakanJoinResult } from "./bridge/mapping.types";
 import { useTindakanBridgeAdapter } from "./bridge/useTindakanBridgeAdapter";
 import TindakanHeader from "./components/TindakanHeader";
 import TindakanHariIniModal from "./components/TindakanHariIniModal";
+import TindakanDashboardModal from "./components/TindakanDashboardModal";
+import PhoneShortcutsBar from "./components/PhoneShortcutsBar";
 import TindakanRoleAccessModal, {
   type AccessTarget,
 } from "./components/TindakanRoleAccessModal";
@@ -30,6 +33,7 @@ export default function TindakanDashboard() {
   const themeTone = "cyan" as const;
   const [todayModalOpen, setTodayModalOpen] = useState(false);
   const [roleAccessOpen, setRoleAccessOpen] = useState(false);
+  const [phoneDirectoryOpen, setPhoneDirectoryOpen] = useState(false);
   const [roleAccessTarget, setRoleAccessTarget] =
     useState<AccessTarget>("depo");
   const [filteredSummary, setFilteredSummary] =
@@ -70,6 +74,7 @@ export default function TindakanDashboard() {
         <TindakanHeader
           themeTone={themeTone}
           onRoleAccessClick={onRoleAccessClick}
+          onPhoneDirectoryOpen={() => setPhoneDirectoryOpen(true)}
           dashboardRows={
             Array.isArray(adapter.tindakanList)
               ? (adapter.tindakanList as TindakanJoinResult[])
@@ -90,6 +95,9 @@ export default function TindakanDashboard() {
       </header>
 
       <main className="relative flex min-h-0 flex-1 flex-col gap-0 px-1.5 pb-2 pt-0.5 max-md:flex-none sm:px-2 sm:pb-2.5 md:px-3">
+        {/* Shortcuts Section */}
+        <PhoneShortcutsBar themeTone={themeTone} />
+        
         <section
           ref={tableRef}
           className="relative flex min-h-0 flex-1 flex-col overflow-hidden max-md:flex-none max-md:overflow-visible"
@@ -100,6 +108,23 @@ export default function TindakanDashboard() {
             onFilteredSummaryChange={onFilteredSummaryChange}
           />
         </section>
+
+        {/* Floating Speed Dial for Phone Directory */}
+        <button
+          type="button"
+          onClick={() => setPhoneDirectoryOpen(true)}
+          className={cn(
+            "fixed bottom-6 right-6 z-[100] flex h-14 w-14 items-center justify-center rounded-full shadow-2xl transition-all active:scale-95 group",
+            "bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-500/25",
+            "dark:bg-cyan-500 dark:hover:bg-cyan-400 dark:shadow-cyan-900/40",
+          )}
+          title="Direktori Telepon Internal"
+        >
+          <Phone className="h-6 w-6 group-hover:animate-pulse" />
+          <span className="absolute right-full mr-3 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-xs font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-slate-800">
+            Direktori Telepon
+          </span>
+        </button>
       </main>
 
       <TindakanDetailDrawer
@@ -123,6 +148,12 @@ export default function TindakanDashboard() {
             : []
         }
         loading={Boolean(adapter.loading)}
+        themeTone={themeTone}
+      />
+
+      <TindakanDashboardModal
+        open={phoneDirectoryOpen}
+        onOpenChange={setPhoneDirectoryOpen}
         themeTone={themeTone}
       />
 

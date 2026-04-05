@@ -957,11 +957,6 @@ function DistributorPemakaianPageContent() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold text-[#D4AF37]">{title}</h1>
-          <p className="text-[12px] text-cyan-300/70">
-            Catatan pemakaian alkes yang diinput petugas Cathlab untuk barang
-            yang mengikat ke distributor Anda: lewat stok inventaris (supplier),
-            master barang, atau produk di katalog distributor.
-          </p>
           {loadError ? (
             <p className="text-[12px] text-amber-300/95 mt-1" role="alert">
               {loadError}
@@ -969,12 +964,6 @@ function DistributorPemakaianPageContent() {
           ) : null}
           {!loadError && rows.length === 0 && loadHint ? (
             <p className="text-[12px] text-cyan-400/80 mt-1">{loadHint}</p>
-          ) : null}
-          {!loadError && !loading && rows.length === 0 ? (
-            <p className="text-[11px] text-cyan-500/50 mt-1">
-              Sertakan tanggal order Cathlab di rentang From–To (mis. 25 Mar
-              jika order tercatat tanggal itu).
-            </p>
           ) : null}
         </div>
         <div className="flex flex-wrap items-end gap-3">

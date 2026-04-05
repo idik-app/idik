@@ -3,10 +3,19 @@ import { requireUser, requireAdmin } from "@/lib/auth/guards";
 import { getServiceSupabaseAdmin } from "@/lib/auth/serviceSupabase";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+/** Cache master dokter di memori server (1 menit) */
+let doctorsCache: any[] | null = null;
+let doctorsCacheExpires = 0;
+
 /** Daftar dokter aktif untuk form pemakaian / pemilihan operator (master `doctor`). */
 export async function GET() {
   const user = await requireUser();
   if (!user.ok) return user.response;
+
+  const now = Date.now();
+  if (doctorsCache && now < doctorsCacheExpires) {
+    return NextResponse.json({ ok: true, doctors: doctorsCache, cached: true });
+  }
 
   const supabase = getServiceSupabaseAdmin();
   if (!supabase) {
@@ -47,14 +56,20 @@ export async function GET() {
     return nama.length > 0;
   });
 
+  const finalDoctors = rows.map((r: Row) => ({
+    id: r.id,
+    nama_dokter: String(r.nama_dokter ?? r.nama ?? "").trim(),
+    spesialis: r.spesialis ?? null,
+    aktif: r.status !== false,
+  }));
+
+  // Update Cache
+  doctorsCache = finalDoctors;
+  doctorsCacheExpires = Date.now() + 60 * 1000;
+
   return NextResponse.json({
     ok: true,
-    doctors: rows.map((r: Row) => ({
-      id: r.id,
-      nama_dokter: String(r.nama_dokter ?? r.nama ?? "").trim(),
-      spesialis: r.spesialis ?? null,
-      aktif: r.status !== false,
-    })),
+    doctors: finalDoctors,
   });
 }
 

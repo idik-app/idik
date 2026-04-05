@@ -15,6 +15,7 @@ import {
   Plus,
   SquarePen,
   Trash2,
+  Zap,
 } from "lucide-react";
 
 import { useNotification } from "@/app/contexts/NotificationContext";
@@ -83,7 +84,7 @@ const TINDAKAN_TABLE_INPUT_TEXT =
 
 /** Kolom No–Dokter — amber di siang; putih terang di mode malam. */
 const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
-  "text-amber-800 placeholder:text-amber-700/55 dark:text-slate-100 dark:placeholder:text-white/90";
+  "text-amber-800 placeholder:text-amber-700/55 dark:text-white dark:placeholder:text-white/90";
 
 /** Sel tabel: grid jelas seperti spreadsheet (border-collapse di `<table>`). */
 const TINDAKAN_SHEET_CELL =
@@ -262,7 +263,9 @@ function mapApiPasienRow(r: Record<string, unknown>): PasienOption | null {
       ? { kelas_perawatan }
       : {}),
     ...(legacyPem != null && legacyPem !== "" ? { pembiayaan: legacyPem } : {}),
-    ...(legacyKelas != null && legacyKelas !== "" ? { kelas: legacyKelas } : {}),
+    ...(legacyKelas != null && legacyKelas !== ""
+      ? { kelas: legacyKelas }
+      : {}),
   };
 }
 
@@ -846,6 +849,7 @@ export default function TindakanTable({
   const [filterRuangan, setFilterRuangan] = useState("");
   const [filterTanggalFrom, setFilterTanggalFrom] = useState("");
   const [filterTanggalTo, setFilterTanggalTo] = useState("");
+  const [filterPciOnly, setFilterPciOnly] = useState(false);
   const [fastTrackModalOpen, setFastTrackModalOpen] = useState(false);
   const [tindakanTerbanyakLabOpen, setTindakanTerbanyakLabOpen] =
     useState(false);
@@ -1086,7 +1090,8 @@ export default function TindakanTable({
     const master = doctorOptionsMaster;
     for (const r of dokterSourceRows) {
       const d = String(r.dokter ?? "").trim();
-      if (d) dSet.add(master.length > 0 ? canonicalDoctorStoredValue(master, d) : d);
+      if (d)
+        dSet.add(master.length > 0 ? canonicalDoctorStoredValue(master, d) : d);
       const rx = String(r.ruangan ?? "").trim();
       if (rx) rSet.add(rx);
     }
@@ -1098,7 +1103,9 @@ export default function TindakanTable({
     }
     return {
       dokterOptions: Array.from(dSet).sort((a, b) => a.localeCompare(b, "id")),
-      ruanganFilterOptions: Array.from(rSet).sort((a, b) => a.localeCompare(b, "id")),
+      ruanganFilterOptions: Array.from(rSet).sort((a, b) =>
+        a.localeCompare(b, "id"),
+      ),
     };
   }, [dokterSourceRows, doctorOptionsMaster, ruanganMaster]);
 
@@ -1355,6 +1362,12 @@ export default function TindakanTable({
         return true;
       });
     }
+    if (filterPciOnly) {
+      list = list.filter((r) => {
+        const t = String(r.tindakan ?? "").toLowerCase();
+        return t.includes("pci") || t.includes("ptca");
+      });
+    }
     const q = debouncedSearchTrim.toLowerCase();
     if (q) {
       list = list.filter((r) =>
@@ -1396,6 +1409,7 @@ export default function TindakanTable({
     filterRuangan,
     filterTanggalFrom,
     filterTanggalTo,
+    filterPciOnly,
     pasienOptions,
     debouncedSearchTrim,
     doctorOptionsMaster,
@@ -1418,6 +1432,9 @@ export default function TindakanTable({
     if (from || to) {
       lines.push(`Tanggal: ${from || "…"} – ${to || "…"}`);
     }
+    if (filterPciOnly) {
+      lines.push("Prosedur: PCI");
+    }
     const q = String(debouncedSearchTrim ?? "").trim();
     if (q) {
       const short = q.length > 48 ? `${q.slice(0, 45)}…` : q;
@@ -1437,6 +1454,7 @@ export default function TindakanTable({
     filterRuangan,
     filterTanggalFrom,
     filterTanggalTo,
+    filterPciOnly,
     debouncedSearchTrim,
     filterPasienId,
     filterRm,
@@ -1501,7 +1519,9 @@ export default function TindakanTable({
     let perempuan = 0;
 
     const todaySet = new Set(todayRowsForKpi);
-    const genderSourceSet = new Set(hasTanggalFilter ? filteredRecords : todayRowsForKpi);
+    const genderSourceSet = new Set(
+      hasTanggalFilter ? filteredRecords : todayRowsForKpi,
+    );
 
     for (const rec of filteredRecords) {
       const isToday = todaySet.has(rec);
@@ -1515,7 +1535,9 @@ export default function TindakanTable({
       if (dr && dr !== "—") {
         const k = master.length ? canonicalDoctorStoredValue(master, dr) : dr;
         if (k) {
-          const disp = master.length ? canonicalDoctorDisplayValue(master, k) || k : dr;
+          const disp = master.length
+            ? canonicalDoctorDisplayValue(master, k) || k
+            : dr;
           const prev = dFilteredMap.get(k);
           if (prev) dFilteredMap.set(k, { ...prev, count: prev.count + 1 });
           else dFilteredMap.set(k, { count: 1, display: disp });
@@ -1529,7 +1551,9 @@ export default function TindakanTable({
           const k = master.length ? canonicalDoctorStoredValue(master, dr) : dr;
           if (k) {
             dTodaySet.add(k);
-            const disp = master.length ? canonicalDoctorDisplayValue(master, k) || k : dr;
+            const disp = master.length
+              ? canonicalDoctorDisplayValue(master, k) || k
+              : dr;
             const prev = dTodayMap.get(k);
             if (prev) dTodayMap.set(k, { ...prev, count: prev.count + 1 });
             else dTodayMap.set(k, { count: 1, display: disp });
@@ -1555,7 +1579,10 @@ export default function TindakanTable({
 
     const fmtD = (m: Map<string, { count: number; display: string }>) =>
       Array.from(m.values())
-        .sort((a, b) => b.count - a.count || a.display.localeCompare(b.display, "id"))
+        .sort(
+          (a, b) =>
+            b.count - a.count || a.display.localeCompare(b.display, "id"),
+        )
         .slice(0, 6)
         .map((x) => `${x.count}. ${x.display}`);
 
@@ -1568,7 +1595,13 @@ export default function TindakanTable({
       tindakanBreakdownFiltered: fmt(tFilteredMap),
       dokterBreakdownFiltered: fmtD(dFilteredMap),
     };
-  }, [filteredRecords, todayRowsForKpi, hasTanggalFilter, doctorOptionsMaster, pasienOptions]);
+  }, [
+    filteredRecords,
+    todayRowsForKpi,
+    hasTanggalFilter,
+    doctorOptionsMaster,
+    pasienOptions,
+  ]);
 
   const filteredRowStatsTodayAdjusted = useMemo(
     () => ({
@@ -2129,11 +2162,12 @@ export default function TindakanTable({
           onRefresh={refresh}
           onCreateDraftForPasien={createDraftForPasien}
           onSyncMasterPasien={syncMasterPasienFromTindakan}
-          onFilter={(d, rg, from, to) => {
+          onFilter={(d, rg, from, to, pci) => {
             setFilterDokter(d);
             setFilterRuangan(rg);
             setFilterTanggalFrom(String(from ?? ""));
             setFilterTanggalTo(String(to ?? ""));
+            setFilterPciOnly(Boolean(pci));
           }}
           dokterOptions={dokterOptions}
           ruanganOptions={ruanganFilterOptions}
@@ -2407,18 +2441,65 @@ export default function TindakanTable({
                                 : "",
                               id
                                 ? isDuplicateRm
-                                  ? "cursor-pointer hover:bg-amber-100/95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600/50 dark:hover:bg-amber-950/45 dark:focus-visible:outline-amber-500/50"
-                                  : "cursor-pointer hover:bg-cyan-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600/50 dark:hover:bg-cyan-950/25 dark:focus-visible:outline-cyan-500/50"
+                                  ? "cursor-pointer hover:bg-amber-100/95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-600/50 dark:hover:bg-amber-900/40 dark:focus-visible:outline-amber-500/50"
+                                  : "cursor-pointer hover:bg-cyan-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600/50 dark:hover:bg-cyan-900/30 dark:focus-visible:outline-cyan-500/50"
                                 : "opacity-60",
                             )}
                           >
                             <td
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
-                                "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center tabular-nums",
+                                "relative px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center tabular-nums",
                                 "text-cyan-800 dark:text-slate-100",
                               )}
                             >
+                              {/* Status Indicator Line */}
+                              {(() => {
+                                const s = String(
+                                  rec.status ?? "",
+                                ).toLowerCase();
+                                const t = String(
+                                  rec.tindakan ?? "",
+                                ).toLowerCase();
+                                const dateStr = String(
+                                  rec.tanggal ?? "",
+                                ).trim();
+                                const isoDate = extractCalendarDateKey(dateStr);
+                                const isToday = isoDate === todayWibYmd();
+
+                                let indicatorClass = "";
+                                if (
+                                  s.includes("cito") ||
+                                  s.includes("emergency") ||
+                                  t.includes("ppci")
+                                ) {
+                                  indicatorClass =
+                                    "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]";
+                                } else if (
+                                  isToday ||
+                                  s.includes("selesai") ||
+                                  s.includes("langsung")
+                                ) {
+                                  indicatorClass =
+                                    "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]";
+                                } else if (s.includes("tunggu")) {
+                                  indicatorClass =
+                                    "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.3)]";
+                                }
+
+                                if (!indicatorClass) return null;
+                                return (
+                                  <div
+                                    className={cn(
+                                      "absolute inset-y-0 left-0 w-[3px]",
+                                      indicatorClass,
+                                    )}
+                                    title={
+                                      rec.status || (isToday ? "Hari ini" : "")
+                                    }
+                                  />
+                                );
+                              })()}
                               {rowNoDesc}
                             </td>
                             <td
@@ -2473,17 +2554,110 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
-                                "px-2 sm:px-2.5 py-1 max-w-[18rem] text-center align-middle",
-                                "text-amber-800 dark:text-slate-100",
+                                "relative px-2 sm:px-2.5 py-1 max-w-[18rem] text-center align-middle",
+                                "text-amber-800 dark:text-white",
                               )}
                             >
+                              {/* Quick Actions Hover Toolbar (closer to patient name) */}
+                              <div
+                                className={cn(
+                                  "absolute top-1/2 right-1 z-[15] -translate-y-1/2",
+                                  "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100",
+                                  "flex items-center gap-1 transition-all duration-150",
+                                  "max-xl:hidden", // Optional: hide on smaller screens where side-buttons are close enough
+                                )}
+                              >
+                                {id && pemakaianOrderByTindakanId[id] ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPemakaianModalRow(rec);
+                                    }}
+                                    className={cn(
+                                      "flex h-7 w-7 items-center justify-center rounded-full border shadow-lg transition-transform hover:scale-110",
+                                      "border-amber-500 bg-amber-100 text-amber-900 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-200",
+                                    )}
+                                    title="Edit Pemakaian"
+                                  >
+                                    <SquarePen className="h-3.5 w-3.5" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPemakaianModalRow(rec);
+                                    }}
+                                    className={cn(
+                                      "flex h-7 w-7 items-center justify-center rounded-full border shadow-lg transition-transform hover:scale-110",
+                                      "border-cyan-500 bg-cyan-100 text-cyan-950 dark:border-cyan-600 dark:bg-cyan-950 dark:text-cyan-200",
+                                    )}
+                                    title="Input Pemakaian"
+                                  >
+                                    <ClipboardList className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  disabled={!id || deletingId === id}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleDelete(id, rec);
+                                  }}
+                                  className={cn(
+                                    "flex h-7 w-7 items-center justify-center rounded-full border shadow-lg transition-transform hover:scale-110 disabled:opacity-30",
+                                    "border-red-400 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
+                                  )}
+                                  title="Hapus"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+
                               <div
                                 data-no-row-click="true"
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClick={(e) => e.stopPropagation()}
-                                className="mx-auto min-w-[10rem] sm:min-w-[14rem] max-w-[18rem]"
+                                className="relative mx-auto min-w-[10rem] sm:min-w-[14rem] max-w-[18rem]"
                                 title={pasienError ?? undefined}
                               >
+                                {/* High Priority / Fast-Track Pulse Indicator */}
+                                {(() => {
+                                  const s = String(
+                                    rec.status ?? "",
+                                  ).toLowerCase();
+                                  const t = String(
+                                    rec.tindakan ?? "",
+                                  ).toLowerCase();
+                                  const ft = String(
+                                    rec.fast_track_time_out ?? "",
+                                  ).trim();
+                                  const isHighPriority =
+                                    s.includes("cito") ||
+                                    s.includes("emergency") ||
+                                    t.includes("ppci") ||
+                                    ft.length > 0;
+
+                                  if (!isHighPriority) return null;
+
+                                  return (
+                                    <div
+                                      className="absolute -left-6 top-1/2 -translate-y-1/2 animate-pulse"
+                                      title={
+                                        ft
+                                          ? "Pasien Fast-Track"
+                                          : "Pasien Prioritas Tinggi"
+                                      }
+                                    >
+                                      <Zap
+                                        size={14}
+                                        strokeWidth={3}
+                                        className="fill-amber-400 text-amber-500 drop-shadow-[0_0_5px_rgba(245,158,11,0.6)] dark:fill-amber-300 dark:text-amber-400"
+                                      />
+                                    </div>
+                                  );
+                                })()}
                                 <PasienCombobox
                                   listboxId={`tindakan-row-${key}-pasien`}
                                   value={
@@ -2569,7 +2743,13 @@ export default function TindakanTable({
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClick={(e) => e.stopPropagation()}
                                 className="mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]"
-                                title={doctorError ?? undefined}
+                                title={
+                                  doctorError ||
+                                  canonicalDoctorDisplayValue(
+                                    doctorOptionsMaster,
+                                    String(rec.dokter ?? ""),
+                                  )
+                                }
                               >
                                 <DoctorCombobox
                                   listboxId={`tindakan-row-${key}-doctor`}
@@ -2659,7 +2839,7 @@ export default function TindakanTable({
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
-                                "text-amber-800 dark:text-amber-300",
+                                "text-amber-800 dark:text-white",
                               )}
                             >
                               <div

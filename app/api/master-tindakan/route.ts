@@ -5,10 +5,19 @@ import { getServiceSupabaseAdmin } from "@/lib/auth/serviceSupabase";
 
 export const dynamic = "force-dynamic";
 
+/** Cache master tindakan di memori server (1 menit) */
+let masterTindakanCache: any[] | null = null;
+let masterTindakanCacheExpires = 0;
+
 /** Daftar master jenis tindakan untuk combobox & halaman admin. */
 export async function GET() {
   const user = await requireUser();
   if (!user.ok) return user.response;
+
+  const now = Date.now();
+  if (masterTindakanCache && now < masterTindakanCacheExpires) {
+    return NextResponse.json({ ok: true, masterTindakan: masterTindakanCache, cached: true });
+  }
 
   const supabase = getServiceSupabaseAdmin();
   if (!supabase) {
@@ -48,16 +57,22 @@ export async function GET() {
     String(r.nama ?? "").trim().length > 0,
   );
 
+  const finalMaster = rows.map((r: Row) => ({
+    id: String(r.id),
+    nama: String(r.nama ?? "").trim(),
+    urutan: typeof r.urutan === "number" ? r.urutan : 0,
+    aktif: r.aktif !== false,
+    created_at: r.created_at ?? null,
+    updated_at: r.updated_at ?? null,
+  }));
+
+  // Update Cache
+  masterTindakanCache = finalMaster;
+  masterTindakanCacheExpires = Date.now() + 60 * 1000;
+
   return NextResponse.json({
     ok: true,
-    masterTindakan: rows.map((r: Row) => ({
-      id: String(r.id),
-      nama: String(r.nama ?? "").trim(),
-      urutan: typeof r.urutan === "number" ? r.urutan : 0,
-      aktif: r.aktif !== false,
-      created_at: r.created_at ?? null,
-      updated_at: r.updated_at ?? null,
-    })),
+    masterTindakan: finalMaster,
   });
 }
 

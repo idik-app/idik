@@ -21,14 +21,26 @@ export const Table = ({
   </div>
 );
 
-export const TableHeader = ({ children }: { children: React.ReactNode }) => (
-  <thead className="bg-cyan-900/30 text-cyan-300 uppercase tracking-wide">
+export const TableHeader = ({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <thead className={`bg-cyan-900/30 text-cyan-300 uppercase tracking-wide ${className ?? ""}`}>
     {children}
   </thead>
 );
 
-export const TableBody = ({ children }: { children: React.ReactNode }) => (
-  <tbody className="divide-y divide-cyan-800/30">{children}</tbody>
+export const TableBody = ({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <tbody className={`divide-y divide-cyan-800/30 ${className ?? ""}`}>{children}</tbody>
 );
 
 export const TableRow = ({
@@ -46,11 +58,13 @@ export const TableRow = ({
 export const TableHead = ({
   children,
   className,
+  ...props
 }: {
   children: React.ReactNode;
   className?: string;
-}) => (
+} & React.ThHTMLAttributes<HTMLTableCellElement>) => (
   <th
+    {...props}
     className={`px-4 py-2 text-left font-semibold border-b border-cyan-800/40 ${
       className ?? ""
     }`}
@@ -62,11 +76,15 @@ export const TableHead = ({
 export const TableCell = ({
   children,
   className,
+  ...props
 }: {
   children: React.ReactNode;
   className?: string;
-}) => (
-  <td className={`px-4 py-2 align-middle text-neutral-200 ${className ?? ""}`}>
+} & React.TdHTMLAttributes<HTMLTableCellElement>) => (
+  <td
+    {...props}
+    className={`px-4 py-2 align-middle text-neutral-200 ${className ?? ""}`}
+  >
     {children}
   </td>
 );

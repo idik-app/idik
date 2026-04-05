@@ -27,6 +27,7 @@
     "@ag-grid-community/styles": "^32.3.9",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@hello-pangea/dnd": "^18.0.1",
     "@mui/x-data-grid": "^8.17.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-scroll-area": "^1.2.10",

@@ -3,10 +3,19 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requireUser } from "@/lib/auth/guards";
 import { getServiceSupabaseAdmin } from "@/lib/auth/serviceSupabase";
 
+/** Cache master ruangan di memori server (1 menit) */
+let ruanganCache: any[] | null = null;
+let ruanganCacheExpires = 0;
+
 /** Daftar master ruangan untuk form pemakaian / combobox (semua baris dengan nama). */
 export async function GET() {
   const user = await requireUser();
   if (!user.ok) return user.response;
+
+  const now = Date.now();
+  if (ruanganCache && now < ruanganCacheExpires) {
+    return NextResponse.json({ ok: true, ruangan: ruanganCache, cached: true });
+  }
 
   const supabase = getServiceSupabaseAdmin();
   if (!supabase) {
@@ -44,18 +53,24 @@ export async function GET() {
     String(r.nama ?? "").trim().length > 0
   );
 
+  const finalRuangan = rows.map((r: Row) => ({
+    id: String(r.id),
+    nama: String(r.nama ?? "").trim(),
+    kode: r.kode != null && String(r.kode).trim() ? String(r.kode).trim() : null,
+    kategori:
+      r.kategori != null && String(r.kategori).trim()
+        ? String(r.kategori).trim()
+        : null,
+    aktif: r.aktif !== false,
+  }));
+
+  // Update Cache
+  ruanganCache = finalRuangan;
+  ruanganCacheExpires = Date.now() + 60 * 1000;
+
   return NextResponse.json({
     ok: true,
-    ruangan: rows.map((r: Row) => ({
-      id: String(r.id),
-      nama: String(r.nama ?? "").trim(),
-      kode: r.kode != null && String(r.kode).trim() ? String(r.kode).trim() : null,
-      kategori:
-        r.kategori != null && String(r.kategori).trim()
-          ? String(r.kategori).trim()
-          : null,
-      aktif: r.aktif !== false,
-    })),
+    ruangan: finalRuangan,
   });
 }
 

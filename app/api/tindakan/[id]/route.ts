@@ -29,6 +29,7 @@ const PATCHABLE_TINDAKAN_KEYS = new Set([
   "diagnosa",
   "severity_level",
   "hasil_lab_ppm",
+  "is_fast_track",
   "pasien_datang_igd",
   "door_to_balloon",
   "total_waktu_fast_track",

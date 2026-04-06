@@ -43,6 +43,10 @@ type Raw = {
   status: string | null;
   ruangan: string | null;
   pasien_id: string | null;
+  is_fast_track?: boolean | null;
+  pasien_datang_igd?: string | null;
+  door_to_balloon?: string | null;
+  total_waktu_fast_track?: string | null;
 };
 
 function toText(v: unknown): string | null {
@@ -69,6 +73,10 @@ function mapLegacyTindakanMedikRow(row: Record<string, unknown>): Raw {
     status: toText(row.status),
     ruangan: toText(row.ruangan),
     pasien_id: toText(row.pasien_id),
+    is_fast_track: (row as any).is_fast_track,
+    pasien_datang_igd: toText(row.pasien_datang_igd),
+    door_to_balloon: toText(row.door_to_balloon),
+    total_waktu_fast_track: toText(row.total_waktu_fast_track),
   };
 }
 
@@ -106,13 +114,13 @@ async function selectTindakanRows(
     // Prioritas: ambil seluruh kolom dulu agar token pasien/RM bisa difilter
     // bahkan jika skema/proyeksi "minimal" tidak memuat kolom yang dibutuhkan.
     "*",
-    "id, tanggal, dokter, nama_pasien, alkes_utama, kategori, created_at",
-    "id, tanggal, tindakan, kategori, status, ruangan, pasien_id",
-    "id, tanggal, nama_pasien, tindakan, kategori, status, ruangan, pasien_id",
-    "id, tanggal, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id",
-    "id, tanggal, nama_pasien, nama, no_rm, rm, tindakan, kategori, status, ruangan, pasien_id",
-    "id, tanggal, no_rm, tindakan, kategori, status, ruangan, pasien_id",
-    "id, tanggal, no_rm, nama_pasien, pasien_id",
+    "id, tanggal, dokter, nama_pasien, alkes_utama, kategori, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
+    "id, tanggal, tindakan, kategori, status, ruangan, pasien_id, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
+    "id, tanggal, nama_pasien, tindakan, kategori, status, ruangan, pasien_id, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
+    "id, tanggal, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
+    "id, tanggal, nama_pasien, nama, no_rm, rm, tindakan, kategori, status, ruangan, pasien_id, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
+    "id, tanggal, no_rm, tindakan, kategori, status, ruangan, pasien_id, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
+    "id, tanggal, no_rm, nama_pasien, pasien_id, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
   ];
 
   let lastError: { message?: string } | null = null;
@@ -208,13 +216,13 @@ async function selectTindakanByTokenCandidates(
 }
 
 const PROJECTIONS_PASIEN = [
-  "id, tanggal, dokter, nama_pasien, alkes_utama, kategori, created_at",
-  "id, tanggal, tindakan, kategori, status, ruangan, pasien_id",
-  "id, tanggal, nama_pasien, tindakan, kategori, status, ruangan, pasien_id",
-  "id, tanggal, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id",
-  "id, tanggal, nama_pasien, nama, no_rm, rm, tindakan, kategori, status, ruangan, pasien_id",
-  "id, tanggal, no_rm, tindakan, kategori, status, ruangan, pasien_id",
-  "id, tanggal, no_rm, nama_pasien, pasien_id",
+  "id, tanggal, dokter, nama_pasien, alkes_utama, kategori, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
+  "id, tanggal, tindakan, kategori, status, ruangan, pasien_id, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
+  "id, tanggal, nama_pasien, tindakan, kategori, status, ruangan, pasien_id, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
+  "id, tanggal, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
+  "id, tanggal, nama_pasien, nama, no_rm, rm, tindakan, kategori, status, ruangan, pasien_id, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
+  "id, tanggal, no_rm, tindakan, kategori, status, ruangan, pasien_id, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
+  "id, tanggal, no_rm, nama_pasien, pasien_id, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
   "*",
 ] as const;
 
@@ -548,6 +556,10 @@ export async function GET(request: Request) {
         ruangan: r.ruangan,
         pasien_id: r.pasien_id,
         dokter,
+        is_fast_track: r.is_fast_track,
+        pasien_datang_igd: r.pasien_datang_igd,
+        door_to_balloon: r.door_to_balloon,
+        total_waktu_fast_track: r.total_waktu_fast_track,
       };
     });
 

@@ -117,6 +117,51 @@ export default function BiayaAutosaveField({
     });
   }, [value, field, tindakanId]);
 
+  // Auto-sync untuk field pemakaian jika masih kosong
+  useEffect(() => {
+    if (field !== "pemakaian" || value || !tindakanId) return;
+
+    const autoSync = async () => {
+      try {
+        const res = await fetch(`/api/pemakaian-orders?tindakanId=${encodeURIComponent(tindakanId)}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const j = await res.json();
+        if (res.ok && j.ok && Array.isArray(j.orders) && j.orders.length > 0) {
+          const order = j.orders[0];
+          if (Array.isArray(order.items) && order.items.length > 0) {
+            // Re-use logic build resume dari modal (tapi di sini kita hanya punya data item)
+            const resumeText = order.items
+              .map((it: any) => {
+                let h = `• ${String(it.barang || "").trim().toUpperCase()}`;
+                const m = [];
+                if (it.qtyDipakai > 1) m.push(`${it.qtyDipakai}x`);
+                if (it.tipe === "R" || it.tipe === "REUSE") m.push("REUSE");
+                if (m.length > 0) h += ` (${m.join(", ")})`;
+                
+                const p = [h];
+                if (it.lot?.trim()) p.push(`LOT: ${it.lot.trim()}`);
+                if (it.ukuran?.trim()) p.push(`Ukuran: ${it.ukuran.trim()}`);
+                if (it.ed?.trim()) p.push(`ED: ${it.ed.trim()}`);
+                return p.join("\n");
+              })
+              .join("\n\n");
+
+            if (resumeText) {
+              setDraft(resumeText);
+              void persist(resumeText);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[BiayaAutosaveField] Auto-sync failed:", e);
+      }
+    };
+
+    void autoSync();
+  }, [field, value, tindakanId]);
+
   useEffect(
     () => () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -226,9 +271,12 @@ export default function BiayaAutosaveField({
   if (field === "pemakaian") {
     return (
       <textarea
-        rows={3}
+        rows={8}
         autoComplete="off"
-        className={`${inputClass} min-h-[4.5rem] resize-y`}
+        className={cn(
+          inputClass,
+          "min-h-[10rem] resize-y font-mono text-[11px] leading-relaxed whitespace-pre-wrap",
+        )}
         placeholder="—"
         value={draft}
         aria-label={aria}

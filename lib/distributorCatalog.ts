@@ -31,8 +31,6 @@ const STENT_NAMA_MARKERS = [
   "SUPRAFLEX",
   "SUPRFAFLEX",
   "GENOSS",
-  "SAPPHIRE",
-  "SAPHIRE",
   "STENT",
 ] as const;
 
@@ -62,7 +60,6 @@ export function kategoriAlkesFromVariantPickRow(v: {
   if (fromKategori) return fromKategori;
   const fromJenis = normalizeKategoriAlkesLine(v.jenis ?? "");
   if (fromJenis) return fromJenis;
-  if (inferStentAlkesFromNamaBarang(v.nama)) return "STENT";
   return undefined;
 }
 

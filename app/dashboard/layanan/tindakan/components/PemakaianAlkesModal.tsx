@@ -264,6 +264,32 @@ function cleanFormText(s: string): string {
     .trim();
 }
 
+/** Format teks ringkas pemakaian untuk field `pemakaian` di baris tindakan. */
+function buildPemakaianResumeText(lines: PemakaianLine[]): string {
+  return lines
+    .filter((l) => l.barang.trim())
+    .map((l) => {
+      // Baris pertama: Nama Barang (Upper) + Jumlah jika > 1 + Label REUSE jika tipe R
+      let header = `• ${l.barang.trim().toUpperCase()}`;
+
+      const meta = [];
+      if (l.qtyDipakai > 1) meta.push(`${l.qtyDipakai}x`);
+      if (l.tipe === "R") meta.push("REUSE");
+
+      if (meta.length > 0) {
+        header += ` (${meta.join(", ")})`;
+      }
+
+      const parts = [header];
+      if (l.lot?.trim()) parts.push(`LOT: ${l.lot.trim()}`);
+      if (l.ukuran?.trim()) parts.push(`Ukuran: ${l.ukuran.trim()}`);
+      if (l.ed?.trim()) parts.push(`ED: ${l.ed.trim()}`);
+
+      return parts.join("\n");
+    })
+    .join("\n\n");
+}
+
 function LabeledField({
   label,
   children,
@@ -840,7 +866,7 @@ export default function PemakaianAlkesModal({
   function applyBarangPick(pick: MasterBarangPickRow) {
     const suffix = Date.now().toString(36);
     const hPick = hargaFromPickRow(pick, barangVariantList);
-    const kCat = kategoriAlkesFromVariantPickRow(pick);
+    const kCat = normalizeKategoriAlkesLine(pick.kategori) || normalizeKategoriAlkesLine(pick.jenis);
     const nextId = `draft-new-${suffix}`;
     const line: PemakaianLine = {
       lineId: nextId,
@@ -1257,6 +1283,23 @@ export default function PemakaianAlkesModal({
 
     setDrawerSaving(true);
     try {
+      // 1. Generate resume teks pemakaian
+      const resumeText = buildPemakaianResumeText(itemsPayload);
+
+      // 2. Sync resume ke baris tindakan (jika ada tindakanId)
+      if (tindakanId?.trim()) {
+        try {
+          await fetch(`/api/tindakan/${encodeURIComponent(tindakanId.trim())}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pemakaian: resumeText }),
+          });
+        } catch (e) {
+          console.warn("[PemakaianAlkesModal] Gagal sync resume ke tindakan:", e);
+        }
+      }
+
       if (isEdit && existingOrderId) {
         const res = await fetch(
           `/api/pemakaian-orders/${encodeURIComponent(existingOrderId)}`,
@@ -1638,7 +1681,7 @@ export default function PemakaianAlkesModal({
                                     barangVariantList,
                                   );
                                   const kCat =
-                                    kategoriAlkesFromVariantPickRow(v);
+                                    normalizeKategoriAlkesLine(v.kategori) || normalizeKategoriAlkesLine(v.jenis);
                                   patchDrawerLine(line.lineId, {
                                     barang: v.nama.trim(),
                                     ...(kCat ? { kategori: kCat } : {}),

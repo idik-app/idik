@@ -343,7 +343,7 @@ export function BarangVariantCombobox({
     setMenuPos({
       top: r.bottom + 4,
       left: r.left,
-      width: Math.max(r.width, 280),
+      width: Math.max(r.width, 450),
     });
   }, []);
 
@@ -356,7 +356,7 @@ export function BarangVariantCombobox({
       setMenuPos({
         top: r.bottom + 4,
         left: r.left,
-        width: Math.max(r.width, 280),
+        width: Math.max(r.width, 450),
       });
     });
   }, []);
@@ -411,8 +411,8 @@ export function BarangVariantCombobox({
       : "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40";
 
   const listCls = cn(
-    "max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl pointer-events-auto",
-    variant === "table" ? "text-[10px]" : "text-[11px]",
+    "max-h-64 overflow-auto rounded-lg border border-slate-700 bg-[#0a1628] py-1 shadow-2xl pointer-events-auto",
+    variant === "table" ? "text-[12px] p-1.5" : "text-[11px]",
     variant === "table" ? UI_LAYERS.pickerFloating : UI_LAYERS.popover,
   );
 
@@ -424,8 +424,8 @@ export function BarangVariantCombobox({
             type="button"
             role="option"
             className={cn(
-              "w-full px-2 py-1.5 text-left text-white hover:bg-[#E8C547]/20 focus:bg-[#E8C547]/25 focus:outline-none",
-              variant === "table" && "py-1"
+              "w-full px-3 py-2 text-left text-white hover:bg-slate-700 focus:bg-slate-700/80 focus:outline-none transition-colors border-b border-white/[0.04] last:border-0",
+              variant === "table" && "px-4 py-3"
             )}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
@@ -433,20 +433,47 @@ export function BarangVariantCombobox({
               setOpen(false);
             }}
           >
-            <span className="block font-medium text-white/95">{v.nama}</span>
-            <span className="block text-[9px] text-white/50 mt-0.5 space-x-1">
+            <span className={cn(
+              "block font-bold text-white uppercase tracking-wide",
+              variant === "table" ? "text-sm mb-1" : "font-medium text-white/95"
+            )}>
+              {v.nama}
+            </span>
+            <span className="block text-[10px] text-slate-400 mt-0.5 space-x-1 italic">
               {[v.kode && `Kode: ${v.kode}`, v.jenis].filter(Boolean).join(" · ")}
             </span>
             {(v.lot || v.ukuran || v.ed || v.distributor_nama) && (
-              <span className="block text-[9px] text-teal-200/90 mt-0.5">
+              <span className={cn(
+                "block mt-1.5 leading-relaxed font-medium",
+                variant === "table" ? "text-[12px] text-emerald-400" : "text-[9px] text-teal-200/90"
+              )}>
                 {[
-                  v.lot && `LOT ${v.lot}`,
-                  v.ukuran && `Uk. ${v.ukuran}`,
-                  v.ed && `ED ${v.ed}`,
-                  v.distributor_nama && v.distributor_nama,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
+                  v.lot && (
+                    <span key="lot">
+                      <span className="opacity-70 font-normal">LOT:</span> {v.lot}
+                    </span>
+                  ),
+                  v.ukuran && (
+                    <span key="ukuran">
+                      <span className="opacity-70 font-normal ml-1">Uk:</span> {v.ukuran}
+                    </span>
+                  ),
+                  v.ed && (
+                    <span key="ed">
+                      <span className="opacity-70 font-normal ml-1">ED:</span> {v.ed}
+                    </span>
+                  ),
+                  v.distributor_nama && (
+                    <span key="dist" className="block text-[11px] text-slate-400 mt-1 italic font-normal">
+                      Distributor: {v.distributor_nama}
+                    </span>
+                  ),
+                ].filter(Boolean).reduce((prev, curr, i) => {
+                  if (i === 0) return [curr];
+                  // Don't add separator before distributor which is a block
+                  if ((curr as any).props?.className?.includes('block')) return [...(prev as any), curr];
+                  return [...(prev as any), " — ", curr];
+                }, [])}
               </span>
             )}
           </button>

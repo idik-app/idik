@@ -911,6 +911,10 @@ export default function TindakanDetailDrawer({
                   {def.id === "fast_track" ? (
                     <FastTrackBlock
                       tindakanId={String(displayRecord.id ?? "").trim()}
+                      isFastTrackValue={getWireframeFieldValue(
+                        displayRecord as unknown as Record<string, unknown>,
+                        "is_fast_track",
+                      )}
                       pasienDatangValue={getWireframeFieldValue(
                         displayRecord as unknown as Record<string, unknown>,
                         "pasien_datang_igd",
@@ -999,6 +1003,7 @@ export default function TindakanDetailDrawer({
                             className={cn(
                               "mt-0.5 text-[13px] font-semibold leading-snug break-words",
                               "text-slate-950 dark:text-white",
+                              key === "pemakaian" && "whitespace-pre-wrap font-mono text-[11px] leading-relaxed tracking-tight"
                             )}
                           >
                             {isRadiologiEditable ? (

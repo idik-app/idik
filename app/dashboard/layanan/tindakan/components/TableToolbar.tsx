@@ -12,6 +12,7 @@ import {
   Receipt,
   ClipboardList,
   BarChart2,
+  Calendar,
   CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ import TarifModal from "./TarifModal";
 import DiagnosaModal from "./DiagnosaModal";
 import SeverityLevelModal from "./SeverityLevelModal";
 import IndenanModal from "./IndenanModal";
+import JadwalCathModal from "./JadwalCathModal";
 
 interface Props {
   onRefresh?: () => Promise<void> | void;
@@ -94,6 +96,7 @@ export default function TableToolbar({
   const [diagnosaOpen, setDiagnosaOpen] = useState(false);
   const [severityLevelOpen, setSeverityLevelOpen] = useState(false);
   const [indenanOpen, setIndenanOpen] = useState(false);
+  const [jadwalCathOpen, setJadwalCathOpen] = useState(false);
   const [laporanMenuOpen, setLaporanMenuOpen] = useState(false);
   const laporanMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -521,6 +524,29 @@ export default function TableToolbar({
             Indenan
           </span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setJadwalCathOpen(true)}
+          className={cn(
+            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-violet-800 bg-violet-700 px-3 text-xs font-black shadow-lg shadow-violet-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
+            "text-white",
+            "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
+          )}
+          title="Lihat Jadwal Tindakan Cath Lab (Google Sheets)"
+        >
+          <Calendar
+            size={16}
+            strokeWidth={3}
+            className={cn(
+              "shrink-0 motion-safe:transition-transform group-hover:scale-110",
+              "text-white",
+            )}
+          />
+          <span className={cn("tracking-wide text-white uppercase")}>
+            Jadwal Cath
+          </span>
+        </button>
       </div>
 
       <div className="relative z-0 flex flex-wrap items-end gap-1.5 sm:gap-2 min-w-0">
@@ -856,6 +882,11 @@ export default function TableToolbar({
       <IndenanModal
         open={indenanOpen}
         onClose={() => setIndenanOpen(false)}
+      />
+
+      <JadwalCathModal
+        open={jadwalCathOpen}
+        onClose={() => setJadwalCathOpen(false)}
       />
     </div>
   );

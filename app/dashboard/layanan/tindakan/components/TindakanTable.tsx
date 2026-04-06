@@ -1165,6 +1165,10 @@ export default function TindakanTable({
             kategori: r.kategori != null ? String(r.kategori) : null,
             status: r.status != null ? String(r.status) : null,
             ruangan: r.ruangan != null ? String(r.ruangan) : null,
+            is_fast_track: r.is_fast_track,
+            pasien_datang_igd: r.pasien_datang_igd,
+            door_to_balloon: r.door_to_balloon,
+            total_waktu_fast_track: r.total_waktu_fast_track,
           })) as TindakanJoinResult[],
         );
       } catch {
@@ -2630,30 +2634,67 @@ export default function TindakanTable({
                                   const t = String(
                                     rec.tindakan ?? "",
                                   ).toLowerCase();
-                                  const ft = String(
-                                    rec.fast_track_time_out ?? "",
-                                  ).trim();
-                                  const isHighPriority =
-                                    s.includes("cito") ||
-                                    s.includes("emergency") ||
-                                    t.includes("ppci") ||
-                                    ft.length > 0;
+                                  const rawFt = (rec as any).is_fast_track;
+                                  const isFtActive =
+                                    rawFt === true ||
+                                    rawFt === 1 ||
+                                    rawFt === "true" ||
+                                    rawFt === "1";
 
-                                  if (!isHighPriority) return null;
+                                  const ftIgd = String(
+                                    rec.pasien_datang_igd ?? "",
+                                  ).trim();
+                                  const ftD2b = String(
+                                    rec.door_to_balloon ?? "",
+                                  ).trim();
+                                  const ftTotal = String(
+                                    rec.total_waktu_fast_track ?? "",
+                                  ).trim();
+
+                                  // Syarat perketat: Ikon hanya muncul jika status is_fast_track aktif
+                                  // DAN data IGD & D2B tidak boleh kosong.
+                                  const isFtComplete =
+                                    isFtActive &&
+                                    !!rec.pasien_datang_igd &&
+                                    !!rec.door_to_balloon;
+
+                                  // Debug log khusus untuk RM ASNAN (920295)
+                                  if (String(rec.no_rm).includes("920295")) {
+                                    console.log("DEBUG FT (ASNAN):", {
+                                      rm: rec.no_rm,
+                                      id: rec.id,
+                                      isFtActive,
+                                      isFtComplete,
+                                      rawFt,
+                                      igd: rec.pasien_datang_igd,
+                                      d2b: rec.door_to_balloon,
+                                      total: rec.total_waktu_fast_track,
+                                      all_keys: Object.keys(rec),
+                                    });
+                                  }
+
+                                  if (!isFtComplete) return null;
+
+                                  // KPI Logic: D2B > 90 menit dianggap terlambat (Merah)
+                                  const totalMins = parseFloat(
+                                    ftTotal.replace(",", "."),
+                                  );
+                                  const isLate =
+                                    !isNaN(totalMins) && totalMins > 90;
 
                                   return (
                                     <div
-                                      className="absolute -left-6 top-1/2 -translate-y-1/2 animate-pulse"
-                                      title={
-                                        ft
-                                          ? "Pasien Fast-Track"
-                                          : "Pasien Prioritas Tinggi"
-                                      }
+                                      className="absolute -left-6 top-1/2 -translate-y-1/2 animate-pulse cursor-help"
+                                      title={`Pasien Fast-Track | Datang: ${ftIgd} | D2B: ${ftD2b} | Total: ${ftTotal || "-"}${isLate ? " (Melebihi Target KPI 90m)" : ""}`}
                                     >
                                       <Zap
                                         size={14}
                                         strokeWidth={3}
-                                        className="fill-amber-400 text-amber-500 drop-shadow-[0_0_5px_rgba(245,158,11,0.6)] dark:fill-amber-300 dark:text-amber-400"
+                                        className={cn(
+                                          isLate
+                                            ? "fill-red-500 text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.7)] dark:fill-red-400 dark:text-red-300"
+                                            : "fill-yellow-500 text-yellow-500 drop-shadow-[0_0_5px_rgba(245,158,11,0.6)] dark:fill-yellow-300 dark:text-yellow-400",
+                                        )}
                                       />
                                     </div>
                                   );
@@ -3142,7 +3183,10 @@ export default function TindakanTable({
           }
           open
           onClose={() => setPemakaianModalRow(null)}
-          onSaved={() => void refreshPemakaianOrderIndex()}
+          onSaved={() => {
+            void refreshPemakaianOrderIndex();
+            void refresh();
+          }}
           pasienOptions={pasienOptions}
           doctorOptions={doctorOptionsForPemakaianModal}
           pasienLoading={pasienLoading}

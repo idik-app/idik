@@ -93,6 +93,10 @@ function mapLegacyTindakanMedikRow(
     ruangan: toText(row.ruangan),
     pasien_id: toText(row.pasien_id),
     created_at: toText(row.created_at),
+    is_fast_track: (row as any).is_fast_track,
+    pasien_datang_igd: toText(row.pasien_datang_igd),
+    door_to_balloon: toText(row.door_to_balloon),
+    total_waktu_fast_track: toText(row.total_waktu_fast_track),
     _source_table: "tindakan_medik",
   };
 }
@@ -122,9 +126,9 @@ export async function GET(request: Request) {
     // baris tidak punya pasien_id / kategori / kolom Cathlab sehingga drawer detail kosong.
     const projections = [
       "*",
-      "id, tanggal, dokter, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, created_at",
-      "id, tanggal, dokter, nama_pasien, tindakan, kategori, status, ruangan, pasien_id, created_at",
-      "id, tanggal, nama, dokter, tindakan, status, inserted_at, updated_at, ruangan, no_rm",
+      "id, tanggal, dokter, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
+      "id, tanggal, dokter, nama_pasien, tindakan, kategori, status, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
+      "id, tanggal, nama, dokter, tindakan, status, inserted_at, updated_at, ruangan, no_rm, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
     ];
 
     let data: Record<string, unknown>[] | null = null;

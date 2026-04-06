@@ -76,6 +76,7 @@ function formatWaktuDisplay(raw: string): string {
 
 type Props = {
   tindakanId: string;
+  isFastTrackValue: unknown;
   pasienDatangValue: unknown;
   doorToBalloonValue: unknown;
   totalValue: unknown;
@@ -85,12 +86,17 @@ type Props = {
 
 export default function FastTrackBlock({
   tindakanId,
+  isFastTrackValue,
   pasienDatangValue,
   doorToBalloonValue,
   totalValue,
   fastTrackFotosValue,
   onSaved,
 }: Props) {
+  const [isFt, setIsFt] = useState(() => {
+    const v = isFastTrackValue;
+    return v === true || v === 1 || String(v) === "true" || String(v) === "1";
+  });
   const [igdDraft, setIgdDraft] = useState(() =>
     normalizeDatetimeLocalInput(draftFrom(pasienDatangValue)),
   );
@@ -109,22 +115,34 @@ export default function FastTrackBlock({
     d2bDraftRef.current = d2bDraft;
   }, [d2bDraft]);
 
-  useEffect(() => {
-    setIgdDraft(normalizeDatetimeLocalInput(draftFrom(pasienDatangValue)));
-  }, [pasienDatangValue, tindakanId]);
-  useEffect(() => {
-    setD2bDraft(normalizeDatetimeLocalInput(draftFrom(doorToBalloonValue)));
-  }, [doorToBalloonValue, tindakanId]);
-
-  useEffect(
-    () => () => {
-      if (igdDebounceRef.current) clearTimeout(igdDebounceRef.current);
-      if (d2bDebounceRef.current) clearTimeout(d2bDebounceRef.current);
-    },
-    [],
-  );
-
   const computedMinutes = minutesFromIgdToBalloon(igdDraft, d2bDraft);
+
+  useEffect(() => {
+    const v = isFastTrackValue;
+    const active =
+      v === true || v === 1 || String(v) === "true" || String(v) === "1";
+
+    setIsFt(active);
+
+    // Auto-fix: Jika data sudah ada tapi flag is_fast_track masih false/null,
+    // aktifkan secara otomatis agar sinkron dengan data yang ada.
+    // Gunakan computedMinutes (draft) untuk mendeteksi kesiapan data KPI.
+    const isDataReady = computedMinutes != null;
+
+    if (!active && isDataReady && tindakanId) {
+      if (process.env.NODE_ENV === "development") {
+        console.log("AUTO-ACTIVATING FT:", { tindakanId, computedMinutes });
+      }
+      void patchJson({ is_fast_track: true }).then(() => {
+        setIsFt(true);
+        onSaved?.();
+      });
+    }
+  }, [
+    isFastTrackValue,
+    tindakanId,
+    computedMinutes, // Trigger saat total waktu terisi
+  ]);
 
   const patchJson = async (body: Record<string, unknown>) => {
     const res = await fetch(`/api/tindakan/${encodeURIComponent(tindakanId)}`, {
@@ -138,7 +156,26 @@ export default function FastTrackBlock({
       message?: string;
     };
     if (!res.ok || !json.ok) {
-      throw new Error(json.message || res.statusText);
+      const msg = json.message || res.statusText;
+      // Graceful fail: Jika kolom belum ada di database, jangan throw error yang merusak UI.
+      if (msg.includes("is_fast_track") && msg.includes("column")) {
+        console.warn("[FastTrackBlock] is_fast_track column missing in DB schema cache. Run migration.", msg);
+        return;
+      }
+      throw new Error(msg);
+    }
+  };
+
+  const toggleFastTrack = async (checked: boolean) => {
+    setIsFt(checked);
+    try {
+      await patchJson({ is_fast_track: checked });
+      onSaved?.();
+    } catch (e) {
+      setIsFt(!checked);
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[FastTrackBlock] is_fast_track", e);
+      }
     }
   };
 
@@ -158,7 +195,13 @@ export default function FastTrackBlock({
     const payload = normalizeStored(draftNow);
     if (payload === serverString(pasienDatangValue)) return;
     try {
-      await patchJson({ pasien_datang_igd: payload });
+      // Jika waktu IGD diisi, pastikan status is_fast_track aktif secara implisit jika belum.
+      const updates: Record<string, any> = { pasien_datang_igd: payload };
+      if (!isFt && payload) {
+        updates.is_fast_track = true;
+        setIsFt(true);
+      }
+      await patchJson(updates);
     } catch (e) {
       setIgdDraft(normalizeDatetimeLocalInput(draftFrom(pasienDatangValue)));
       throw e;
@@ -177,7 +220,12 @@ export default function FastTrackBlock({
     const payload = normalizeStored(draftNow);
     if (payload === serverString(doorToBalloonValue)) return;
     try {
-      await patchJson({ door_to_balloon: payload });
+      const updates: Record<string, any> = { door_to_balloon: payload };
+      if (!isFt && payload) {
+        updates.is_fast_track = true;
+        setIsFt(true);
+      }
+      await patchJson(updates);
     } catch (e) {
       setD2bDraft(normalizeDatetimeLocalInput(draftFrom(doorToBalloonValue)));
       throw e;
@@ -239,6 +287,35 @@ export default function FastTrackBlock({
 
   return (
     <div className="space-y-3">
+      {/* Status Toggle */}
+      <div className={cn(boxClass, "flex items-center justify-between")}>
+        <div>
+          <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-white/90">
+            Status Fast-Track STEMI
+          </dt>
+          <dd className="mt-0.5 text-[11px] font-medium text-slate-500 dark:text-white/70">
+            Aktifkan untuk menampilkan indikator KPI di tabel utama.
+          </dd>
+        </div>
+        <label className="relative inline-flex cursor-pointer items-center">
+          <input
+            type="checkbox"
+            className="peer sr-only"
+            checked={isFt}
+            disabled={!canEdit}
+            onChange={(e) => void toggleFastTrack(e.target.checked)}
+          />
+          <div
+            className={cn(
+              "h-5 w-9 rounded-full bg-slate-200 transition-colors after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-focus:outline-none dark:bg-slate-800",
+              isFt
+                ? "bg-orange-500 after:translate-x-full after:border-white dark:bg-orange-600"
+                : "",
+            )}
+          />
+        </label>
+      </div>
+
       <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(200px,280px)]">
         <dl className="grid grid-cols-1 gap-1.5 text-sm font-semibold">
           <div className={boxClass}>

@@ -87,6 +87,8 @@ export type ParsedDistributorBarangExtra = {
   ukuran: string | null;
   /** Bulan–tahun kedaluwarsa (MM-YYYY), contoh 09-2028. */
   ed: string | null;
+  /** Apakah produk ini masuk dalam skema konsolidasi (mis. harga tetap RS). */
+  is_konsolidasi: boolean | null;
 };
 
 /** Hasil parse barcode kemasan → saran LOT / ukuran / ED untuk form tambah produk. Lot = teks utuh; ukuran dari 9 digit terakhir (AABBBCCC → Ø mm × panjang) bila masuk rentang alat; ED hanya jika ada pola MM-YYYY di string. */
@@ -416,6 +418,15 @@ export function parseDistributorBarangExtra(
       const n = normalizeDistributorEdFromRaw(String(raw));
       if (!n.ok) return { ok: false, message: n.message };
       out.ed = n.value;
+    }
+  }
+
+  if (want("is_konsolidasi")) {
+    const raw = body.is_konsolidasi;
+    if (raw === undefined || raw === null) {
+      out.is_konsolidasi = null;
+    } else {
+      out.is_konsolidasi = Boolean(raw);
     }
   }
 

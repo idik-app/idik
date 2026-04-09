@@ -179,6 +179,18 @@ export async function GET() {
     );
   }
 
+  const stripPt = (s: string) =>
+    s
+      .toUpperCase()
+      .replace(/^PT\.?\s*/u, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const normalizedDistributor = {
+    ...data,
+    nama_pt: data.nama_pt ? `PT. ${stripPt(data.nama_pt)}` : data.nama_pt,
+  };
+
   return NextResponse.json(
     {
       ok: true,
@@ -187,7 +199,7 @@ export async function GET() {
         role: id.role,
         distributor_id: id.distributorId,
       },
-      distributor: data,
+      distributor: normalizedDistributor,
       ruangan: "Cathlab",
     },
     { status: 200 }

@@ -36,6 +36,7 @@ type AppUser = {
   role: string;
   distributor_id: string | null;
   distributor_nama_pt?: string | null;
+  distributor_is_konsolidasi?: boolean | null;
   created_at: string;
   updated_at: string;
 };
@@ -44,11 +45,12 @@ type Distributor = {
   id: string;
   nama_pt?: string | null;
   is_active?: boolean | null;
+  is_konsolidasi?: boolean | null;
 };
 
 async function fetchJsonWithTimeout(
   input: RequestInfo | URL,
-  init: RequestInit & { timeoutMs?: number } = {}
+  init: RequestInit & { timeoutMs?: number } = {},
 ) {
   const { timeoutMs = 15000, ...rest } = init;
   const controller = new AbortController();
@@ -88,13 +90,23 @@ export default function UserCrud() {
     role: (typeof ROLE_OPTIONS)[number];
     distributorId: string | null;
     distributorNamaBaru: string;
+    distributorIsKonsolidasi: boolean;
+    isEditingExistingDistributor: boolean;
   }>({
     username: "",
     password: "",
     role: "pasien",
     distributorId: null,
     distributorNamaBaru: "",
+    distributorIsKonsolidasi: false,
+    isEditingExistingDistributor: false,
   });
+
+  const distributorById = useMemo(() => {
+    const m = new Map<string, Distributor>();
+    for (const d of distributors) m.set(d.id, d);
+    return m;
+  }, [distributors]);
 
   const filteredUsers = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -136,9 +148,10 @@ export default function UserCrud() {
     try {
       const { res, json } = await fetchJsonWithTimeout(
         "/api/distributor/distributors",
-        { cache: "no-store", timeoutMs: 15000 }
+        { cache: "no-store", timeoutMs: 15000 },
       );
-      if (!res.ok || !json.ok) throw new Error(json?.message || "Failed to fetch distributors");
+      if (!res.ok || !json.ok)
+        throw new Error(json?.message || "Failed to fetch distributors");
       setDistributors((json.data ?? []) as Distributor[]);
     } catch {
       // silent: distributor list is optional if tenant role not chosen
@@ -155,17 +168,25 @@ export default function UserCrud() {
       role: "pasien",
       distributorId: null,
       distributorNamaBaru: "",
+      distributorIsKonsolidasi: false,
+      isEditingExistingDistributor: false,
     });
   }
 
   function resetFormForEdit(u: AppUser) {
     setEditingUser(u);
+    const dist = u.distributor_id
+      ? distributorById.get(u.distributor_id)
+      : null;
     setForm({
       username: u.username,
       password: "",
       role: u.role as any,
       distributorId: u.distributor_id ?? null,
       distributorNamaBaru: "",
+      distributorIsKonsolidasi:
+        u.distributor_is_konsolidasi ?? dist?.is_konsolidasi ?? false,
+      isEditingExistingDistributor: false,
     });
   }
 
@@ -238,7 +259,9 @@ export default function UserCrud() {
       }
       const hasNamaBaru = form.distributorNamaBaru.trim().length > 0;
       if (requiresDistributor && !hasNamaBaru && !form.distributorId) {
-        return setSubmitError("distributor wajib: isi nama PT baru atau pilih dari daftar");
+        return setSubmitError(
+          "distributor wajib: isi nama PT baru atau pilih dari daftar",
+        );
       }
     }
 
@@ -251,7 +274,9 @@ export default function UserCrud() {
       }
       const hasNamaBaru = form.distributorNamaBaru.trim().length > 0;
       if (requiresDistributor && !hasNamaBaru && form.distributorId === null) {
-        return setSubmitError("distributor wajib: isi nama PT baru atau pilih dari daftar");
+        return setSubmitError(
+          "distributor wajib: isi nama PT baru atau pilih dari daftar",
+        );
       }
     }
 
@@ -268,24 +293,37 @@ export default function UserCrud() {
             role: form.role,
             distributor_id:
               requiresDistributor && !namaBaru ? form.distributorId : null,
+            distributor_is_konsolidasi: form.distributorIsKonsolidasi,
             ...(requiresDistributor && namaBaru
-              ? { distributor_nama_pt: namaBaru }
+              ? {
+                  distributor_nama_pt: namaBaru,
+                }
               : {}),
           }),
           timeoutMs: 15000,
         });
-        if (!res.ok || !json.ok) throw new Error(json?.message || "Create failed");
+        if (!res.ok || !json.ok)
+          throw new Error(json?.message || "Create failed");
       } else if (modalMode === "edit" && editingUser) {
         const namaBaru = form.distributorNamaBaru.trim();
         const updatePayload: Record<string, unknown> = {
           role: form.role,
+          distributor_is_konsolidasi: form.distributorIsKonsolidasi,
         };
-        if (requiresDistributor) {
+        const needsDist = ROLES_REQUIRE_DISTRIBUTOR.has(form.role);
+        if (needsDist) {
           if (namaBaru) {
             updatePayload.distributor_nama_pt = namaBaru;
+            // Jika sedang edit PT yang sudah ada, sertakan ID-nya agar API tahu mana yang diupdate
+            if (form.isEditingExistingDistributor && form.distributorId) {
+              updatePayload.distributor_id = form.distributorId;
+            }
           } else {
             updatePayload.distributor_id = form.distributorId;
           }
+        } else {
+          // Jika role bukan distributor, pastikan distributor_id dihapus
+          updatePayload.distributor_id = null;
         }
         if (form.password && form.password.length >= 6) {
           updatePayload.password = form.password;
@@ -298,13 +336,14 @@ export default function UserCrud() {
         const { res, json } = await fetchJsonWithTimeout(
           `/api/users/${editingUser.id}`,
           {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatePayload),
-          timeoutMs: 15000,
-          }
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updatePayload),
+            timeoutMs: 15000,
+          },
         );
-        if (!res.ok || !json.ok) throw new Error(json?.message || "Update failed");
+        if (!res.ok || !json.ok)
+          throw new Error(json?.message || "Update failed");
       }
 
       setModalOpen(false);
@@ -327,7 +366,8 @@ export default function UserCrud() {
         cache: "no-store",
         timeoutMs: 15000,
       });
-      if (!res.ok || !json.ok) throw new Error(json?.message || "Delete failed");
+      if (!res.ok || !json.ok)
+        throw new Error(json?.message || "Delete failed");
       setConfirmDeleteId(null);
       await fetchUsers();
     } catch (err: any) {
@@ -340,16 +380,48 @@ export default function UserCrud() {
     }
   }
 
-  const distributorById = useMemo(() => {
-    const m = new Map<string, Distributor>();
-    for (const d of distributors) m.set(d.id, d);
-    return m;
-  }, [distributors]);
-
   const userToDelete = useMemo(() => {
     if (!confirmDeleteId) return null;
     return users.find((u) => u.id === confirmDeleteId) ?? null;
   }, [users, confirmDeleteId]);
+
+  const uniqueDistributors = useMemo(() => {
+    const uniqueMap = new Map<string, Distributor>();
+    const stripPt = (s: string) =>
+      s
+        .toUpperCase()
+        .replace(/^PT\.?\s*/u, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    for (const d of distributors) {
+      const name = d.nama_pt || d.id;
+      const key = stripPt(name);
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, d);
+      } else {
+        // Prioritaskan yang UPPERCASE jika ada duplikat
+        const existing = uniqueMap.get(key)!;
+        const existingName = existing.nama_pt || existing.id;
+        if (
+          name === name.toUpperCase() &&
+          existingName !== existingName.toUpperCase()
+        ) {
+          uniqueMap.set(key, d);
+        }
+      }
+    }
+    return Array.from(uniqueMap.values())
+      .map((d) => ({
+        ...d,
+        nama_pt: d.nama_pt ? `PT. ${stripPt(d.nama_pt)}` : d.nama_pt,
+      }))
+      .sort((a, b) => {
+        const nameA = a.nama_pt || a.id;
+        const nameB = b.nama_pt || b.id;
+        return nameA.localeCompare(nameB);
+      });
+  }, [distributors]);
 
   return (
     <motion.div
@@ -394,9 +466,7 @@ export default function UserCrud() {
       )}
 
       {error && !loading && (
-        <div className="text-center py-10 text-red-400">
-          {error}
-        </div>
+        <div className="text-center py-10 text-red-400">{error}</div>
       )}
 
       {!loading && !error && (
@@ -414,24 +484,48 @@ export default function UserCrud() {
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-cyan-300">
+                  <td
+                    colSpan={5}
+                    className="px-3 py-6 text-center text-cyan-300"
+                  >
                     Tidak ada data.
                   </td>
                 </tr>
               ) : (
                 filteredUsers.map((u) => {
-                  const dist = u.distributor_id ? distributorById.get(u.distributor_id) : null;
-                  const distLabel =
-                    u.distributor_nama_pt ||
-                    dist?.nama_pt ||
-                    (u.distributor_id ?? "-");
+                  const dist = u.distributor_id
+                    ? distributorById.get(u.distributor_id)
+                    : null;
+                  const isKonsolidasi =
+                    u.distributor_is_konsolidasi ?? dist?.is_konsolidasi;
+                  const distLabel = (
+                    <div className="flex flex-col">
+                      <span>
+                        {u.distributor_nama_pt ||
+                          dist?.nama_pt ||
+                          (u.distributor_id ?? "-")}
+                      </span>
+                      {u.distributor_id && (
+                        <span
+                          className={`text-[10px] font-medium uppercase px-1.5 py-0.5 rounded w-fit mt-0.5 ${
+                            isKonsolidasi
+                              ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                              : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                          }`}
+                        >
+                          {isKonsolidasi ? "Konsolidasi" : "Non Konsolidasi"}
+                        </span>
+                      )}
+                    </div>
+                  );
                   return (
                     <tr
                       key={u.id}
                       className="border-t border-cyan-600/20 hover:bg-cyan-400/10 transition cursor-pointer"
                       onClick={() => openEditModal(u)}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") openEditModal(u);
+                        if (e.key === "Enter" || e.key === " ")
+                          openEditModal(u);
                       }}
                       tabIndex={0}
                       role="button"
@@ -439,9 +533,33 @@ export default function UserCrud() {
                     >
                       <td className="px-3 py-2">{u.username}</td>
                       <td className="px-3 py-2">{u.role}</td>
-                      <td className="px-3 py-2">{distLabel}</td>
+                      <td className="px-3 py-2">
+                        {(() => {
+                          const raw = u.distributor_nama_pt || dist?.nama_pt;
+                          if (!raw) return u.distributor_id ?? "-";
+                          const clean = raw.toUpperCase().replace(/^PT\.?\s*/u, "").replace(/\s+/g, " ").trim();
+                          return (
+                            <div className="flex flex-col">
+                              <span>PT. {clean}</span>
+                              {u.distributor_id && (
+                                <span
+                                  className={`text-[10px] font-medium uppercase px-1.5 py-0.5 rounded w-fit mt-0.5 ${
+                                    isKonsolidasi
+                                      ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                                      : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                                  }`}
+                                >
+                                  {isKonsolidasi ? "Konsolidasi" : "Non Konsolidasi"}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </td>
                       <td className="px-3 py-2 text-gray-300/80">
-                        {u.created_at ? new Date(u.created_at).toLocaleDateString("id-ID") : "-"}
+                        {u.created_at
+                          ? new Date(u.created_at).toLocaleDateString("id-ID")
+                          : "-"}
                       </td>
                       <td className="px-3 py-2 text-center">
                         <div className="flex items-center justify-center gap-2">
@@ -498,14 +616,16 @@ export default function UserCrud() {
                 </p>
                 {userToDelete && (
                   <p className="mb-5 text-sm text-gray-200/90">
-                    role: <span className="text-gray-100">{userToDelete.role}</span>
+                    role:{" "}
+                    <span className="text-gray-100">{userToDelete.role}</span>
                     {userToDelete.distributor_id ? (
                       <>
                         {" "}
                         • distributor:{" "}
                         <span className="text-gray-100">
                           {userToDelete.distributor_nama_pt ??
-                            distributorById.get(userToDelete.distributor_id)?.nama_pt ??
+                            distributorById.get(userToDelete.distributor_id)
+                              ?.nama_pt ??
                             userToDelete.distributor_id}
                         </span>
                       </>
@@ -528,7 +648,7 @@ export default function UserCrud() {
                 </div>
               </div>
             </div>,
-            document.body
+            document.body,
           )
         : null}
 
@@ -568,7 +688,10 @@ export default function UserCrud() {
                     <input
                       value={form.username}
                       onChange={(e) =>
-                        setForm((prev) => ({ ...prev, username: e.target.value }))
+                        setForm((prev) => ({
+                          ...prev,
+                          username: e.target.value,
+                        }))
                       }
                       className="w-full bg-gray-800/60 border border-cyan-700/40 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
                     />
@@ -576,13 +699,18 @@ export default function UserCrud() {
 
                   <div>
                     <label className="block text-sm mb-1 text-cyan-300">
-                      {modalMode === "create" ? "Password" : "Password (opsional)"}
+                      {modalMode === "create"
+                        ? "Password"
+                        : "Password (opsional)"}
                     </label>
                     <input
                       type="password"
                       value={form.password}
                       onChange={(e) =>
-                        setForm((prev) => ({ ...prev, password: e.target.value }))
+                        setForm((prev) => ({
+                          ...prev,
+                          password: e.target.value,
+                        }))
                       }
                       className="w-full bg-gray-800/60 border border-cyan-700/40 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
                       placeholder={
@@ -593,76 +721,171 @@ export default function UserCrud() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm mb-1 text-cyan-300">Role</label>
-                    <select
-                      value={form.role}
-                      onChange={(e) =>
-                        setForm((prev) => ({ ...prev, role: e.target.value as any }))
-                      }
-                      className="w-full bg-gray-800/60 border border-cyan-700/40 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
-                    >
-                      {ROLE_OPTIONS.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm mb-1 text-cyan-300">
+                        Role
+                      </label>
+                      <select
+                        value={form.role}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            role: e.target.value as any,
+                          }))
+                        }
+                        className="w-full bg-gray-800/60 border border-cyan-700/40 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
+                      >
+                        {ROLE_OPTIONS.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {ROLES_REQUIRE_DISTRIBUTOR.has(form.role) && (
+                      <div>
+                        <label className="block text-sm mb-1 text-cyan-300">
+                          Tipe Distributor
+                        </label>
+                        <select
+                          value={form.distributorIsKonsolidasi ? "1" : "0"}
+                          onChange={(e) => {
+                            const isKonsolidasi = e.target.value === "1";
+                            setForm((prev) => ({
+                              ...prev,
+                              distributorIsKonsolidasi: isKonsolidasi,
+                            }));
+                            // Jika sedang edit PT yang sudah ada, kita juga perlu update di distributorById map
+                            // agar UI dropdown dan label langsung sinkron (meskipun biasanya nunggu fetchUsers)
+                            if (form.distributorId) {
+                              const d = distributorById.get(form.distributorId);
+                              if (d) d.is_konsolidasi = isKonsolidasi;
+                            }
+                          }}
+                          className="w-full bg-gray-800/60 border border-cyan-700/40 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
+                        >
+                          <option value="0">Non Konsolidasi</option>
+                          <option value="1">Konsolidasi</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
 
-              {ROLES_REQUIRE_DISTRIBUTOR.has(form.role) && (
+                  {ROLES_REQUIRE_DISTRIBUTOR.has(form.role) && (
                     <>
                       <div>
                         <label className="block text-sm mb-1 text-cyan-300">
-                          Nama PT distributor (baru)
+                          {form.isEditingExistingDistributor
+                            ? "Edit Nama PT distributor"
+                            : "Nama PT distributor (baru)"}
                         </label>
-                        <input
-                          type="text"
-                          value={form.distributorNamaBaru}
-                          onChange={(e) =>
-                            setForm((prev) => ({
-                              ...prev,
-                              distributorNamaBaru: e.target.value,
-                            }))
-                          }
-                          placeholder="Isi untuk membuat distributor baru di master_distributor"
-                          className="w-full bg-gray-800/60 border border-cyan-700/40 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
-                        />
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={form.distributorNamaBaru}
+                            onChange={(e) =>
+                              setForm((prev) => ({
+                                ...prev,
+                                distributorNamaBaru: e.target.value.toUpperCase(),
+                              }))
+                            }
+                            placeholder={
+                              form.isEditingExistingDistributor
+                                ? "Nama baru untuk PT ini"
+                                : "Isi untuk membuat distributor baru di master_distributor"
+                            }
+                            className="flex-1 bg-gray-800/60 border border-cyan-700/40 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
+                          />
+                          {form.isEditingExistingDistributor && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  isEditingExistingDistributor: false,
+                                  distributorNamaBaru: "",
+                                }))
+                              }
+                              className="px-3 py-2 bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 rounded-lg transition-all text-xs"
+                            >
+                              Batal Edit
+                            </button>
+                          )}
+                        </div>
                         <p className="mt-1 text-xs text-gray-400">
-                          Jika diisi, nama disimpan ke database sebagai PT baru dan dipakai untuk user ini.
-                          Kosongkan jika ingin memilih yang sudah ada.
+                          {form.isEditingExistingDistributor
+                            ? "Mengubah nama PT yang sudah ada di database."
+                            : "Jika diisi, nama disimpan ke database sebagai PT baru dan dipakai untuk user ini. Kosongkan jika ingin memilih yang sudah ada."}
                         </p>
                       </div>
                       <div>
                         <label className="block text-sm mb-1 text-cyan-300">
                           Atau pilih distributor
                         </label>
-                        <select
-                          value={form.distributorId ?? ""}
-                          onChange={(e) =>
-                            setForm((prev) => ({
-                              ...prev,
-                              distributorId: e.target.value || null,
-                            }))
-                          }
-                          className="w-full bg-gray-800/60 border border-cyan-700/40 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
-                          disabled={distributorsLoading || !!form.distributorNamaBaru.trim()}
-                        >
-                          <option value="">
-                            {distributorsLoading ? "Memuat distributor..." : "Pilih distributor"}
-                          </option>
-                          {distributors.map((d) => (
-                            <option key={d.id} value={d.id}>
-                              {d.nama_pt || d.id}
+                        <div className="flex gap-2">
+                          <select
+                            value={form.distributorId ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value || null;
+                              const d = val ? distributorById.get(val) : null;
+                              setForm((prev) => ({
+                                ...prev,
+                                distributorId: val,
+                                isEditingExistingDistributor: false,
+                                distributorNamaBaru: "",
+                                distributorIsKonsolidasi: d?.is_konsolidasi ?? false,
+                              }));
+                            }}
+                            className="flex-1 bg-gray-800/60 border border-cyan-700/40 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
+                            disabled={
+                              distributorsLoading ||
+                              (!!form.distributorNamaBaru.trim() &&
+                                !form.isEditingExistingDistributor)
+                            }
+                          >
+                            <option value="">
+                              {distributorsLoading
+                                ? "Memuat distributor..."
+                                : "Pilih distributor"}
                             </option>
-                          ))}
-                        </select>
+                            {uniqueDistributors.map((d) => (
+                              <option key={d.id} value={d.id}>
+                                {d.nama_pt || d.id}
+                              </option>
+                            ))}
+                          </select>
+                          {form.distributorId &&
+                            !form.isEditingExistingDistributor && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const d = distributorById.get(
+                                    form.distributorId!,
+                                  );
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    isEditingExistingDistributor: true,
+                                    distributorNamaBaru: d?.nama_pt || "",
+                                  }));
+                                }}
+                                className="px-3 py-2 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/30 rounded-lg transition-all text-xs flex items-center gap-1"
+                                title="Edit nama PT terpilih"
+                              >
+                                <PencilLine size={14} />
+                                Edit PT
+                              </button>
+                            )}
+                        </div>
                       </div>
                     </>
                   )}
 
                   {submitError && (
-                    <p className="text-red-400 text-sm text-center">{submitError}</p>
+                    <p className="text-red-400 text-sm text-center">
+                      {submitError}
+                    </p>
                   )}
 
                   <div className="flex justify-end gap-2 pt-2">
@@ -686,10 +909,9 @@ export default function UserCrud() {
                 </form>
               </motion.div>
             </div>,
-            document.body
+            document.body,
           )
         : null}
     </motion.div>
   );
 }
-

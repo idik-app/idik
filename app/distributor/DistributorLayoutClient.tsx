@@ -195,6 +195,44 @@ export default function DistributorLayoutClient({
     );
   }
 
+  const uniqueDistributors = useMemo(() => {
+    const uniqueMap = new Map<string, { id: string; nama_pt: string; is_active: boolean }>();
+    const stripPt = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/^pt\.?\s*/u, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    for (const d of distributors) {
+      const name = d.nama_pt || d.id;
+      const key = stripPt(name);
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, d);
+      } else {
+        // Prioritaskan yang UPPERCASE jika ada duplikat
+        const existing = uniqueMap.get(key)!;
+        const existingName = existing.nama_pt || existing.id;
+        if (
+          name === name.toUpperCase() &&
+          existingName !== existingName.toUpperCase()
+        ) {
+          uniqueMap.set(key, d);
+        }
+      }
+    }
+
+    return Array.from(uniqueMap.values())
+      .map((d) => {
+        const clean = d.nama_pt ? stripPt(d.nama_pt) : "";
+        return {
+          ...d,
+          nama_pt: clean ? `PT. ${clean}` : (d.nama_pt || d.id),
+        };
+      })
+      .sort((a, b) => (a.nama_pt || a.id).localeCompare(b.nama_pt || b.id));
+  }, [distributors]);
+
   return (
     <div className="min-h-app min-w-0 bg-[#020617] text-cyan-100">
       <div className="border-b border-cyan-900/60 bg-slate-950/60 backdrop-blur">
@@ -228,7 +266,7 @@ export default function DistributorLayoutClient({
                 className="bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
               >
                 <option value="">Semua PT</option>
-                {distributors
+                {uniqueDistributors
                   .filter((d) => d.is_active)
                   .map((d) => (
                     <option key={d.id} value={d.id}>

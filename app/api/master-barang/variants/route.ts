@@ -88,7 +88,7 @@ export async function GET() {
           )
           .in("master_barang_id", masterIds)
       : Promise.resolve({ data: [], error: null }),
-    supabase.from("master_distributor").select("id, nama_pt")
+    supabase.from("master_distributor").select("id, nama_pt, is_konsolidasi")
   ]);
 
   if (dbResult.error) {
@@ -107,12 +107,12 @@ export async function GET() {
     byMaster.set(mbId, list);
   }
 
-  const distMap = new Map<string, string>();
+  const distMap = new Map<string, { nama: string; is_konsolidasi: boolean }>();
   for (const d of distRows ?? []) {
-    distMap.set(
-      String((d as { id: string }).id),
-      String((d as { nama_pt?: string }).nama_pt ?? "").trim()
-    );
+    distMap.set(String((d as { id: string }).id), {
+      nama: String((d as { nama_pt?: string }).nama_pt ?? "").trim(),
+      is_konsolidasi: !!(d as any).is_konsolidasi,
+    });
   }
 
   const items: {
@@ -127,6 +127,7 @@ export async function GET() {
     satuan: string | null;
     distributor_id: string | null;
     distributor_nama: string | null;
+    is_konsolidasi: boolean;
     lot: string | null;
     ukuran: string | null;
     ed: string | null;
@@ -135,8 +136,8 @@ export async function GET() {
 
   for (const m of activeMasters) {
     const children = byMaster.get(m.id) ?? [];
-    const distFromMaster = m.distributor_id
-      ? distMap.get(String(m.distributor_id)) ?? null
+    const distInfo = m.distributor_id
+      ? distMap.get(String(m.distributor_id))
       : null;
 
     const masterHarga =
@@ -154,7 +155,8 @@ export async function GET() {
         barcode: m.barcode ?? null,
         satuan: m.satuan ?? null,
         distributor_id: m.distributor_id ? String(m.distributor_id) : null,
-        distributor_nama: distFromMaster,
+        distributor_nama: distInfo?.nama ?? null,
+        is_konsolidasi: distInfo?.is_konsolidasi ?? false,
         lot: null,
         ukuran: null,
         ed: null,
@@ -168,7 +170,7 @@ export async function GET() {
 
     for (const db of children) {
       const did = String(db.distributor_id);
-      const dn = distMap.get(did) || null;
+      const dInfo = distMap.get(did);
       const vHarga =
         db.harga_jual != null ? Number(db.harga_jual) : null;
       items.push({
@@ -182,7 +184,8 @@ export async function GET() {
         barcode: db.barcode?.trim() || m.barcode || null,
         satuan: m.satuan ?? null,
         distributor_id: did,
-        distributor_nama: dn,
+        distributor_nama: dInfo?.nama ?? null,
+        is_konsolidasi: dInfo?.is_konsolidasi ?? false,
         lot: db.lot?.trim() || null,
         ukuran: db.ukuran?.trim() || null,
         ed: db.ed?.trim() || null,

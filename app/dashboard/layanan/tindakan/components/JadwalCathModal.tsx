@@ -1,6 +1,7 @@
 "use client";
-import React from "react";
-import { X, ExternalLink, Calendar, Loader2 } from "lucide-react";
+
+import React, { useState, useEffect, useMemo } from "react";
+import { X, ExternalLink, Calendar, Loader2, Info, CheckCircle2, Zap, ArrowRightCircle, Maximize2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ModalWrapper from "@/components/global/ModalWrapper";
 
@@ -18,8 +19,8 @@ const JADWAL_CATH_TABS: readonly {
 }[] = [
   { label: "JANUARI", gid: "1170399313", month: 1 },
   { label: "FEBRUARI", gid: "0", month: 2 },
-  { label: "MARET", gid: "0", month: 3 },
-  { label: "APRIL", gid: "0", month: 4 },
+  { label: "MARET", gid: "1730678100", month: 3 },
+  { label: "APRIL", gid: "1031262930", month: 4 },
   { label: "MEI", gid: "0", month: 5 },
   { label: "JUNI", gid: "0", month: 6 },
   { label: "JULI", gid: "0", month: 7 },
@@ -30,156 +31,202 @@ const JADWAL_CATH_TABS: readonly {
   { label: "DESEMBER", gid: "0", month: 12 },
 ] as const;
 
-function buildPreviewUrl(gid: string, range?: string) {
-  let url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/htmlembed?gid=${gid}&widget=false&chrome=false&rm=minimal`;
-  if (range) {
-    url += `&range=${range}`;
-  }
-  return url;
-}
-
-function buildEditUrl(gid: string) {
-  return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit?gid=${gid}`;
+/**
+ * AUTO-SCROLL LOGIC (RANGE MINGGU BERJALAN)
+ * Fungsi ini menghitung baris mana yang harus ditampilkan berdasarkan tanggal hari ini.
+ */
+function getSmartWeeklyRange() {
+  const now = new Date();
+  const day = now.getDate();
+  
+  // Menggunakan struktur standar grid (sekitar 28 baris per minggu)
+  if (day <= 7) return "A1:I28";
+  if (day <= 14) return "A29:I56";
+  if (day <= 21) return "A57:I84";
+  if (day <= 28) return "A85:I112";
+  return "A113:I140";
 }
 
 export default function JadwalCathModal({ open, onClose }: JadwalCathModalProps) {
-  // 1. Gunakan objek tab sebagai state agar unik
-  const [activeTab, setActiveTab] = React.useState(() => {
-    const now = new Date();
-    const month = now.getMonth() + 1;
+  const today = useMemo(() => new Date(), []);
+  const [activeTab, setActiveTab] = useState(() => {
+    const month = today.getMonth() + 1;
     return (
       JADWAL_CATH_TABS.find((t) => t.month === month) || JADWAL_CATH_TABS[0]
     );
   });
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showStatus, setShowStatus] = useState(false);
 
-  // Reset loading saat tab berubah
-  React.useEffect(() => {
+  // Jika GID bulan aktif adalah "0", gunakan GID Maret sebagai fallback utama (atau Januari jika ada)
+  const currentGid = activeTab.gid !== "0" ? activeTab.gid : "1730678100";
+  const currentRange = useMemo(() => getSmartWeeklyRange(), [activeTab, today]);
+
+  const previewUrl = useMemo(() => {
+    return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/htmlembed?gid=${currentGid}&range=${currentRange}&widget=false&chrome=false&rm=minimal`;
+  }, [currentGid, currentRange]);
+
+  const sheetUrl = useMemo(() => {
+    return `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/edit?gid=${currentGid}`;
+  }, [currentGid]);
+
+  useEffect(() => {
+    if (open) {
+      setIsLoading(true);
+      const month = today.getMonth() + 1;
+      const currentMonthTab = JADWAL_CATH_TABS.find((t) => t.month === month);
+      if (currentMonthTab) setActiveTab(currentMonthTab);
+    }
+  }, [open, today]);
+
+  useEffect(() => {
     setIsLoading(true);
-  }, [activeTab]);
-
-  // 2. Update saat modal dibuka
-  React.useEffect(() => {
-    if (!open) return;
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    setActiveTab(
-      JADWAL_CATH_TABS.find((t) => t.month === month) || JADWAL_CATH_TABS[0],
-    );
-  }, [open]);
-
-  // 3. Bangun URL berdasarkan activeTab
-  const previewUrl = React.useMemo(() => {
-    const isApril = activeTab.month === 4;
-    const range = isApril ? "A27:I52" : undefined;
-    return buildPreviewUrl(activeTab.gid, range);
-  }, [activeTab]);
-
-  const sheetUrl = React.useMemo(() => {
-    return buildEditUrl(activeTab.gid);
   }, [activeTab]);
 
   if (!open) return null;
 
   return (
-    <ModalWrapper onClose={onClose} isWide>
-      <div className="flex flex-col h-[88vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 p-3 dark:border-white/10 shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
-              <Calendar size={18} />
+    <ModalWrapper 
+      onClose={onClose} 
+      isWide 
+      className="p-0 border-white/10 bg-zinc-950 rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden h-[95vh] shadow-2xl max-w-7xl"
+    >
+      <div className="flex flex-col h-full bg-zinc-950 text-white">
+        {/* Header Section */}
+        <header className="flex items-center justify-between p-4 sm:p-8 border-b border-white/5 bg-zinc-900/40 backdrop-blur-2xl shrink-0">
+          <div className="flex items-center gap-3 sm:gap-5">
+            <div className="h-10 w-10 sm:h-14 sm:w-14 rounded-xl sm:rounded-[1.25rem] bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center shadow-2xl shadow-violet-500/20">
+              <Calendar size={20} className="text-white sm:hidden" />
+              <Calendar size={28} className="text-white hidden sm:block" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
-                Jadwal Tindakan Cath Lab
-              </h2>
-              <p className="text-[10px] text-slate-500 dark:text-white/85 leading-tight">
-                Jadwal harian tindakan Cath Lab 2026 — Otomatis memilih bulan & minggu berjalan
+              <div className="flex items-center gap-2 sm:gap-3">
+                <h2 className="text-sm sm:text-2xl font-black tracking-tight leading-tight">
+                  Jadwal Tindakan Cath Lab
+                </h2>
+                <span className="px-1.5 py-0.5 rounded bg-emerald-500 text-[8px] sm:text-[10px] font-black text-white animate-pulse">
+                  AUTO-SYNC
+                </span>
+              </div>
+              <p className="text-[9px] sm:text-xs font-bold text-zinc-400 mt-0.5 sm:mt-1 uppercase tracking-widest flex items-center gap-1 sm:gap-2">
+                {activeTab.label} 2026 <ArrowRightCircle size={10} className="text-zinc-600 hidden sm:block" /> 
+                <span className="hidden sm:inline">RANGE MINGGU BERJALAN:</span> 
+                <span className="text-violet-400">{currentRange}</span>
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <a
-              href={sheetUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-violet-600/10 px-3 py-1.5 text-[11px] font-bold text-violet-600 transition hover:bg-violet-600 hover:text-white dark:bg-violet-600/20 dark:text-violet-400 dark:hover:bg-violet-600 dark:hover:text-white"
+          
+          <div className="flex items-center gap-2 sm:gap-4">
+            <button 
+              onClick={() => setShowStatus(!showStatus)}
+              className={cn(
+                "hidden md:flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border",
+                showStatus ? "bg-white text-black border-white" : "bg-zinc-800/50 text-zinc-400 border-white/5 hover:bg-zinc-800"
+              )}
             >
-              <ExternalLink size={14} />
-              Buka Penuh
-            </a>
-            <button
-              onClick={onClose}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-50 dark:hover:bg-white/5 dark:hover:text-slate-300"
+              <Info size={16} /> {showStatus ? "Tutup Info" : "Status Tab GID"}
+            </button>
+            <button 
+              onClick={onClose} 
+              className="h-9 w-9 sm:h-12 sm:w-12 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-red-500/10 hover:text-red-500 transition-all border border-white/5"
             >
-              <X size={20} />
+              <X size={20} className="sm:hidden" />
+              <X size={24} className="hidden sm:block" />
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Month Tabs */}
-        <div
-          role="tablist"
-          className="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-200 bg-slate-100 px-2 py-2 dark:border-white/10 dark:bg-zinc-800/90"
-        >
-          {JADWAL_CATH_TABS.map((tab) => {
-            const isSelected = tab.label === activeTab.label;
-
-            return (
-              <button
-                key={tab.label}
-                type="button"
-                role="tab"
-                aria-selected={isSelected}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  "shrink-0 rounded-md px-2.5 py-1.5 text-left text-[11px] transition sm:px-3",
-                  isSelected
-                    ? "bg-white font-bold text-slate-900 shadow-sm dark:bg-white dark:text-slate-900"
-                    : "bg-slate-200/90 font-medium text-slate-700 hover:bg-slate-300/90 dark:bg-zinc-700 dark:text-white dark:hover:bg-zinc-600",
-                )}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-hidden bg-slate-50 dark:bg-black/20 flex flex-col p-0 sm:p-2 min-h-0">
-          <div className="flex-1 rounded-none sm:rounded-xl border-y sm:border border-slate-200 dark:border-white/10 overflow-hidden bg-white dark:bg-slate-900 shadow-inner relative min-h-[50vh]">
-            {isLoading && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm dark:bg-slate-900/80">
-                <Loader2 className="h-8 w-8 animate-spin text-violet-600 dark:text-violet-400" />
-                <p className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400 animate-pulse">
-                  Memuat jadwal Cath Lab...
-                </p>
+        <main className="flex-1 flex overflow-hidden relative bg-black/20">
+          {/* Status Overlay */}
+          {showStatus && (
+            <div className="absolute left-4 top-4 bottom-4 sm:left-8 sm:top-8 sm:bottom-8 w-64 sm:w-72 bg-zinc-900/95 backdrop-blur-2xl border border-white/10 z-40 rounded-2xl sm:rounded-[2rem] p-4 sm:p-8 animate-in slide-in-from-left duration-500 shadow-2xl overflow-y-auto">
+              <h3 className="text-[10px] font-black text-zinc-400 mb-6 sm:mb-8 uppercase tracking-[0.3em]">
+                Discovery Status 2026
+              </h3>
+              <div className="space-y-3 sm:space-y-4">
+                {JADWAL_CATH_TABS.map((tab) => {
+                  const hasGid = tab.gid !== "0";
+                  return (
+                    <div key={tab.label} className={cn(
+                      "flex items-center justify-between p-3 sm:p-4 rounded-xl sm:rounded-2xl border text-[10px] sm:text-[11px] font-bold transition-all",
+                      hasGid ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-400" : "bg-white/5 border-white/5 text-zinc-600"
+                    )}>
+                      {tab.label}
+                      {hasGid ? <CheckCircle2 size={14} /> : <div className="h-1.5 w-1.5 rounded-full bg-zinc-800" />}
+                    </div>
+                  );
+                })}
               </div>
-            )}
-            <iframe
-              key={`${activeTab.label}-${activeTab.gid}`} // PENTING: Memaksa iframe refresh
-              src={previewUrl}
-              onLoad={() => setIsLoading(false)}
-              className="absolute inset-0 w-full h-full border-0"
-              title="Google Sheets Jadwal Cath"
-              sandbox="allow-scripts allow-same-origin allow-forms"
-            />
-          </div>
-        </div>
+            </div>
+          )}
 
-        {/* Footer */}
-        <div className="border-t border-slate-200 py-1.5 px-3 flex justify-between items-center gap-2 dark:border-white/10 shrink-0">
-          <p className="text-[9px] text-slate-500 dark:text-white/85 italic">
-            *Tampilan difokuskan pada minggu berjalan. Gunakan "Buka Penuh" untuk edit data.
-          </p>
-          <button
-            onClick={onClose}
-            className="text-[10px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 shrink-0"
-          >
-            Tutup
-          </button>
-        </div>
+          {/* Iframe Viewport */}
+          <div className="flex-1 p-2 sm:p-8 relative flex flex-col min-h-0">
+            <div className="flex-1 rounded-xl sm:rounded-[2.5rem] overflow-hidden border border-white/10 bg-white shadow-[0_40px_100px_rgba(0,0,0,0.5)] relative">
+              {isLoading && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-zinc-950">
+                  <div className="relative">
+                    <div className="h-16 w-16 sm:h-20 sm:w-20 border-4 border-zinc-800 border-t-violet-500 rounded-full animate-spin" />
+                    <Zap className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-violet-500 animate-pulse" size={20} />
+                  </div>
+                  <span className="mt-6 sm:mt-8 text-[10px] sm:text-[11px] font-black text-zinc-400 uppercase tracking-[0.5em] animate-pulse">
+                    Syncing Grid...
+                  </span>
+                </div>
+              )}
+              <iframe
+                key={`${activeTab.label}-${currentGid}-${currentRange}`}
+                src={previewUrl}
+                onLoad={() => setIsLoading(false)}
+                className="w-full h-full border-0"
+                title="Google Sheets Jadwal Cath Lab"
+                sandbox="allow-scripts allow-same-origin allow-forms"
+              />
+            </div>
+            
+            {/* Quick Actions */}
+            <div className="absolute bottom-6 right-6 sm:bottom-12 sm:right-12 flex gap-3">
+              <a 
+                href={sheetUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-10 sm:h-14 px-4 sm:px-8 bg-zinc-900 text-white rounded-lg sm:rounded-[1.25rem] border border-white/10 shadow-2xl flex items-center gap-2 sm:gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all"
+              >
+                <Maximize2 size={16} /> <span className="hidden sm:inline">Buka Full Sheet</span><span className="sm:hidden">Full</span>
+              </a>
+            </div>
+          </div>
+        </main>
+
+        {/* Custom Navigation */}
+        <footer className="p-4 sm:p-8 bg-zinc-900/60 border-t border-white/5 shrink-0">
+          <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 scrollbar-hide justify-start lg:justify-center">
+            {JADWAL_CATH_TABS.map((tab) => {
+              const m = tab.month;
+              const isCurrent = m === (today.getMonth() + 1);
+              const isActive = tab.month === activeTab.month;
+              
+              return (
+                <button
+                  key={tab.label}
+                  onClick={() => setActiveTab(tab)}
+                  className={cn(
+                    "shrink-0 relative px-4 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-[1.5rem] text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all flex flex-col items-center gap-1 sm:gap-2 group",
+                    isActive 
+                      ? "bg-white text-black shadow-2xl -translate-y-1 sm:-translate-y-2 scale-105" 
+                      : "bg-white/5 text-zinc-500 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  {tab.label.substring(0, 3)}
+                  {isCurrent && !isActive && (
+                    <span className="absolute top-2 right-2 h-1.5 w-1.5 sm:h-2 sm:w-2 bg-violet-500 rounded-full border border-zinc-900" />
+                  )}
+                  {isActive && <div className="h-0.5 sm:h-1 w-4 sm:w-6 bg-violet-600 rounded-full animate-bounce" />}
+                </button>
+              );
+            })}
+          </div>
+        </footer>
       </div>
     </ModalWrapper>
   );

@@ -79,9 +79,9 @@ export const WIREFRAME_DRAWER_TABS: {
   },
   {
     id: "klinis",
-    label: "Klinis",
+    label: "Klinis dan Laporan",
     short: "Klin",
-    fields: ["diagnosa", "severity_level", "hasil_lab_ppm"],
+    fields: ["pci_report_link", "diagnosa", "severity_level", "hasil_lab_ppm"],
   },
   {
     id: "biaya",
@@ -138,6 +138,7 @@ export const FIELD_LABELS: Record<string, string> = {
   hasil_lab_ppm: "Hasil lab PPM",
   diagnosa: "Diagnosa",
   severity_level: "Severity",
+  pci_report_link: "Link Laporan (Google Docs)",
   asisten: "Asisten",
   sirkuler: "Sirkuler",
   logger: "Logger",
@@ -279,11 +280,7 @@ export function formatFieldValue(key: string, value: unknown): string {
   if (WIREFRAME_MONEY_KEYS.has(key)) {
     const n = parseWireframeNumeric(value);
     if (n != null) return `Rp ${n.toLocaleString("id-ID")}`;
-    if (
-      key === "krs" &&
-      value != null &&
-      String(value).trim() !== ""
-    ) {
+    if (key === "krs" && value != null && String(value).trim() !== "") {
       return String(value).trim();
     }
     return "—";

@@ -51,6 +51,7 @@ import TableToolbar from "../components/TableToolbar";
 import FastTrackListModal from "../components/FastTrackListModal";
 import TindakanTerbanyakLabModal from "../components/TindakanTerbanyakLabModal";
 import TindakanLaporanModal from "../components/TindakanLaporanModal";
+import TindakanLaporanPemakaianModal from "../components/TindakanLaporanPemakaianModal";
 import TablePagination from "../components/TablePagination";
 import PemakaianAlkesModal from "./PemakaianAlkesModal";
 import { computeTindakanStatsFromRows } from "../hooks/useTindakanStats";
@@ -854,6 +855,8 @@ export default function TindakanTable({
   const [tindakanTerbanyakLabOpen, setTindakanTerbanyakLabOpen] =
     useState(false);
   const [laporanModalOpen, setLaporanModalOpen] = useState(false);
+  const [laporanPemakaianModalOpen, setLaporanPemakaianModalOpen] =
+    useState(false);
   const [creatingForPasien, setCreatingForPasien] = useState(false);
   const [lastAutoCreateKey, setLastAutoCreateKey] = useState("");
   /** Riwayat tindakan (RM duplikat): default tertutup; kunci = id baris / fallback key. */
@@ -2180,6 +2183,7 @@ export default function TindakanTable({
           onOpenFastTrack={() => setFastTrackModalOpen(true)}
           onOpenTindakanTerbanyakLab={() => setTindakanTerbanyakLabOpen(true)}
           onOpenLaporan={() => setLaporanModalOpen(true)}
+          onOpenLaporanPemakaian={() => setLaporanPemakaianModalOpen(true)}
         />
 
         <TindakanLaporanModal
@@ -2189,6 +2193,14 @@ export default function TindakanTable({
           loading={loading}
           filterSummaryLines={filterSummaryLines}
           pasienOptions={pasienOptions}
+        />
+
+        <TindakanLaporanPemakaianModal
+          open={laporanPemakaianModalOpen}
+          onOpenChange={setLaporanPemakaianModalOpen}
+          rows={filteredRecords}
+          loading={loading}
+          filterSummaryLines={filterSummaryLines}
         />
 
         <FastTrackListModal

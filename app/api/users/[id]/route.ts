@@ -40,7 +40,7 @@ export async function GET(
     const { data, error } = await supabase
       .from("app_users")
       .select(
-        "id,username,role,distributor_id,created_at,updated_at,master_distributor(nama_pt)"
+        "id,username,role,distributor_id,created_at,updated_at,master_distributor(nama_pt,is_konsolidasi)"
       )
       .eq("id", id)
       .maybeSingle();
@@ -77,8 +77,14 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { role, distributor_id, distributor_nama_pt, password, username } =
-      body ?? {};
+    const {
+      role,
+      distributor_id,
+      distributor_nama_pt,
+      distributor_is_konsolidasi,
+      password,
+      username,
+    } = body ?? {};
     const roleNormalized =
       typeof role === "string" ? role.trim().toLowerCase() : role;
 
@@ -127,7 +133,11 @@ export async function PATCH(
       if (namaPt) {
         const { data: inserted, error: insErr } = await supabase
           .from("master_distributor")
-          .insert({ nama_pt: namaPt, is_active: true })
+          .insert({
+            nama_pt: namaPt,
+            is_active: true,
+            is_konsolidasi: distributor_is_konsolidasi ?? false,
+          })
           .select("id")
           .single();
         if (insErr) {
@@ -151,6 +161,13 @@ export async function PATCH(
           );
         }
         updatePayload.distributor_id = String(distributor_id).trim();
+
+        if (distributor_is_konsolidasi !== undefined) {
+          await supabase
+            .from("master_distributor")
+            .update({ is_konsolidasi: !!distributor_is_konsolidasi })
+            .eq("id", updatePayload.distributor_id);
+        }
       }
     }
 
@@ -184,7 +201,7 @@ export async function PATCH(
       .update(updatePayload)
       .eq("id", id)
       .select(
-        "id,username,role,distributor_id,created_at,updated_at,master_distributor(nama_pt)"
+        "id,username,role,distributor_id,created_at,updated_at,master_distributor(nama_pt,is_konsolidasi)"
       )
       .maybeSingle();
 

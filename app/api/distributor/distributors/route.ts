@@ -18,16 +18,28 @@ export async function GET() {
     );
   }
 
-  let q = supabase.from("master_distributor").select("id,nama_pt,is_active").order("nama_pt", { ascending: true });
-  if (!id.isAdminView && id.distributorId) {
-    q = q.eq("id", id.distributorId);
-  }
+  let q = supabase
+    .from("master_distributor")
+    .select("id,nama_pt,is_active,is_konsolidasi")
+    .order("nama_pt", { ascending: true });
 
   const { data, error } = await q;
   if (error) {
     return NextResponse.json({ ok: false, message: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, data: data ?? [] }, { status: 200 });
+  const stripPt = (s: string) =>
+    s
+      .toUpperCase()
+      .replace(/^PT\.?\s*/u, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const normalizedData = (data ?? []).map((d) => ({
+    ...d,
+    nama_pt: d.nama_pt ? `PT. ${stripPt(d.nama_pt)}` : d.nama_pt,
+  }));
+
+  return NextResponse.json({ ok: true, data: normalizedData }, { status: 200 });
 }
 

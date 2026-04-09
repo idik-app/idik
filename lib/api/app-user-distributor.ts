@@ -7,7 +7,8 @@ export async function resolveDistributorIdForCreate(
   supabase: SupabaseClient,
   role: string,
   distributor_id: unknown,
-  distributor_nama_pt: unknown
+  distributor_nama_pt: unknown,
+  distributor_is_konsolidasi?: boolean
 ): Promise<
   | { ok: true; distributorId: string | null }
   | { ok: false; message: string }
@@ -25,7 +26,11 @@ export async function resolveDistributorIdForCreate(
   if (namaPt) {
     const { data: inserted, error } = await supabase
       .from("master_distributor")
-      .insert({ nama_pt: namaPt, is_active: true })
+      .insert({
+        nama_pt: namaPt,
+        is_active: true,
+        is_konsolidasi: distributor_is_konsolidasi ?? false,
+      })
       .select("id")
       .single();
     if (error) {
@@ -37,6 +42,13 @@ export async function resolveDistributorIdForCreate(
     return { ok: true, distributorId: inserted.id };
   }
   if (did) {
+    // Jika memilih yang sudah ada, update status konsolidasinya jika dikirim
+    if (distributor_is_konsolidasi !== undefined) {
+      await supabase
+        .from("master_distributor")
+        .update({ is_konsolidasi: !!distributor_is_konsolidasi })
+        .eq("id", did);
+    }
     return { ok: true, distributorId: did };
   }
   return { ok: false, message: "distributor wajib untuk role ini" };
@@ -49,13 +61,32 @@ export function mapAppUserRow(row: Record<string, unknown>) {
     | null
     | undefined;
   let nama: string | null = null;
+  let isKonsolidasi: boolean | null = null;
   if (nested && typeof nested === "object") {
     if (Array.isArray(nested)) {
       nama = nested[0]?.nama_pt ?? null;
+      isKonsolidasi = (nested[0] as any)?.is_konsolidasi ?? null;
     } else {
       nama = nested.nama_pt ?? null;
+      isKonsolidasi = (nested as any).is_konsolidasi ?? null;
     }
   }
+
+  const stripPt = (s: string) =>
+    s
+      .toUpperCase()
+      .replace(/^PT\.?\s*/u, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  if (nama) {
+    nama = `PT. ${stripPt(nama)}`;
+  }
+
   const { master_distributor: _m, ...rest } = row;
-  return { ...rest, distributor_nama_pt: nama };
+  return {
+    ...rest,
+    distributor_nama_pt: nama,
+    distributor_is_konsolidasi: isKonsolidasi,
+  };
 }

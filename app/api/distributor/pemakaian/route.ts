@@ -244,7 +244,8 @@ export async function GET(req: Request) {
   // 3. Ambil data order realtime (jika bukan adminShowAll)
   let fromOrders: any[] = [];
   if (!adminShowAll && scope) {
-    const namaPtStr = String(distRowRes.data?.nama_pt ?? "").trim();
+    const stripPt = (s: string) => normKey(s).replace(/^pt\.?\s*/u, "").toUpperCase().trim();
+    const namaPtStr = distRowRes.data?.nama_pt ? `PT. ${stripPt(distRowRes.data.nama_pt)}` : "";
     const tenantBarangNames = new Set<string>();
     [...(mbDirectRes.data ?? []), ...(invNamedRes.data ?? [])].forEach((r: any) => {
       const n = normKey(r.nama);
@@ -267,9 +268,10 @@ export async function GET(req: Request) {
         if (rawDist && namaPtStr && !distributorLineMatchesTenant(rawDist, namaPtStr)) return;
         if (!rawDist && !barangMatchesTenantSet(normKey(String(line.barang || "")), tenantBarangNames)) return;
 
+        const cleanDist = rawDist ? `PT. ${stripPt(rawDist)}` : null;
         fromOrders.push({
           id: `${orow.id}__${line.lineId || idx}`, created_at: orow.created_at, jumlah: qty, tanggal: dateKey || orow.tanggal?.slice(0, 10),
-          inventaris: { nama: String(line.barang || "-"), satuan: null }, distributor_nama: namaPtStr || null,
+          inventaris: { nama: String(line.barang || "-"), satuan: null }, distributor_nama: cleanDist || namaPtStr || null,
           order_id: orow.id, pasien: orow.pasien, dokter: orow.dokter, no_rm: orow.no_rm, status_order: orow.status,
           lot: strFromLine(line, "lot", "LOT"), ukuran: strFromLine(line, "ukuran", "Ukuran"), ed: strFromLine(line, "ed", "ED")
         });

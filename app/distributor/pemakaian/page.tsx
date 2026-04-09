@@ -219,7 +219,9 @@ function groupPemakaianRows(list: PemakaianRow[]): PemakaianRow[][] {
   return groups;
 }
 
-function groupPemakaianIndexedRows(list: IndexedPemakaianRow[]): PemakaianRow[][] {
+function groupPemakaianIndexedRows(
+  list: IndexedPemakaianRow[],
+): PemakaianRow[][] {
   const map = new Map<string, PemakaianRow[]>();
   for (const item of list) {
     const arr = map.get(item.groupKey);
@@ -355,11 +357,8 @@ function formatPasienDetailLine(
   parts: KeteranganParts,
 ): string | null {
   const label = row.pasien?.trim() || parts.pasien?.trim();
-  const rm =
-    row.no_rm?.trim() || extractRmFromPasienLabel(label) || undefined;
-  const nama = label
-    ? pasienNamaTanpaRm(label) || label
-    : "";
+  const rm = row.no_rm?.trim() || extractRmFromPasienLabel(label) || undefined;
+  const nama = label ? pasienNamaTanpaRm(label) || label : "";
   if (!label && !rm) return null;
   if (rm) {
     const n = nama || label || "—";
@@ -439,7 +438,10 @@ function appendWaPemakaianLines(
  * Format khusus WhatsApp: judul *tebal*, blok per field, ASCII aman.
  * (Email tetap memakai buildShareBody / buildShareBodyGroup.)
  */
-function buildWhatsAppBodyFromGroup(rows: PemakaianRow[], infoLink?: string): string {
+function buildWhatsAppBodyFromGroup(
+  rows: PemakaianRow[],
+  infoLink?: string,
+): string {
   if (!rows.length) return "";
   if (rows.length === 1) {
     const r = rows[0]!;
@@ -667,7 +669,25 @@ function DistributorPemakaianPageContent() {
       const pt = r.distributor_nama?.trim();
       if (pt) s.add(pt);
     }
-    return [...s].sort((a, b) => a.localeCompare(b, "id"));
+    // Normalisasi: jika ada variasi case (misal "PT. A" dan "pt. a"),
+    // kita ambil satu saja (biasanya yang UPPERCASE atau yang pertama muncul).
+    const uniqueMap = new Map<string, string>();
+    const stripPt = (s: string) =>
+      s
+        .toUpperCase()
+        .replace(/^PT\.?\s*/u, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    for (const pt of s) {
+      const key = stripPt(pt);
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, key ? `PT. ${key}` : pt);
+      }
+    }
+    return Array.from(uniqueMap.values()).sort((a, b) =>
+      a.localeCompare(b, "id"),
+    );
   }, [deferredRows]);
 
   const indexedRows = useMemo<IndexedPemakaianRow[]>(() => {
@@ -682,11 +702,16 @@ function DistributorPemakaianPageContent() {
     const needle = deferredSearchQuery.trim().toLowerCase();
     return indexedRows.filter((item) => {
       if (needle && !item.searchText.includes(needle)) return false;
-      if (
-        deferredFilterPt &&
-        (item.row.distributor_nama?.trim() ?? "") !== deferredFilterPt
-      ) {
-        return false;
+      if (deferredFilterPt) {
+        const stripPt = (s: string) =>
+          s
+            .toUpperCase()
+            .replace(/^PT\.?\s*/u, "")
+            .replace(/\s+/g, " ")
+            .trim();
+        const rowPt = stripPt(item.row.distributor_nama?.trim() ?? "");
+        const filterPtNorm = stripPt(deferredFilterPt);
+        if (rowPt !== filterPtNorm) return false;
       }
       return true;
     });
@@ -778,7 +803,13 @@ function DistributorPemakaianPageContent() {
       setDetailGroup(target);
     }
     autoOpenedFocusRef.current = focusKey;
-  }, [focusOrderParam, focusOrderSet, groupedRows, loading, isPublicFocusedView]);
+  }, [
+    focusOrderParam,
+    focusOrderSet,
+    groupedRows,
+    loading,
+    isPublicFocusedView,
+  ]);
 
   const focusedDataGroup = useMemo(() => {
     if (!isPublicFocusedView) return null;
@@ -793,19 +824,22 @@ function DistributorPemakaianPageContent() {
     return target || null;
   }, [isPublicFocusedView, focusOrderParam, groupedRows, focusOrderSet]);
 
-  const buildShareInfoLink = useCallback((focusOrderIds?: string): string => {
-    const qs = new URLSearchParams();
-    qs.set("mode", mode);
-    qs.set("from", from);
-    qs.set("to", to);
-    if (distributorIdParam) qs.set("distributor_id", distributorIdParam);
-    if (focusOrderIds?.trim() && focusOrderIds !== "-") {
-      qs.set("focus_order", focusOrderIds.trim());
-    }
-    const base = resolvePublicPortalBase();
-    if (!base) return "";
-    return `${base}${pathname}?${qs.toString()}`;
-  }, [distributorIdParam, from, mode, pathname, to]);
+  const buildShareInfoLink = useCallback(
+    (focusOrderIds?: string): string => {
+      const qs = new URLSearchParams();
+      qs.set("mode", mode);
+      qs.set("from", from);
+      qs.set("to", to);
+      if (distributorIdParam) qs.set("distributor_id", distributorIdParam);
+      if (focusOrderIds?.trim() && focusOrderIds !== "-") {
+        qs.set("focus_order", focusOrderIds.trim());
+      }
+      const base = resolvePublicPortalBase();
+      if (!base) return "";
+      return `${base}${pathname}?${qs.toString()}`;
+    },
+    [distributorIdParam, from, mode, pathname, to],
+  );
 
   const openSharePreview = useCallback(
     (channel: ShareChannel) => {
@@ -837,7 +871,9 @@ function DistributorPemakaianPageContent() {
     const head = focusedDataGroup?.[0] ?? null;
     const kParts = parseKeteranganParts(head?.keterangan);
     const pLine = head ? formatPasienDetailLine(head, kParts) : null;
-    const dMerged = focusedDataGroup ? detailDokterLine(focusedDataGroup) : null;
+    const dMerged = focusedDataGroup
+      ? detailDokterLine(focusedDataGroup)
+      : null;
 
     return (
       <div className="space-y-6">
@@ -878,17 +914,13 @@ function DistributorPemakaianPageContent() {
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-cyan-500/70 mb-1">
                       Pasien
                     </p>
-                    <p className="text-cyan-50 text-base">
-                      {pLine || "—"}
-                    </p>
+                    <p className="text-cyan-50 text-base">{pLine || "—"}</p>
                   </div>
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-cyan-500/70 mb-1">
                       Dokter
                     </p>
-                    <p className="text-cyan-50 text-base">
-                      {dMerged || "—"}
-                    </p>
+                    <p className="text-cyan-50 text-base">{dMerged || "—"}</p>
                   </div>
                 </div>
               </div>
@@ -899,7 +931,10 @@ function DistributorPemakaianPageContent() {
                 </p>
                 <div className="space-y-4">
                   {focusedDataGroup.map((line) => (
-                    <div key={line.id} className="rounded-lg bg-slate-900/40 border border-cyan-900/30 p-4">
+                    <div
+                      key={line.id}
+                      className="rounded-lg bg-slate-900/40 border border-cyan-900/30 p-4"
+                    >
                       <p className="text-cyan-50 font-medium text-lg mb-2">
                         {line.inventaris?.nama ?? "—"}
                         {line.jumlah != null && Number(line.jumlah) !== 1 && (
@@ -912,25 +947,37 @@ function DistributorPemakaianPageContent() {
                         {line.lot?.trim() && (
                           <div>
                             <span className="text-cyan-500/60 mr-2">LOT:</span>
-                            <span className="text-cyan-200">{line.lot.trim()}</span>
+                            <span className="text-cyan-200">
+                              {line.lot.trim()}
+                            </span>
                           </div>
                         )}
                         {line.ukuran?.trim() && (
                           <div>
-                            <span className="text-cyan-500/60 mr-2">Ukuran:</span>
-                            <span className="text-cyan-200">{line.ukuran.trim()}</span>
+                            <span className="text-cyan-500/60 mr-2">
+                              Ukuran:
+                            </span>
+                            <span className="text-cyan-200">
+                              {line.ukuran.trim()}
+                            </span>
                           </div>
                         )}
                         {line.ed?.trim() && (
                           <div>
                             <span className="text-cyan-500/60 mr-2">ED:</span>
-                            <span className="text-cyan-200">{line.ed.trim()}</span>
+                            <span className="text-cyan-200">
+                              {line.ed.trim()}
+                            </span>
                           </div>
                         )}
                         {line.inventaris?.satuan?.trim() && (
                           <div>
-                            <span className="text-cyan-500/60 mr-2">Satuan:</span>
-                            <span className="text-cyan-200">{line.inventaris.satuan}</span>
+                            <span className="text-cyan-500/60 mr-2">
+                              Satuan:
+                            </span>
+                            <span className="text-cyan-200">
+                              {line.inventaris.satuan}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -941,9 +988,12 @@ function DistributorPemakaianPageContent() {
             </div>
           ) : (
             <div className="py-12 text-center text-amber-300/80">
-              <p className="text-lg">Pesanan tidak ditemukan atau tautan sudah tidak valid.</p>
+              <p className="text-lg">
+                Pesanan tidak ditemukan atau tautan sudah tidak valid.
+              </p>
               <p className="text-sm mt-2 text-amber-200/50">
-                Hubungi petugas Cathlab jika tautan informasi tidak menampilkan data.
+                Hubungi petugas Cathlab jika tautan informasi tidak menampilkan
+                data.
               </p>
             </div>
           )}
@@ -1198,38 +1248,38 @@ function DistributorPemakaianPageContent() {
                   </p>
                   <ul className="list-none space-y-3 pl-0.5">
                     {detailGroup.map((lineRow) => (
-                        <li key={lineRow.id}>
-                          <span className="text-cyan-100">
-                            • {lineRow.inventaris?.nama ?? "—"}
-                            {lineRow.jumlah != null &&
-                            Number(lineRow.jumlah) !== 1 ? (
-                              <span className="text-cyan-400/80">
-                                {" "}
-                                (×{lineRow.jumlah})
-                              </span>
-                            ) : null}
-                          </span>
-                          {lineRow.lot?.trim() ? (
-                            <div className="mt-1 pl-4 text-[12px] text-cyan-300/85">
-                              LOT: {lineRow.lot.trim()}
-                            </div>
+                      <li key={lineRow.id}>
+                        <span className="text-cyan-100">
+                          • {lineRow.inventaris?.nama ?? "—"}
+                          {lineRow.jumlah != null &&
+                          Number(lineRow.jumlah) !== 1 ? (
+                            <span className="text-cyan-400/80">
+                              {" "}
+                              (×{lineRow.jumlah})
+                            </span>
                           ) : null}
-                          {lineRow.ukuran?.trim() ? (
-                            <div className="pl-4 text-[12px] text-cyan-300/85">
-                              Ukuran: {lineRow.ukuran.trim()}
-                            </div>
-                          ) : null}
-                          {lineRow.ed?.trim() ? (
-                            <div className="pl-4 text-[12px] text-cyan-300/85">
-                              ED: {lineRow.ed.trim()}
-                            </div>
-                          ) : null}
-                          {lineRow.inventaris?.satuan?.trim() ? (
-                            <div className="pl-4 text-[12px] text-cyan-300/85">
-                              Satuan: {lineRow.inventaris.satuan}
-                            </div>
-                          ) : null}
-                        </li>
+                        </span>
+                        {lineRow.lot?.trim() ? (
+                          <div className="mt-1 pl-4 text-[12px] text-cyan-300/85">
+                            LOT: {lineRow.lot.trim()}
+                          </div>
+                        ) : null}
+                        {lineRow.ukuran?.trim() ? (
+                          <div className="pl-4 text-[12px] text-cyan-300/85">
+                            Ukuran: {lineRow.ukuran.trim()}
+                          </div>
+                        ) : null}
+                        {lineRow.ed?.trim() ? (
+                          <div className="pl-4 text-[12px] text-cyan-300/85">
+                            ED: {lineRow.ed.trim()}
+                          </div>
+                        ) : null}
+                        {lineRow.inventaris?.satuan?.trim() ? (
+                          <div className="pl-4 text-[12px] text-cyan-300/85">
+                            Satuan: {lineRow.inventaris.satuan}
+                          </div>
+                        ) : null}
+                      </li>
                     ))}
                   </ul>
                 </div>
@@ -1242,7 +1292,10 @@ function DistributorPemakaianPageContent() {
                     onClick={() => openSharePreview("wa")}
                     className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/50 bg-emerald-950/40 px-3 py-1.5 text-[12px] text-emerald-100 hover:bg-emerald-900/45"
                   >
-                    <MessageCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    <MessageCircle
+                      className="h-3.5 w-3.5 shrink-0"
+                      aria-hidden
+                    />
                     WhatsApp
                   </button>
                   <button
@@ -1278,8 +1331,7 @@ function DistributorPemakaianPageContent() {
             <>
               <DialogHeader>
                 <DialogTitle className="text-[#D4AF37]">
-                  Preview{" "}
-                  {sharePreview.channel === "wa" ? "WhatsApp" : "Email"}
+                  Preview {sharePreview.channel === "wa" ? "WhatsApp" : "Email"}
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-3 rounded-lg border border-cyan-900/50 bg-slate-950/60 px-3 py-3">
@@ -1338,8 +1390,7 @@ function DistributorPemakaianPageContent() {
                   onClick={sendFromPreview}
                   className="rounded-md border border-emerald-500/50 bg-emerald-950/40 px-3 py-1.5 text-[12px] text-emerald-100 hover:bg-emerald-900/45"
                 >
-                  Kirim{" "}
-                  {sharePreview.channel === "wa" ? "WhatsApp" : "Email"}
+                  Kirim {sharePreview.channel === "wa" ? "WhatsApp" : "Email"}
                 </button>
               </DialogFooter>
             </>

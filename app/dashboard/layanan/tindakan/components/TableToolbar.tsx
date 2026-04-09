@@ -14,6 +14,7 @@ import {
   BarChart2,
   Calendar,
   CalendarDays,
+  Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
@@ -54,6 +55,8 @@ interface Props {
   onOpenTindakanTerbanyakLab?: () => void;
   /** Matriks bulanan: jenis operasi / cara bayar (filter mengikuti tabel). */
   onOpenLaporan?: () => void;
+  /** Buka modal laporan pemakaian alkes. */
+  onOpenLaporanPemakaian?: () => void;
 }
 
 /** Interval auto-refresh saat tab terlihat (detik). */
@@ -81,6 +84,7 @@ export default function TableToolbar({
   onOpenFastTrack,
   onOpenTindakanTerbanyakLab,
   onOpenLaporan,
+  onOpenLaporanPemakaian,
 }: Props) {
   const [dokter, setDokter] = useState("");
   const [ruangan, setRuangan] = useState("");
@@ -104,7 +108,8 @@ export default function TableToolbar({
 
   const hasLaporanLab = typeof onOpenTindakanTerbanyakLab === "function";
   const hasLaporanMatriks = typeof onOpenLaporan === "function";
-  const hasAnyLaporan = hasLaporanLab || hasLaporanMatriks;
+  const hasLaporanPemakaian = typeof onOpenLaporanPemakaian === "function";
+  const hasAnyLaporan = hasLaporanLab || hasLaporanMatriks || hasLaporanPemakaian;
 
   useEffect(() => {
     if (!laporanMenuOpen) return;
@@ -427,6 +432,36 @@ export default function TableToolbar({
                       Laporan bulanan
                     </span>
                   </button>
+                ) : null}
+                {hasLaporanPemakaian ? (
+                  <>
+                    <div
+                      className="mx-2 border-t border-slate-200/80 dark:border-white/15"
+                      role="separator"
+                    />
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className={cn(
+                        "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
+                        "text-slate-900 hover:bg-amber-500/10 dark:text-white dark:hover:bg-amber-500/15",
+                        "focus-visible:bg-amber-500/10 focus-visible:outline-none dark:focus-visible:bg-amber-500/15",
+                      )}
+                      onClick={() => {
+                        setLaporanMenuOpen(false);
+                        onOpenLaporanPemakaian?.();
+                      }}
+                    >
+                      <Package
+                        size={16}
+                        strokeWidth={2.25}
+                        className="shrink-0 text-amber-600 dark:text-amber-400"
+                      />
+                      <span className="min-w-0 flex-1 font-extrabold tracking-wide">
+                        Laporan Pemakaian Alkes
+                      </span>
+                    </button>
+                  </>
                 ) : null}
               </div>
             ) : null}

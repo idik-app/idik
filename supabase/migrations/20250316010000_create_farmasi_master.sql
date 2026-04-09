@@ -10,7 +10,8 @@ create table if not exists public.master_distributor (
   email text,
   alamat text,
   catatan text,
-  is_active boolean default true
+  is_active boolean default true,
+  is_konsolidasi boolean default false
 );
 
 create index if not exists idx_master_distributor_nama_pt

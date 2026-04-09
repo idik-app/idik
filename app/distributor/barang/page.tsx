@@ -59,6 +59,7 @@ type Row = {
   distributor_id?: string;
   /** Diisi API untuk admin — nama PT distributor baris ini. */
   distributor_nama_pt?: string | null;
+  is_konsolidasi?: boolean | null;
   kode_distributor: string | null;
   harga_jual: number | null;
   min_stok: number | null;
@@ -247,6 +248,9 @@ function DistributorBarangPageContent() {
   const [formStokCathlabTarget, setFormStokCathlabTarget] =
     useState<string>("");
   const [formIsActive, setFormIsActive] = useState<boolean>(true);
+  const [formKonsolidasi, setFormKonsolidasi] = useState<boolean>(false);
+  const [userDistributorIsKonsolidasi, setUserDistributorIsKonsolidasi] =
+    useState<boolean>(false);
   /** Nama barang master di mode edit (read-only; sumber kebenaran tetap master_barang_id). */
   const [selectedMasterLabel, setSelectedMasterLabel] = useState("");
   const [formNamaMasterBaru, setFormNamaMasterBaru] = useState("");
@@ -398,6 +402,7 @@ function DistributorBarangPageContent() {
       .then((j) => {
         if (!alive) return;
         setAdminView(j?.mode === "admin_view");
+        setUserDistributorIsKonsolidasi(Boolean(j?.is_konsolidasi));
       })
       .catch(() => {});
     return () => {
@@ -757,6 +762,7 @@ function DistributorBarangPageContent() {
       setFormHargaJual("");
       setFormStokCathlabTarget("");
       setFormIsActive(true);
+      setFormKonsolidasi(userDistributorIsKonsolidasi);
       const seed = opts?.seedBarcodeFromFilter?.trim() ?? "";
       setBarcodeInput(looksLikeBarcodeSearchToken(seed) ? seed.trim() : "");
       const seedLot = opts?.seedLotFromFilter?.trim() ?? "";
@@ -1002,6 +1008,7 @@ function DistributorBarangPageContent() {
           kode_distributor: formKodeDistributor,
           harga_jual: parseDistributorHargaForSubmit(formHargaJual),
           is_active: formIsActive,
+          is_konsolidasi: formKonsolidasi,
           barcode: barcodeInput.trim() || null,
           kategori: formKategoriAlkes || null,
           lot: formLot.trim() || null,
@@ -1034,6 +1041,7 @@ function DistributorBarangPageContent() {
           harga_jual: parseDistributorHargaForSubmit(formHargaJual),
           min_stok: 0,
           is_active: formIsActive,
+          is_konsolidasi: formKonsolidasi,
           barcode: barcodeInput.trim() || null,
           kategori: formKategoriAlkes || null,
           lot: formLot.trim() || null,
@@ -1167,6 +1175,7 @@ function DistributorBarangPageContent() {
       String(Math.max(0, Math.round(Number(r.stok_cathlab ?? 0)))),
     );
     setFormIsActive(Boolean(r.is_active));
+    setFormKonsolidasi(Boolean(r.is_konsolidasi ?? userDistributorIsKonsolidasi));
     const namaEdit = r.master_barang?.nama ?? "";
     if (inferStentAlkesFromNamaBarang(namaEdit)) {
       if (!(r.kategori ?? "").trim()) {
@@ -1460,7 +1469,11 @@ function DistributorBarangPageContent() {
                     >
                       {showAdminAllDistributors ? (
                         <Td className="align-top text-[11px] text-cyan-200/90 max-w-[14rem]">
-                          {r.distributor_nama_pt?.trim() || "—"}
+                          {(() => {
+                            const raw = r.distributor_nama_pt?.trim();
+                            if (!raw) return "—";
+                            return `PT. ${raw.toUpperCase().replace(/^PT\.?\s*/u, "").replace(/\s+/g, " ").trim()}`;
+                          })()}
                         </Td>
                       ) : null}
                       <Td>{r.master_barang?.nama ?? "-"}</Td>
@@ -2192,18 +2205,23 @@ function DistributorBarangPageContent() {
                   </>
                 )}
 
-                <Labeled label="Status">
-                  <select
-                    ref={formStatusSelectRef}
-                    value={formIsActive ? "1" : "0"}
-                    onChange={(e) => setFormIsActive(e.target.value === "1")}
-                    onKeyDown={onModalEnterAdvanceField}
-                    className="w-full max-w-xs bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                  >
-                    <option value="1">Aktif</option>
-                    <option value="0">Nonaktif</option>
-                  </select>
-                </Labeled>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Labeled label="Konsolidasi">
+                    <select
+                      disabled
+                      value={formKonsolidasi ? "1" : "0"}
+                      onChange={(e) => setFormKonsolidasi(e.target.value === "1")}
+                      onKeyDown={onModalEnterAdvanceField}
+                      className="w-full bg-slate-900/50 border border-cyan-800/50 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400 opacity-70 cursor-not-allowed"
+                    >
+                      <option value="0">Non Konsolidasi</option>
+                      <option value="1">Konsolidasi</option>
+                    </select>
+                    <p className="mt-1 text-[10px] text-cyan-500/60">
+                      Otomatis sesuai profil distributor Anda
+                    </p>
+                  </Labeled>
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Labeled label="Kategori (alkes)">

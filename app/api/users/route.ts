@@ -37,7 +37,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from("app_users")
       .select(
-        "id,username,role,distributor_id,created_at,updated_at,master_distributor(nama_pt)"
+        "id,username,role,distributor_id,created_at,updated_at,master_distributor(nama_pt,is_konsolidasi)"
       )
       .order("created_at", { ascending: false });
 
@@ -96,7 +96,8 @@ export async function POST(req: Request) {
       supabase,
       roleNormalized,
       distributor_id,
-      distributor_nama_pt
+      distributor_nama_pt,
+      body.distributor_is_konsolidasi
     );
     if (!resolved.ok) {
       return NextResponse.json(
@@ -114,7 +115,7 @@ export async function POST(req: Request) {
         distributor_id: resolved.distributorId,
       })
       .select(
-        "id,username,role,distributor_id,created_at,updated_at,master_distributor(nama_pt)"
+        "id,username,role,distributor_id,created_at,updated_at,master_distributor(nama_pt,is_konsolidasi)"
       )
       .single();
 

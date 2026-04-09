@@ -297,6 +297,7 @@ export function BarangVariantCombobox({
   blurResolveLine,
   onRequestAddProduct,
   autoFocus,
+  inputClassName,
 }: {
   value: string;
   onChange: (nama: string) => void;
@@ -310,6 +311,7 @@ export function BarangVariantCombobox({
   /** Saat tidak ada hasil / katalog kosong: tombol membuka alur tambah produk (mis. modal induk). */
   onRequestAddProduct?: (draftQuery: string) => void;
   autoFocus?: boolean;
+  inputClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -405,10 +407,12 @@ export function BarangVariantCombobox({
     [],
   );
 
-  const inputCls =
+  const inputCls = cn(
     variant === "table"
       ? "w-full min-w-[90px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-[10px] text-white/95 placeholder:text-white/35 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50 pr-7"
-      : "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40";
+      : "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40",
+    inputClassName
+  );
 
   const listCls = cn(
     "max-h-64 overflow-auto rounded-lg border border-slate-700 bg-[#0a1628] py-1 shadow-2xl pointer-events-auto",

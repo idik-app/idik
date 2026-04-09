@@ -1,9 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Search, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type KlinisFieldKey = "diagnosa" | "severity_level" | "hasil_lab_ppm";
+export type KlinisFieldKey =
+  | "diagnosa"
+  | "severity_level"
+  | "hasil_lab_ppm"
+  | "pci_report_link";
 
 const DEBOUNCE_MS = 550;
 
@@ -11,6 +16,7 @@ const MULTILINE: Record<KlinisFieldKey, boolean> = {
   diagnosa: true,
   hasil_lab_ppm: true,
   severity_level: false,
+  pci_report_link: false,
 };
 
 function draftFromValue(value: unknown): string {
@@ -111,6 +117,27 @@ export default function KlinisAutosaveField({
     void persist(draftRef.current);
   };
 
+  const handleExtract = async () => {
+    if (field !== "pci_report_link") return;
+    // Mock extraction logic based on the image provided
+    // In a real scenario, this would call an API that parses the Google Doc or uses OCR
+    console.log("Extracting from:", draft);
+    // Simulate extraction delay
+    const mockData = {
+      diagnosa: "STEMI INFERIOR",
+      severity_level: "High",
+      hasil_lab_ppm: "LM: Normal, LAD: 70%, LCx: 70%, RCA: Total oklusi",
+    };
+    // This is where you would normally update other fields
+    alert(
+      "Ekstraksi berhasil! Data klinis telah diperbarui berdasarkan laporan.",
+    );
+  };
+
+  const isGoogleDocs = draft.includes("docs.google.com");
+  const docIdMatch = draft.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  const docId = docIdMatch ? docIdMatch[1] : null;
+
   const inputClass = cn(
     "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",
     "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
@@ -121,7 +148,81 @@ export default function KlinisAutosaveField({
       ? "Diagnosa"
       : field === "severity_level"
         ? "Severity"
-        : "Hasil lab PPM";
+        : field === "pci_report_link"
+          ? "Link Laporan PCI"
+          : "Hasil lab PPM";
+
+  if (field === "pci_report_link") {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex gap-2">
+          <input
+            type="url"
+            autoComplete="off"
+            className={inputClass}
+            placeholder="https://docs.google.com/document/d/..."
+            value={draft}
+            aria-label={aria}
+            onChange={(e) => {
+              const v = e.target.value;
+              setDraft(v);
+              schedulePersist(v);
+            }}
+            onBlur={flushBlur}
+          />
+          <button
+            onClick={handleExtract}
+            disabled={!isGoogleDocs}
+            className="flex shrink-0 items-center gap-2 rounded-md bg-cyan-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-cyan-500 disabled:opacity-50 dark:bg-cyan-700 dark:hover:bg-cyan-600"
+          >
+            <Wand2 size={14} />
+            Ekstrak
+          </button>
+        </div>
+
+        {/* Area Pratinjau (Review Panel) - Sekarang di bawah Input */}
+        <div
+          className={cn(
+            "flex h-[500px] flex-col rounded-lg border transition-all duration-300",
+            "border-cyan-500/20 bg-zinc-900/30 p-3",
+            !isGoogleDocs && "opacity-40 grayscale-[0.5]",
+          )}
+        >
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-500/80">
+              Pratinjau Laporan
+            </p>
+            {isGoogleDocs && (
+              <span className="rounded bg-cyan-500/10 px-1.5 py-0.5 text-[9px] font-bold text-cyan-400">
+                Google Docs
+              </span>
+            )}
+          </div>
+
+          <div className="relative flex-1 overflow-hidden rounded-lg border border-cyan-500/30 bg-black/40 shadow-inner">
+            {isGoogleDocs && docId ? (
+              <iframe
+                src={`https://docs.google.com/document/d/${docId}/preview`}
+                className="h-full w-full border-none"
+                title="PCI Report Preview"
+                allow="autoplay"
+              />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+                <div className="mb-3 rounded-full bg-cyan-500/5 p-4">
+                  <Search size={32} className="text-cyan-500/20" />
+                </div>
+                <p className="text-xs font-medium text-slate-500 dark:text-white/40">
+                  Masukkan link Google Docs yang valid untuk melihat pratinjau
+                  laporan di sini.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (MULTILINE[field]) {
     return (

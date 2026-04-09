@@ -125,12 +125,7 @@ export function parseDistributorKemasanBarcodeTemplate(
       const dHmm = Number.parseInt(m[1], 10);
       const lenMm = Number.parseInt(m[2], 10);
       const diameter = dHmm / 100;
-      if (
-        diameter >= 0.5 &&
-        diameter <= 6.5 &&
-        lenMm >= 5 &&
-        lenMm <= 250
-      ) {
+      if (diameter >= 0.5 && diameter <= 6.5 && lenMm >= 5 && lenMm <= 250) {
         ukuran = normalizeDistributorUkuranSpacing(
           `${diameter.toFixed(2)} x ${lenMm}`,
         );
@@ -219,7 +214,9 @@ export function normalizeDistributorUdiBarcodeKey(raw: string): string {
 
 /** Nilai LOT: trim + huruf besar (form distributor & penyimpanan). */
 export function normalizeDistributorLotAutoValue(raw: string): string {
-  return String(raw ?? "").trim().toUpperCase();
+  return String(raw ?? "")
+    .trim()
+    .toUpperCase();
 }
 
 const ED_MM_YYYY = /^(0[1-9]|1[0-2])-\d{4}$/;
@@ -233,9 +230,9 @@ function normalizeEdSeparators(raw: string): string {
     .replace(/\//g, "-");
 }
 
-function normalizeDistributorEdFromRaw(raw: string):
-  | { ok: true; value: string }
-  | { ok: false; message: string } {
+function normalizeDistributorEdFromRaw(
+  raw: string,
+): { ok: true; value: string } | { ok: false; message: string } {
   const t = normalizeEdSeparators(raw);
   if (ED_MM_YYYY.test(t)) return { ok: true, value: t };
 
@@ -265,9 +262,7 @@ function normalizeDistributorEdFromRaw(raw: string):
 /** Validasi ED untuk form (boleh kosong = null). Dipakai di klien sebelum kirim API. */
 export function parseDistributorEdForSubmit(
   raw: string | null | undefined,
-):
-  | { ok: true; value: string | null }
-  | { ok: false; message: string } {
+): { ok: true; value: string | null } | { ok: false; message: string } {
   const s = String(raw ?? "");
   if (s.trim() === "") return { ok: true, value: null };
   const n = normalizeDistributorEdFromRaw(s);
@@ -359,7 +354,7 @@ export function distributorEdToFormValue(
  */
 export function parseDistributorBarangExtra(
   body: Record<string, unknown>,
-  partial: boolean
+  partial: boolean,
 ):
   | { ok: true; value: Partial<ParsedDistributorBarangExtra> }
   | { ok: false; message: string } {
@@ -382,7 +377,9 @@ export function parseDistributorBarangExtra(
       out.kategori = null;
     } else {
       const up = String(raw).trim().toUpperCase();
-      if (!DISTRIBUTOR_PRODUK_KATEGORI.includes(up as DistributorProdukKategori)) {
+      if (
+        !DISTRIBUTOR_PRODUK_KATEGORI.includes(up as DistributorProdukKategori)
+      ) {
         return {
           ok: false,
           message: `Kategori harus salah satu: ${DISTRIBUTOR_PRODUK_KATEGORI.join(", ")}`,

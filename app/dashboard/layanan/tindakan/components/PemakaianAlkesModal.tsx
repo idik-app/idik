@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 import {
   ClipboardList,
   PackagePlus,
@@ -89,7 +91,13 @@ type PemakaianLine = {
   ukuran?: string;
   ed?: string;
   harga?: number;
+  isKonsolidasi?: boolean;
+  keterangan?: string;
 };
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 const DEFAULT_DRAWER_DEPO = "Depo Cathlab / Depo Farmasi";
 
@@ -165,7 +173,7 @@ function resolveHargaFromBarangInput(
   const q = label.trim().toLowerCase();
   if (!q) return undefined;
 
-  const row = index 
+  const row = index
     ? resolvePickRowFromIndexedOptions(q, index, options, line)
     : resolvePickRowFromBarangInput(q, options, line);
 
@@ -182,7 +190,7 @@ function resolveDistributorFromBarangInput(
   const q = label.trim().toLowerCase();
   if (!q) return undefined;
 
-  const row = index 
+  const row = index
     ? resolvePickRowFromIndexedOptions(q, index, options, line)
     : resolvePickRowFromBarangInput(q, options, line);
 
@@ -247,10 +255,12 @@ function linesFromOrderItemsJson(raw: unknown): PemakaianLine[] {
         typeof o.qtyDipakai === "number"
           ? o.qtyDipakai
           : Number(o.qtyDipakai) || 0,
-      tipe: (o.tipe === "R" || o.tipe === "REUSE") ? "R" : "N",
+      tipe: o.tipe === "R" || o.tipe === "REUSE" ? "R" : "N",
       lot: typeof o.lot === "string" ? o.lot : undefined,
       ukuran: typeof o.ukuran === "string" ? o.ukuran : undefined,
       ed: typeof o.ed === "string" ? o.ed : undefined,
+      isKonsolidasi: !!o.isKonsolidasi,
+      keterangan: typeof o.keterangan === "string" ? o.keterangan : undefined,
       ...(hargaParsed !== undefined ? { harga: hargaParsed } : {}),
     });
   }
@@ -270,7 +280,8 @@ function buildPemakaianResumeText(lines: PemakaianLine[]): string {
     .filter((l) => l.barang.trim())
     .map((l) => {
       // Baris pertama: Nama Barang (Upper) + Jumlah jika > 1 + Label REUSE jika tipe R
-      let header = `• ${l.barang.trim().toUpperCase()}`;
+      const konsolLabel = l.isKonsolidasi ? "[KONSOLIDASI]" : "[NON KONSOLIDASI]";
+      let header = `• [${l.kategori || "ALKES"}] ${l.barang.trim().toUpperCase()} ${konsolLabel}`;
 
       const meta = [];
       if (l.qtyDipakai > 1) meta.push(`${l.qtyDipakai}x`);
@@ -284,6 +295,7 @@ function buildPemakaianResumeText(lines: PemakaianLine[]): string {
       if (l.lot?.trim()) parts.push(`LOT: ${l.lot.trim()}`);
       if (l.ukuran?.trim()) parts.push(`Ukuran: ${l.ukuran.trim()}`);
       if (l.ed?.trim()) parts.push(`ED: ${l.ed.trim()}`);
+      if (l.keterangan?.trim()) parts.push(`Ket: ${l.keterangan.trim()}`);
 
       return parts.join("\n");
     })
@@ -720,16 +732,45 @@ export default function PemakaianAlkesModal({
       rows.map((l) => {
         if (l.lineId !== lineId) return l;
         const next = { ...l, ...patch };
-        if (!next.barang.trim()) return { ...next, harga: undefined };
-        if (patch.harga !== undefined) return next;
-        const h = resolveHargaFromBarangInput(
-          next.barang,
-          barangVariantList,
-          next,
-          barangVariantIndex,
-        );
-        if (h !== undefined) return { ...next, harga: h };
-        return next;
+        if (!next.barang.trim()) return { ...next, harga: undefined, kategori: undefined };
+        
+        // Jika patch sudah menyertakan kategori atau harga, kita gunakan itu langsung
+        // tanpa perlu resolve ulang dari master barang (untuk menghindari loop atau override manual)
+        if (patch.harga !== undefined && patch.kategori !== undefined)
+          return next;
+
+        const row = barangVariantIndex
+          ? resolvePickRowFromIndexedOptions(
+              next.barang.trim().toLowerCase(),
+              barangVariantIndex,
+              barangVariantList,
+              next,
+            )
+          : resolvePickRowFromBarangInput(
+              next.barang.trim().toLowerCase(),
+              barangVariantList,
+              next,
+            );
+
+        const h =
+          patch.harga !== undefined ? next.harga : (row ? hargaFromPickRow(row, barangVariantList) : next.harga);
+        
+        // LOGIKA PERBAIKAN:
+        // Jika user sedang mengubah kategori (patch.kategori ada), gunakan itu.
+        // Jika kategori sudah ada (baik dari pilihan manual sebelumnya atau resolve sebelumnya),
+        // JANGAN ditimpa lagi oleh resolve otomatis saat user menginput field lain (LOT, ED, dll).
+        // Resolve otomatis hanya berjalan jika kategori benar-benar masih kosong.
+        const k =
+          patch.kategori !== undefined
+            ? next.kategori
+            : (l.kategori ? l.kategori : (row ? (normalizeKategoriAlkesLine(row.kategori) || normalizeKategoriAlkesLine(row.jenis)) : next.kategori));
+
+        const isKonsolidasi = 
+          patch.isKonsolidasi !== undefined
+            ? next.isKonsolidasi
+            : (row ? !!(row as any).is_konsolidasi : next.isKonsolidasi);
+
+        return { ...next, harga: h, kategori: k, isKonsolidasi };
       }),
     );
   }
@@ -757,17 +798,32 @@ export default function PemakaianAlkesModal({
     setDrawerLines((rows) => {
       let changed = false;
       const next = rows.map((line) => {
-        if (line.harga != null && Number.isFinite(line.harga)) return line;
         if (!line.barang.trim()) return line;
-        const h = resolveHargaFromBarangInput(
-          line.barang,
-          barangVariantList,
-          line,
-          barangVariantIndex,
-        );
-        if (h === undefined) return line;
+        
+        const row = barangVariantIndex
+          ? resolvePickRowFromIndexedOptions(
+              line.barang.trim().toLowerCase(),
+              barangVariantIndex,
+              barangVariantList,
+              line,
+            )
+          : resolvePickRowFromBarangInput(
+              line.barang.trim().toLowerCase(),
+              barangVariantList,
+              line,
+            );
+
+        const h = row ? hargaFromPickRow(row, barangVariantList) : undefined;
+        const k = row ? (normalizeKategoriAlkesLine(row.kategori) || normalizeKategoriAlkesLine(row.jenis)) : undefined;
+
+        const nextHarga = (line.harga != null && Number.isFinite(line.harga)) ? line.harga : h;
+        const nextKategori = line.kategori || k;
+        const nextIsKonsolidasi = line.isKonsolidasi ?? !!(row as any)?.is_konsolidasi;
+
+        if (nextHarga === line.harga && nextKategori === line.kategori && nextIsKonsolidasi === line.isKonsolidasi) return line;
+        
         changed = true;
-        return { ...line, harga: h };
+        return { ...line, harga: nextHarga, kategori: nextKategori, isKonsolidasi: nextIsKonsolidasi };
       });
       return changed ? next : rows;
     });
@@ -866,7 +922,9 @@ export default function PemakaianAlkesModal({
   function applyBarangPick(pick: MasterBarangPickRow) {
     const suffix = Date.now().toString(36);
     const hPick = hargaFromPickRow(pick, barangVariantList);
-    const kCat = normalizeKategoriAlkesLine(pick.kategori) || normalizeKategoriAlkesLine(pick.jenis);
+    const kCat =
+      normalizeKategoriAlkesLine(pick.kategori) ||
+      normalizeKategoriAlkesLine(pick.jenis);
     const nextId = `draft-new-${suffix}`;
     const line: PemakaianLine = {
       lineId: nextId,
@@ -879,6 +937,7 @@ export default function PemakaianAlkesModal({
       lot: pick.lot?.trim() || undefined,
       ukuran: pick.ukuran?.trim() || undefined,
       ed: pick.ed?.trim() || undefined,
+      isKonsolidasi: !!(pick as any).is_konsolidasi,
       ...(hPick !== undefined ? { harga: hPick } : {}),
     };
     setDrawerLines((rows) => [...rows, line]);
@@ -1289,14 +1348,20 @@ export default function PemakaianAlkesModal({
       // 2. Sync resume ke baris tindakan (jika ada tindakanId)
       if (tindakanId?.trim()) {
         try {
-          await fetch(`/api/tindakan/${encodeURIComponent(tindakanId.trim())}`, {
-            method: "PATCH",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ pemakaian: resumeText }),
-          });
+          await fetch(
+            `/api/tindakan/${encodeURIComponent(tindakanId.trim())}`,
+            {
+              method: "PATCH",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pemakaian: resumeText }),
+            },
+          );
         } catch (e) {
-          console.warn("[PemakaianAlkesModal] Gagal sync resume ke tindakan:", e);
+          console.warn(
+            "[PemakaianAlkesModal] Gagal sync resume ke tindakan:",
+            e,
+          );
         }
       }
 
@@ -1434,149 +1499,175 @@ export default function PemakaianAlkesModal({
         <button
           suppressHydrationWarning
           type="button"
-          className="absolute inset-0 bg-black/75 border-0 cursor-default p-0"
+          className="absolute inset-0 bg-black/80 border-0 cursor-default p-0 backdrop-blur-sm"
           aria-label="Tutup form"
           onClick={() => (!drawerSaving ? onClose() : undefined)}
         />
         <div
           onClick={(e) => e.stopPropagation()}
-          className="relative z-10 w-full max-w-[min(42rem,calc(100vw-1rem))] lg:max-w-5xl max-h-[min(92dvh,calc(100vh-1rem))] sm:max-h-[90dvh] bg-[#050b14] border border-white/15 rounded-t-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col min-h-0 animate-in fade-in slide-in-from-bottom-6 duration-200"
+          className="relative z-10 w-full max-w-[min(42rem,calc(100vw-1rem))] lg:max-w-6xl max-h-[min(92dvh,calc(100vh-1rem))] sm:max-h-[95dvh] bg-[#0f172a] border border-slate-700 rounded-t-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col min-h-0 animate-in fade-in slide-in-from-bottom-6 duration-200"
         >
-          <div className="px-3 py-2.5 sm:px-4 sm:py-3 border-b border-white/10 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between shrink-0 min-w-0">
-            <div className="min-w-0 pr-6 sm:pr-0">
-              <h3 className="text-sm font-semibold text-[#E8C547] flex items-center gap-2 flex-wrap">
+          {/* Header Section */}
+          <div className="px-5 py-4 border-b border-slate-800 bg-[#1e293b] flex items-center justify-between shrink-0 min-w-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 bg-emerald-600/20 rounded-xl flex items-center justify-center border border-emerald-500/30 shadow-lg shrink-0">
                 {existingOrderId ? (
-                  <SquarePen className="h-4 w-4 shrink-0 opacity-90" />
+                  <SquarePen className="h-5 w-5 text-emerald-400" />
                 ) : (
-                  <ClipboardList className="h-4 w-4 shrink-0 opacity-90" />
+                  <ClipboardList className="h-5 w-5 text-emerald-400" />
                 )}
-                {existingOrderId
-                  ? "Edit Pemakaian Alkes"
-                  : "Input Pemakaian Alkes"}
-              </h3>
-              <p className="text-[11px] text-white/85 mt-0.5">
-                {existingOrderId
-                  ? "Ubah barang & header order; simpan memperbarui data di Depo."
-                  : "Dari kasus tindakan — simpan mengirim ke Depo Farmasi (menunggu validasi)."}
-              </p>
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-base font-bold text-slate-100 leading-tight truncate">
+                  {existingOrderId
+                    ? "Edit Pemakaian Alkes"
+                    : "Input Pemakaian Alkes"}
+                </h3>
+                <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest mt-0.5 truncate">
+                  {drawerRuangan || "Pilih Ruangan"}
+                </p>
+              </div>
             </div>
-            <button
-              suppressHydrationWarning
-              type="button"
-              disabled={drawerSaving}
-              onClick={onClose}
-              className="self-end sm:self-start shrink-0 text-xs text-white/85 hover:text-white disabled:opacity-50 -mt-1 sm:mt-0"
-            >
-              Tutup
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                suppressHydrationWarning
+                type="button"
+                disabled={drawerSaving}
+                onClick={onClose}
+                className="w-10 h-10 rounded-xl flex items-center justify-center bg-red-900/20 text-red-400 hover:bg-red-900/40 transition-all border border-red-900/30 disabled:opacity-50"
+                aria-label="Tutup"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
-          <div className="px-3 py-3 sm:px-4 space-y-3 overflow-y-auto overflow-x-hidden text-xs flex-1 min-h-0 min-w-0 overscroll-contain">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 min-w-0">
-              <LabeledField label="Pasien">
-                <PasienCombobox
-                  listboxId="tindakan-pemakaian-modal-pasien"
-                  value={drawerPasien}
-                  onChange={setDrawerPasien}
-                  options={pasienOptions}
-                  loading={pasienLoading}
-                />
-              </LabeledField>
-              <LabeledField
-                label="Dokter / Operator"
-                errorMessage={
-                  dokterFieldInvalid
-                    ? "Wajib diisi — ketik nama atau pilih dari daftar."
-                    : undefined
-                }
-              >
-                <DoctorCombobox
-                  listboxId="tindakan-pemakaian-modal-doctor"
-                  value={drawerDokter}
-                  onChange={(v) => {
-                    setDrawerDokter(v);
-                    setDokterFieldInvalid(false);
-                  }}
-                  onInputBlur={(t) => {
-                    const resolved =
-                      doctorOptions.length > 0
-                        ? resolveDoctorFromLooseInput(doctorOptions, t)
-                        : null;
-                    setDrawerDokter(
-                      resolved ? formatDoctorLabel(resolved) : t.trim(),
-                    );
-                  }}
-                  onSelectOption={(picked) => {
-                    setDrawerDokter(formatDoctorLabel(picked));
-                    setDokterFieldInvalid(false);
-                  }}
-                  options={doctorOptions}
-                  loading={doctorLoading}
-                  inputClassName={
-                    dokterFieldInvalid
-                      ? "border-amber-400/70 ring-1 ring-amber-400/40 focus:ring-amber-400/50"
-                      : undefined
+          <div className="flex-1 overflow-y-auto custom-scrollbar overscroll-contain bg-[#0f172a]">
+            {/* Metadata Section */}
+            <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-5 bg-[#162031] border-b border-slate-800">
+              <div className="space-y-4">
+                <LabeledField label="Nama Pasien / No. RM">
+                  <PasienCombobox
+                    listboxId="tindakan-pemakaian-modal-pasien"
+                    value={drawerPasien}
+                    onChange={setDrawerPasien}
+                    options={pasienOptions}
+                    loading={pasienLoading}
+                    inputClassName="bg-[#0f172a] border-slate-700 text-slate-100 rounded-xl h-11"
+                  />
+                </LabeledField>
+                <LabeledField
+                  label="Lokasi Ruangan"
+                  errorMessage={
+                    ruanganFieldInvalid ? "Wajib diisi." : undefined
                   }
-                />
-              </LabeledField>
-              <LabeledField
-                label="Ruangan"
-                errorMessage={
-                  ruanganFieldInvalid
-                    ? "Wajib diisi — ketik nama atau pilih dari daftar."
-                    : undefined
-                }
-              >
-                <RuanganCombobox
-                  listboxId="tindakan-pemakaian-modal-ruangan"
-                  value={drawerRuangan}
-                  onChange={(v) => {
-                    setDrawerRuangan(v);
-                    setRuanganFieldInvalid(false);
-                  }}
-                  options={ruanganList}
-                  loading={ruanganListLoading}
-                  inputClassName={
-                    ruanganFieldInvalid
-                      ? "border-amber-400/70 ring-1 ring-amber-400/40 focus:ring-amber-400/50"
-                      : undefined
-                  }
-                />
-              </LabeledField>
-              <LabeledField label="Depo">
-                <input
-                  value={drawerDepo}
-                  onChange={(e) => setDrawerDepo(e.target.value)}
-                  placeholder="Depo Cathlab"
-                  className="w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 text-[11px] text-white placeholder:text-white/90 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40"
-                />
-              </LabeledField>
-              <div className="md:col-span-2">
-                <LabeledField label="Tanggal & Jam">
+                >
+                  <RuanganCombobox
+                    listboxId="tindakan-pemakaian-modal-ruangan"
+                    value={drawerRuangan}
+                    onChange={(v) => {
+                      setDrawerRuangan(v);
+                      setRuanganFieldInvalid(false);
+                    }}
+                    options={ruanganList}
+                    loading={ruanganListLoading}
+                    inputClassName={`bg-[#0f172a] border-slate-700 text-slate-100 rounded-xl h-11 ${
+                      ruanganFieldInvalid
+                        ? "border-red-500/50 ring-1 ring-red-500/20"
+                        : ""
+                    }`}
+                  />
+                </LabeledField>
+              </div>
+
+              <div className="space-y-4">
+                <LabeledField
+                  label="Dokter / DPJP"
+                  errorMessage={dokterFieldInvalid ? "Wajib diisi." : undefined}
+                >
+                  <DoctorCombobox
+                    listboxId="tindakan-pemakaian-modal-doctor"
+                    value={drawerDokter}
+                    onChange={(v) => {
+                      setDrawerDokter(v);
+                      setDokterFieldInvalid(false);
+                    }}
+                    onInputBlur={(t) => {
+                      const resolved =
+                        doctorOptions.length > 0
+                          ? resolveDoctorFromLooseInput(doctorOptions, t)
+                          : null;
+                      setDrawerDokter(
+                        resolved ? formatDoctorLabel(resolved) : t.trim(),
+                      );
+                    }}
+                    onSelectOption={(picked) => {
+                      setDrawerDokter(formatDoctorLabel(picked));
+                      setDokterFieldInvalid(false);
+                    }}
+                    options={doctorOptions}
+                    loading={doctorLoading}
+                    inputClassName={`bg-[#0f172a] border-slate-700 text-slate-100 rounded-xl h-11 ${
+                      dokterFieldInvalid
+                        ? "border-red-500/50 ring-1 ring-red-500/20"
+                        : ""
+                    }`}
+                  />
+                </LabeledField>
+                <LabeledField label="Depo Pengirim">
+                  <div className="relative">
+                    <select
+                      value={drawerDepo}
+                      onChange={(e) => setDrawerDepo(e.target.value)}
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 appearance-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                    >
+                      <option value={DEFAULT_DRAWER_DEPO}>
+                        {DEFAULT_DRAWER_DEPO}
+                      </option>
+                      <option value="Depo Farmasi Central">
+                        Depo Farmasi Central
+                      </option>
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                      <i className="fas fa-chevron-down text-[10px]"></i>
+                    </div>
+                  </div>
+                </LabeledField>
+              </div>
+
+              <div className="bg-emerald-950/10 border border-emerald-900/20 rounded-2xl p-4 flex flex-col justify-between">
+                <div>
+                  <label className="block text-[10px] font-bold text-emerald-600 uppercase mb-1.5 tracking-wider">
+                    Waktu Input
+                  </label>
                   <DatetimeLocalPicker
                     value={drawerDateTime}
                     onChange={setDrawerDateTime}
                   />
-                </LabeledField>
+                </div>
+                <div className="mt-4 pt-3 border-t border-emerald-900/20">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                      Status
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30">
+                      AKTIF
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="mt-2">
-              <div className="text-[#E8C547] font-semibold mb-1 flex flex-col gap-2 min-[400px]:flex-row min-[400px]:items-center min-[400px]:justify-between min-w-0">
-                <span className="text-xs shrink-0">Detail Barang Alkes</span>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-white/85 font-normal text-[10px]">
-                    {drawerLines.length} jenis
-                  </span>
+            <div className="p-5">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div className="flex items-center gap-2">
                   <button
                     suppressHydrationWarning
                     type="button"
-                    onClick={handlePrint}
-                    className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/30 px-2.5 py-1 text-[10px] font-semibold text-white/90 hover:border-[#E8C547]/45 hover:bg-[#E8C547]/10 hover:text-[#E8C547]"
-                    title="Cetak"
+                    onClick={() => setBarangScanOpen(true)}
+                    className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold border border-slate-700 hover:bg-slate-700 flex items-center gap-2 transition-all shadow-sm"
                   >
-                    <PrintIcon size={12} className="text-[#E8C547]" />
-                    Cetak
+                    <ScanLine className="h-3.5 w-3.5" /> Scan
                   </button>
                   <button
                     suppressHydrationWarning
@@ -1585,13 +1676,22 @@ export default function PemakaianAlkesModal({
                       setBarangPickerOpen(true);
                       setBarangPickerQuery("");
                     }}
-                    className="inline-flex items-center gap-1 rounded-full border border-[#E8C547]/50 bg-[#E8C547]/10 px-2.5 py-1 text-[10px] font-semibold text-[#E8C547] hover:bg-[#E8C547]/20"
+                    className="px-4 py-2 bg-[#059669] text-white rounded-lg text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-900/30 hover:bg-[#10b981] transition-all transform hover:-translate-y-0.5"
                   >
-                    <PlusCircle className="h-3 w-3" aria-hidden />
-                    Tambah
+                    <PlusCircle className="h-3.5 w-3.5" /> Tambah Manual
+                  </button>
+                  <button
+                    suppressHydrationWarning
+                    type="button"
+                    onClick={handlePrint}
+                    className="w-9 h-9 flex items-center justify-center bg-slate-800 text-slate-300 rounded-lg border border-slate-700 hover:bg-slate-700 transition-all"
+                    title="Cetak"
+                  >
+                    <PrintIcon size={16} />
                   </button>
                 </div>
               </div>
+
               <RincianBarangTemplateTabs
                 tab={rincianBarangTab}
                 onTabChange={setRincianBarangTab}
@@ -1602,172 +1702,142 @@ export default function PemakaianAlkesModal({
                 onChangeObatAlkes={patchTemplateObatAlkes}
                 onChangeKomponen={patchTemplateKomponen}
               >
-                <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-2 text-[10px] text-white/85">
-                    <span>
-                      Total qty resep:{" "}
-                      <span className="text-white/90 tabular-nums font-medium">
-                        {drawerLines.reduce((a, l) => a + l.qtyRencana, 0)}
-                      </span>
-                    </span>
-                    <span>
-                      Total qty dipakai:{" "}
-                      <span className="text-white/90 tabular-nums font-medium">
-                        {drawerLines.reduce((a, l) => a + l.qtyDipakai, 0)}
-                      </span>
-                    </span>
-                  </div>
-
-                  <div className="rounded-xl border border-white/10 overflow-x-auto -mx-0.5 px-0.5 sm:mx-0 sm:px-0 touch-pan-x">
-                    <table className="w-full text-[10px] min-w-[920px]">
-                      <thead>
-                        <tr className="bg-[#0a1628] text-white/90">
-                          <th className="text-left font-semibold px-2 py-1.5 min-w-[100px]">
-                            Barang
-                          </th>
-                          <th className="text-left font-semibold px-2 py-1.5 min-w-[5.5rem]">
-                            Kategori
-                          </th>
-                          <th className="text-left font-semibold px-2 py-1.5 min-w-[88px]">
-                            Distributor
-                          </th>
-                          <th className="text-left font-semibold px-2 py-1.5 min-w-[64px]">
-                            Ukuran
-                          </th>
-                          <th className="text-left font-semibold px-2 py-1.5 min-w-[56px]">
-                            LOT
-                          </th>
-                          <th className="text-left font-semibold px-2 py-1.5 min-w-[52px]">
-                            ED
-                          </th>
-                          <th className="text-right font-semibold px-2 py-1.5 whitespace-nowrap min-w-[6.5rem]">
-                            Harga
-                          </th>
-                          <th className="text-center font-semibold px-2 py-1.5 whitespace-nowrap min-w-[4.25rem]">
-                            Resep
-                          </th>
-                          <th className="text-center font-semibold px-2 py-1.5 whitespace-nowrap min-w-[3.5rem]">
-                            Stok
-                          </th>
-                          <th className="text-center font-semibold px-1 py-1.5 w-[72px]">
-                            Tipe
-                          </th>
-                          <th className="text-center font-semibold px-1 py-1.5 w-[1%] whitespace-nowrap">
-                            Aksi
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/[0.06]">
-                        {drawerLines.map((line) => (
-                          <tr key={line.lineId} className="bg-black/20">
-                            <td className="px-1.5 py-1 align-top">
-                              <BarangVariantCombobox
-                                variant="table"
-                                listboxId={`tindakan-pemakaian-modal-barang-${line.lineId}`}
-                                autoFocus={line.lineId === drawerFocusLineId}
-                                value={line.barang}
-                                blurResolveLine={{
-                                  distributor: line.distributor,
-                                  lot: line.lot,
-                                  ukuran: line.ukuran,
-                                  ed: line.ed,
-                                }}
-                                onChange={(nama) =>
-                                  patchDrawerLine(line.lineId, { barang: nama })
-                                }
-                                onPickVariant={(v) => {
-                                  const h = hargaFromPickRow(
-                                    v,
-                                    barangVariantList,
-                                  );
-                                  const kCat =
-                                    normalizeKategoriAlkesLine(v.kategori) || normalizeKategoriAlkesLine(v.jenis);
-                                  patchDrawerLine(line.lineId, {
-                                    barang: v.nama.trim(),
-                                    ...(kCat ? { kategori: kCat } : {}),
-                                    distributor:
-                                      v.distributor_nama?.trim() || undefined,
-                                    lot: v.lot?.trim() || undefined,
-                                    ukuran: v.ukuran?.trim() || undefined,
-                                    ed: v.ed?.trim() || undefined,
-                                    ...(h !== undefined ? { harga: h } : {}),
-                                  });
-                                  setDrawerLines((rows) => {
-                                    const idx = rows.findIndex(
-                                      (r) => r.lineId === line.lineId,
-                                    );
-                                    if (idx === rows.length - 1) {
-                                      const nextId = newDrawerLineId();
-                                      setDrawerFocusLineId(nextId);
-                                      return [
-                                        ...rows,
-                                        {
-                                          lineId: nextId,
-                                          barang: "",
-                                          distributor: "",
-                                          qtyRencana: 1,
-                                          qtyDipakai: 0,
-                                          tipe: "N",
-                                        },
-                                      ];
+                <div className="overflow-x-auto custom-scrollbar border border-slate-200 rounded-xl bg-white shadow-sm">
+                  <table className="w-full text-left border-collapse min-w-[1000px]">
+                    <thead>
+                      <tr className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                        <th className="p-4 border-b border-r border-slate-200">
+                          Detail Alkes / Produk
+                        </th>
+                        <th className="p-4 border-b border-r border-slate-200">
+                          Batch / LOT
+                        </th>
+                        <th className="p-4 border-b border-r border-slate-200">
+                          Ukuran
+                        </th>
+                        <th className="p-4 border-b border-r border-slate-200">
+                          ED
+                        </th>
+                        <th className="p-4 border-b border-r border-slate-200 text-center w-32">
+                          Qty Pakai
+                        </th>
+                        <th className="p-4 border-b border-r border-slate-200">
+                          Distributor
+                        </th>
+                        <th className="p-4 border-b border-r border-slate-200 text-center w-24">
+                          Tipe
+                        </th>
+                        <th className="p-4 border-b border-r border-slate-200">
+                          Keterangan
+                        </th>
+                        <th className="p-4 border-b border-slate-200 text-center w-20">
+                          Aksi
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm divide-y divide-slate-200">
+                      {drawerLines.map((line, idx) => {
+                        const isLast = idx === drawerLines.length - 1;
+                        const isEmpty = !line.barang.trim();
+                        return (
+                          <tr
+                            key={line.lineId}
+                            className={cn(
+                              "transition-colors group",
+                              isLast && isEmpty
+                                ? "bg-slate-50/50"
+                                : "hover:bg-slate-50/80",
+                            )}
+                          >
+                            <td className="p-4 border-r border-slate-100">
+                              <div className="max-w-[300px] flex items-center gap-2">
+                                {isLast && isEmpty && (
+                                  <Search className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                )}
+                                <div className="flex-1">
+                                  <BarangVariantCombobox
+                                    variant="table"
+                                    listboxId={`tindakan-pemakaian-modal-barang-${line.lineId}`}
+                                    autoFocus={
+                                      line.lineId === drawerFocusLineId
                                     }
-                                    return rows;
-                                  });
-                                }}
-                                options={barangVariantList}
-                                loading={barangVariantLoading}
-                                onRequestAddProduct={openTambahProdukModal}
-                              />
+                                    value={line.barang}
+                                    blurResolveLine={line}
+                                    onChange={(nama) =>
+                                      patchDrawerLine(line.lineId, {
+                                        barang: nama,
+                                      })
+                                    }
+                                    onPickVariant={(v) => {
+                                      const h = hargaFromPickRow(
+                                        v,
+                                        barangVariantList,
+                                      );
+                                      const kCat =
+                                        normalizeKategoriAlkesLine(
+                                          v.kategori,
+                                        ) ||
+                                        normalizeKategoriAlkesLine(v.jenis);
+                                      patchDrawerLine(line.lineId, {
+                                        barang: v.nama.trim(),
+                                        kategori: kCat || undefined,
+                                        distributor:
+                                          v.distributor_nama?.trim() ||
+                                          undefined,
+                                        lot: v.lot?.trim() || undefined,
+                                        ukuran: v.ukuran?.trim() || undefined,
+                                        ed: v.ed?.trim() || undefined,
+                                        isKonsolidasi: !!(v as any)
+                                          .is_konsolidasi,
+                                        harga: h,
+                                      });
+                                      if (isLast) {
+                                        const nextId = newDrawerLineId();
+                                        setDrawerFocusLineId(nextId);
+                                        setDrawerLines((prev) => [
+                                          ...prev,
+                                          {
+                                            lineId: nextId,
+                                            barang: "",
+                                            distributor: "",
+                                            qtyRencana: 1,
+                                            qtyDipakai: 0,
+                                            tipe: "N",
+                                          },
+                                        ]);
+                                      }
+                                    }}
+                                    options={barangVariantList}
+                                    loading={barangVariantLoading}
+                                    inputClassName="bg-transparent border-none p-0 text-black font-extrabold uppercase text-sm focus:ring-0 placeholder:text-slate-300"
+                                  />
+                                  {!isEmpty && (
+                                    <div className="mt-1">
+                                      <select
+                                        value={line.kategori || ""}
+                                        onChange={(e) =>
+                                          patchDrawerLine(line.lineId, {
+                                            kategori:
+                                              e.target.value || undefined,
+                                          })
+                                        }
+                                        className="text-[9px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded border-none focus:ring-1 focus:ring-emerald-500 cursor-pointer appearance-none"
+                                      >
+                                        <option value="">Pilih Kategori</option>
+                                        {DISTRIBUTOR_PRODUK_KATEGORI.map(
+                                          (cat) => (
+                                            <option key={cat} value={cat}>
+                                              {cat}
+                                            </option>
+                                          ),
+                                        )}
+                                      </select>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </td>
-                            <td className="px-1.5 py-1 align-top">
-                              <select
-                                suppressHydrationWarning
-                                aria-label="Kategori alkes"
-                                value={line.kategori ?? ""}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  patchDrawerLine(line.lineId, {
-                                    kategori: v
-                                      ? normalizeKategoriAlkesLine(v)
-                                      : undefined,
-                                  });
-                                }}
-                                className="w-full min-w-[5rem] bg-black/50 border border-white/15 rounded px-0.5 py-1 text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                              >
-                                <option value="">— Pilih —</option>
-                                {DISTRIBUTOR_PRODUK_KATEGORI.map((k) => (
-                                  <option key={k} value={k}>
-                                    {k}
-                                  </option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="px-1.5 py-1 align-top">
-                              <input
-                                type="text"
-                                value={line.distributor ?? ""}
-                                onChange={(e) =>
-                                  patchDrawerLine(line.lineId, {
-                                    distributor: e.target.value || undefined,
-                                  })
-                                }
-                                className="w-full min-w-[76px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                              />
-                            </td>
-                            <td className="px-1.5 py-1 align-top">
-                              <input
-                                type="text"
-                                value={line.ukuran ?? ""}
-                                onChange={(e) =>
-                                  patchDrawerLine(line.lineId, {
-                                    ukuran: e.target.value.trim() || undefined,
-                                  })
-                                }
-                                placeholder="—"
-                                className="w-full min-w-[56px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                              />
-                            </td>
-                            <td className="px-1.5 py-1 align-top">
+                            <td className="p-4 border-r border-slate-100">
                               <input
                                 type="text"
                                 value={line.lot ?? ""}
@@ -1777,10 +1847,23 @@ export default function PemakaianAlkesModal({
                                   })
                                 }
                                 placeholder="—"
-                                className="w-full min-w-[52px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                                className="bg-white text-black px-2 py-1 rounded font-mono text-xs border border-slate-200 w-full focus:border-emerald-500 transition-all"
                               />
                             </td>
-                            <td className="px-1.5 py-1 align-top">
+                            <td className="p-4 border-r border-slate-100">
+                              <input
+                                type="text"
+                                value={line.ukuran ?? ""}
+                                onChange={(e) =>
+                                  patchDrawerLine(line.lineId, {
+                                    ukuran: e.target.value.trim() || undefined,
+                                  })
+                                }
+                                placeholder="—"
+                                className="bg-white text-black px-2 py-1 rounded font-mono text-xs border border-slate-200 w-full focus:border-emerald-500 transition-all"
+                              />
+                            </td>
+                            <td className="p-4 border-r border-slate-100">
                               <input
                                 type="text"
                                 value={line.ed ?? ""}
@@ -1790,108 +1873,177 @@ export default function PemakaianAlkesModal({
                                   })
                                 }
                                 placeholder="MM-YYYY"
-                                className="w-full min-w-[52px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-white placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                                className="bg-transparent border-none p-0 text-black font-medium w-full focus:ring-0"
                               />
                             </td>
-                            <td className="px-1.5 py-1.5 align-middle text-right tabular-nums text-white/90 text-[10px]">
-                              {formatHargaCell(line.harga)}
+                            <td className="p-4 border-r border-slate-100">
+                              <div className="flex items-center bg-white rounded-lg border border-slate-300 overflow-hidden max-w-[120px] mx-auto shadow-sm">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    patchDrawerLine(line.lineId, {
+                                      qtyDipakai: Math.max(
+                                        0,
+                                        line.qtyDipakai - 1,
+                                      ),
+                                    })
+                                  }
+                                  className="px-3 py-1.5 hover:bg-slate-50 text-slate-400 transition-colors border-r border-slate-200"
+                                >
+                                  <i className="fas fa-minus text-[10px]"></i>
+                                </button>
+                                <input
+                                  type="number"
+                                  value={line.qtyDipakai}
+                                  onChange={(e) =>
+                                    patchDrawerLine(line.lineId, {
+                                      qtyDipakai: Math.max(
+                                        0,
+                                        Number(e.target.value) || 0,
+                                      ),
+                                    })
+                                  }
+                                  className="w-full bg-transparent border-none text-center text-xs font-bold focus:ring-0 text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    patchDrawerLine(line.lineId, {
+                                      qtyDipakai: line.qtyDipakai + 1,
+                                    })
+                                  }
+                                  className="px-3 py-1.5 hover:bg-slate-50 text-slate-400 transition-colors border-l border-slate-200"
+                                >
+                                  <i className="fas fa-plus text-[10px]"></i>
+                                </button>
+                              </div>
                             </td>
-                            <td className="px-1 py-1 align-top">
+                            <td className="p-4 border-r border-slate-100">
                               <input
-                                type="number"
-                                min={0}
-                                value={line.qtyRencana}
+                                type="text"
+                                value={line.distributor ?? ""}
                                 onChange={(e) =>
                                   patchDrawerLine(line.lineId, {
-                                    qtyRencana: Math.max(
-                                      0,
-                                      Number(e.target.value) || 0,
-                                    ),
+                                    distributor: e.target.value || undefined,
                                   })
                                 }
-                                className="w-full bg-black/50 border border-white/15 rounded px-1 py-1 text-center tabular-nums text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                                className="bg-white border border-slate-200 rounded px-2 py-1 text-[11px] text-black italic w-full focus:border-emerald-500 focus:ring-0"
+                                placeholder="Distributor..."
                               />
                             </td>
-                            <td className="px-1 py-1 align-top">
-                              <input
-                                type="number"
-                                min={0}
-                                value={line.qtyDipakai}
-                                onChange={(e) =>
-                                  patchDrawerLine(line.lineId, {
-                                    qtyDipakai: Math.max(
-                                      0,
-                                      Number(e.target.value) || 0,
-                                    ),
-                                  })
-                                }
-                                className="w-full bg-black/50 border border-white/15 rounded px-1 py-1 text-center tabular-nums text-white/90 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
-                              />
-                            </td>
-                            <td className="px-1 py-1 align-top">
+                            <td className="p-4 text-center border-r border-slate-100">
                               <select
-                                suppressHydrationWarning
                                 value={line.tipe}
                                 onChange={(e) =>
                                   patchDrawerLine(line.lineId, {
-                                    tipe: e.target
-                                      .value as PemakaianLine["tipe"],
+                                    tipe: e.target.value as any,
                                   })
                                 }
-                                className="w-full bg-black/50 border border-white/15 rounded px-0.5 py-1 text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50"
+                                className="bg-white border border-slate-200 text-black text-[10px] rounded px-2 py-1 focus:border-emerald-500 focus:ring-0"
                               >
                                 <option value="N">N</option>
                                 <option value="R">R</option>
                               </select>
                             </td>
-                            <td className="px-1 py-1 align-middle text-center">
+                            <td className="p-4 border-r border-slate-100">
+                              <input
+                                type="text"
+                                value={line.keterangan ?? ""}
+                                onChange={(e) =>
+                                  patchDrawerLine(line.lineId, {
+                                    keterangan: e.target.value || undefined,
+                                  })
+                                }
+                                className="bg-white border border-slate-200 rounded px-2 py-1 text-[11px] text-black w-full focus:border-emerald-500 focus:ring-0"
+                                placeholder="Catatan..."
+                              />
+                            </td>
+                            <td className="p-4 text-center">
                               <button
-                                suppressHydrationWarning
                                 type="button"
                                 onClick={() => removeDrawerLine(line.lineId)}
-                                className="inline-flex items-center gap-0.5 rounded-lg border border-rose-500/50 bg-rose-950/50 px-1.5 py-0.5 text-[9px] font-semibold text-rose-200 hover:bg-rose-900/60 focus:outline-none focus:ring-1 focus:ring-rose-400/50"
-                                aria-label={`Hapus baris ${line.barang || line.lineId}`}
+                                className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-all"
                                 title="Hapus baris"
                               >
-                                <Trash2
-                                  className="h-3 w-3 shrink-0"
-                                  aria-hidden
-                                />
+                                <Trash2 className="h-4 w-4" />
                               </button>
                             </td>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Summary Section */}
+                <div className="mt-6 p-4 rounded-xl bg-white border border-slate-200 shadow-sm flex justify-between items-center">
+                  <div className="flex items-center gap-6">
+                    <div className="text-center px-4 border-r border-slate-100">
+                      <div className="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-wider">
+                        Total Jenis
+                      </div>
+                      <div className="text-lg font-bold text-black leading-none">
+                        {drawerLines.filter((l) => l.barang.trim()).length}
+                      </div>
+                    </div>
+                    <div className="text-center px-4">
+                      <div className="text-[10px] text-slate-400 uppercase font-bold mb-1 tracking-wider">
+                        Total Qty Pakai
+                      </div>
+                      <div className="text-lg font-bold text-emerald-600 leading-none">
+                        {drawerLines.reduce((a, l) => a + l.qtyDipakai, 0)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Link
+                      href="/dashboard/farmasi/master-barang"
+                      target="_blank"
+                      className="px-4 py-2 text-[10px] font-bold text-slate-500 bg-slate-50 rounded-lg hover:bg-slate-100 transition-all uppercase tracking-widest border border-slate-200"
+                    >
+                      Buka Master Barang
+                    </Link>
                   </div>
                 </div>
               </RincianBarangTemplateTabs>
             </div>
           </div>
 
-          <div className="px-3 py-3 sm:px-4 border-t border-white/10 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end shrink-0 min-h-[3.25rem]">
-            <button
-              suppressHydrationWarning
-              type="button"
-              onClick={onClose}
-              disabled={drawerSaving}
-              className="w-full sm:w-auto px-3 py-2.5 sm:py-1.5 rounded-full text-xs border border-white/20 text-white/85 hover:bg-white/5 disabled:opacity-50 min-h-[44px] sm:min-h-0"
-            >
-              Batal
-            </button>
-            <button
-              suppressHydrationWarning
-              type="button"
-              onClick={() => void submitDrawerPemakaian()}
-              disabled={drawerSaving}
-              className="w-full sm:w-auto px-4 py-2.5 sm:py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-[#C9A227] via-[#E8C547] to-[#2dd4bf] text-[#0a0f18] shadow-[0_0_18px_rgba(232,197,71,0.35)] hover:shadow-[0_0_22px_rgba(45,212,191,0.25)] disabled:opacity-60 disabled:pointer-events-none min-h-[44px] sm:min-h-0"
-            >
-              {drawerSaving
-                ? "Menyimpan…"
-                : existingOrderId
-                  ? "Simpan perubahan"
-                  : "Simpan & Kirim ke Depo + Distributor"}
-            </button>
+          {/* Footer Section */}
+          <div className="p-6 bg-[#0f172a] border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-[10px] text-slate-500 font-medium italic">
+                Sistem tersinkronisasi dengan database Farmasi...
+              </span>
+            </div>
+            <div className="flex gap-3 w-full md:w-auto">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={drawerSaving}
+                className="flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[11px] font-bold text-slate-400 hover:bg-slate-800 border border-slate-700 transition-all uppercase tracking-wider disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitDrawerPemakaian()}
+                disabled={drawerSaving}
+                className="flex-1 md:flex-none px-10 py-2.5 bg-[#059669] hover:bg-[#10b981] text-white rounded-xl text-[11px] font-bold shadow-xl shadow-emerald-900/40 flex items-center justify-center gap-2 uppercase tracking-widest transition-all transform hover:-translate-y-0.5 disabled:opacity-50"
+              >
+                {drawerSaving ? (
+                  "Menyimpan..."
+                ) : (
+                  <>
+                    <i className="fas fa-save text-sm"></i>
+                    {existingOrderId
+                      ? "Simpan Perubahan"
+                      : "Simpan & Kirim Data"}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -44,7 +44,7 @@ export async function GET(req: Request) {
   let mappingQuery = supabase
     .from("distributor_barang")
     .select(
-      "id, distributor_id, master_barang_id, kode_distributor, harga_jual, min_stok, is_active, barcode, kategori, lot, ukuran, ed, created_at, updated_at",
+      "id, distributor_id, master_barang_id, kode_distributor, harga_jual, min_stok, is_active, barcode, kategori, lot, ukuran, ed, is_konsolidasi, created_at, updated_at",
     );
 
   if (targetDistributorId)
@@ -362,7 +362,7 @@ export async function POST(req: Request) {
     .from("distributor_barang")
     .upsert(payload as never, { onConflict: "distributor_id,master_barang_id" })
     .select(
-      "id, distributor_id, master_barang_id, kode_distributor, harga_jual, min_stok, is_active, barcode, kategori, lot, ukuran, ed",
+      "id, distributor_id, master_barang_id, kode_distributor, harga_jual, min_stok, is_active, barcode, kategori, lot, ukuran, ed, is_konsolidasi",
     );
 
   if (error)

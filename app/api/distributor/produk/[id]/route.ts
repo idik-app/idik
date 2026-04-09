@@ -87,6 +87,8 @@ export async function PATCH(
     payload.min_stok = body.min_stok === null ? null : Number(body.min_stok);
   if (body?.is_active !== undefined)
     payload.is_active = Boolean(body.is_active);
+  if (body?.is_konsolidasi !== undefined)
+    payload.is_konsolidasi = Boolean(body.is_konsolidasi);
 
   const catalog = parseDistributorBarangExtra(
     body as Record<string, unknown>,
@@ -141,7 +143,7 @@ export async function PATCH(
     .update(payload as never)
     .eq("id", mappingId)
     .select(
-      "id, distributor_id, master_barang_id, kode_distributor, harga_jual, min_stok, is_active, barcode, kategori, lot, ukuran, ed",
+      "id, distributor_id, master_barang_id, kode_distributor, harga_jual, min_stok, is_active, barcode, kategori, lot, ukuran, ed, is_konsolidasi",
     );
 
   if (error)

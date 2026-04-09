@@ -2198,9 +2198,9 @@ export default function TindakanTable({
         <TindakanLaporanPemakaianModal
           open={laporanPemakaianModalOpen}
           onOpenChange={setLaporanPemakaianModalOpen}
-          rows={filteredRecords}
+          rows={rowsForPemakaianLink}
           loading={loading}
-          filterSummaryLines={filterSummaryLines}
+          filterSummaryLines={[]}
         />
 
         <FastTrackListModal

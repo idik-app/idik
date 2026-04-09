@@ -218,6 +218,9 @@ function DistributorBarangPageContent() {
   const [loading, setLoading] = useState(true);
   const [loadingModal, setLoadingModal] = useState(false);
   const [adminView, setAdminView] = useState(false);
+  const [distributors, setDistributors] = useState<
+    { id: string; nama_pt: string; is_konsolidasi: boolean }[]
+  >([]);
 
   const [barcodeInput, setBarcodeInput] = useState("");
   const [barcodeHint, setBarcodeHint] = useState<string | null>(null);
@@ -373,6 +376,25 @@ function DistributorBarangPageContent() {
     };
   }, [formNamaMasterBaru, modalOpen, editing]);
 
+  useEffect(() => {
+    if (!modalOpen || editing) return;
+    if (adminView && distributorIdParam) {
+      const target = distributors.find((d) => d.id === distributorIdParam);
+      if (target) {
+        setFormKonsolidasi(target.is_konsolidasi);
+        return;
+      }
+    }
+    setFormKonsolidasi(userDistributorIsKonsolidasi);
+  }, [
+    modalOpen,
+    editing,
+    adminView,
+    distributorIdParam,
+    distributors,
+    userDistributorIsKonsolidasi,
+  ]);
+
   /** Tambah: dari nama barang, isi kategori STENT + harga referensi stent bila pola nama cocok. */
   useEffect(() => {
     if (!modalOpen || editing) return;
@@ -401,8 +423,19 @@ function DistributorBarangPageContent() {
       .then((r) => r.json())
       .then((j) => {
         if (!alive) return;
-        setAdminView(j?.mode === "admin_view");
+        const isAdmin = j?.mode === "admin_view";
+        setAdminView(isAdmin);
         setUserDistributorIsKonsolidasi(Boolean(j?.is_konsolidasi));
+
+        if (isAdmin) {
+          fetch("/api/distributor/distributors", { cache: "no-store" })
+            .then((r) => r.json())
+            .then((dj) => {
+              if (!alive) return;
+              setDistributors(dj?.data ?? []);
+            })
+            .catch(() => {});
+        }
       })
       .catch(() => {});
     return () => {
@@ -762,7 +795,14 @@ function DistributorBarangPageContent() {
       setFormHargaJual("");
       setFormStokCathlabTarget("");
       setFormIsActive(true);
-      setFormKonsolidasi(userDistributorIsKonsolidasi);
+
+      if (adminView && distributorIdParam) {
+        const target = distributors.find((d) => d.id === distributorIdParam);
+        setFormKonsolidasi(target ? target.is_konsolidasi : false);
+      } else {
+        setFormKonsolidasi(userDistributorIsKonsolidasi);
+      }
+
       const seed = opts?.seedBarcodeFromFilter?.trim() ?? "";
       setBarcodeInput(looksLikeBarcodeSearchToken(seed) ? seed.trim() : "");
       const seedLot = opts?.seedLotFromFilter?.trim() ?? "";
@@ -776,7 +816,12 @@ function DistributorBarangPageContent() {
       setFormKodeMasterBaru("");
       setModalOpen(true);
     },
-    [adminView, distributorIdParam],
+    [
+      adminView,
+      distributorIdParam,
+      distributors,
+      userDistributorIsKonsolidasi,
+    ],
   );
 
   useEffect(() => {
@@ -804,6 +849,8 @@ function DistributorBarangPageContent() {
     openTambahProdukModal,
     adminView,
     distributorIdParam,
+    distributors,
+    userDistributorIsKonsolidasi,
   ]);
 
   useEffect(() => {
@@ -2208,17 +2255,22 @@ function DistributorBarangPageContent() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Labeled label="Konsolidasi">
                     <select
-                      disabled
+                      disabled={!adminView}
                       value={formKonsolidasi ? "1" : "0"}
                       onChange={(e) => setFormKonsolidasi(e.target.value === "1")}
                       onKeyDown={onModalEnterAdvanceField}
-                      className="w-full bg-slate-900/50 border border-cyan-800/50 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400 opacity-70 cursor-not-allowed"
+                      className={[
+                        "w-full bg-slate-900/50 border border-cyan-800/50 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400",
+                        !adminView ? "opacity-70 cursor-not-allowed" : "",
+                      ].join(" ")}
                     >
                       <option value="0">Non Konsolidasi</option>
                       <option value="1">Konsolidasi</option>
                     </select>
                     <p className="mt-1 text-[10px] text-cyan-500/60">
-                      Otomatis sesuai profil distributor Anda
+                      {adminView
+                        ? "Admin dapat mengubah status konsolidasi produk ini."
+                        : "Otomatis sesuai profil distributor Anda"}
                     </p>
                   </Labeled>
                 </div>

@@ -765,7 +765,7 @@ export default function PemakaianAlkesModal({
             ? next.kategori
             : (l.kategori ? l.kategori : (row ? (normalizeKategoriAlkesLine(row.kategori) || normalizeKategoriAlkesLine(row.jenis)) : next.kategori));
 
-        const isKonsolidasi = 
+      const isKonsolidasi = 
           patch.isKonsolidasi !== undefined
             ? next.isKonsolidasi
             : (row ? !!(row as any).is_konsolidasi : next.isKonsolidasi);

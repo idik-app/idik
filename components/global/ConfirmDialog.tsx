@@ -1,6 +1,8 @@
 "use client";
 import { createPortal } from "react-dom";
 import { useEffect, useState, ReactNode } from "react";
+import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 /**
  * ✅ ConfirmDialog — Modal konfirmasi global
@@ -27,7 +29,7 @@ export default function ConfirmDialog({
   if (!mounted || !open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[600] bg-black/60 flex items-center justify-center">
+    <div className={cn("fixed inset-0 bg-black/60 flex items-center justify-center", UI_LAYERS.confirmDialogHigh)}>
       <div className="bg-gray-900 border border-cyan-600 rounded-2xl p-6 shadow-lg text-center w-80 text-[hsl(var(--foreground))]">
         <div className="text-sm mb-4 opacity-90">{message}</div>
         <div className="flex justify-center gap-3">

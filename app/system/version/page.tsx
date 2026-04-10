@@ -80,7 +80,7 @@ export default function VersionPage() {
     );
 
   return (
-    <div className="relative p-6 text-cyan-200 overflow-y-auto max-h-screen rounded-2xl border border-cyan-400/20 bg-gradient-to-b from-[#0a0f1a] via-[#081523] to-[#0b1a2a] shadow-[0_0_25px_rgba(0,255,255,0.1)]">
+    <div className="relative p-6 text-cyan-200 overflow-y-auto max-h-screen rounded-2xl border border-cyan-400/20 bg-gradient-to-b from-[#0a0f1a] via-[#081523] to-[#0b1a2a]">
       {/* glowing edges */}
       <div className="pointer-events-none absolute inset-y-0 left-0 w-[2px] bg-gradient-to-b from-transparent via-cyan-400/50 to-transparent animate-[pulse_2s_ease-in-out_infinite]" />
       <div className="pointer-events-none absolute inset-y-0 right-0 w-[2px] bg-gradient-to-b from-transparent via-yellow-400/50 to-transparent animate-[pulse_2s_ease-in-out_infinite]" />
@@ -117,7 +117,7 @@ export default function VersionPage() {
             className="relative cursor-pointer group"
           >
             <div className="absolute -left-[9px] top-2 w-4 h-4 rounded-full bg-cyan-400 shadow-[0_0_10px_#00FFFF] group-hover:scale-125 transition-transform" />
-            <div className="bg-[#0d1b28]/60 border border-cyan-400/30 rounded-xl p-4 backdrop-blur-md group-hover:border-yellow-400/50 transition-all">
+            <div className="bg-[#0d1b28]/60 border border-cyan-400/30 rounded-xl p-4 group-hover:border-yellow-400/50 transition-all">
               <h2 className="text-lg font-semibold text-yellow-400">
                 v{log.version} — {log.codename}
               </h2>
@@ -134,7 +134,7 @@ export default function VersionPage() {
       <AnimatePresence>
         {selected && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -144,7 +144,7 @@ export default function VersionPage() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="relative w-full max-w-xl bg-gradient-to-b from-[#061019] to-[#0b1a2a] border border-cyan-400/30 rounded-2xl p-6 text-gray-200 shadow-[0_0_40px_rgba(0,255,255,0.25)]"
+              className="relative w-full max-w-xl bg-gradient-to-b from-[#061019] to-[#0b1a2a] border border-cyan-400/30 rounded-2xl p-6 text-gray-200"
             >
               <button
                 onClick={() => setSelected(null)}

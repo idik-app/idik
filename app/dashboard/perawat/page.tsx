@@ -248,7 +248,7 @@ export default function PerawatHubPage() {
       </div>
 
       {createOpen && (
-        <section className="rounded-2xl border border-emerald-500/25 bg-black/35 backdrop-blur-sm p-4 md:p-5 shadow-[0_0_20px_rgba(16,185,129,0.08)] space-y-3">
+        <section className="rounded-2xl border border-emerald-500/25 bg-black/35 p-4 md:p-5 space-y-3">
           <h2 className="text-lg font-semibold text-emerald-200">Tambah Data Perawat</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input
@@ -281,7 +281,7 @@ export default function PerawatHubPage() {
 
       {submitError && <div className="text-sm text-red-300">{submitError}</div>}
 
-      <section className="rounded-2xl border border-cyan-500/25 bg-black/35 backdrop-blur-sm p-4 md:p-5 shadow-[0_0_20px_rgba(0,255,255,0.08)]">
+      <section className="rounded-2xl border border-cyan-500/25 bg-black/35 p-4 md:p-5">
         {loading ? (
           <div className="py-10 flex items-center justify-center gap-2 text-cyan-300">
             <Loader2 size={18} className="animate-spin" />
@@ -294,7 +294,7 @@ export default function PerawatHubPage() {
         ) : (
           <div className="overflow-x-auto rounded-xl border border-cyan-700/40 bg-black/20">
             <table className="w-full text-sm border-collapse">
-              <thead className="sticky top-0 bg-black/60 text-yellow-400 backdrop-blur-sm">
+              <thead className="sticky top-0 bg-black/60 text-yellow-400">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">Username</th>
                   <th className="px-3 py-2 text-left font-medium">Role</th>
@@ -352,7 +352,7 @@ export default function PerawatHubPage() {
       </section>
 
       {editingId && (
-        <section className="rounded-2xl border border-cyan-500/25 bg-black/35 backdrop-blur-sm p-4 md:p-5 shadow-[0_0_20px_rgba(0,255,255,0.08)] space-y-3">
+        <section className="rounded-2xl border border-cyan-500/25 bg-black/35 p-4 md:p-5 space-y-3">
           <h2 className="text-lg font-semibold text-cyan-100">Edit Data Perawat</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <input
@@ -391,7 +391,7 @@ export default function PerawatHubPage() {
       )}
 
       {confirmDeleteId && (
-        <section className="rounded-2xl border border-red-500/25 bg-black/35 backdrop-blur-sm p-4 md:p-5 shadow-[0_0_20px_rgba(239,68,68,0.08)]">
+        <section className="rounded-2xl border border-red-500/25 bg-black/35 p-4 md:p-5">
           <p className="text-red-200">
             Hapus data perawat ini? Tindakan ini tidak bisa dibatalkan.
           </p>

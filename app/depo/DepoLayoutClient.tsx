@@ -54,7 +54,7 @@ export default function DepoLayoutClient({
       className="min-h-app min-w-0 bg-[#020617] text-white print:bg-white"
       suppressHydrationWarning
     >
-      <div className="border-b border-emerald-900/60 bg-slate-950/60 backdrop-blur print:hidden">
+      <div className="border-b border-emerald-900/60 bg-slate-950/60 print:hidden">
         <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-[11px] text-white">
@@ -162,7 +162,7 @@ export default function DepoLayoutClient({
                       ? "md:justify-center md:px-0 md:py-2.5 px-3 py-2 whitespace-nowrap"
                       : "px-3 py-2 whitespace-nowrap",
                     active
-                      ? "font-semibold text-white border-2 border-cyan-400/80 bg-emerald-950/50 shadow-[0_0_18px_rgba(34,211,238,0.2)]"
+                      ? "font-semibold text-white border-2 border-cyan-400/80 bg-emerald-950/50"
                       : "border-2 border-transparent hover:bg-slate-900/60 text-white",
                   ].join(" ")}
                 >

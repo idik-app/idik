@@ -19,44 +19,41 @@ export function DialogContent({
   children,
   className,
   overlayClassName,
+  hideOverlay,
   ...props
 }: DialogPrimitive.DialogContentProps & {
   className?: string;
   /** Naikkan z-index bila dialog dibuka dari layer tinggi (mis. drawer z-[5000]). */
   overlayClassName?: string;
+  /** Sembunyikan backdrop hitam di belakang modal. */
+  hideOverlay?: boolean;
 }) {
   return (
     <DialogPrimitive.Portal>
       <AnimatePresence>
-        <DialogPrimitive.Overlay key="jarvis-dialog-overlay" asChild forceMount>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.7 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className={`fixed inset-0 ${UI_LAYERS.overlay} bg-black/75 ${
-              overlayClassName ?? ""
-            }`}
-          />
-        </DialogPrimitive.Overlay>
+        {!hideOverlay && (
+          <DialogPrimitive.Overlay key="jarvis-dialog-overlay" asChild forceMount>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.7 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className={`fixed inset-0 ${UI_LAYERS.overlay} bg-black/75 ${
+                overlayClassName ?? ""
+              }`}
+            />
+          </DialogPrimitive.Overlay>
+        )}
 
         <DialogPrimitive.Content
           key="jarvis-dialog-content"
           {...props}
           className={cn(
-            `fixed left-1/2 top-1/2 ${UI_LAYERS.modal} w-[95%] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-cyan-500/40 bg-black/60 text-[hsl(var(--foreground))] shadow-xl backdrop-blur-xl focus:outline-none`,
+            "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg",
             className,
           )}
         >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            transition={{ duration: 0.25 }}
-            className="overflow-visible"
-          >
-            {children}
-          </motion.div>
+          {children}
         </DialogPrimitive.Content>
       </AnimatePresence>
     </DialogPrimitive.Portal>

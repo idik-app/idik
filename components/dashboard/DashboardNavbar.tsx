@@ -16,7 +16,7 @@ export default function DashboardNavbar() {
   return (
     <nav
       className="fixed top-0 left-0 w-full z-50 flex justify-between items-center 
-                 px-8 py-3 backdrop-blur-md bg-black/40 border-b border-cyan-500/20 
+                 px-8 py-3 bg-black/40 border-b border-cyan-500/20 
                  text-cyan-300 font-medium animate-in fade-in slide-in-from-top-2 duration-300"
     >
       {/* Logo */}

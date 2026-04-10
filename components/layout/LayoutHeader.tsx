@@ -31,7 +31,7 @@ export default function LayoutHeader() {
   return (
     <div
       ref={headerRef}
-      className="flex shrink-0 flex-col relative z-[30] backdrop-blur-md transition-all duration-300"
+      className="flex shrink-0 flex-col relative z-[30] transition-all duration-300"
       style={{
         backgroundColor: isDark
           ? `rgba(0,0,0,${opacity * 0.6})`

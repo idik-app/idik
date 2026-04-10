@@ -145,7 +145,7 @@ export default function TabBar() {
       {/* 🔷 Main Tab Container — min-h agar tidak collapse saat banyak tab ditutup */}
       <div
         className={cn(
-          "relative flex items-center min-h-[48px] backdrop-blur-md border-b transition-colors duration-500",
+          "relative flex items-center min-h-[40px] border-b transition-colors duration-500",
           lightMode
             ? "bg-slate-100/90 border-cyan-600/25 shadow-sm"
             : "bg-[#04070d]/70 border-cyan-500/20 shadow-[0_0_15px_rgba(0,255,255,0.25)]"
@@ -154,7 +154,7 @@ export default function TabBar() {
         <LayoutGroup id="tabbar-tabs">
           <div
             ref={containerRef}
-            className="flex-1 min-w-0 flex items-center gap-1.5 px-2 py-2 sm:gap-2 sm:px-4 overflow-x-auto hide-scrollbar"
+            className="flex-1 min-w-0 flex items-center gap-1 px-2 py-1 sm:gap-1.5 sm:px-3 overflow-x-auto hide-scrollbar"
           >
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
@@ -165,7 +165,7 @@ export default function TabBar() {
                   className="shrink-0"
                   style={{
                     contentVisibility: "auto",
-                    containIntrinsicSize: "auto 44px",
+                    containIntrinsicSize: "auto 32px",
                   }}
                 >
                   <button
@@ -181,7 +181,7 @@ export default function TabBar() {
                     onFocus={() => prefetchTabHref(tab.id)}
                     onMouseEnter={() => prefetchTabHref(tab.id)}
                     className={cn(
-                      "group relative flex items-center gap-1.5 px-2.5 py-1.5 sm:gap-2 sm:px-4 sm:py-2 rounded-full border transition-colors duration-200",
+                      "group relative flex items-center gap-1 px-2 py-1 sm:gap-1.5 sm:px-3 sm:py-1 rounded-full border transition-colors duration-200",
                       isActive
                         ? lightMode
                           ? "border-[#b8860b]/65 bg-gradient-to-r from-white to-cyan-50/95 text-cyan-900 shadow-sm"
@@ -191,13 +191,13 @@ export default function TabBar() {
                           : "border-transparent text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/5"
                     )}
                   >
-                    <span className="font-bold whitespace-nowrap">
+                    <span className="font-bold text-[11px] sm:text-xs whitespace-nowrap">
                       {tab.label}
                     </span>
 
                     {!tab.fixed && (
                       <X
-                        size={14}
+                        size={12}
                         onClick={(e) => {
                           e.stopPropagation();
                           closeTab(tab.id);
@@ -229,7 +229,7 @@ export default function TabBar() {
             onClick={() => closeAllTabs()}
             disabled={tabs.length <= 1}
             className={cn(
-              "p-2 rounded-lg border border-transparent transition-colors duration-200 disabled:opacity-50 disabled:pointer-events-none",
+              "p-1.5 rounded-lg border border-transparent transition-colors duration-200 disabled:opacity-50 disabled:pointer-events-none",
               lightMode
                 ? "text-slate-600 hover:text-cyan-800 hover:bg-cyan-500/15 hover:border-cyan-600/25"
                 : "text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/10 hover:border-cyan-500/30"
@@ -237,7 +237,7 @@ export default function TabBar() {
             title="Tutup semua tab"
             aria-label="Tutup semua tab"
           >
-            <Trash2 size={18} />
+            <Trash2 size={16} />
           </button>
         </div>
       </div>

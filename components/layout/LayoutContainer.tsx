@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   LazyMotion,
   domAnimation,
@@ -34,7 +34,7 @@ export default function LayoutContainer() {
   const [blink, setBlink] = useState(false);
   const [visible, setVisible] = useState(true);
   const [showTooltip, setShowTooltip] = useState(false);
-  const [idleTimer, setIdleTimer] = useState<NodeJS.Timeout | null>(null);
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const SIDEBAR_OPEN = sidebarWidth;
   const SIDEBAR_COLLAPSED = 80;
@@ -116,10 +116,9 @@ export default function LayoutContainer() {
   /* 🕵️ Mode Stealth – hilang setelah 10 dtk idle */
   useEffect(() => {
     const resetTimer = () => {
-      setVisible(true);
-      if (idleTimer) clearTimeout(idleTimer);
-      const timer = setTimeout(() => setVisible(false), 10 * 1000);
-      setIdleTimer(timer);
+      setVisible((prev) => (prev ? prev : true));
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(() => setVisible(false), 10 * 1000);
     };
 
     const events = ["mousemove", "keydown", "click", "touchstart"];
@@ -128,7 +127,7 @@ export default function LayoutContainer() {
 
     return () => {
       events.forEach((e) => window.removeEventListener(e, resetTimer));
-      if (idleTimer) clearTimeout(idleTimer);
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     };
   }, []);
 
@@ -145,7 +144,7 @@ export default function LayoutContainer() {
         {/* 🧩 Sidebar */}
         <motion.aside
           className={cn(
-            "fixed left-0 top-0 min-h-app h-app z-[40] overflow-hidden transition-colors duration-500",
+            `fixed left-0 top-0 min-h-app h-app ${UI_LAYERS.sidebar} overflow-hidden transition-colors duration-500`,
             lightMode
               ? "bg-slate-100 border-r border-cyan-600/25"
               : "bg-[#0d141f] border-r border-cyan-900/40",
@@ -162,7 +161,7 @@ export default function LayoutContainer() {
             duration: 0.5,
             ease: [0.4, 0, 0.2, 1],
           }}
-          className="flex min-h-0 flex-1 flex-col relative z-[10] w-full min-w-0"
+          className={cn("flex min-h-0 flex-1 flex-col relative w-full min-w-0", UI_LAYERS.base)}
         >
           <LayoutHeader />
           <LayoutMain />

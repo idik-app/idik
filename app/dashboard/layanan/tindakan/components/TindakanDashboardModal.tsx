@@ -117,12 +117,12 @@ export default function TindakanDashboardModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "max-h-[90vh] w-[min(100vw-1rem,800px)] overflow-hidden border p-0",
+          "max-h-[85vh] w-[min(100vw-1rem,750px)] overflow-hidden border p-0",
           "border-slate-300/60 bg-white/98 backdrop-blur-xl dark:border-cyan-500/35 dark:bg-slate-950/95",
         )}
       >
-        <div className="flex flex-col h-full max-h-[90vh]">
-          <DialogHeader className="shrink-0 p-4 pb-2 sm:p-6 sm:pb-3 space-y-1 pr-12 text-left">
+        <div className="flex flex-col h-full max-h-[85vh]">
+          <DialogHeader className="shrink-0 p-3 pb-1.5 sm:p-4 sm:pb-2 space-y-1 pr-12 text-left">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-2.5">
                 <div className={cn(

@@ -25,11 +25,11 @@ export default function ModalWrapper({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className={cn("fixed inset-0", UI_LAYERS.modalForm, "flex items-center justify-center bg-black/60")}
       onClick={onClose}
     >
       <div
-        className={`relative z-[130] ...`}
+        className={cn("relative", UI_LAYERS.modalFormContent, "...")}
         onClick={(e) => e.stopPropagation()}
       >
         {children}

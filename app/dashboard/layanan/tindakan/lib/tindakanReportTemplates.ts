@@ -1,3 +1,5 @@
+import { saveAs } from "file-saver";
+import * as XLSX from "xlsx";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
@@ -206,6 +208,189 @@ export function buildFastTrackWhatsAppText(
   if (rows.length > maxRows) {
     lines.push("", `… +${rows.length - maxRows} baris lainnya (buka aplikasi / unduh HTML).`);
   }
+  return lines.join("\n");
+}
+
+/**
+ * Ekspor data Fast-Track ke format Excel (.xlsx)
+ */
+export function downloadFastTrackExcel(
+  rows: readonly TindakanJoinResult[],
+  filename: string,
+): void {
+  const data = rows.map((rec, i) => {
+    const raw = rec as unknown as Record<string, unknown>;
+    const jk = resolveJenisKelaminFromRow(raw, null);
+    return {
+      No: i + 1,
+      Tanggal: String(rec.tanggal ?? "").slice(0, 10) || "—",
+      RM: displayRm(raw),
+      Nama: normalizeNamaPasien(displayNamaPasien(raw)),
+      JK: formatJenisKelaminDisplay(jk),
+      Lahir: String(rec.tgl_lahir ?? "").trim().slice(0, 10) || "—",
+      Umur: rec.umur ?? "—",
+      Alamat: String(rec.alamat ?? "").trim() || "—",
+      Telp: String(rec.no_telp ?? "").trim() || "—",
+      Dokter: String(rec.dokter ?? "").trim() || "—",
+      Tindakan: String(rec.tindakan ?? "").trim() || "—",
+      "Pasien Tiba IGD": rec.pasien_datang_igd || "—",
+      "Door to Balloon": rec.door_to_balloon || "—",
+      "Total Waktu": rec.total_waktu_fast_track || "—",
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "FastTrack");
+
+  const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const finalBlob = new Blob([excelBuffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  saveAs(finalBlob, `${filename.replace(".html", "")}.xlsx`);
+}
+
+/**
+ * Ekspor data Pemakaian Alkes ke format Excel (.xlsx)
+ */
+export function downloadPemakaianAlkesExcel(opts: {
+  rows: readonly TindakanJoinResult[];
+  filename: string;
+  parsePemakaian: (txt: string) => {
+    STENT: string[];
+    BALLOON: string[];
+    ALKES_LAINNYA: string[];
+  };
+}): void {
+  const data = opts.rows.map((rec, i) => {
+    const raw = rec as unknown as Record<string, unknown>;
+    const parsed = opts.parsePemakaian(String(rec.pemakaian ?? ""));
+    return {
+      No: i + 1,
+      Tanggal: String(rec.tanggal ?? "").slice(0, 10) || "—",
+      RM: displayRm(raw),
+      Nama: normalizeNamaPasien(displayNamaPasien(raw)),
+      Dokter: rec.dokter || "—",
+      STENT: parsed.STENT.join("\n"),
+      BALLOON: parsed.BALLOON.join("\n"),
+      "ALKES LAINNYA": parsed.ALKES_LAINNYA.join("\n"),
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "PemakaianAlkes");
+
+  const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const finalBlob = new Blob([excelBuffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  saveAs(finalBlob, `${opts.filename.replace(".html", "")}.xlsx`);
+}
+
+export function buildPemakaianAlkesReportHtml(opts: {
+  rows: readonly TindakanJoinResult[];
+  subtitleLines: string[];
+  parsePemakaian: (txt: string) => {
+    STENT: string[];
+    BALLOON: string[];
+    ALKES_LAINNYA: string[];
+  };
+}): string {
+  const bodyRows = opts.rows
+    .map((rec, i) => {
+      const raw = rec as unknown as Record<string, unknown>;
+      const nama = normalizeNamaPasien(displayNamaPasien(raw));
+      const rm = displayRm(raw);
+      const rawPemakaian = String(rec.pemakaian ?? "");
+      const parsed = opts.parsePemakaian(rawPemakaian);
+
+      const formatBlock = (blocks: string[]) =>
+        blocks
+          .join("\n\n")
+          .replace(/\n/g, "<br/>")
+          .replace(
+            /\[KONSOLIDASI\]/gi,
+            '<strong style="color:#10b981; font-size: 0.8em;">[KONSOLIDASI]</strong>',
+          )
+          .replace(
+            /\bNON KONSOLIDASI\b/gi,
+            '<strong style="color:#3b82f6; font-size: 0.8em;">NON KONSOLIDASI</strong>',
+          );
+
+      return `<tr>
+        <td class="num">${i + 1}</td>
+        <td class="num">${String(rec.tanggal ?? "").slice(0, 10) || "—"}</td>
+        <td><strong>${escapeHtml(nama)}</strong><br/><small>${escapeHtml(rm)}</small></td>
+        <td>${escapeHtml(rec.dokter || "—")}</td>
+        <td style="white-space: pre-wrap;">${formatBlock(parsed.STENT) || "—"}</td>
+        <td style="white-space: pre-wrap;">${formatBlock(parsed.BALLOON) || "—"}</td>
+        <td style="white-space: pre-wrap;">${formatBlock(parsed.ALKES_LAINNYA) || "—"}</td>
+      </tr>`;
+    })
+    .join("\n");
+
+  const table = `<table>
+    <thead>
+      <tr>
+        <th style="width:40px">No</th>
+        <th style="width:100px">Tanggal</th>
+        <th style="width:180px">Pasien / RM</th>
+        <th style="width:150px">Dokter</th>
+        <th style="width:200px">STENT</th>
+        <th style="width:200px">BALLOON</th>
+        <th>ALKES LAINNYA</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${bodyRows || '<tr><td colspan="7" class="num">Tidak ada data pemakaian.</td></tr>'}
+    </tbody>
+  </table>`;
+
+  return wrapReportHtmlDocument({
+    title: "LAPORAN PEMAKAIAN ALKES (CATHLAB)",
+    subtitleLines: opts.subtitleLines,
+    bodyInnerHtml: table,
+  });
+}
+
+export function buildPemakaianAlkesWhatsAppText(opts: {
+  rows: readonly TindakanJoinResult[];
+  subtitleLines: string[];
+  parsePemakaian: (txt: string) => {
+    STENT: string[];
+    BALLOON: string[];
+    ALKES_LAINNYA: string[];
+  };
+}): string {
+  const lines = [
+    "*LAPORAN PEMAKAIAN ALKES (CATHLAB)*",
+    "",
+    ...opts.subtitleLines,
+    "",
+  ];
+
+  opts.rows.slice(0, 20).forEach((r, i) => {
+    const raw = r as unknown as Record<string, unknown>;
+    const nama = normalizeNamaPasien(displayNamaPasien(raw));
+    const tgl = String(r.tanggal ?? "").slice(5, 10); // MM-DD
+    const parsed = opts.parsePemakaian(String(r.pemakaian ?? ""));
+    const allItems = [
+      ...parsed.STENT,
+      ...parsed.BALLOON,
+      ...parsed.ALKES_LAINNYA,
+    ];
+    const pemakaian = allItems
+      .join(", ")
+      .replace(/\n/g, " ")
+      .replace(/\s+/g, " ");
+    lines.push(`${i + 1}. [${tgl}] ${nama}: ${pemakaian}`);
+  });
+
+  if (opts.rows.length > 20) {
+    lines.push("", `... +${opts.rows.length - 20} lainnya.`);
+  }
+
   return lines.join("\n");
 }
 

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 import ModalWrapper from "@/components/global/ModalWrapper";
 import type { Pasien } from "../types/pasien";
 import { addPatientAction, editPatientAction } from "../actions/clientBridge";
@@ -188,7 +190,7 @@ export default function PasienModalForm({
 
   return (
     <ModalWrapper onClose={onClose}>
-      <div className="relative z-[310]">
+      <div className={cn("relative", UI_LAYERS.floatingCard)}>
         <div
           className="animate-in fade-in zoom-in-95 duration-200 rounded-xl border border-cyan-500/40 bg-gradient-to-br from-cyan-900/40 to-black/60 p-3 text-cyan-100 shadow-[0_0_16px_rgba(0,255,255,0.22)] sm:rounded-2xl sm:p-6 sm:shadow-[0_0_25px_rgba(0,255,255,0.3)]"
         >

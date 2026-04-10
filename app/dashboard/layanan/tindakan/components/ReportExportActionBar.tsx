@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, MessageCircle, Printer } from "lucide-react";
+import { Download, FileSpreadsheet, MessageCircle, Printer } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   downloadReportHtml,
@@ -17,7 +17,12 @@ type Props = {
   fileNameBase: string;
   buildHtml: () => string;
   buildWhatsAppText: () => string;
+  onDownloadExcel?: () => void;
   className?: string;
+  /** Label tambahan untuk tombol (opsional, misal "Alkes"). */
+  label?: string;
+  /** Sembunyikan tombol Unduh & WA (hanya tampilkan tombol utama/Cetak). */
+  minimal?: boolean;
 };
 
 export default function ReportExportActionBar({
@@ -26,14 +31,17 @@ export default function ReportExportActionBar({
   fileNameBase,
   buildHtml,
   buildWhatsAppText,
+  onDownloadExcel,
   className,
+  label,
+  minimal = false,
 }: Props) {
   const blocked = disabled || empty;
 
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-1.5",
+        "flex flex-wrap items-center gap-1",
         className,
       )}
       role="group"
@@ -44,46 +52,55 @@ export default function ReportExportActionBar({
         disabled={blocked}
         onClick={() => printReportHtml(buildHtml())}
         className={cn(
-          "inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-extrabold transition",
+          "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-extrabold transition",
           "border-slate-300 bg-white text-slate-900 hover:bg-slate-50",
           "dark:border-white/25 dark:bg-black/50 dark:text-white dark:hover:bg-black/70",
           "disabled:cursor-not-allowed disabled:opacity-45",
+          minimal && "border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400 dark:bg-amber-500/10"
         )}
         title="Cetak (dialog printer)"
       >
-        <Printer size={14} className="shrink-0" strokeWidth={2.25} />
-        Cetak
+        <Printer size={12} className="shrink-0" strokeWidth={2.25} />
+        {label ? `${label}` : "Cetak"}
       </button>
-      <button
-        type="button"
-        disabled={blocked}
-        onClick={() => downloadReportHtml(fileNameBase, buildHtml())}
-        className={cn(
-          "inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-extrabold transition",
-          "border-slate-300 bg-white text-slate-900 hover:bg-slate-50",
-          "dark:border-white/25 dark:bg-black/50 dark:text-white dark:hover:bg-black/70",
-          "disabled:cursor-not-allowed disabled:opacity-45",
-        )}
-        title="Unduh berkas HTML (buka di browser / cetak)"
-      >
-        <Download size={14} className="shrink-0" strokeWidth={2.25} />
-        Unduh
-      </button>
-      <button
-        type="button"
-        disabled={blocked}
-        onClick={() => openWhatsAppWithText(buildWhatsAppText())}
-        className={cn(
-          "inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-extrabold transition",
-          "border-emerald-600/70 bg-emerald-600 text-white hover:brightness-110",
-          "dark:border-emerald-500/60 dark:bg-emerald-700 dark:text-white",
-          "disabled:cursor-not-allowed disabled:opacity-45",
-        )}
-        title="Buka WhatsApp dengan ringkasan teks (pesan dibatasi panjang)"
-      >
-        <MessageCircle size={14} className="shrink-0" strokeWidth={2.25} />
-        Kirim WA
-      </button>
+
+      {onDownloadExcel && (
+        <button
+          type="button"
+          disabled={blocked}
+          onClick={onDownloadExcel}
+          className={cn(
+            "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-extrabold transition",
+            "border-slate-300 bg-white text-slate-900 hover:bg-slate-50",
+            "dark:border-white/25 dark:bg-black/50 dark:text-white dark:hover:bg-black/70",
+            "disabled:cursor-not-allowed disabled:opacity-45",
+          )}
+          title="Unduh format Excel (.xlsx)"
+        >
+          <FileSpreadsheet size={12} className="shrink-0 text-emerald-600 dark:text-emerald-400" strokeWidth={2.25} />
+          Excel
+        </button>
+      )}
+
+      {!minimal && (
+        <>
+          <button
+            type="button"
+            disabled={blocked}
+            onClick={() => openWhatsAppWithText(buildWhatsAppText())}
+            className={cn(
+              "inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-extrabold transition",
+              "border-emerald-600/70 bg-emerald-600 text-white hover:brightness-110",
+              "dark:border-emerald-500/60 dark:bg-emerald-700 dark:text-white",
+              "disabled:cursor-not-allowed disabled:opacity-45",
+            )}
+            title="Buka WhatsApp dengan ringkasan teks (pesan dibatasi panjang)"
+          >
+            <MessageCircle size={12} className="shrink-0" strokeWidth={2.25} />
+            WA
+          </button>
+        </>
+      )}
     </div>
   );
 }

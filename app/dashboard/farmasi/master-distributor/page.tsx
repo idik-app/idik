@@ -159,7 +159,7 @@ export default function MasterDistributorPage() {
       )}
 
       <div
-        className="bg-gradient-to-br from-[#0B0F15]/90 to-[#111B26]/90 border border-[#0EA5E9]/40 rounded-2xl p-4 backdrop-blur-md overflow-hidden"
+        className="bg-gradient-to-br from-[#0B0F15]/90 to-[#111B26]/90 border border-[#0EA5E9]/40 rounded-2xl p-4 overflow-hidden"
       >
         <div className="flex items-center justify-between mb-3">
           <div>

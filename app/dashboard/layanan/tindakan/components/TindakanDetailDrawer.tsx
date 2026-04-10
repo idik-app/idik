@@ -37,6 +37,7 @@ import SignTimeFields from "./SignTimeFields";
 import { buildResumeWhatsAppText } from "../lib/buildResumeWhatsAppText";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
+import { usePasienDetail, useTindakanDetail } from "../hooks/useMasterData";
 
 type Props = {
   open: boolean;
@@ -328,149 +329,36 @@ export default function TindakanDetailDrawer({
   };
 
   const [modalMinWidthPx, setModalMinWidthPx] = useState<number | null>(null);
-  const [pasienMaster, setPasienMaster] = useState<Pasien | null>(null);
-  /** Tarif dari GET /api/tindakan/:id (master + enrich) bila baris daftar belum membawa nilai. */
-  const [detailTarifFromApi, setDetailTarifFromApi] = useState<number | null>(
-    null,
-  );
   const [waCopied, setWaCopied] = useState(false);
+
+  // SWR hooks for master data
+  const { pasien: pasienMaster } = usePasienDetail(
+    open ? record?.pasien_id : null,
+    open ? record?.no_rm : null,
+    open ? record?.nama_pasien : null
+  );
+
+  const { tindakan: tindakanDetail } = useTindakanDetail(
+    open && !isTarifPresent(record?.tarif_tindakan) ? record?.id : null
+  );
+
+  const detailTarifFromApi = useMemo(() => {
+    if (!tindakanDetail) return null;
+    const raw = tindakanDetail.tarif_tindakan;
+    const n =
+      typeof raw === "number"
+        ? raw
+        : Number(
+            String(raw ?? "")
+              .replace(/\s/g, "")
+              .replace(",", "."),
+          );
+    return Number.isFinite(n) ? n : null;
+  }, [tindakanDetail]);
 
   useEffect(() => {
     if (open) setTab("pasien");
   }, [open, record?.id]);
-
-  useEffect(() => {
-    if (!open || !record) {
-      setPasienMaster(null);
-      return;
-    }
-
-    const ac = new AbortController();
-    setPasienMaster(null);
-
-    void (async () => {
-      const opts: RequestInit = {
-        credentials: "include",
-        cache: "no-store",
-        signal: ac.signal,
-      };
-
-      const parsePasien = (raw: unknown): Pasien | null =>
-        raw && typeof raw === "object" && "id" in (raw as object)
-          ? (raw as Pasien)
-          : null;
-
-      try {
-        const pid = String(record.pasien_id ?? "").trim();
-        if (pid) {
-          const res = await fetch(
-            `/api/pasien/${encodeURIComponent(pid)}`,
-            opts,
-          );
-          const json = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            data?: unknown;
-          };
-          if (res.ok && json?.ok) {
-            const p = parsePasien(json.data);
-            if (p && !ac.signal.aborted) {
-              setPasienMaster(p);
-              return;
-            }
-          }
-        }
-
-        const rm = String(record.no_rm ?? "").trim();
-        if (rm) {
-          const res = await fetch(
-            `/api/pasien?noRm=${encodeURIComponent(rm)}`,
-            opts,
-          );
-          const json = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            data?: unknown;
-          };
-          if (res.ok && json?.ok) {
-            const p = parsePasien(json.data);
-            if (p && !ac.signal.aborted) {
-              setPasienMaster(p);
-              return;
-            }
-          }
-        }
-
-        const nama = String(record.nama_pasien ?? "").trim();
-        if (nama) {
-          const res = await fetch(
-            `/api/pasien?nama=${encodeURIComponent(nama)}`,
-            opts,
-          );
-          const json = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            data?: unknown;
-          };
-          if (res.ok && json?.ok) {
-            const p = parsePasien(json.data);
-            if (p && !ac.signal.aborted) setPasienMaster(p);
-          }
-        }
-      } catch (e) {
-        if ((e as Error)?.name === "AbortError") return;
-      }
-    })();
-
-    return () => ac.abort();
-    // Primitif saja — panjang array harus tetap (bukan `record` mentah yang bisa bikin HMR / pola deps bervariasi).
-  }, [open, record?.id, record?.pasien_id, record?.no_rm, record?.nama_pasien]);
-
-  useEffect(() => {
-    if (!open || !record?.id) {
-      setDetailTarifFromApi(null);
-      return;
-    }
-    const id = String(record.id).trim();
-    if (!id) {
-      setDetailTarifFromApi(null);
-      return;
-    }
-
-    if (isTarifPresent(record.tarif_tindakan)) {
-      setDetailTarifFromApi(null);
-      return;
-    }
-
-    const ac = new AbortController();
-    setDetailTarifFromApi(null);
-
-    void (async () => {
-      try {
-        const res = await fetch(`/api/tindakan/${encodeURIComponent(id)}`, {
-          credentials: "include",
-          cache: "no-store",
-          signal: ac.signal,
-        });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          data?: { tarif_tindakan?: unknown };
-        };
-        if (!res.ok || !json?.ok || ac.signal.aborted) return;
-        const raw = json.data?.tarif_tindakan;
-        const n =
-          typeof raw === "number"
-            ? raw
-            : Number(
-                String(raw ?? "")
-                  .replace(/\s/g, "")
-                  .replace(",", "."),
-              );
-        if (Number.isFinite(n)) setDetailTarifFromApi(n);
-      } catch (e) {
-        if ((e as Error)?.name === "AbortError") return;
-      }
-    })();
-
-    return () => ac.abort();
-  }, [open, record?.id, record?.tarif_tindakan]);
 
   const displayRecord = useMemo(() => {
     if (!record) return null;
@@ -600,7 +488,7 @@ export default function TindakanDetailDrawer({
             aria-labelledby="tindakan-detail-modal-title"
             className={cn(
               "pointer-events-auto flex h-[85vh] max-h-[85vh] min-w-0 w-full max-w-4xl flex-col overflow-hidden rounded-xl border antialiased [text-rendering:optimizeLegibility]",
-              "border-cyan-500/30 bg-[#050505] shadow-[0_0_50px_rgba(34,211,238,0.15)] dark:border-cyan-400/20",
+              "border-cyan-500/30 bg-[#050505] dark:border-cyan-400/20",
             )}
             style={
               modalMinWidthPx != null
@@ -611,9 +499,9 @@ export default function TindakanDetailDrawer({
           >
             <div
               className={cn(
-                "shrink-0 border-b px-3 py-2 sm:px-3.5",
-                "border-cyan-500/20 bg-black/40 backdrop-blur-md",
-              )}
+              "shrink-0 border-b px-3 py-2 sm:px-3.5",
+              "border-cyan-500/20 bg-black/40",
+            )}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">

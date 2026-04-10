@@ -66,7 +66,7 @@ export default function TindakanDashboard() {
       {/* ✴️ HEADER (sticky) */}
       <motion.header
         variants={fadeUp}
-        className="sticky top-0 z-30 backdrop-blur-md bg-black/40 border-b border-cyan-900/40 p-6"
+        className="sticky top-0 z-30 bg-black/40 border-b border-cyan-900/40 p-6"
       >
         <TindakanHeader />
         <div className="mt-4">

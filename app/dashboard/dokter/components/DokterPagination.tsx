@@ -86,7 +86,7 @@ export default function DokterPagination() {
               onClick={() => setCurrentPage(p)}
               className={`min-w-[2rem] px-2 py-1 rounded-md text-sm font-medium transition ${
                 p === currentPage
-                  ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.25)]"
+                  ? "bg-yellow-500/20 text-yellow-300 border border-yellow-500/50"
                   : "text-cyan-400 border border-transparent hover:bg-cyan-500/10 hover:border-cyan-600/40"
               }`}
               aria-current={p === currentPage ? "page" : undefined}

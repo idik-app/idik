@@ -22,7 +22,7 @@ import { useTindakanCrud } from "../hooks/useTindakanCrud";
 
 function findTindakanRow(list: unknown[], id: string) {
   return (list as any[]).find(
-    (r: any) => r != null && String(r.id ?? "") === String(id)
+    (r: any) => r != null && String(r.id ?? "") === String(id),
   );
 }
 
@@ -61,14 +61,14 @@ export function useTindakanBridgeAdapter() {
     (rowId: string) => {
       bridge.emitOpenDetail(rowId);
     },
-    [bridge]
+    [bridge],
   );
 
   const openEditor = useCallback(
     (rowId: string) => {
       bridge.emitOpenEditor(rowId);
     },
-    [bridge]
+    [bridge],
   );
 
   const saveEditor = useCallback(
@@ -77,17 +77,20 @@ export function useTindakanBridgeAdapter() {
       bridge.emitEdited({ id, updatedData });
       await reload({ silent: true });
     },
-    [bridge, reload, updateOne]
+    [bridge, reload, updateOne],
   );
 
   const createRecord = useCallback(
     async (payload: unknown) => {
       const created = await createOne(payload as Record<string, unknown>);
-      bridge.emitEdited({ id: String((created as { id?: string } | null)?.id ?? ""), created: true });
+      bridge.emitEdited({
+        id: String((created as { id?: string } | null)?.id ?? ""),
+        created: true,
+      });
       await reload({ silent: true });
       return created;
     },
-    [bridge, createOne, reload]
+    [bridge, createOne, reload],
   );
 
   const deleteRecord = useCallback(
@@ -140,9 +143,8 @@ export function useTindakanBridgeAdapter() {
   };
 
   const selectedRecord = useMemo(
-    () =>
-      detailOpenId ? findTindakanRow(tindakanList, detailOpenId) : null,
-    [tindakanList, detailOpenId]
+    () => (detailOpenId ? findTindakanRow(tindakanList, detailOpenId) : null),
+    [tindakanList, detailOpenId],
   );
 
   // --------------------------------------------------------------------

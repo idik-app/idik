@@ -35,17 +35,17 @@ export default function TindakanHeader({
   return (
     <div
       className={cn(
-        "rounded-lg px-2 py-1.5 sm:px-2.5 sm:py-2 transition-colors duration-500",
+        "rounded-lg px-1.5 py-1 sm:px-2 sm:py-1.5 transition-colors duration-500",
         themeTone === "emerald"
           ? "bg-gradient-to-br from-white via-emerald-50/40 to-white dark:bg-gradient-to-br dark:from-black dark:via-black dark:to-black"
           : "bg-gradient-to-br from-white via-cyan-50/35 to-white dark:bg-gradient-to-br dark:from-black dark:via-black dark:to-black",
       )}
     >
-      <div className="space-y-1 sm:space-y-1.5">
+        <div className="space-y-0.5 sm:space-y-1">
         <Link
           href="/dashboard/perawat"
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold transition-colors",
+            "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-bold transition-colors",
             themeTone === "emerald"
               ? "border-emerald-500/40 bg-emerald-100/80 text-emerald-900 hover:border-emerald-600/60 dark:border-emerald-700/50 dark:bg-black dark:text-white dark:hover:border-emerald-500/55 dark:hover:text-white"
               : "border-cyan-500/40 bg-cyan-100/80 text-cyan-900 hover:border-cyan-600/60 dark:border-cyan-700/50 dark:bg-black dark:text-white dark:hover:border-cyan-500/55 dark:hover:text-white",
@@ -70,16 +70,16 @@ export default function TindakanHeader({
               type="button"
               onClick={onPhoneDirectoryOpen}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-bold transition",
+                "inline-flex items-center gap-1 rounded-xl border px-2 py-1 text-[11px] font-bold transition",
                 "border-amber-500/45 bg-amber-100/90 text-amber-900 hover:border-amber-600/55 dark:border-amber-700/50 dark:bg-black dark:text-white dark:hover:border-amber-500/55",
               )}
             >
-              <Phone className="h-4 w-4 shrink-0 opacity-95 dark:opacity-100" />
+              <Phone className="h-3.5 w-3.5 shrink-0 opacity-95 dark:opacity-100" />
               Daftar Telp
             </button>
             <div
               className={cn(
-                "inline-flex items-center gap-1 rounded-xl border p-1",
+                "inline-flex items-center gap-1 rounded-xl border p-0.5",
                 "border-slate-200 bg-slate-50/50 dark:border-zinc-800 dark:bg-black",
               )}
             >
@@ -87,7 +87,7 @@ export default function TindakanHeader({
                 type="button"
                 onClick={() => onRoleAccessClick("depo")}
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-bold transition",
+                  "rounded-lg px-2 py-0.5 text-[11px] font-bold transition",
                   "bg-cyan-200/90 text-cyan-950 hover:bg-cyan-300/90",
                   "dark:bg-cyan-500/30 dark:text-white dark:hover:bg-cyan-500/40",
                 )}
@@ -98,7 +98,7 @@ export default function TindakanHeader({
                 type="button"
                 onClick={() => onRoleAccessClick("distributor")}
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-bold transition",
+                  "rounded-lg px-2 py-0.5 text-[11px] font-bold transition",
                   "bg-emerald-100 text-emerald-900 hover:bg-emerald-200",
                   "dark:bg-emerald-500/30 dark:text-white dark:hover:bg-emerald-500/40",
                 )}
@@ -108,7 +108,7 @@ export default function TindakanHeader({
             </div>
             <div
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5",
+                "inline-flex items-center gap-1 rounded-lg border px-2 py-1",
                 themeTone === "emerald"
                   ? "border-emerald-400/45 bg-white/80 dark:border-emerald-700/45 dark:bg-black"
                   : "border-cyan-400/45 bg-white/80 dark:border-cyan-700/45 dark:bg-black",

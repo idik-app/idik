@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { runDeduped } from "@/lib/api/runDeduped";
 
-const TINDAKAN_LIST_KEY = "GET:/api/tindakan?limit=20000";
+const TINDAKAN_LIST_KEY = "GET:/api/tindakan?limit=1000";
 
 async function fetchTindakanRowsOnce(): Promise<unknown[]> {
-  const res = await fetch("/api/tindakan?limit=20000", {
+  const res = await fetch("/api/tindakan?limit=1000", {
     credentials: "include",
     cache: "no-store",
   });
@@ -117,22 +117,22 @@ export function useTindakanData() {
         },
         () => {
           const now = Date.now();
-          // Jangan reload spam: cukup 1 reload per ~4 detik.
-          if (now - lastRealtimeReloadAtRef.current < 4000) return;
+          // Perketat jeda reload: dari 4 detik ke 10 detik untuk menghindari waterfall request
+          if (now - lastRealtimeReloadAtRef.current < 10000) return;
           lastRealtimeReloadAtRef.current = now;
 
           // Saat tab background, biarkan polling yang berjalan.
           if (document.hidden) return;
 
-          // Jika reload senyap sedang berjalan, jangan tumpuk (ini yang terasa "stag").
+          // Jika reload senyap sedang berjalan, jangan tumpuk.
           if (silentInFlightRef.current > 0) return;
 
-          // Beri jeda kecil agar trigger DB selesai update banyak baris tindakan.
+          // Beri jeda lebih lama agar trigger DB selesai update banyak baris.
           window.setTimeout(() => {
             if (document.hidden) return;
             if (silentInFlightRef.current > 0) return;
             void reload({ silent: true });
-          }, 800);
+          }, 2000);
         },
       )
       .subscribe();

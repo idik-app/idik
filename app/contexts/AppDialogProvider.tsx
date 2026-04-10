@@ -10,6 +10,9 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
+
 import {
   AppDialogContext,
   type AppAlertVariant,
@@ -151,7 +154,7 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
       <AnimatePresence>
         {open ? (
           <div
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+            className={cn("fixed inset-0 flex items-center justify-center p-4", UI_LAYERS.confirmDialog)}
             role="presentation"
           >
             <motion.button
@@ -252,4 +255,3 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
     </AppDialogContext.Provider>
   );
 }
-

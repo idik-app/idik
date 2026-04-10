@@ -298,7 +298,7 @@ export function DoctorCombobox({
         </ul>
       ) : null}
       {open && !loading && options.length === 0 ? (
-        <p className="absolute left-0 right-0 top-full z-[60] mt-1 rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/55">
+        <p className="absolute left-0 right-0 top-full z-[60] mt-1 rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/85">
           Belum ada dokter di master. Tambah lewat menu Dokter.
         </p>
       ) : null}

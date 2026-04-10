@@ -191,7 +191,7 @@ export default function ConsoleLogs() {
       {/* Console Panel */}
       <div
         ref={panelRef}
-        className="rounded-2xl shadow-[0_0_15px_rgba(0,255,255,0.3)] bg-gradient-to-b from-[#0b0f18]/90 to-[#05070c]/90 backdrop-blur-sm border border-cyan-500/30 text-sm leading-relaxed h-[60vh] overflow-y-auto p-4 font-mono"
+        className="rounded-2xl bg-gradient-to-b from-[#0b0f18]/90 to-[#05070c]/90 border border-cyan-500/30 text-sm leading-relaxed h-[60vh] overflow-y-auto p-4 font-mono"
       >
         {filtered.length === 0 ? (
           <div className="text-gray-500 text-center">No logs recorded.</div>

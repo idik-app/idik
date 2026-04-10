@@ -27,7 +27,7 @@ export default function PhoneShortcutsBar({ themeTone }: { themeTone: "cyan" | "
   if (!isLoaded || pinnedItems.length === 0) return null;
 
   return (
-    <div className="mb-2 px-1">
+    <div className="mb-1 px-1">
       <DragDropContext onDragEnd={onDragEnd}>
         <Droppable droppableId="phone-shortcuts" direction="horizontal">
           {(provided) => (

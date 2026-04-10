@@ -21,6 +21,8 @@ import {
   buildTindakanHariIniReportHtml,
   buildTindakanHariIniWhatsAppText,
 } from "../lib/tindakanReportTemplates";
+import MasterDokterField from "./MasterDokterField";
+import MasterJenisTindakanField from "./MasterJenisTindakanField";
 
 function todayWibYmd(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -42,12 +44,14 @@ export default function TindakanHariIniModal({
   rows,
   loading,
   themeTone,
+  onRecordPatch,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   rows: readonly TindakanJoinResult[];
   loading: boolean;
   themeTone: "cyan" | "emerald";
+  onRecordPatch?: () => void;
 }) {
   const today = todayWibYmd();
   const todayRows = useMemo(
@@ -86,13 +90,13 @@ export default function TindakanHariIniModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "max-h-[95vh] w-[min(100vw-1rem,96vw)] max-w-[min(96vw,90rem)] overflow-auto p-0",
-          "border-slate-300/60 bg-white/98 backdrop-blur-xl dark:border-cyan-500/35 dark:bg-black/80",
+          "max-h-[92vh] w-[min(100vw-1rem,96vw)] max-w-[min(96vw,85rem)] overflow-auto p-0",
+          "border-slate-300/60 bg-white/98 dark:border-cyan-500/35 dark:bg-black/80",
         )}
       >
         <div
           className={cn(
-            "flex flex-col gap-3 p-4 sm:p-6",
+            "flex flex-col gap-2 p-3 sm:p-4",
             "text-slate-900 dark:text-white",
           )}
         >
@@ -145,7 +149,7 @@ export default function TindakanHariIniModal({
                   <tr
                     className={cn(
                       // Header tabel: gradient + backdrop blur agar terlihat lebih elegan.
-                      "border-b text-center backdrop-blur-md shadow-[0_12px_30px_rgba(245,158,11,0.16)]",
+                      "border-b text-center shadow-[0_12px_30px_rgba(245,158,11,0.16)]",
                       "border-amber-200/70 bg-gradient-to-b from-amber-400/85 via-amber-200/65 to-amber-100/40 dark:border-amber-400/55 dark:bg-gradient-to-b dark:from-amber-300/30 dark:via-amber-200/20 dark:to-amber-200/10",
                     )}
                   >
@@ -211,12 +215,20 @@ export default function TindakanHariIniModal({
                         <td className="px-2 py-1.5 text-center text-[12px] text-slate-800 dark:text-white/90">
                           {formatJenisKelaminDisplay(jk)}
                         </td>
-                        <td className="px-2 py-1.5 text-center text-[12px] text-slate-800 dark:text-white/90">
-                          {dokter}
-                        </td>
-                        <td className="px-2 py-1.5 text-center text-[12px] text-slate-800 dark:text-white/90">
-                          {tindakan}
-                        </td>
+                          <td className="px-2 py-1.5 text-center text-[12px] text-slate-800 dark:text-white/90">
+                            <MasterDokterField
+                              tindakanId={String(rec.id)}
+                              value={String(rec.dokter ?? "")}
+                              onSaved={onRecordPatch}
+                            />
+                          </td>
+                          <td className="px-2 py-1.5 text-center text-[12px] text-slate-800 dark:text-white/90">
+                            <MasterJenisTindakanField
+                              tindakanId={String(rec.id)}
+                              value={String(rec.tindakan ?? "")}
+                              onSaved={onRecordPatch}
+                            />
+                          </td>
                         <td className="px-2 py-1.5 text-center text-[12px] text-slate-800 dark:text-white/90">
                           {ruangan}
                         </td>

@@ -873,9 +873,9 @@ export default function TindakanTable({
   const refreshPemakaianOrderIndex = useCallback(async () => {
     try {
       const { res, j } = await runDeduped(
-        "GET:/api/pemakaian-orders",
+        "GET:/api/pemakaian-orders?limit=1000",
         async () => {
-          const res = await fetch("/api/pemakaian-orders", {
+          const res = await fetch("/api/pemakaian-orders?limit=1000", {
             credentials: "include",
             cache: "no-store",
           });
@@ -2200,7 +2200,7 @@ export default function TindakanTable({
           onOpenChange={setLaporanPemakaianModalOpen}
           rows={rowsForPemakaianLink}
           loading={loading}
-          filterSummaryLines={[]}
+          filterSummaryLines={filterSummaryLines}
         />
 
         <FastTrackListModal
@@ -2269,8 +2269,8 @@ export default function TindakanTable({
                 <thead className="sticky top-0 z-10">
                   <tr
                     className={cn(
-                      // Header tabel: gradient + backdrop blur agar terlihat lebih elegan.
-                      "border-b text-center backdrop-blur-md shadow-[0_12px_30px_rgba(245,158,11,0.16)]",
+                      // Header tabel: gradient agar terlihat lebih elegan.
+                      "border-b text-center shadow-[0_12px_30px_rgba(245,158,11,0.16)]",
                       "border-amber-200/70 bg-gradient-to-b from-amber-400/85 via-amber-200/65 to-amber-100/40 dark:border-amber-400/55 dark:from-amber-300/30 dark:via-amber-200/20 dark:to-amber-200/10",
                     )}
                   >

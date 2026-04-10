@@ -40,6 +40,8 @@ type SummaryProps = {
   filtered?: TindakanFilteredSummary | null;
   /** Saat klik KPI "Pasien hari ini" (variant header). */
   onTodayKpiClick?: () => void;
+  /** Saat klik KPI "Fast-Track" (variant header). */
+  onFastTrackKpiClick?: () => void;
 };
 
 type SummaryItem = {
@@ -153,6 +155,7 @@ export default function TindakanSummary({
   variant = "default",
   filtered,
   onTodayKpiClick,
+  onFastTrackKpiClick,
 }: SummaryProps) {
   const header = variant === "header";
   const entries = sortStatEntries(Object.entries(stats || {}));
@@ -175,7 +178,7 @@ export default function TindakanSummary({
         key="total-gender"
         className={cn(
           "flex min-w-0 flex-1 basis-[10rem] items-center rounded-lg border bg-gradient-to-br shadow-sm transition sm:flex-initial sm:basis-auto",
-          header ? "gap-1.5 px-1.5 py-1" : "gap-2 px-2 py-1.5",
+          header ? "gap-1 px-1 py-0.5" : "gap-2 px-2 py-1.5",
           "shadow-cyan-900/5 hover:border-cyan-500/35 from-sky-50/95 to-white border-sky-300/50 dark:shadow-black/25 dark:hover:border-white/10 dark:from-black dark:to-black dark:border-sky-800/35",
         )}
       >
@@ -257,7 +260,7 @@ export default function TindakanSummary({
             className={cn(
               "flex min-w-[9rem] flex-1 basis-[10rem] items-center rounded-lg border sm:min-w-0 sm:flex-initial sm:basis-auto",
               header
-                ? "min-h-[2.25rem] gap-2 px-2 py-1"
+                ? "min-h-[2rem] gap-1 px-1 py-0.5"
                 : "min-h-[2.75rem] gap-2.5 px-2.5 py-2",
               "border-cyan-300/50 bg-white/80 dark:border-cyan-900/40 dark:bg-black/30",
             )}
@@ -303,6 +306,13 @@ export default function TindakanSummary({
               Boolean(onTodayKpiClick) &&
               header &&
               item.label === "Pasien hari ini";
+            const clickableFastTrackCard =
+              Boolean(onFastTrackKpiClick) &&
+              header &&
+              item.label.toLowerCase().includes("fast-track");
+
+            const isClickable = clickableTodayCard || clickableFastTrackCard;
+
             const sideBreakdown =
               item.label === "Total tindakan" || item.label === "Total dokter"
                 ? item.filterLines ?? []
@@ -316,23 +326,25 @@ export default function TindakanSummary({
                 key={item.label}
                 className={cn(
                   "flex min-w-0 flex-1 basis-[10rem] items-center rounded-lg border bg-gradient-to-br shadow-sm transition sm:flex-initial sm:basis-auto",
-                  header ? "gap-1.5 px-1.5 py-1" : "gap-2 px-2 py-1.5",
+                  header ? "gap-1 px-1 py-0.5" : "gap-2 px-2 py-1.5",
                   "shadow-cyan-900/5 hover:border-cyan-500/35 dark:shadow-black/25 dark:hover:border-white/10",
                   item.tone,
-                  clickableTodayCard
+                  isClickable
                     ? "cursor-pointer hover:brightness-110 active:scale-[0.99]"
                     : "",
                 )}
-                role={clickableTodayCard ? "button" : undefined}
-                tabIndex={clickableTodayCard ? 0 : undefined}
-                onClick={
-                  clickableTodayCard ? () => onTodayKpiClick?.() : undefined
-                }
+                role={isClickable ? "button" : undefined}
+                tabIndex={isClickable ? 0 : undefined}
+                onClick={() => {
+                  if (clickableTodayCard) onTodayKpiClick?.();
+                  if (clickableFastTrackCard) onFastTrackKpiClick?.();
+                }}
                 onKeyDown={(e) => {
-                  if (!clickableTodayCard) return;
+                  if (!isClickable) return;
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    onTodayKpiClick?.();
+                    if (clickableTodayCard) onTodayKpiClick?.();
+                    if (clickableFastTrackCard) onFastTrackKpiClick?.();
                   }
                 }}
               >
@@ -410,7 +422,7 @@ export default function TindakanSummary({
                         <p
                           className={cn(
                             "mt-0.5 text-[8px] sm:text-[9px] font-medium leading-tight",
-                            "text-slate-500/80 dark:text-white/50",
+                            "text-slate-500/80 dark:text-white/85",
                           )}
                         >
                           {getEmptyHint(item.label)}

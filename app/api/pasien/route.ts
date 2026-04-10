@@ -7,12 +7,12 @@ export const dynamic = "force-dynamic";
 
 /*───────────────────────────────────────────────
  📡 GET /api/pasien
- - Tanpa query: daftar pasien (array).
- - ?compact=1 atau ?lite=1: kolom ringkas + limit default 15000 (max 20000 via ?limit=).
- - ?noRm= / ?no_rm= : satu pasien by no_rm (object | null) — hydrate drawer tindakan.
- - ?nama= : satu pasien jika nama unik (ilike, case-insensitive exact).
-───────────────────────────────────────────────*/
+ ───────────────────────────────────────────────*/
 const POSTGREST_SAFE_CHUNK = 1000;
+
+/** Cache pasien compact di memori server (2 menit) */
+let pasienCompactCache: any[] | null = null;
+let pasienCompactCacheExpires = 0;
 
 async function fetchTableOrderedInChunks(
   supabase: any,
@@ -139,10 +139,17 @@ export async function GET(request: Request) {
       searchParams.get("compact") === "1" ||
       searchParams.get("lite") === "1";
     const limitRaw = Number(searchParams.get("limit") ?? "");
-    const defaultLimit = compact ? 5000 : 0;
+
+    // Jika compact dan tidak ada filter spesifik, gunakan cache
+    const now = Date.now();
+    if (compact && !noRm && !namaLookup && !limitRaw && pasienCompactCache && now < pasienCompactCacheExpires) {
+      return NextResponse.json({ ok: true, data: pasienCompactCache, cached: true }, { status: 200 });
+    }
+
+    const defaultLimit = compact ? 1000 : 0;
     const limit =
       Number.isFinite(limitRaw) && limitRaw > 0
-        ? Math.min(Math.trunc(limitRaw), 20000)
+        ? Math.min(Math.trunc(limitRaw), 5000)
         : defaultLimit > 0
           ? defaultLimit
           : 0;
@@ -159,6 +166,12 @@ export async function GET(request: Request) {
         { ok: false, error: error.message ?? "Gagal mengambil data pasien" },
         { status: 500 }
       );
+    }
+
+    // Update cache jika ini adalah request compact default
+    if (compact && !noRm && !namaLookup && !limitRaw) {
+      pasienCompactCache = data ?? [];
+      pasienCompactCacheExpires = Date.now() + 120 * 1000; // 2 menit
     }
 
     return NextResponse.json({ ok: true, data: data ?? [] }, { status: 200 });

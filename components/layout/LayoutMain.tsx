@@ -46,8 +46,8 @@ export default function LayoutMain() {
         className={cn(
           "relative z-10 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain",
           flushContent
-            ? "p-0 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] md:p-0 md:pb-6"
-            : "p-3 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] md:p-6 md:pb-6",
+            ? "p-0 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:p-0 md:pb-4"
+            : "p-2 pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:p-4 md:pb-4",
         )}
       >
         <motion.div

@@ -117,18 +117,19 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const limitRaw = Number(searchParams.get("limit") ?? 20000);
+    const limitRaw = Number(searchParams.get("limit") ?? 1000);
     const limit = Number.isFinite(limitRaw)
-      ? Math.min(Math.max(Math.trunc(limitRaw), 1), 20000)
-      : 20000;
+      ? Math.min(Math.max(Math.trunc(limitRaw), 1), 5000)
+      : 1000;
 
-    // Urutan: skema lengkap dulu. Proyeksi minimal di akhir — jika dipilih lebih dulu,
-    // baris tidak punya pasien_id / kategori / kolom Cathlab sehingga drawer detail kosong.
+    const dateFrom = searchParams.get("from")?.trim();
+    const dateTo = searchParams.get("to")?.trim();
+    const search = searchParams.get("search")?.trim();
+
     const projections = [
+      "id, tanggal, dokter, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, ruangan, pasien_id, created_at, inserted_at, updated_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pemakaian",
+      "id, tanggal, dokter, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pemakaian",
       "*",
-      "id, tanggal, dokter, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
-      "id, tanggal, dokter, nama_pasien, tindakan, kategori, status, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
-      "id, tanggal, nama, dokter, tindakan, status, inserted_at, updated_at, ruangan, no_rm, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track",
     ];
 
     let data: Record<string, unknown>[] | null = null;
@@ -137,8 +138,19 @@ export async function GET(request: Request) {
     const tarifMap = await fetchMasterTarifLookupMap(supabase);
 
     for (const projection of projections) {
-      const { data: rawRows, error: chunkError } =
-        await fetchTableOrderedInChunks(supabase, "tindakan", projection, limit);
+      let query = supabase
+        .from("tindakan")
+        .select(projection)
+        .order("tanggal", { ascending: false, nullsFirst: false })
+        .order("id", { ascending: false });
+
+      if (dateFrom) query = query.gte("tanggal", dateFrom);
+      if (dateTo) query = query.lte("tanggal", dateTo);
+      if (search) {
+        query = query.or(`nama_pasien.ilike.%${search}%,no_rm.ilike.%${search}%,dokter.ilike.%${search}%`);
+      }
+
+      const { data: rawRows, error: chunkError } = await query.range(0, limit - 1);
 
       if (!chunkError) {
         const rows = rawRows;
@@ -150,7 +162,7 @@ export async function GET(request: Request) {
             nama_pasien: toText(row.nama_pasien) || toText(row.nama) || null,
             no_rm: noRm,
             ruangan: row.ruangan || null,
-            created_at: row.created_at || row.inserted_at || null,
+            created_at: row.created_at || row.inserted_at || row.updated_at || null,
           };
           return enrichTindakanRowTarifFromMasterMap(withApiFields, tarifMap);
         });

@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requireUser } from "@/lib/auth/guards";
 import { getServiceSupabaseAdmin } from "@/lib/auth/serviceSupabase";
 
-/** Cache master ruangan di memori server (1 menit) */
+/** Cache master ruangan di memori server (5 menit) */
 let ruanganCache: any[] | null = null;
 let ruanganCacheExpires = 0;
 
@@ -66,7 +66,7 @@ export async function GET() {
 
   // Update Cache
   ruanganCache = finalRuangan;
-  ruanganCacheExpires = Date.now() + 60 * 1000;
+  ruanganCacheExpires = Date.now() + 300 * 1000; // 5 menit
 
   return NextResponse.json({
     ok: true,

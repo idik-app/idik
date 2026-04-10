@@ -25,17 +25,17 @@ export default function TindakanRoleAccessModal({
   const isDepo = target === "depo";
   const title = isDepo ? "UI Depo Farmasi" : "UI Distributor";
   const Icon = isDepo ? PackageOpen : Building2;
-  const embeddedHref = isDepo ? "/depo/dashboard" : "/distributor/pemakaian";
+  const embeddedHref = isDepo ? "/depo/dashboard" : "/distributor/barang";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "w-[min(100vw-1rem,42rem)] max-w-[42rem] border p-0",
-          "border-slate-300/60 bg-white/98 backdrop-blur-xl dark:border-cyan-500/35 dark:bg-black/80",
+          "max-h-[85vh] w-[min(100vw-1rem,40rem)] max-w-[40rem] border p-0",
+          "border-slate-300/60 bg-white/98 dark:border-cyan-500/35 dark:bg-black/80",
         )}
       >
-        <div className="flex flex-col gap-4 p-4 sm:p-5">
+        <div className="flex flex-col gap-3 p-3 sm:p-4">
           <DialogHeader className="space-y-2 pr-8 text-left">
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2">

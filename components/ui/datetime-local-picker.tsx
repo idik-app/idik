@@ -193,7 +193,7 @@ export function DatetimeLocalPicker({
         <span
           className={cn(
             "text-[10px] shrink-0",
-            "text-slate-500 dark:text-white/50",
+            "text-slate-500 dark:text-white/85",
           )}
         >
           Jam (24 jam)

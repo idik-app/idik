@@ -1,15 +1,11 @@
 "use client";
 import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  useUI,
-  UI_ZOOM_MAX,
-  UI_ZOOM_MIN,
-  UI_ZOOM_STEP,
-  clampUiZoomPercent,
-} from "@/contexts/UIContext";
+import { useUI, UI_ZOOM_MAX, UI_ZOOM_MIN, UI_ZOOM_STEP, clampUiZoomPercent } from "@/contexts/UIContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 type TransitionMode = "fast" | "smooth" | "cinematic";
 
@@ -47,11 +43,11 @@ export default function HoloSettingsPanel() {
           animate={{ x: 0, opacity: 1, filter: "blur(0px)" }}
           exit={{ x: 320, opacity: 0, filter: "blur(10px)" }}
           transition={{ duration: 0.6, ease: [0.33, 1, 0.68, 1] }}
-          className="fixed top-0 right-0 z-[500] h-full w-72
-                     bg-gradient-to-bl from-[#09131e]/95 via-[#0d1c28]/90 to-[#081018]/90
-                     backdrop-blur-2xl border-l border-cyan-400/20
-                     shadow-[0_0_40px_rgba(0,255,255,0.25)]
-                     text-cyan-200 p-4 flex flex-col justify-between"
+          className={cn(
+            "fixed top-0 right-0 h-full w-72",
+            UI_LAYERS.settingsPanel,
+            "bg-[#09131e] border-l border-cyan-400/20 text-cyan-200 p-4 flex flex-col justify-between",
+          )}
         >
           {/* HEADER */}
           <div className="flex items-center justify-between mb-4 border-b border-cyan-500/20 pb-2">

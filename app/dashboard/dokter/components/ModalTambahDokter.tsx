@@ -71,7 +71,7 @@ export default function ModalTambahDokter({ onClose, onSuccess }: Props) {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 border border-cyan-700/40 rounded-2xl shadow-lg shadow-cyan-900/40 p-6 text-gray-200"
+        className="w-full max-w-md bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 border border-cyan-700/40 rounded-2xl p-6 text-gray-200"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">

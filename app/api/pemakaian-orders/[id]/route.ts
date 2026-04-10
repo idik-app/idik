@@ -28,6 +28,7 @@ type LineIn = {
   lot?: string;
   ukuran?: string;
   ed?: string;
+  isKonsolidasi?: boolean;
   harga?: number;
 };
 
@@ -42,6 +43,7 @@ type NormalizedLine = {
   lot?: string;
   ukuran?: string;
   ed?: string;
+  isKonsolidasi?: boolean;
   harga?: number;
 };
 
@@ -84,6 +86,7 @@ function normalizeItems(
             : undefined,
         ed:
           typeof it.ed === "string" && it.ed.trim() ? it.ed.trim() : undefined,
+        isKonsolidasi: !!it.isKonsolidasi,
         ...(typeof it.harga === "number" &&
         Number.isFinite(it.harga) &&
         it.harga >= 0
@@ -143,7 +146,7 @@ export async function GET(_req: Request, { params }: Params) {
 
   const { data, error } = await supabase
     .from("cathlab_pemakaian_order")
-    .select("*")
+    .select("id, mode, tanggal, pasien, no_rm, dokter, ruangan, depo, status, items, catatan, template_input_barang, tindakan_id, created_at, updated_at")
     .eq("id", id)
     .maybeSingle();
 
@@ -201,7 +204,7 @@ export async function PATCH(req: Request, { params }: Params) {
 
   const { data: existing, error: fetchErr } = await supabase
     .from("cathlab_pemakaian_order")
-    .select("*")
+    .select("id, status, items")
     .eq("id", id)
     .maybeSingle();
 
@@ -304,7 +307,7 @@ export async function PATCH(req: Request, { params }: Params) {
     .from("cathlab_pemakaian_order")
     .update(patch)
     .eq("id", id)
-    .select("*")
+    .select("id, status, items")
     .single();
 
   if (upErr) {

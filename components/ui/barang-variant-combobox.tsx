@@ -338,6 +338,12 @@ export function BarangVariantCombobox({
     return options.filter((v) => rowMatchesBarangQuery(v, value));
   }, [options, value]);
 
+  const [activeIndex, setActiveIndex] = useState(-1);
+
+  useEffect(() => {
+    setActiveIndex(-1);
+  }, [filtered.length, value]);
+
   const updateFixedPosition = useCallback(() => {
     const el = inputRef.current;
     if (!el) return;
@@ -422,14 +428,16 @@ export function BarangVariantCombobox({
 
   const renderListItems = () => (
     <>
-      {filtered.map((v) => (
+      {filtered.map((v, idx) => (
         <li key={v.pickId} role="presentation">
           <button
             type="button"
             role="option"
+            aria-selected={idx === activeIndex}
             className={cn(
               "w-full px-3 py-2 text-left text-white hover:bg-slate-700 focus:bg-slate-700/80 focus:outline-none transition-colors border-b border-white/[0.04] last:border-0",
-              variant === "table" && "px-4 py-3"
+              variant === "table" && "px-4 py-3",
+              idx === activeIndex && "bg-slate-700 ring-1 ring-inset ring-emerald-500/50"
             )}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
@@ -468,7 +476,10 @@ export function BarangVariantCombobox({
                     </span>
                   ),
                   v.distributor_nama && (
-                    <span key="dist" className="block text-[11px] text-slate-400 mt-1 italic font-normal">
+                    <span key="dist" className={cn(
+                      "block italic font-normal",
+                      variant === "table" ? "text-[11px] text-slate-400 mt-1" : "text-[9px] text-slate-400 mt-0.5"
+                    )}>
                       Distributor: {v.distributor_nama}
                     </span>
                   ),
@@ -621,27 +632,32 @@ export function BarangVariantCombobox({
             if (picked) onPickVariant(picked);
           }}
           onKeyDown={(e) => {
-            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-              if (
-                !open &&
-                options.length > 0 &&
-                !loading &&
-                normalize(value).length > 0
-              ) {
-                e.preventDefault();
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              if (!open) {
                 setOpen(true);
-                if (variant === "table") {
-                  syncMenuPositionImmediate();
-                }
+                if (variant === "table") syncMenuPositionImmediate();
+              } else {
+                setActiveIndex((prev) => (prev < filtered.length - 1 ? prev + 1 : prev));
               }
               return;
             }
-            if (e.key !== "Enter") return;
-            if (loading || !open) return;
-            if (filtered.length === 0) return;
-            e.preventDefault();
-            onPickVariant(filtered[0]);
-            setOpen(false);
+            if (e.key === "ArrowUp") {
+              e.preventDefault();
+              if (open) {
+                setActiveIndex((prev) => (prev > 0 ? prev - 1 : 0));
+              }
+              return;
+            }
+            if (e.key === "Enter") {
+              if (loading || !open) return;
+              if (filtered.length === 0) return;
+              e.preventDefault();
+              const target = activeIndex >= 0 ? filtered[activeIndex] : filtered[0];
+              onPickVariant(target);
+              setOpen(false);
+              return;
+            }
           }}
           onBlur={(e) => {
             const rt = e.relatedTarget;

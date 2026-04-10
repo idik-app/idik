@@ -121,7 +121,7 @@ const LoginFormFields = memo(function LoginFormFields({
         className={`w-full rounded-lg py-3 text-base font-semibold text-white shadow-md transition-transform active:scale-[0.98] sm:py-2 sm:shadow-lg sm:hover:scale-[1.02] ${
           loading
             ? "bg-gray-500 cursor-not-allowed active:scale-100"
-            : "bg-gradient-to-r from-cyan-600 to-blue-600 active:opacity-95 sm:hover:shadow-[0_0_20px_rgba(0,255,255,0.5)]"
+            : "bg-gradient-to-r from-cyan-600 to-blue-600 active:opacity-95"
         }`}
       >
         {loading ? "Memproses..." : "Masuk"}
@@ -258,7 +258,7 @@ export default function LoginModal({
         transition={overlayTransition}
       >
         <motion.div
-          className={`relative w-[94%] max-w-md rounded-xl border border-white/15 bg-white/10 p-4 text-white shadow-none dark:bg-slate-800/30 sm:w-[90%] sm:rounded-2xl sm:border-white/20 sm:p-8 sm:shadow-[0_0_30px_rgba(0,224,255,0.2)] ${
+          className={`relative w-[94%] max-w-md rounded-xl border border-white/15 bg-white/10 p-4 text-white shadow-none dark:bg-slate-800/30 sm:w-[90%] sm:rounded-2xl sm:border-white/20 sm:p-8 ${
             shake ? "animate-shake" : ""
           }`}
           initial={

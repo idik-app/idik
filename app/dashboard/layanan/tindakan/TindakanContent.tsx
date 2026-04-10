@@ -23,7 +23,7 @@ export default function TindakanContent() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="relative flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-x-hidden bg-gradient-to-br from-black via-gray-900 to-cyan-950 px-3 py-4 sm:px-4 sm:py-5 md:gap-6 md:p-6"
+      className="relative flex h-full min-h-0 min-w-0 flex-col gap-3 overflow-x-hidden bg-gradient-to-br from-black via-gray-900 to-cyan-950 px-3 py-3 sm:px-4 sm:py-4 md:gap-4 md:p-4"
     >
       {/* 🩺 Toolbar Aksi */}
       <ToolbarTindakan onRefresh={onRefresh} isLoading={isLoading} />

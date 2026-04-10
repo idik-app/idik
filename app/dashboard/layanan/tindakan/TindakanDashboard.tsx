@@ -19,6 +19,8 @@ import TindakanSummary, {
   type TindakanFilteredSummary,
 } from "./components/TindakanSummary";
 import TindakanTable from "./components/TindakanTable";
+import FastTrackListModal from "./components/FastTrackListModal";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 const TindakanDetailDrawer = dynamic(
   () => import("./components/TindakanDetailDrawer"),
@@ -32,6 +34,7 @@ export default function TindakanDashboard() {
   const tableRef = useRef<HTMLDivElement | null>(null);
   const themeTone = "cyan" as const;
   const [todayModalOpen, setTodayModalOpen] = useState(false);
+  const [fastTrackModalOpen, setFastTrackModalOpen] = useState(false);
   const [roleAccessOpen, setRoleAccessOpen] = useState(false);
   const [phoneDirectoryOpen, setPhoneDirectoryOpen] = useState(false);
   const [roleAccessTarget, setRoleAccessTarget] =
@@ -67,7 +70,7 @@ export default function TindakanDashboard() {
     >
       <header
         className={cn(
-          "shrink-0 z-30 px-2 py-1 sm:px-2.5 sm:py-1.5 transition-colors duration-500",
+          "shrink-0 z-30 px-1.5 py-0.5 sm:px-2 sm:py-1 transition-colors duration-500",
           "bg-white/88 border-b border-slate-200/80 dark:border-white/10 dark:bg-black/35",
         )}
       >
@@ -89,15 +92,16 @@ export default function TindakanDashboard() {
               variant="header"
               filtered={filteredSummary}
               onTodayKpiClick={() => setTodayModalOpen(true)}
+              onFastTrackKpiClick={() => setFastTrackModalOpen(true)}
             />
           }
         />
       </header>
 
-      <main className="relative flex min-h-0 flex-1 flex-col gap-0 px-1.5 pb-2 pt-0.5 max-md:flex-none sm:px-2 sm:pb-2.5 md:px-3">
+      <main className="relative flex min-h-0 flex-1 flex-col gap-0 px-1 pb-1.5 pt-0 max-md:flex-none sm:px-1.5 sm:pb-2 md:px-2">
         {/* Shortcuts Section */}
         <PhoneShortcutsBar themeTone={themeTone} />
-        
+
         <section
           ref={tableRef}
           className="relative flex min-h-0 flex-1 flex-col overflow-hidden max-md:flex-none max-md:overflow-visible"
@@ -114,7 +118,8 @@ export default function TindakanDashboard() {
           type="button"
           onClick={() => setPhoneDirectoryOpen(true)}
           className={cn(
-            "fixed bottom-6 right-6 z-[100] flex h-14 w-14 items-center justify-center rounded-full shadow-2xl transition-all active:scale-95 group",
+            "fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full shadow-2xl transition-all active:scale-95 group",
+            UI_LAYERS.fab,
             "bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-500/25",
             "dark:bg-cyan-500 dark:hover:bg-cyan-400 dark:shadow-cyan-900/40",
           )}
@@ -149,6 +154,20 @@ export default function TindakanDashboard() {
         }
         loading={Boolean(adapter.loading)}
         themeTone={themeTone}
+        onRecordPatch={adapter.refresh}
+      />
+
+      <FastTrackListModal
+        open={fastTrackModalOpen}
+        onOpenChange={setFastTrackModalOpen}
+        rows={
+          Array.isArray(adapter.tindakanList)
+            ? (adapter.tindakanList as TindakanJoinResult[])
+            : []
+        }
+        loading={Boolean(adapter.loading)}
+        doctorOptionsMaster={[]} // Will be loaded inside if needed or pass from context
+        onRecordPatch={adapter.refresh}
       />
 
       <TindakanDashboardModal

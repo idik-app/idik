@@ -81,7 +81,7 @@ export default function SpreadsheetHeader({
   }
 
   return (
-    <thead className="sticky top-0 bg-black/40 backdrop-blur border-b border-cyan-700/60 z-20">
+    <thead className="sticky top-0 bg-black/40 border-b border-cyan-700/60 z-20">
       <tr>
         {columns.map((col, i) => (
           <th
@@ -130,7 +130,7 @@ export default function SpreadsheetHeader({
                 {menuOpen === i && (
                   <div
                     ref={menuRef}
-                    className="absolute right-0 top-7 w-44 bg-black/70 backdrop-blur border border-cyan-700/60 rounded shadow-lg text-sm z-30"
+                    className="absolute right-0 top-7 w-44 bg-black/70 border border-cyan-700/60 rounded shadow-lg text-sm z-30"
                   >
                     <button
                       onClick={() => startEdit(i)}

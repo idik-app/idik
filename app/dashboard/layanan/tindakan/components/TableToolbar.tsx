@@ -231,7 +231,7 @@ export default function TableToolbar({
   return (
     <div
       className={cn(
-        "relative flex shrink-0 flex-col gap-1 px-1.5 py-1 sm:px-2 sm:py-1.5 min-w-0 transition-colors duration-500",
+        "relative flex shrink-0 flex-col gap-0.5 px-1 py-0.5 sm:px-1.5 sm:py-1 min-w-0 transition-colors duration-500",
         "bg-slate-50/90 dark:bg-black/35",
         /* Di atas area scroll + thead sticky (z-10) agar submenu Laporan tidak tertutup tabel */
         UI_LAYERS.hud,

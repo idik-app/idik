@@ -62,7 +62,7 @@ export default function ConfirmDeleteMasterTindakan({
         onClick={() => !busy && onCancel()}
       />
       <div
-        className="relative z-10 w-full max-w-md rounded-2xl border border-cyan-500/35 bg-gradient-to-b from-[#0a1628] via-[#060d18] to-[#03070c] shadow-[0_0_0_1px_rgba(34,211,238,0.12),0_24px_56px_rgba(0,0,0,0.65),0_0_40px_rgba(34,211,238,0.08)] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="relative z-10 w-full max-w-md rounded-2xl border border-cyan-500/35 bg-gradient-to-b from-[#0a1628] via-[#060d18] to-[#03070c] overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />

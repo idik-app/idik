@@ -7,8 +7,11 @@ import Link from "next/link";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
+  Building2,
   ClipboardList,
+  PackageOpen,
   PackagePlus,
+  PackageSearch,
   PlusCircle,
   ScanLine,
   Search,
@@ -16,6 +19,13 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import {
   BarangVariantCombobox,
@@ -64,6 +74,7 @@ import {
   TEMPLATE_KOMPONEN,
   TEMPLATE_OBAT_ALKES,
 } from "@/app/dashboard/pemakaian/data/templateInputBarangRows";
+import { useMasterRuangan, useMasterVariants } from "../hooks/useMasterData";
 
 const DatetimeLocalPicker = dynamic(
   () =>
@@ -83,6 +94,8 @@ type PemakaianLine = {
   barang: string;
   /** STENT | BALLON | WIRE | GUIDING | KATETER (mapping distributor). */
   kategori?: string;
+  /** KONSOLIDASI | NON KONSOLIDASI */
+  status?: string;
   distributor?: string;
   qtyRencana: number;
   qtyDipakai: number;
@@ -241,10 +254,17 @@ function linesFromOrderItemsJson(raw: unknown): PemakaianLine[] {
       return undefined;
     })();
     const kategori = normalizeKategoriAlkesLine(o.kategori);
+    const status =
+      o.status === "KONSOLIDASI" || o.status === "NON KONSOLIDASI"
+        ? o.status
+        : !!o.isKonsolidasi
+          ? "KONSOLIDASI"
+          : "NON KONSOLIDASI";
     out.push({
       lineId,
       barang,
       ...(kategori ? { kategori } : {}),
+      status,
       distributor:
         typeof o.distributor === "string" ? o.distributor : undefined,
       qtyRencana:
@@ -280,8 +300,15 @@ function buildPemakaianResumeText(lines: PemakaianLine[]): string {
     .filter((l) => l.barang.trim())
     .map((l) => {
       // Baris pertama: Nama Barang (Upper) + Jumlah jika > 1 + Label REUSE jika tipe R
-      const konsolLabel = l.isKonsolidasi ? "[KONSOLIDASI]" : "[NON KONSOLIDASI]";
-      let header = `• [${l.kategori || "ALKES"}] ${l.barang.trim().toUpperCase()} ${konsolLabel}`;
+      let header = `• [${l.kategori || "ALKES"}] ${l.barang.trim().toUpperCase()}`;
+      if (l.status === "KONSOLIDASI") {
+        header += " [KONSOLIDASI]";
+      } else if (l.status === "NON KONSOLIDASI") {
+        header += " [NON KONSOLIDASI]";
+      } else {
+        // Fallback jika belum terpilih di UI, gunakan isKonsolidasi dari DB
+        header += l.isKonsolidasi ? " [KONSOLIDASI]" : " [NON KONSOLIDASI]";
+      }
 
       const meta = [];
       if (l.qtyDipakai > 1) meta.push(`${l.qtyDipakai}x`);
@@ -345,6 +372,12 @@ export type PemakaianAlkesModalProps = {
   onSaved?: () => void;
 };
 
+const KETERANGAN_OPTIONS = [
+  "Tidak ada ukuran yang lain",
+  "Kasus sulit",
+  "Permintaan User",
+];
+
 export default function PemakaianAlkesModal({
   open,
   onClose,
@@ -360,6 +393,12 @@ export default function PemakaianAlkesModal({
   onSaved,
 }: PemakaianAlkesModalProps) {
   const { alert: appAlert, confirm: appConfirm } = useAppDialog();
+
+  // SWR hooks for master data
+  const { ruangan: ruanganList, isLoading: ruanganListLoading } =
+    useMasterRuangan();
+  const { items: barangVariantList, isLoading: barangVariantLoading } =
+    useMasterVariants();
 
   const doctorOptionsRef = useRef(doctorOptions);
   doctorOptionsRef.current = doctorOptions;
@@ -385,19 +424,14 @@ export default function PemakaianAlkesModal({
   const [rincianBarangTab, setRincianBarangTab] =
     useState<RincianBarangTab>("struk");
 
-  const [ruanganList, setRuanganList] = useState<RuanganOption[]>([]);
-  const [ruanganListLoading, setRuanganListLoading] = useState(false);
-
-  const [barangVariantList, setBarangVariantList] = useState<
-    MasterBarangPickRow[]
-  >([]);
   const barangVariantIndex = useBarangVariantIndex(barangVariantList);
-  const [barangVariantLoading, setBarangVariantLoading] = useState(false);
   const [barangPickerOpen, setBarangPickerOpen] = useState(false);
   const [barangPickerQuery, setBarangPickerQuery] = useState("");
   const [barangScanOpen, setBarangScanOpen] = useState(false);
   const [tambahProdukOpen, setTambahProdukOpen] = useState(false);
   const [tambahProdukDraft, setTambahProdukDraft] = useState("");
+
+  const [masterBarangOpen, setMasterBarangOpen] = useState(false);
 
   const resetFormFromProps = useCallback(() => {
     const firstId = newDrawerLineId();
@@ -412,7 +446,7 @@ export default function PemakaianAlkesModal({
         barang: "",
         distributor: "",
         qtyRencana: 1,
-        qtyDipakai: 0,
+        qtyDipakai: 1,
         tipe: "N",
       },
     ]);
@@ -481,7 +515,7 @@ export default function PemakaianAlkesModal({
             barang: "",
             distributor: "",
             qtyRencana: 1,
-            qtyDipakai: 0,
+            qtyDipakai: 1,
             tipe: "N",
           },
         ]);
@@ -673,67 +707,24 @@ export default function PemakaianAlkesModal({
   }, [open, tindakanId, existingOrderId, pasienOptions]);
 
   /** Satu gelombang paralel: ruangan + katalog variant (hindari dua effect terpisah mengantre). */
-  useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    setRuanganListLoading(true);
-    setBarangVariantLoading(true);
-    void (async () => {
-      const [ruOutcome, vrOutcome] = await Promise.allSettled([
-        runDeduped("GET:/api/ruangan", async () => {
-          const r = await fetch("/api/ruangan", {
-            credentials: "include",
-            cache: "no-store",
-          });
-          return r.json() as Promise<{
-            ok?: boolean;
-            ruangan?: RuanganOption[];
-          }>;
-        }),
-        runDeduped("GET:/api/master-barang/variants", async () => {
-          const r = await fetch("/api/master-barang/variants", {
-            credentials: "include",
-            cache: "no-store",
-          });
-          return r.json() as Promise<{
-            ok?: boolean;
-            items?: MasterBarangPickRow[];
-          }>;
-        }),
-      ]);
-      if (!alive) return;
-      if (ruOutcome.status === "fulfilled") {
-        const j = ruOutcome.value;
-        if (j?.ok && Array.isArray(j.ruangan)) setRuanganList(j.ruangan);
-        else setRuanganList([]);
-      } else {
-        setRuanganList([]);
-      }
-      if (vrOutcome.status === "fulfilled") {
-        const j = vrOutcome.value;
-        if (j?.ok && Array.isArray(j.items)) setBarangVariantList(j.items);
-        else setBarangVariantList([]);
-      } else {
-        setBarangVariantList([]);
-      }
-    })().finally(() => {
-      if (alive) {
-        setRuanganListLoading(false);
-        setBarangVariantLoading(false);
-      }
-    });
-    return () => {
-      alive = false;
-    };
-  }, [open]);
+  // SWR handles this now
 
   function patchDrawerLine(lineId: string, patch: Partial<PemakaianLine>) {
     setDrawerLines((rows) =>
       rows.map((l) => {
         if (l.lineId !== lineId) return l;
         const next = { ...l, ...patch };
-        if (!next.barang.trim()) return { ...next, harga: undefined, kategori: undefined };
-        
+        if (!next.barang.trim())
+          return { ...next, harga: undefined, kategori: undefined };
+
+        // Jika patch HANYA berisi qty, keterangan, atau tipe, jangan resolve ulang dari catalog
+        // karena itu bisa memicu reset data jika resolusi catalog tidak stabil/ambigu.
+        const keys = Object.keys(patch);
+        const isMetadataOnly = keys.every((k) =>
+          ["qtyRencana", "qtyDipakai", "tipe", "keterangan"].includes(k),
+        );
+        if (isMetadataOnly) return next;
+
         // Jika patch sudah menyertakan kategori atau harga, kita gunakan itu langsung
         // tanpa perlu resolve ulang dari master barang (untuk menghindari loop atau override manual)
         if (patch.harga !== undefined && patch.kategori !== undefined)
@@ -753,24 +744,83 @@ export default function PemakaianAlkesModal({
             );
 
         const h =
-          patch.harga !== undefined ? next.harga : (row ? hargaFromPickRow(row, barangVariantList) : next.harga);
-        
-        // LOGIKA PERBAIKAN:
-        // Jika user sedang mengubah kategori (patch.kategori ada), gunakan itu.
-        // Jika kategori sudah ada (baik dari pilihan manual sebelumnya atau resolve sebelumnya),
-        // JANGAN ditimpa lagi oleh resolve otomatis saat user menginput field lain (LOT, ED, dll).
-        // Resolve otomatis hanya berjalan jika kategori benar-benar masih kosong.
+          patch.harga !== undefined
+            ? patch.harga
+            : row
+              ? hargaFromPickRow(row, barangVariantList)
+              : next.harga;
+
         const k =
           patch.kategori !== undefined
-            ? next.kategori
-            : (l.kategori ? l.kategori : (row ? (normalizeKategoriAlkesLine(row.kategori) || normalizeKategoriAlkesLine(row.jenis)) : next.kategori));
+            ? patch.kategori
+            : row
+              ? normalizeKategoriAlkesLine(row.kategori) ||
+                normalizeKategoriAlkesLine(row.jenis)
+              : next.kategori && next.kategori !== "Pilih Kategori"
+                ? next.kategori
+                : undefined;
 
-      const isKonsolidasi = 
+        const lot =
+          patch.lot !== undefined
+            ? patch.lot
+            : next.lot
+              ? next.lot
+              : row
+                ? row.lot?.trim()
+                : next.lot;
+
+        const ukuran =
+          patch.ukuran !== undefined
+            ? patch.ukuran
+            : next.ukuran
+              ? next.ukuran
+              : row
+                ? row.ukuran?.trim()
+                : next.ukuran;
+
+        const ed =
+          patch.ed !== undefined
+            ? patch.ed
+            : next.ed
+              ? next.ed
+              : row
+                ? row.ed?.trim()
+                : next.ed;
+
+        const isKonsolidasi =
           patch.isKonsolidasi !== undefined
-            ? next.isKonsolidasi
-            : (row ? !!(row as any).is_konsolidasi : next.isKonsolidasi);
+            ? patch.isKonsolidasi
+            : row
+              ? !!(row as any).is_konsolidasi
+              : next.isKonsolidasi;
 
-        return { ...next, harga: h, kategori: k, isKonsolidasi };
+        const distributor =
+          patch.distributor !== undefined
+            ? patch.distributor
+            : row
+              ? row.distributor_nama?.trim() || next.distributor
+              : next.distributor;
+
+        const status =
+          patch.status !== undefined
+            ? patch.status
+            : row
+              ? row.is_konsolidasi
+                ? "KONSOLIDASI"
+                : "NON KONSOLIDASI"
+              : next.status;
+
+        return {
+          ...next,
+          harga: h,
+          kategori: k,
+          status,
+          lot,
+          ukuran,
+          ed,
+          isKonsolidasi,
+          distributor,
+        };
       }),
     );
   }
@@ -786,7 +836,7 @@ export default function PemakaianAlkesModal({
               barang: "",
               distributor: "",
               qtyRencana: 1,
-              qtyDipakai: 0,
+              qtyDipakai: 1,
               tipe: "N",
             },
           ];
@@ -799,7 +849,7 @@ export default function PemakaianAlkesModal({
       let changed = false;
       const next = rows.map((line) => {
         if (!line.barang.trim()) return line;
-        
+
         const row = barangVariantIndex
           ? resolvePickRowFromIndexedOptions(
               line.barang.trim().toLowerCase(),
@@ -814,16 +864,68 @@ export default function PemakaianAlkesModal({
             );
 
         const h = row ? hargaFromPickRow(row, barangVariantList) : undefined;
-        const k = row ? (normalizeKategoriAlkesLine(row.kategori) || normalizeKategoriAlkesLine(row.jenis)) : undefined;
+        const k = row
+          ? normalizeKategoriAlkesLine(row.kategori) ||
+            normalizeKategoriAlkesLine(row.jenis)
+          : undefined;
 
-        const nextHarga = (line.harga != null && Number.isFinite(line.harga)) ? line.harga : h;
-        const nextKategori = line.kategori || k;
-        const nextIsKonsolidasi = line.isKonsolidasi ?? !!(row as any)?.is_konsolidasi;
+        const nextHarga =
+          line.harga != null && Number.isFinite(line.harga) ? line.harga : h;
+        const nextKategori = row
+          ? normalizeKategoriAlkesLine(row.kategori) ||
+            normalizeKategoriAlkesLine(row.jenis)
+          : undefined;
+        const nextIsKonsolidasi =
+          line.isKonsolidasi ?? !!(row as any)?.is_konsolidasi;
+        const nextDistributor =
+          line.distributor || row?.distributor_nama?.trim();
 
-        if (nextHarga === line.harga && nextKategori === line.kategori && nextIsKonsolidasi === line.isKonsolidasi) return line;
-        
+        // JANGAN menimpa LOT, Ukuran, ED jika sudah ada nilainya di state (line)
+        const currentLot = String(line.lot ?? "").trim();
+        const currentUkuran = String(line.ukuran ?? "").trim();
+        const currentEd = String(line.ed ?? "").trim();
+
+        const isLotFilled = currentLot !== "" && currentLot !== "—";
+        const isUkuranFilled = currentUkuran !== "" && currentUkuran !== "—";
+        const isEdFilled =
+          currentEd !== "" && currentEd !== "—" && currentEd !== "MM-YYYY";
+
+        const nextLot = isLotFilled ? line.lot : row?.lot?.trim() || line.lot;
+        const nextUkuran = isUkuranFilled
+          ? line.ukuran
+          : row?.ukuran?.trim() || line.ukuran;
+        const nextEd = isEdFilled ? line.ed : row?.ed?.trim() || line.ed;
+
+        const nextStatus = row
+          ? row.is_konsolidasi
+            ? "KONSOLIDASI"
+            : "NON KONSOLIDASI"
+          : line.status;
+
+        if (
+          nextHarga === line.harga &&
+          nextKategori === line.kategori &&
+          nextStatus === line.status &&
+          nextIsKonsolidasi === line.isKonsolidasi &&
+          nextDistributor === line.distributor &&
+          nextLot === line.lot &&
+          nextUkuran === line.ukuran &&
+          nextEd === line.ed
+        )
+          return line;
+
         changed = true;
-        return { ...line, harga: nextHarga, kategori: nextKategori, isKonsolidasi: nextIsKonsolidasi };
+        return {
+          ...line,
+          harga: nextHarga,
+          kategori: nextKategori,
+          status: nextStatus,
+          isKonsolidasi: nextIsKonsolidasi,
+          distributor: nextDistributor,
+          lot: nextLot,
+          ukuran: nextUkuran,
+          ed: nextEd,
+        };
       });
       return changed ? next : rows;
     });
@@ -911,7 +1013,7 @@ export default function PemakaianAlkesModal({
         barang: "",
         distributor: "",
         qtyRencana: 1,
-        qtyDipakai: 0,
+        qtyDipakai: 1,
         tipe: "N",
       },
     ]);
@@ -930,9 +1032,10 @@ export default function PemakaianAlkesModal({
       lineId: nextId,
       barang: pick.nama.trim(),
       ...(kCat ? { kategori: kCat } : {}),
+      status: (pick as any).is_konsolidasi ? "KONSOLIDASI" : "NON KONSOLIDASI",
       distributor: pick.distributor_nama?.trim() || undefined,
       qtyRencana: 1,
-      qtyDipakai: 0,
+      qtyDipakai: 1,
       tipe: "N",
       lot: pick.lot?.trim() || undefined,
       ukuran: pick.ukuran?.trim() || undefined,
@@ -1292,6 +1395,93 @@ export default function PemakaianAlkesModal({
     const nBarang = drawerLines.filter(
       (l) => cleanFormText(l.barang).length > 0,
     ).length;
+
+    // --- CHECK FOR SIMILAR ITEMS (FUZZY MATCH) ---
+    const newItems = drawerLines.filter((l) => {
+      const nama = cleanFormText(l.barang);
+      if (!nama) return false;
+      // Cek apakah nama ini ada di master (case-insensitive)
+      return !barangVariantList.some(
+        (v) => v.nama.toLowerCase() === nama.toLowerCase(),
+      );
+    });
+
+    for (const item of newItems) {
+      const namaInput = cleanFormText(item.barang);
+      // Cari yang mirip (misal mengandung kata yang sama)
+      const similar = barangVariantList.find((v) => {
+        const n1 = namaInput.toLowerCase();
+        const n2 = v.nama.toLowerCase();
+        return n2.includes(n1) || n1.includes(n2);
+      });
+
+      if (similar) {
+        const ok = await appConfirm({
+          title: "Barang Serupa Ditemukan",
+          message:
+            `Anda menginput "${namaInput}", tetapi sistem menemukan barang serupa: "${similar.nama}".\n\n` +
+            `Apakah Anda bermaksud menggunakan barang yang sudah ada, atau tetap ingin mendaftarkan "${namaInput}" sebagai barang baru?`,
+          confirmLabel: `Tetap Daftarkan Baru`,
+          cancelLabel: "Batal (Saya akan perbaiki)",
+        });
+        if (!ok) return;
+      }
+    }
+
+    // Validasi kategori & status untuk tiap baris barang
+    const invalidLines = drawerLines.filter((l) => {
+      if (!cleanFormText(l.barang)) return false;
+      return !l.kategori || !l.status;
+    });
+
+    if (invalidLines.length > 0) {
+      void appAlert({
+        variant: "warning",
+        title: "Kategori/Status belum lengkap",
+        message:
+          "Mohon pilih Kategori dan Status (Konsolidasi/Non) untuk semua barang yang diinput.",
+      });
+      return;
+    }
+
+    // Validasi Keterangan Wajib untuk NON KONSOLIDASI
+    const missingKetLines = drawerLines.filter((l) => {
+      if (!cleanFormText(l.barang)) return false;
+      return (
+        l.status === "NON KONSOLIDASI" && !cleanFormText(l.keterangan ?? "")
+      );
+    });
+
+    if (missingKetLines.length > 0) {
+      void appAlert({
+        variant: "warning",
+        title: "Keterangan Wajib Diisi",
+        message:
+          "Untuk barang NON KONSOLIDASI, kolom Keterangan wajib diisi.\n\n" +
+          "Pilihan alasan:\n" +
+          KETERANGAN_OPTIONS.map((opt) => `• ${opt}`).join("\n") +
+          "\n\nAtau tuliskan alasan manual lainnya.",
+      });
+      return;
+    }
+
+    // Validasi ED Wajib
+    const missingEdLines = drawerLines.filter((l) => {
+      if (!cleanFormText(l.barang)) return false;
+      const ed = cleanFormText(l.ed ?? "");
+      return !ed || ed === "MM-YYYY" || ed === "—";
+    });
+
+    if (missingEdLines.length > 0) {
+      void appAlert({
+        variant: "warning",
+        title: "ED Wajib Diisi",
+        message:
+          "Kolom ED (Expired Date) wajib diisi untuk semua barang yang diinput.",
+      });
+      return;
+    }
+
     const ruangan = ruanganRaw;
     const isEdit = Boolean(existingOrderId?.trim());
     const konfirmasi = isEdit
@@ -1499,7 +1689,7 @@ export default function PemakaianAlkesModal({
         <button
           suppressHydrationWarning
           type="button"
-          className="absolute inset-0 bg-black/80 border-0 cursor-default p-0 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/80 border-0 cursor-default p-0"
           aria-label="Tutup form"
           onClick={() => (!drawerSaving ? onClose() : undefined)}
         />
@@ -1778,15 +1968,46 @@ export default function PemakaianAlkesModal({
                                           v.kategori,
                                         ) ||
                                         normalizeKategoriAlkesLine(v.jenis);
+
+                                      // JANGAN menimpa LOT, Ukuran, ED jika sudah ada nilainya di baris (line)
+                                      const currentLot = String(
+                                        line.lot ?? "",
+                                      ).trim();
+                                      const currentUkuran = String(
+                                        line.ukuran ?? "",
+                                      ).trim();
+                                      const currentEd = String(
+                                        line.ed ?? "",
+                                      ).trim();
+
+                                      const isLotFilled =
+                                        currentLot !== "" && currentLot !== "—";
+                                      const isUkuranFilled =
+                                        currentUkuran !== "" &&
+                                        currentUkuran !== "—";
+                                      const isEdFilled =
+                                        currentEd !== "" &&
+                                        currentEd !== "—" &&
+                                        currentEd !== "MM-YYYY";
+
                                       patchDrawerLine(line.lineId, {
                                         barang: v.nama.trim(),
                                         kategori: kCat || undefined,
+                                        status: v.is_konsolidasi
+                                          ? "KONSOLIDASI"
+                                          : "NON KONSOLIDASI",
                                         distributor:
                                           v.distributor_nama?.trim() ||
                                           undefined,
-                                        lot: v.lot?.trim() || undefined,
-                                        ukuran: v.ukuran?.trim() || undefined,
-                                        ed: v.ed?.trim() || undefined,
+                                        lot: isLotFilled
+                                          ? line.lot
+                                          : v.lot?.trim() || undefined,
+                                        ukuran: isUkuranFilled
+                                          ? line.ukuran
+                                          : v.ukuran || undefined,
+                                        ed: isEdFilled
+                                          ? line.ed
+                                          : v.ed?.trim() || undefined,
                                         isKonsolidasi: !!(v as any)
                                           .is_konsolidasi,
                                         harga: h,
@@ -1801,7 +2022,7 @@ export default function PemakaianAlkesModal({
                                             barang: "",
                                             distributor: "",
                                             qtyRencana: 1,
-                                            qtyDipakai: 0,
+                                            qtyDipakai: 1,
                                             tipe: "N",
                                           },
                                         ]);
@@ -1812,7 +2033,7 @@ export default function PemakaianAlkesModal({
                                     inputClassName="bg-transparent border-none p-0 text-black font-extrabold uppercase text-sm focus:ring-0 placeholder:text-slate-300"
                                   />
                                   {!isEmpty && (
-                                    <div className="mt-1">
+                                    <div className="mt-1 flex flex-col gap-1">
                                       <select
                                         value={line.kategori || ""}
                                         onChange={(e) =>
@@ -1832,6 +2053,30 @@ export default function PemakaianAlkesModal({
                                           ),
                                         )}
                                       </select>
+                                      <select
+                                        value={line.status || ""}
+                                        onChange={(e) =>
+                                          patchDrawerLine(line.lineId, {
+                                            status: e.target.value || undefined,
+                                          })
+                                        }
+                                        className={cn(
+                                          "text-[9px] font-bold px-1.5 py-0.5 rounded border-none focus:ring-1 cursor-pointer appearance-none",
+                                          line.status === "KONSOLIDASI"
+                                            ? "bg-emerald-100 text-emerald-700 focus:ring-emerald-500"
+                                            : line.status === "NON KONSOLIDASI"
+                                              ? "bg-blue-100 text-blue-700 focus:ring-blue-500"
+                                              : "bg-slate-100 text-slate-600 focus:ring-slate-500",
+                                        )}
+                                      >
+                                        <option value="">Pilih Status</option>
+                                        <option value="KONSOLIDASI">
+                                          KONSOLIDASI
+                                        </option>
+                                        <option value="NON KONSOLIDASI">
+                                          NON KONSOLIDASI
+                                        </option>
+                                      </select>
                                     </div>
                                   )}
                                 </div>
@@ -1847,20 +2092,29 @@ export default function PemakaianAlkesModal({
                                   })
                                 }
                                 placeholder="—"
-                                className="bg-white text-black px-2 py-1 rounded font-mono text-xs border border-slate-200 w-full focus:border-emerald-500 transition-all"
+                                className="bg-white text-black px-3 py-2 rounded-lg font-mono text-sm font-bold border border-slate-200 w-full focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/30 transition-all shadow-sm focus:scale-[1.3] focus:w-[200%] focus:z-50 focus:relative origin-center shadow-2xl"
                               />
                             </td>
                             <td className="p-4 border-r border-slate-100">
                               <input
                                 type="text"
                                 value={line.ukuran ?? ""}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  let val = e.target.value;
+                                  // Jika polanya angka.angka x angka (tanpa spasi di sekitar x)
+                                  // misal 2.0x10 -> 2.0 x 10
+                                  if (/^\d+\.\d+x\d+$/.test(val)) {
+                                    val = val.replace(
+                                      /(\d+\.\d+)x(\d+)/,
+                                      "$1 x $2",
+                                    );
+                                  }
                                   patchDrawerLine(line.lineId, {
-                                    ukuran: e.target.value.trim() || undefined,
-                                  })
-                                }
+                                    ukuran: val || undefined,
+                                  });
+                                }}
                                 placeholder="—"
-                                className="bg-white text-black px-2 py-1 rounded font-mono text-xs border border-slate-200 w-full focus:border-emerald-500 transition-all"
+                                className="bg-white text-black px-3 py-2 rounded-lg font-mono text-sm font-bold border border-slate-200 w-full focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/30 transition-all shadow-sm focus:scale-[1.3] focus:w-[200%] focus:z-50 focus:relative origin-center shadow-2xl"
                               />
                             </td>
                             <td className="p-4 border-r border-slate-100">
@@ -1873,11 +2127,18 @@ export default function PemakaianAlkesModal({
                                   })
                                 }
                                 placeholder="MM-YYYY"
-                                className="bg-transparent border-none p-0 text-black font-medium w-full focus:ring-0"
+                                className={cn(
+                                  "bg-white border rounded-lg px-3 py-2 font-bold text-sm w-full focus:ring-4 focus:ring-emerald-500/30 transition-all shadow-sm focus:scale-[1.3] focus:w-[200%] focus:z-50 focus:relative origin-center shadow-2xl",
+                                  !cleanFormText(line.ed ?? "") ||
+                                    line.ed === "MM-YYYY" ||
+                                    line.ed === "—"
+                                    ? "text-red-500 border-red-200 placeholder:text-red-300"
+                                    : "text-black border-slate-200",
+                                )}
                               />
                             </td>
                             <td className="p-4 border-r border-slate-100">
-                              <div className="flex items-center bg-white rounded-lg border border-slate-300 overflow-hidden max-w-[120px] mx-auto shadow-sm">
+                              <div className="flex items-center bg-white rounded-lg border border-slate-300 overflow-hidden w-24 mx-auto shadow-sm">
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -1888,9 +2149,9 @@ export default function PemakaianAlkesModal({
                                       ),
                                     })
                                   }
-                                  className="px-3 py-1.5 hover:bg-slate-50 text-slate-400 transition-colors border-r border-slate-200"
+                                  className="w-8 h-8 flex items-center justify-center hover:bg-slate-50 text-slate-500 transition-colors border-r border-slate-200"
                                 >
-                                  <i className="fas fa-minus text-[10px]"></i>
+                                  <span className="text-lg font-bold">−</span>
                                 </button>
                                 <input
                                   type="number"
@@ -1903,7 +2164,7 @@ export default function PemakaianAlkesModal({
                                       ),
                                     })
                                   }
-                                  className="w-full bg-transparent border-none text-center text-xs font-bold focus:ring-0 text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  className="flex-1 min-w-0 bg-transparent border-none text-center text-xs font-bold focus:ring-0 text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0"
                                 />
                                 <button
                                   type="button"
@@ -1912,9 +2173,9 @@ export default function PemakaianAlkesModal({
                                       qtyDipakai: line.qtyDipakai + 1,
                                     })
                                   }
-                                  className="px-3 py-1.5 hover:bg-slate-50 text-slate-400 transition-colors border-l border-slate-200"
+                                  className="w-8 h-8 flex items-center justify-center hover:bg-slate-50 text-slate-500 transition-colors border-l border-slate-200"
                                 >
-                                  <i className="fas fa-plus text-[10px]"></i>
+                                  <span className="text-lg font-bold">+</span>
                                 </button>
                               </div>
                             </td>
@@ -1946,17 +2207,49 @@ export default function PemakaianAlkesModal({
                               </select>
                             </td>
                             <td className="p-4 border-r border-slate-100">
-                              <input
-                                type="text"
-                                value={line.keterangan ?? ""}
-                                onChange={(e) =>
-                                  patchDrawerLine(line.lineId, {
-                                    keterangan: e.target.value || undefined,
-                                  })
-                                }
-                                className="bg-white border border-slate-200 rounded px-2 py-1 text-[11px] text-black w-full focus:border-emerald-500 focus:ring-0"
-                                placeholder="Catatan..."
-                              />
+                              <div className="flex flex-col gap-1">
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={line.keterangan ?? ""}
+                                    onChange={(e) =>
+                                      patchDrawerLine(line.lineId, {
+                                        keterangan: e.target.value || undefined,
+                                      })
+                                    }
+                                    className={cn(
+                                      "bg-white border rounded px-2 py-1 text-[11px] text-black w-full focus:border-emerald-500 focus:ring-0",
+                                      line.status === "NON KONSOLIDASI" &&
+                                        !cleanFormText(line.keterangan ?? "")
+                                        ? "border-red-300 bg-red-50/30 placeholder:text-red-400"
+                                        : "border-slate-200",
+                                    )}
+                                    placeholder={
+                                      line.status === "NON KONSOLIDASI"
+                                        ? "Wajib isi alasan..."
+                                        : "Catatan..."
+                                    }
+                                  />
+                                </div>
+                                <select
+                                  value=""
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      patchDrawerLine(line.lineId, {
+                                        keterangan: e.target.value,
+                                      });
+                                    }
+                                  }}
+                                  className="text-[9px] bg-slate-50 text-slate-500 border-slate-200 rounded px-1 py-0.5 focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                                >
+                                  <option value="">Pilih Alasan...</option>
+                                  {KETERANGAN_OPTIONS.map((opt) => (
+                                    <option key={opt} value={opt}>
+                                      {opt}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
                             </td>
                             <td className="p-4 text-center">
                               <button
@@ -1991,18 +2284,20 @@ export default function PemakaianAlkesModal({
                         Total Qty Pakai
                       </div>
                       <div className="text-lg font-bold text-emerald-600 leading-none">
-                        {drawerLines.reduce((a, l) => a + l.qtyDipakai, 0)}
+                        {drawerLines
+                          .filter((l) => l.barang.trim())
+                          .reduce((a, l) => a + l.qtyDipakai, 0)}
                       </div>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Link
-                      href="/dashboard/farmasi/master-barang"
-                      target="_blank"
+                    <button
+                      type="button"
+                      onClick={() => setMasterBarangOpen(true)}
                       className="px-4 py-2 text-[10px] font-bold text-slate-500 bg-slate-50 rounded-lg hover:bg-slate-100 transition-all uppercase tracking-widest border border-slate-200"
                     >
-                      Buka Master Barang
-                    </Link>
+                      Buka Distributor Barang
+                    </button>
                   </div>
                 </div>
               </RincianBarangTemplateTabs>
@@ -2252,12 +2547,12 @@ export default function PemakaianAlkesModal({
                 Tambah Produk Distributor
               </Link>
               <Link
-                href="/dashboard/farmasi/master-barang"
+                href="/distributor/barang"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 rounded-lg text-[10px] font-semibold bg-gradient-to-r from-[#C9A227] via-[#E8C547] to-[#2dd4bf] text-[#0a0f18] hover:opacity-95"
               >
-                Buka Master Barang
+                Buka Distributor Barang
               </Link>
               <button
                 suppressHydrationWarning
@@ -2289,6 +2584,75 @@ export default function PemakaianAlkesModal({
         onClose={() => setBarangScanOpen(false)}
         onDecoded={handleBarangScanDecoded}
       />
+
+      <Dialog open={masterBarangOpen} onOpenChange={setMasterBarangOpen}>
+        <DialogContent
+          className={cn(
+            "max-h-[90vh] w-[min(100vw-1rem,75rem)] max-w-[75rem] border p-0",
+            "border-slate-300/60 bg-white/98 dark:border-amber-500/35 dark:bg-black/80",
+            UI_LAYERS.modalTop,
+          )}
+        >
+          <div className="flex flex-col gap-3 p-3 sm:p-4">
+            <DialogHeader className="space-y-2 pr-8 text-left">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <PackageSearch className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <DialogTitle className="text-slate-900 dark:text-white">
+                    Distributor Barang
+                  </DialogTitle>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Tutup"
+                  onClick={() => setMasterBarangOpen(false)}
+                  className={cn(
+                    "rounded-lg p-1.5 transition",
+                    "text-slate-500 hover:bg-slate-100 hover:text-slate-800",
+                    "dark:text-white/85 dark:hover:bg-white/10 dark:hover:text-white",
+                  )}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <DialogDescription className="sr-only">
+                Panel Distributor Barang.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div
+              className={cn(
+                "rounded-xl border p-2",
+                "border-slate-300 bg-white",
+                "dark:border-amber-700/50 dark:bg-black/60",
+              )}
+            >
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="truncate text-xs font-bold text-slate-800 dark:text-white">
+                  Panel aktif: /distributor/barang
+                </p>
+                <Link
+                  href="/distributor/barang"
+                  target="_blank"
+                  className={cn(
+                    "rounded-md border px-2 py-1 text-[11px] font-bold transition",
+                    "border-slate-300 text-slate-700 hover:bg-slate-100",
+                    "dark:border-amber-700/50 dark:text-white dark:hover:bg-amber-950/40",
+                  )}
+                >
+                  Buka penuh
+                </Link>
+              </div>
+              <iframe
+                title="Distributor Barang"
+                src="/distributor/barang"
+                className="h-[65vh] w-full rounded-lg border border-slate-200 bg-white dark:border-amber-700/40 dark:bg-black"
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {printOnlyUi}
     </>
   );

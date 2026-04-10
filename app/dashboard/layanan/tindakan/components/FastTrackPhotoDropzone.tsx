@@ -22,6 +22,7 @@ type Props = {
   fotosValue: unknown;
   canEdit: boolean;
   onSaved?: () => void;
+  appearance?: "default" | "table";
 };
 
 export default function FastTrackPhotoDropzone({
@@ -29,16 +30,21 @@ export default function FastTrackPhotoDropzone({
   fotosValue,
   canEdit,
   onSaved,
+  appearance = "default",
 }: Props) {
+  const isTable = appearance === "table";
   const [urls, setUrls] = useState<string[]>(() =>
     parseFastTrackFotosUrls(fotosValue),
   );
+  // ... rest of state ...
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
+
+  // ... rest of logic ...
 
   useEffect(() => {
     setUrls(parseFastTrackFotosUrls(fotosValue));
@@ -150,7 +156,13 @@ export default function FastTrackPhotoDropzone({
 
   const zoneClass = cn(
     "relative flex flex-col rounded-lg border-2 border-dashed text-center transition-colors",
-    hasPhotos ? "min-h-[13rem] overflow-hidden p-1" : "min-h-[11rem] px-3 py-4",
+    isTable
+      ? hasPhotos
+        ? "min-h-[3rem] overflow-hidden p-0.5"
+        : "min-h-[3rem] items-center justify-center p-1"
+      : hasPhotos
+        ? "min-h-[13rem] overflow-hidden p-1"
+        : "min-h-[11rem] px-3 py-4",
     canEdit && !uploading
       ? dragOver
         ? "border-cyan-500 bg-cyan-50/80 dark:border-cyan-400 dark:bg-cyan-950/30"
@@ -159,15 +171,17 @@ export default function FastTrackPhotoDropzone({
   );
 
   return (
-    <div className="flex min-w-0 flex-col gap-2">
-      <p
-        className={cn(
-          "text-[10px] font-bold uppercase tracking-wider",
-          "text-slate-600 dark:text-white",
-        )}
-      >
-        Foto dokumentasi
-      </p>
+    <div className={cn("flex min-w-0 flex-col", isTable ? "gap-0" : "gap-2")}>
+      {!isTable && (
+        <p
+          className={cn(
+            "text-[10px] font-bold uppercase tracking-wider",
+            "text-slate-600 dark:text-white",
+          )}
+        >
+          Foto dokumentasi
+        </p>
+      )}
       <div
         role="region"
         aria-label="Unggah foto Fast-Track"
@@ -191,7 +205,8 @@ export default function FastTrackPhotoDropzone({
         {uploading ? (
           <div
             className={cn(
-              "flex min-h-[10rem] flex-1 flex-col items-center justify-center gap-2",
+              "flex flex-col items-center justify-center gap-2",
+              isTable ? "min-h-[3rem] flex-1" : "min-h-[10rem] flex-1",
               hasPhotos && "absolute inset-0 z-20 rounded-md",
               hasPhotos &&
                 "bg-white/85 dark:bg-black/75 dark:backdrop-blur-[2px]",
@@ -199,33 +214,38 @@ export default function FastTrackPhotoDropzone({
           >
             <Loader2
               className={cn(
-                "h-8 w-8 animate-spin",
+                isTable ? "h-4 w-4" : "h-8 w-8",
+                "animate-spin",
                 "text-cyan-600 dark:text-white",
               )}
               aria-hidden
             />
-            <span
-              className={cn(
-                "text-[10px] font-semibold",
-                "text-slate-700 dark:text-white",
-              )}
-            >
-              Mengompresi & mengunggah…
-            </span>
+            {!isTable && (
+              <span
+                className={cn(
+                  "text-[10px] font-semibold",
+                  "text-slate-700 dark:text-white",
+                )}
+              >
+                Mengompresi & mengunggah…
+              </span>
+            )}
           </div>
         ) : null}
 
         {hasPhotos ? (
           <div
             className={cn(
-              "relative flex min-h-[11rem] w-full flex-1 flex-col overflow-hidden rounded-md",
+              "relative flex w-full flex-1 flex-col overflow-hidden rounded-md",
+              isTable ? "min-h-0" : "min-h-[11rem]",
               !uploading && "min-h-0",
             )}
           >
             <div
               className={cn(
-                "grid min-h-[11rem] flex-1 gap-1 overflow-y-auto p-0.5",
-                urls.length === 1 ? "grid-cols-1" : "grid-cols-2",
+                "grid flex-1 gap-1 overflow-y-auto p-0.5",
+                isTable ? "grid-cols-2" : urls.length === 1 ? "grid-cols-1" : "grid-cols-2",
+                !isTable && "min-h-[11rem]",
               )}
             >
               {urls.map((u) => (
@@ -233,7 +253,9 @@ export default function FastTrackPhotoDropzone({
                   key={u}
                   className={cn(
                     "relative overflow-hidden rounded-md",
-                    urls.length === 1 ? "min-h-[11rem]" : "min-h-[5rem]",
+                    isTable
+                      ? "h-10 w-10 sm:h-12 sm:w-12"
+                      : urls.length === 1 ? "min-h-[11rem]" : "min-h-[5rem]",
                   )}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -242,7 +264,7 @@ export default function FastTrackPhotoDropzone({
                     alt="Dokumentasi Fast-Track"
                     className={cn(
                       "relative z-0 pointer-events-none h-full w-full object-cover",
-                      urls.length === 1 ? "min-h-[11rem]" : "min-h-[5rem]",
+                      !isTable && (urls.length === 1 ? "min-h-[11rem]" : "min-h-[5rem]"),
                     )}
                     loading="lazy"
                   />
@@ -256,12 +278,13 @@ export default function FastTrackPhotoDropzone({
                       setPreviewUrl(u);
                     }}
                     className={cn(
-                      "absolute left-1 top-1 z-30 flex h-7 w-7 items-center justify-center rounded-md border shadow-md transition-opacity",
+                      "absolute left-0.5 top-0.5 z-30 flex items-center justify-center rounded border shadow-sm transition-opacity",
+                      isTable ? "h-5 w-5" : "h-7 w-7",
                       "opacity-95 hover:opacity-100 disabled:opacity-40",
                     "border-cyan-300/80 bg-white/95 text-cyan-800 hover:bg-cyan-50 dark:border-cyan-600/50 dark:bg-black/80 dark:text-white dark:hover:bg-cyan-950/90",
                     )}
                   >
-                    <Eye className="h-3.5 w-3.5" />
+                    <Eye className={isTable ? "h-2.5 w-2.5" : "h-3.5 w-3.5"} />
                   </button>
                   {canEdit ? (
                     <button
@@ -274,19 +297,30 @@ export default function FastTrackPhotoDropzone({
                         void onRemove(u);
                       }}
                       className={cn(
-                        "absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-md border shadow-md transition-opacity",
+                        "absolute right-0.5 top-0.5 z-10 flex items-center justify-center rounded border shadow-sm transition-opacity",
+                        isTable ? "h-5 w-5" : "h-7 w-7",
                         "opacity-95 hover:opacity-100 disabled:opacity-40",
                         "border-red-200 bg-white/95 text-red-700 dark:border-red-900/60 dark:bg-black/80 dark:text-red-300",
                       )}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className={isTable ? "h-2.5 w-2.5" : "h-3.5 w-3.5"} />
                     </button>
                   ) : null}
                 </div>
               ))}
+              {isTable && canEdit && !uploading && (
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  className="flex h-10 w-10 items-center justify-center rounded-md border border-dashed border-cyan-400 bg-cyan-50/50 text-cyan-600 hover:bg-cyan-100 dark:border-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-400 sm:h-12 sm:w-12"
+                  title="Tambah foto"
+                >
+                  <ImagePlus className="h-4 w-4" />
+                </button>
+              )}
             </div>
 
-            {canEdit && !uploading ? (
+            {!isTable && canEdit && !uploading ? (
               <div
                 className={cn(
                   "pointer-events-none absolute inset-x-0 bottom-0 flex flex-col items-center gap-1.5 bg-gradient-to-t px-2 pb-2 pt-10",
@@ -323,43 +357,48 @@ export default function FastTrackPhotoDropzone({
             ) : null}
           </div>
         ) : !uploading ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-1">
+          <div className={cn("flex flex-col items-center justify-center gap-2", isTable ? "py-0.5" : "py-1")}>
             <ImagePlus
               className={cn(
-                "h-8 w-8",
+                isTable ? "h-4 w-4" : "h-8 w-8",
                 "text-cyan-600/80 dark:text-white",
               )}
               aria-hidden
             />
-            <p
-              className={cn(
-                "text-[11px] font-semibold leading-snug",
-                "text-slate-800 dark:text-cyan-100/90",
-              )}
-            >
-              {canEdit
-                ? "Seret & lepas foto di sini"
-                : "Unggah tidak tersedia tanpa ID kasus"}
-            </p>
-            <p
-              className={cn(
-                "text-[10px] font-medium",
-                "text-slate-500 dark:text-white/90",
-              )}
-            >
-              Otomatis dikompresi maks. 500 KB (JPEG) · seret JPG/PNG/WEBP/GIF
-            </p>
+            {!isTable ? (
+              <>
+                <p
+                  className={cn(
+                    "text-[11px] font-semibold leading-snug",
+                    "text-slate-800 dark:text-cyan-100/90",
+                  )}
+                >
+                  {canEdit
+                    ? "Seret & lepas foto di sini"
+                    : "Unggah tidak tersedia tanpa ID kasus"}
+                </p>
+                <p
+                  className={cn(
+                    "text-[10px] font-medium",
+                    "text-slate-500 dark:text-white/90",
+                  )}
+                >
+                  Otomatis dikompresi maks. 500 KB (JPEG) · seret JPG/PNG/WEBP/GIF
+                </p>
+              </>
+            ) : null}
             {canEdit ? (
               <button
                 type="button"
                 disabled={uploading}
                 onClick={() => inputRef.current?.click()}
                 className={cn(
-                  "mt-1 rounded-md border px-2.5 py-1 text-[10px] font-bold transition-colors disabled:opacity-50",
+                  "rounded-md border px-2 py-0.5 font-bold transition-colors disabled:opacity-50",
+                  isTable ? "text-[8px]" : "mt-1 px-2.5 py-1 text-[10px]",
                   "border-cyan-500/40 bg-cyan-50 text-cyan-900 hover:bg-cyan-100 dark:border-cyan-500/35 dark:bg-cyan-950/40 dark:text-cyan-200 dark:hover:bg-cyan-900/40",
                 )}
               >
-                Pilih file
+                {isTable ? "Upload" : "Pilih file"}
               </button>
             ) : null}
           </div>

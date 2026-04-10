@@ -16,7 +16,7 @@ export default function MiniTableFilter({
   statusOptions,
 }: Props) {
   return (
-    <div className="flex flex-wrap items-center gap-3 px-6 py-3 bg-black/20 border-b border-cyan-900/40 backdrop-blur-sm rounded-t-xl">
+    <div className="flex flex-wrap items-center gap-3 px-6 py-3 bg-black/20 border-b border-cyan-900/40 rounded-t-xl">
       {/* Search */}
       <div className="relative">
         <Search

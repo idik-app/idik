@@ -9,29 +9,44 @@ export function truncateForWhatsApp(text: string, max = WHATSAPP_TEXT_MAX_CHARS)
 }
 
 export function printReportHtml(html: string): void {
-  const w = window.open("", "_blank", "noopener,noreferrer");
-  if (!w) {
-    window.alert(
-      "Popup diblokir. Izinkan popup untuk halaman ini lalu coba cetak lagi.",
-    );
+  // Gunakan iframe tersembunyi untuk mencetak tanpa memicu popup blocker
+  let iframe = document.getElementById("print-frame") as HTMLIFrameElement;
+  if (!iframe) {
+    iframe = document.createElement("iframe");
+    iframe.id = "print-frame";
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+  }
+
+  const doc = iframe.contentWindow?.document || iframe.contentDocument;
+  if (!doc) {
+    // Fallback ke window.open jika iframe gagal (sangat jarang)
+    const w = window.open("", "_blank");
+    if (!w) {
+      window.alert(
+        "Gagal membuka jendela cetak. Izinkan popup atau coba lagi.",
+      );
+      return;
+    }
+    w.document.write(html);
+    w.document.close();
+    w.print();
     return;
   }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-  const runPrint = () => {
-    try {
-      w.focus();
-      w.print();
-    } catch {
-      /* ignore */
-    }
-  };
-  if (w.document.readyState === "complete") {
-    setTimeout(runPrint, 150);
-  } else {
-    w.addEventListener("load", () => setTimeout(runPrint, 150));
-  }
+
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  setTimeout(() => {
+    iframe.contentWindow?.focus();
+    iframe.contentWindow?.print();
+  }, 250);
 }
 
 export function downloadReportHtml(filename: string, html: string): void {

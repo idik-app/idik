@@ -29,7 +29,7 @@ export default function PasienDetail() {
 
   return (
     <Dialog open={isView} onOpenChange={() => setModalMode(null)}>
-      <DialogContent className="bg-gray-900/95 border border-cyan-500/30 text-white backdrop-blur-xl max-w-2xl">
+      <DialogContent className="bg-gray-900/95 border border-cyan-500/30 text-white max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-gold text-xl">Detail Pasien</DialogTitle>
           <DialogDescription className="text-gray-400">

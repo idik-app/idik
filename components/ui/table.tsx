@@ -14,7 +14,7 @@ export const Table = ({
   children: React.ReactNode;
   className?: string;
 }) => (
-  <div className="w-full overflow-x-auto rounded-lg border border-cyan-700/40 bg-black/40 backdrop-blur-sm">
+  <div className="w-full overflow-x-auto rounded-lg border border-cyan-700/40 bg-black/40">
     <table className={`w-full border-collapse text-sm ${className ?? ""}`}>
       {children}
     </table>

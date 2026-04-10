@@ -12,7 +12,7 @@ export async function fetchPasienCompactDeduped(): Promise<unknown[]> {
   if (!inflight) {
     inflight = (async () => {
       try {
-        const res = await fetch("/api/pasien?compact=1", {
+        const res = await fetch("/api/pasien?compact=1&limit=1000", {
           credentials: "include",
           cache: "no-store",
         });

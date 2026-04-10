@@ -88,7 +88,7 @@ export default function ModalAddEdit({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.25 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
       >
         <motion.div
           key="modal-addedit"
@@ -96,7 +96,7 @@ export default function ModalAddEdit({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 10 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
-          className="relative w-full max-w-xl rounded-2xl border border-cyan-700/50 bg-gradient-to-br from-black/60 via-gray-900/80 to-cyan-950/50 shadow-[0_0_20px_rgba(0,255,255,0.2)] text-gray-200 p-6 overflow-hidden"
+          className="relative w-full max-w-xl rounded-2xl border border-cyan-700/50 bg-gradient-to-br from-black/60 via-gray-900/80 to-cyan-950/50 text-gray-200 p-6 overflow-hidden"
         >
           {/* Scan line */}
           <motion.div

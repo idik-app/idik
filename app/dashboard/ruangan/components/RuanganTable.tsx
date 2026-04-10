@@ -297,8 +297,7 @@ export default function RuanganTable({
   return (
     <div
       className="relative overflow-x-auto rounded-xl border border-cyan-700/40 
-                 bg-gradient-to-br from-cyan-900/10 to-black/60 
-                 shadow-[0_0_15px_rgba(0,255,255,0.1)] backdrop-blur-md animate-in fade-in duration-300"
+                 bg-gradient-to-br from-cyan-900/10 to-black/60 animate-in fade-in duration-300"
     >
       <div
         className="absolute inset-0 bg-gradient-to-br 
@@ -308,7 +307,7 @@ export default function RuanganTable({
       />
 
       <table className="relative w-full text-sm border-collapse z-10 min-w-[720px]">
-        <thead className="sticky top-0 bg-black/60 text-yellow-400 backdrop-blur-sm">
+        <thead className="sticky top-0 bg-black/60 text-yellow-400">
           <tr>
             <th className="px-3 py-2 text-left font-medium">Nama</th>
             <th className="px-3 py-2 text-left font-medium">Kode</th>

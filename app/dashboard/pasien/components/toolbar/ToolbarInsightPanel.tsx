@@ -18,8 +18,7 @@ export default function ToolbarInsightPanel({
                  text-cyan-100 rounded-lg text-center
                  bg-gradient-to-r from-cyan-900/60 to-gray-900/80
                  border border-yellow-400/30
-                 shadow-[0_0_20px_rgba(255,215,0,0.25)]
-                 backdrop-blur-md whitespace-pre-line
+                 whitespace-pre-line
                  pointer-events-auto
                  animate-in fade-in slide-in-from-top-1 zoom-in-95 duration-200"
     >

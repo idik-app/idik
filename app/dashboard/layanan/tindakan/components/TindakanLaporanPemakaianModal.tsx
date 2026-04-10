@@ -9,11 +9,42 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import ReportExportActionBar from "./ReportExportActionBar";
 import { displayNamaPasien, displayRm } from "../lib/displayTindakanRow";
 import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
-import { wrapReportHtmlDocument } from "../lib/tindakanReportTemplates";
+import {
+  buildPemakaianAlkesReportHtml,
+  buildPemakaianAlkesWhatsAppText,
+  downloadPemakaianAlkesExcel,
+  wrapReportHtmlDocument,
+} from "../lib/tindakanReportTemplates";
+
+// Daftar kata kunci distributor untuk otomatisasi label di UI (antisipasi input manual)
+const DISTRIBUTOR_KONSOLIDASI_KEYWORDS = [
+  "ANUGRAH ARGON MEDICA",
+  "ARGON",
+  "TAWADA",
+  "DIPA PHARMALAB",
+  "DIPA",
+  "XIENCE",
+  "ONYX",
+  "PROMUS",
+  "SYNERGY",
+  "EMERGE",
+];
+
+const DISTRIBUTOR_NON_KONSOLIDASI_KEYWORDS = [
+  "REVASS UTAMA MEDIKA",
+  "REVASS",
+  "WIKATON",
+  "TRIPATRIA",
+  "GENOSS",
+  "SUPRAFLEX",
+  "SAPPHIRE",
+  "SIMPASS",
+];
 
 export default function TindakanLaporanPemakaianModal({
   open,
@@ -38,35 +69,57 @@ export default function TindakanLaporanPemakaianModal({
     rows.forEach((r) => {
       const txt = String(r.pemakaian ?? "").trim();
       if (!txt) return;
+
+      // Deteksi tag [KATEGORI]
       const matches = txt.match(
         /\[(STENT|BALLOON|BALLON|CATHETER|WIRE|GUIDING|ALKES|KATETER)\]/gi,
       );
       matches?.forEach((m) => set.add(m.toUpperCase().replace(/[\[\]]/g, "")));
+
+      // Deteksi kata kunci tanpa tag
+      const upper = txt.toUpperCase();
+      if (upper.includes("STENT") && !upper.includes("[STENT]"))
+        set.add("STENT");
+      if (
+        (upper.includes("BALLOON") || upper.includes("BALLON")) &&
+        !upper.includes("[BALLOON]") &&
+        !upper.includes("[BALLON]")
+      )
+        set.add("BALLOON");
     });
     return Array.from(set).sort();
   }, [rows]);
 
   const filteredRows = useMemo(() => {
-    let result = rows.filter((r) => String(r.pemakaian ?? "").trim() !== "");
+    let result = rows.filter((r) => {
+      const txt = String(r.pemakaian ?? "").trim();
+      return txt !== "";
+    });
 
     if (filterKategori) {
       result = result.filter((r) => {
         const txt = String(r.pemakaian ?? "").trim();
         const cat = filterKategori.toUpperCase();
+        const upperTxt = txt.toUpperCase();
+
         if (cat === "BALLOON") {
           return (
-            txt.toUpperCase().includes(`[BALLOON]`) ||
-            txt.toUpperCase().includes(`[BALLON]`)
+            upperTxt.includes(`[BALLOON]`) ||
+            upperTxt.includes(`[BALLON]`) ||
+            upperTxt.includes("BALLOON") ||
+            upperTxt.includes("BALLON")
           );
         }
-        return txt.toUpperCase().includes(`[${cat}]`);
+        return upperTxt.includes(`[${cat}]`) || upperTxt.includes(cat);
       });
     }
 
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
       result = result.filter((r) => {
-        const nama = normalizeNamaPasien(displayNamaPasien(r as any)).toLowerCase();
+        const nama = normalizeNamaPasien(
+          displayNamaPasien(r as any),
+        ).toLowerCase();
         const rm = displayRm(r as any).toLowerCase();
         const dokter = (r.dokter || "").toLowerCase();
         return (
@@ -103,6 +156,168 @@ export default function TindakanLaporanPemakaianModal({
       ALKES_LAINNYA: [],
     };
 
+    // Jika format tidak diawali bullet point, coba proses per baris secara langsung
+    const hasBullets = txt.includes("•");
+    const hasConsolidation = txt.toUpperCase().includes("KONSOLIDASI");
+
+    // Jika tidak ada bullet point, atau ada kata KONSOLIDASI, kita gunakan logika deteksi blok yang lebih agresif
+    if (!hasBullets || hasConsolidation) {
+      const processedLines = new Set<number>();
+
+      lines.forEach((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed || processedLines.has(idx)) return;
+        const upperLine = trimmed.toUpperCase();
+
+        // Cek apakah baris ini adalah awal dari blok pemakaian
+        const isAlkesLine =
+          upperLine.startsWith("•") ||
+          upperLine.includes("[STENT]") ||
+          upperLine.includes("[BALLOON]") ||
+          upperLine.includes("[BALLON]") ||
+          upperLine.includes("[KONSOLIDASI]") ||
+          upperLine.includes("[NON KONSOLIDASI]") ||
+          upperLine.includes("STENT") ||
+          upperLine.includes("BALLOON") ||
+          upperLine.includes("BALLON") ||
+          upperLine.includes("SUPRAFLEX") ||
+          upperLine.includes("GENOSS") ||
+          upperLine.includes("XIENCE") ||
+          upperLine.includes("ONYX") ||
+          upperLine.includes("PROMUS") ||
+          upperLine.includes("SYNERGY") ||
+          upperLine.includes("SAPPHIRE") ||
+          upperLine.includes("EMERGE") ||
+          upperLine.includes("TREK") ||
+          upperLine.includes("DIAGNOSA:") ||
+          upperLine.includes("NAMA_PASIEN:") ||
+          // Tambahan: Jika baris hanya berisi "KONSOLIDASI" atau "NON KONSOLIDASI" tanpa bullet
+          upperLine === "KONSOLIDASI" ||
+          upperLine === "NON KONSOLIDASI" ||
+          // Tambahan: Jika baris berisi LOT/Ukuran/ED (seringkali ini bagian dari blok yang terpisah)
+          upperLine.includes("LOT:") ||
+          upperLine.includes("UKURAN:") ||
+          upperLine.includes("ED:");
+
+        if (isAlkesLine) {
+          let cat: "STENT" | "BALLOON" | "ALKES_LAINNYA" = "ALKES_LAINNYA";
+
+          // Cari brand di baris ini ATAU baris-baris sebelumnya (mencari header yang hilang)
+          const findCategoryInContext = (startIdx: number) => {
+            // 1. Cek baris ini dulu
+            const currentLine = lines[startIdx].trim().toUpperCase();
+            if (
+              currentLine.includes("STENT") ||
+              currentLine.includes("XIENCE") ||
+              currentLine.includes("ONYX") ||
+              currentLine.includes("PROMUS")
+            )
+              return "STENT";
+            if (
+              currentLine.includes("BALLOON") ||
+              currentLine.includes("BALLON") ||
+              currentLine.includes("SAPPHIRE") ||
+              currentLine.includes("TREK")
+            )
+              return "BALLOON";
+
+            // 2. Cek ke atas (mencari nama barang yang mungkin ada di baris sebelumnya)
+            for (let k = startIdx - 1; k >= Math.max(0, startIdx - 3); k--) {
+              const prevLine = lines[k].trim().toUpperCase();
+              if (
+                prevLine.includes("STENT") ||
+                prevLine.includes("XIENCE") ||
+                prevLine.includes("ONYX") ||
+                prevLine.includes("PROMUS")
+              )
+                return "STENT";
+              if (
+                prevLine.includes("BALLOON") ||
+                prevLine.includes("BALLON") ||
+                prevLine.includes("SAPPHIRE") ||
+                prevLine.includes("TREK")
+              )
+                return "BALLOON";
+              if (prevLine.startsWith("•")) break;
+            }
+
+            // 3. Cek ke bawah dalam blok ini
+            for (let k = startIdx + 1; k < lines.length; k++) {
+              const nextLine = lines[k].trim().toUpperCase();
+              if (
+                nextLine.startsWith("•") ||
+                nextLine.includes("[STENT]") ||
+                nextLine.includes("[BALLOON]")
+              )
+                break;
+              if (
+                nextLine.includes("STENT") ||
+                nextLine.includes("XIENCE") ||
+                nextLine.includes("ONYX") ||
+                nextLine.includes("PROMUS")
+              )
+                return "STENT";
+              if (
+                nextLine.includes("BALLOON") ||
+                nextLine.includes("BALLON") ||
+                nextLine.includes("SAPPHIRE") ||
+                nextLine.includes("TREK")
+              )
+                return "BALLOON";
+            }
+            return "ALKES_LAINNYA";
+          };
+
+          cat = findCategoryInContext(idx);
+
+          // Ambil baris ini dan baris-baris berikutnya sampai ketemu alkes baru atau baris kosong
+          let block = [trimmed];
+          processedLines.add(idx);
+
+          for (let j = idx + 1; j < lines.length; j++) {
+            const nextTrimmed = lines[j].trim();
+            const nextUpper = nextTrimmed.toUpperCase();
+            if (!nextTrimmed) break;
+
+            const isNextAlkes =
+              nextTrimmed.startsWith("•") ||
+              nextUpper.includes("[STENT]") ||
+              nextUpper.includes("[BALLOON]") ||
+              nextUpper.includes("[BALLON]") ||
+              nextUpper.includes("[KONSOLIDASI]") ||
+              nextUpper.includes("[NON KONSOLIDASI]") ||
+              nextUpper.includes("STENT") ||
+              nextUpper.includes("BALLOON") ||
+              nextUpper.includes("BALLON") ||
+              nextUpper.includes("XIENCE") ||
+              nextUpper.includes("ONYX") ||
+              nextUpper.includes("PROMUS") ||
+              nextUpper.includes("SYNERGY") ||
+              nextUpper.includes("SAPPHIRE") ||
+              nextUpper.includes("EMERGE") ||
+              nextUpper.includes("TREK");
+
+            if (isNextAlkes) break;
+
+            block.push(nextTrimmed);
+            processedLines.add(j);
+          }
+
+          result[cat].push(block.join("\n"));
+        }
+      });
+
+      // Jika ada baris yang belum terproses dan bukan baris kosong, masukkan ke ALKES_LAINNYA
+      lines.forEach((line, idx) => {
+        const trimmed = line.trim();
+        if (trimmed && !processedLines.has(idx)) {
+          result.ALKES_LAINNYA.push(trimmed);
+        }
+      });
+
+      return result;
+    }
+
     let currentCategory: "STENT" | "BALLOON" | "ALKES_LAINNYA" | null = null;
     let currentBlock: string[] = [];
 
@@ -126,6 +341,7 @@ export default function TindakanLaporanPemakaianModal({
       const trimmed = line.trim();
       if (trimmed.startsWith("•")) {
         flush();
+        const upperLine = trimmed.toUpperCase();
         const catMatch = trimmed.match(
           /\[(STENT|BALLOON|BALLON|CATHETER|WIRE|GUIDING|ALKES|KATETER)\]/i,
         );
@@ -139,12 +355,15 @@ export default function TindakanLaporanPemakaianModal({
             currentCategory = "ALKES_LAINNYA";
           }
         } else {
-          // Jika tidak ada tag, coba infer dari nama barang di baris tersebut
-          const upperLine = trimmed.toUpperCase();
+          // Jika tidak ada tag kategori eksplisit, coba infer dari konten baris
           if (
             upperLine.includes("STENT") ||
             upperLine.includes("SUPRAFLEX") ||
-            upperLine.includes("GENOSS")
+            upperLine.includes("GENOSS") ||
+            upperLine.includes("XIENCE") ||
+            upperLine.includes("ONYX") ||
+            upperLine.includes("PROMUS") ||
+            upperLine.includes("SYNERGY")
           ) {
             // Khusus GENOSS, pastikan bukan BALLON
             if (upperLine.includes("BALLOON") || upperLine.includes("BALLON")) {
@@ -154,7 +373,10 @@ export default function TindakanLaporanPemakaianModal({
             }
           } else if (
             upperLine.includes("BALLOON") ||
-            upperLine.includes("BALLON")
+            upperLine.includes("BALLON") ||
+            upperLine.includes("SAPPHIRE") ||
+            upperLine.includes("EMERGE") ||
+            upperLine.includes("TREK")
           ) {
             currentCategory = "BALLOON";
           } else {
@@ -176,10 +398,25 @@ export default function TindakanLaporanPemakaianModal({
     return text.split("\n\n").map((block, i) => (
       <div key={i} className="mb-2 last:mb-0">
         {block.split("\n").map((line, j) => {
-          const isHeader = line.startsWith("•");
+          const upperLine = line.toUpperCase();
+          const isHeader =
+            line.startsWith("•") ||
+            upperLine.includes("[KONSOLIDASI]") ||
+            upperLine.trim() === "NON KONSOLIDASI";
           if (!isHeader) return <div key={j}>{line}</div>;
 
-          const parts = line.split(/(\[KONSOLIDASI\]|\[NON KONSOLIDASI\])/gi);
+          // Jika baris adalah murni "NON KONSOLIDASI" (baris baru)
+          if (upperLine.trim() === "NON KONSOLIDASI") {
+            return (
+              <div key={j} className="mt-0.5">
+                <span className="inline-flex items-center rounded bg-blue-500/10 px-1 py-0.5 text-[9px] font-bold text-blue-600 dark:text-blue-400">
+                  NON KONSOLIDASI
+                </span>
+              </div>
+            );
+          }
+
+          const parts = line.split(/(\[KONSOLIDASI\])/gi);
           return (
             <div key={j} className="flex flex-wrap items-center gap-1">
               {parts.map((part, k) => {
@@ -194,16 +431,6 @@ export default function TindakanLaporanPemakaianModal({
                     </span>
                   );
                 }
-                if (upper === "[NON KONSOLIDASI]") {
-                  return (
-                    <span
-                      key={k}
-                      className="inline-flex items-center rounded bg-amber-500/10 px-1 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400"
-                    >
-                      NON KONSOLIDASI
-                    </span>
-                  );
-                }
                 return <span key={k}>{part}</span>;
               })}
             </div>
@@ -214,154 +441,101 @@ export default function TindakanLaporanPemakaianModal({
   };
 
   const buildExportHtml = useCallback(() => {
-    const bodyRows = filteredRows
-      .map((rec, i) => {
-        const raw = rec as unknown as Record<string, unknown>;
-        const nama = normalizeNamaPasien(displayNamaPasien(raw));
-        const rm = displayRm(raw);
-        const parsed = parsePemakaian(String(rec.pemakaian ?? ""));
-
-        const formatBlock = (blocks: string[]) =>
-          blocks
-            .join("\n\n")
-            .replace(/\n/g, "<br/>")
-            .replace(
-              /\[KONSOLIDASI\]/gi,
-              '<strong style="color:#10b981; font-size: 0.8em;">[KONSOLIDASI]</strong>',
-            )
-            .replace(
-              /\[NON KONSOLIDASI\]/gi,
-              '<strong style="color:#f59e0b; font-size: 0.8em;">[NON KONSOLIDASI]</strong>',
-            );
-
-        return `<tr>
-          <td class="num">${i + 1}</td>
-          <td class="num">${String(rec.tanggal ?? "").slice(0, 10) || "—"}</td>
-          <td><strong>${nama}</strong><br/><small>${rm}</small></td>
-          <td>${rec.dokter || "—"}</td>
-          <td style="white-space: pre-wrap;">${formatBlock(parsed.STENT) || "—"}</td>
-          <td style="white-space: pre-wrap;">${formatBlock(parsed.BALLOON) || "—"}</td>
-          <td style="white-space: pre-wrap;">${formatBlock(parsed.ALKES_LAINNYA) || "—"}</td>
-        </tr>`;
-      })
-      .join("\n");
-
-    const table = `<table>
-      <thead>
-        <tr>
-          <th style="width:40px">No</th>
-          <th style="width:100px">Tanggal</th>
-          <th style="width:180px">Pasien / RM</th>
-          <th style="width:150px">Dokter</th>
-          <th style="width:200px">STENT</th>
-          <th style="width:200px">BALLOON</th>
-          <th>ALKES LAINNYA</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${bodyRows || '<tr><td colspan="7" class="num">Tidak ada data pemakaian.</td></tr>'}
-      </tbody>
-    </table>`;
-
-    return wrapReportHtmlDocument({
-      title: "LAPORAN PEMAKAIAN ALKES (CATHLAB)",
+    return buildPemakaianAlkesReportHtml({
+      rows: filteredRows,
       subtitleLines: [
         ...filterSummaryLines,
         filterKategori ? `Kategori: ${filterKategori}` : "Semua Kategori",
         `Total: ${filteredRows.length} baris`,
       ],
-      bodyInnerHtml: table,
+      parsePemakaian,
     });
   }, [filteredRows, filterSummaryLines, filterKategori, parsePemakaian]);
 
   const buildExportWhatsApp = useCallback(() => {
-    const lines = [
-      "*LAPORAN PEMAKAIAN ALKES (CATHLAB)*",
-      "",
-      ...filterSummaryLines,
-      filterKategori ? `Kategori: ${filterKategori}` : "Semua Kategori",
-      `Total: ${filteredRows.length} baris`,
-      "",
-    ];
-
-    filteredRows.slice(0, 20).forEach((r, i) => {
-      const raw = r as unknown as Record<string, unknown>;
-      const nama = normalizeNamaPasien(displayNamaPasien(raw));
-      const tgl = String(r.tanggal ?? "").slice(5, 10); // MM-DD
-      const parsed = parsePemakaian(String(r.pemakaian ?? ""));
-      const allItems = [
-        ...parsed.STENT,
-        ...parsed.BALLOON,
-        ...parsed.ALKES_LAINNYA,
-      ];
-      const pemakaian = allItems
-        .join(", ")
-        .replace(/\n/g, " ")
-        .replace(/\s+/g, " ");
-      lines.push(`${i + 1}. [${tgl}] ${nama}: ${pemakaian}`);
+    return buildPemakaianAlkesWhatsAppText({
+      rows: filteredRows,
+      subtitleLines: [
+        ...filterSummaryLines,
+        filterKategori ? `Kategori: ${filterKategori}` : "Semua Kategori",
+        `Total: ${filteredRows.length} baris`,
+      ],
+      parsePemakaian,
     });
-
-    if (filteredRows.length > 20) {
-      lines.push("", `... +${filteredRows.length - 20} lainnya.`);
-    }
-
-    return lines.join("\n");
   }, [filteredRows, filterSummaryLines, filterKategori, parsePemakaian]);
+
+  const onDownloadExcel = useCallback(() => {
+    downloadPemakaianAlkesExcel({
+      rows: filteredRows,
+      filename: `laporan-pemakaian-alkes-${new Date().toISOString().slice(0, 10)}`,
+      parsePemakaian,
+    });
+  }, [filteredRows, parsePemakaian]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[95vh] w-[min(100vw-1rem,96vw)] max-w-[min(96vw,92rem)] overflow-hidden p-0 flex flex-col border-slate-300/60 bg-white/98 backdrop-blur-xl dark:border-amber-500/35 dark:bg-black/85">
-        <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 sm:p-6 text-slate-900 dark:text-white">
-          <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <DialogHeader className="space-y-1 text-left sm:pr-2">
-              <DialogTitle className="flex items-center gap-2 text-left font-bold tracking-wide">
+      <DialogContent
+        hideOverlay
+        className={cn(
+          "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+          "h-[85vh] max-h-[85vh] w-[95vw] max-w-5xl overflow-hidden p-0 flex flex-col border-slate-300/60 bg-white dark:border-amber-500/35 dark:bg-black rounded-xl focus:outline-none",
+          UI_LAYERS.modalTop,
+        )}
+      >
+        <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-2 sm:p-3 text-slate-900 dark:text-white overflow-hidden bg-white dark:bg-black">
+          <div className="flex shrink-0 flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between border-b pb-1.5 dark:border-white/10">
+            <DialogHeader className="space-y-0 text-left sm:pr-2">
+              <DialogTitle className="flex items-center gap-2 text-left text-sm font-bold tracking-wide">
                 <Package
                   className="shrink-0 text-amber-600 dark:text-amber-400"
-                  size={22}
+                  size={18}
                   strokeWidth={2.25}
                 />
                 Laporan Pemakaian Alkes
               </DialogTitle>
             </DialogHeader>
-            <ReportExportActionBar
-              disabled={loading}
-              empty={!loading && filteredRows.length === 0}
-              fileNameBase={`laporan-pemakaian-alkes-${new Date().toISOString().slice(0, 10)}`}
-              buildHtml={buildExportHtml}
-              buildWhatsAppText={buildExportWhatsApp}
-            />
+            <div className="flex items-center gap-1.5 scale-90 origin-right">
+              <ReportExportActionBar
+                disabled={loading}
+                empty={!loading && filteredRows.length === 0}
+                fileNameBase={`laporan-pemakaian-alkes-${new Date().toISOString().slice(0, 10)}`}
+                buildHtml={buildExportHtml}
+                buildWhatsAppText={buildExportWhatsApp}
+                onDownloadExcel={onDownloadExcel}
+              />
+            </div>
           </div>
 
-          <div className="flex shrink-0 flex-wrap items-center gap-3 rounded-lg border p-2.5 border-amber-200/80 bg-amber-50/50 dark:border-amber-900/50 dark:bg-black/30">
-            <div className="flex flex-1 min-w-[200px] flex-col gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90">
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5 rounded-lg border p-1.5 border-amber-200/80 bg-amber-50/50 dark:border-amber-900/50 dark:bg-black/30">
+            <div className="flex flex-1 min-w-[120px] flex-col gap-0">
+              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90">
                 Cari Pasien / RM / Dokter
               </span>
               <div className="relative">
                 <Search
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40"
-                  size={14}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40"
+                  size={10}
                 />
                 <input
                   type="text"
-                  placeholder="Ketik untuk mencari..."
+                  placeholder="Cari..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full rounded-md border border-amber-300/80 bg-white pl-8 pr-2 py-1 text-[13px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-white/20 dark:bg-black dark:text-white dark:placeholder:text-white/30"
+                  className="w-full rounded-md border border-amber-300/80 bg-white pl-6 pr-1 py-0 text-[11px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-white/20 dark:bg-black dark:text-white dark:placeholder:text-white/30"
                 />
               </div>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90">
-                Filter Kategori
+            <div className="flex flex-col gap-0">
+              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90">
+                Kategori
               </span>
               <select
                 value={filterKategori}
                 onChange={(e) => setFilterKategori(e.target.value)}
-                className="rounded-md border border-amber-300/80 bg-white px-2 py-1 text-[13px] font-semibold text-slate-900 dark:border-white/20 dark:bg-black dark:text-white"
+                className="rounded-md border border-amber-300/80 bg-white px-1.5 py-0 text-[11px] font-semibold text-slate-900 dark:border-white/20 dark:bg-black dark:text-white"
               >
-                <option value="">Semua Kategori</option>
+                <option value="">Semua</option>
                 {kategoriOptions.map((k) => (
                   <option key={k} value={k}>
                     {k}
@@ -373,66 +547,112 @@ export default function TindakanLaporanPemakaianModal({
 
           <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200/80 dark:border-white/15">
             {loading ? (
-              <div className="p-6 text-center text-sm font-semibold text-slate-600 dark:text-white/85">
+              <div className="p-3 text-center text-[11px] font-semibold text-slate-600 dark:text-white/85">
                 Memuat data…
               </div>
             ) : filteredRows.length === 0 ? (
-              <div className="p-6 text-center text-sm font-semibold text-slate-600 dark:text-white/85">
+              <div className="p-3 text-center text-[11px] font-semibold text-slate-600 dark:text-white/85">
                 Tidak ada data pemakaian alkes.
               </div>
             ) : (
-              <table className="w-full border-collapse text-[11px]">
+              <table className="w-full border-collapse text-[9px]">
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-white/10">
                   <tr>
-                    <th className="border border-slate-300/70 px-2 py-2 text-left dark:border-white/20">
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[70px]">
                       Tanggal
                     </th>
-                    <th className="border border-slate-300/70 px-2 py-2 text-left dark:border-white/20">
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[130px]">
                       Pasien / RM
                     </th>
-                    <th className="border border-slate-300/70 px-2 py-2 text-left dark:border-white/20">
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[100px]">
                       Dokter
                     </th>
-                    <th className="border border-slate-300/70 px-2 py-2 text-left dark:border-white/20">
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20">
                       STENT
                     </th>
-                    <th className="border border-slate-300/70 px-2 py-2 text-left dark:border-white/20">
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20">
                       BALLOON
                     </th>
-                    <th className="border border-slate-300/70 px-2 py-2 text-left dark:border-white/20">
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20">
                       ALKES LAINNYA
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-white/10">
                   {paginatedRows.map((r) => {
-                    const parsed = parsePemakaian(String(r.pemakaian ?? ""));
+                    const rawPemakaian = String(r.pemakaian ?? "");
+                    let finalPemakaian = rawPemakaian;
+                    const upperPemakaian = rawPemakaian.toUpperCase();
+
+                    // Otomatisasi label di UI berdasarkan kata kunci
+                    const hasKonsolidasi =
+                      upperPemakaian.includes("[KONSOLIDASI]");
+                    const hasNonKonsolidasi =
+                      upperPemakaian.includes("[NON KONSOLIDASI]") ||
+                      upperPemakaian.includes("NON KONSOLIDASI");
+
+                    const matchKonsolidasi =
+                      DISTRIBUTOR_KONSOLIDASI_KEYWORDS.find((k) =>
+                        upperPemakaian.includes(k),
+                      );
+                    const matchNonKonsolidasi =
+                      DISTRIBUTOR_NON_KONSOLIDASI_KEYWORDS.find((k) =>
+                        upperPemakaian.includes(k),
+                      );
+
+                    // Koreksi jika ada label yang salah (misal ONYX tapi tertulis NON KONSOLIDASI)
+                    if (matchKonsolidasi) {
+                      if (hasNonKonsolidasi) {
+                        finalPemakaian = rawPemakaian
+                          .replace(/\[NON KONSOLIDASI\]/gi, "[KONSOLIDASI]")
+                          .replace(/NON KONSOLIDASI/gi, "[KONSOLIDASI]");
+                      } else if (!hasKonsolidasi) {
+                        finalPemakaian = rawPemakaian.replace(
+                          new RegExp(matchKonsolidasi, "gi"),
+                          (m) => `${m} [KONSOLIDASI]`,
+                        );
+                      }
+                    } else if (matchNonKonsolidasi) {
+                      if (hasKonsolidasi) {
+                        finalPemakaian = rawPemakaian.replace(
+                          /\[KONSOLIDASI\]/gi,
+                          "\nNON KONSOLIDASI",
+                        );
+                      } else if (!hasNonKonsolidasi) {
+                        finalPemakaian = rawPemakaian.replace(
+                          new RegExp(matchNonKonsolidasi, "gi"),
+                          (m) => `${m}\nNON KONSOLIDASI`,
+                        );
+                      }
+                    }
+
+                    const parsed = parsePemakaian(finalPemakaian);
                     return (
                       <tr
                         key={r.id}
                         className="hover:bg-slate-50 dark:hover:bg-white/5"
                       >
-                        <td className="border border-slate-300/70 px-2 py-2 align-top dark:border-white/20">
+                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20">
                           {String(r.tanggal ?? "").slice(0, 10)}
                         </td>
-                        <td className="border border-slate-300/70 px-2 py-2 align-top dark:border-white/20">
-                          <div className="font-bold">
+                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20">
+                          <div className="font-bold leading-tight">
                             {normalizeNamaPasien(displayNamaPasien(r as any))}
                           </div>
-                          <div className="text-[10px] opacity-70">
+                          <div className="text-[8px] opacity-70">
                             {displayRm(r as any)}
                           </div>
                         </td>
-                        <td className="border border-slate-300/70 px-2 py-2 align-top dark:border-white/20">
+                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 leading-tight">
                           {r.dokter || "—"}
                         </td>
-                        <td className="border border-slate-300/70 px-2 py-2 align-top dark:border-white/20 whitespace-pre-wrap leading-relaxed">
+                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 whitespace-pre-wrap leading-tight text-[8px]">
                           {formatBlockText(parsed.STENT.join("\n\n"))}
                         </td>
-                        <td className="border border-slate-300/70 px-2 py-2 align-top dark:border-white/20 whitespace-pre-wrap leading-relaxed">
+                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 whitespace-pre-wrap leading-tight text-[8px]">
                           {formatBlockText(parsed.BALLOON.join("\n\n"))}
                         </td>
-                        <td className="border border-slate-300/70 px-2 py-2 align-top dark:border-white/20 whitespace-pre-wrap leading-relaxed">
+                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 whitespace-pre-wrap leading-tight text-[8px]">
                           {formatBlockText(parsed.ALKES_LAINNYA.join("\n\n"))}
                         </td>
                       </tr>
@@ -444,36 +664,34 @@ export default function TindakanLaporanPemakaianModal({
           </div>
 
           {filteredRows.length > 0 && (
-            <div className="flex shrink-0 items-center justify-between rounded-lg border border-slate-200/80 bg-slate-50/50 px-4 py-2.5 dark:border-white/10 dark:bg-white/5">
-              <div className="text-[12px] font-medium text-slate-500 dark:text-white/60">
-                Menampilkan{" "}
+            <div className="flex shrink-0 items-center justify-between rounded-lg border border-slate-200/80 bg-slate-50/50 px-2 py-1 dark:border-white/10 dark:bg-white/5">
+              <div className="text-[9px] font-medium text-slate-500 dark:text-white/60">
                 <span className="font-bold text-slate-900 dark:text-white">
                   {Math.min(
                     (currentPage - 1) * itemsPerPage + 1,
                     filteredRows.length,
                   )}
-                </span>{" "}
-                sampai{" "}
+                </span>
+                -
                 <span className="font-bold text-slate-900 dark:text-white">
                   {Math.min(currentPage * itemsPerPage, filteredRows.length)}
-                </span>{" "}
-                dari{" "}
+                </span>
+                /
                 <span className="font-bold text-slate-900 dark:text-white">
                   {filteredRows.length}
-                </span>{" "}
-                data
+                </span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 dark:border-white/20 dark:bg-black dark:text-white dark:hover:bg-white/10"
+                  className="flex h-5 w-5 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 dark:border-white/20 dark:bg-black dark:text-white dark:hover:bg-white/10"
                 >
-                  <ChevronLeft size={16} />
+                  <ChevronLeft size={12} />
                 </button>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5">
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     let pageNum = currentPage;
                     if (totalPages <= 5) {
@@ -491,7 +709,7 @@ export default function TindakanLaporanPemakaianModal({
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
                         className={cn(
-                          "flex h-8 min-w-[32px] items-center justify-center rounded-md border text-[12px] font-bold transition-colors",
+                          "flex h-5 min-w-[20px] items-center justify-center rounded border text-[9px] font-bold transition-colors",
                           currentPage === pageNum
                             ? "border-amber-500 bg-amber-500 text-white"
                             : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/20 dark:bg-black dark:text-white dark:hover:bg-white/10",
@@ -508,9 +726,9 @@ export default function TindakanLaporanPemakaianModal({
                     setCurrentPage((p) => Math.min(totalPages, p + 1))
                   }
                   disabled={currentPage === totalPages}
-                  className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 dark:border-white/20 dark:bg-black dark:text-white dark:hover:bg-white/10"
+                  className="flex h-5 w-5 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 dark:border-white/20 dark:bg-black dark:text-white dark:hover:bg-white/10"
                 >
-                  <ChevronRight size={16} />
+                  <ChevronRight size={12} />
                 </button>
               </div>
             </div>

@@ -7,6 +7,7 @@ import { useSession } from "@/contexts/SessionContext";
 import { LogOut, Loader2, Sun, Moon, Settings } from "lucide-react";
 import HoloSettingsPanel from "@/components/HoloSettingsPanel";
 import UiZoomControl from "@/components/UiZoomControl";
+import { UI_LAYERS } from "@/lib/ui/layers";
 import { useTheme } from "@/contexts/ThemeContext";
 import { ToolbarNotificationBell } from "@/app/dashboard/pasien/components/toolbar/ToolbarNotificationBell";
 
@@ -160,7 +161,7 @@ export default function Topbar() {
   const themeStyles = lightMode
     ? THEME_STYLES["neo-white"]
     : (THEME_STYLES[themeMode] ?? THEME_STYLES["dark-clinical"]);
-  const { glow: themeGlow, gradient: gradientClass } = themeStyles;
+  const { gradient: gradientClass } = themeStyles;
 
   if (!mounted)
     return (
@@ -177,10 +178,10 @@ export default function Topbar() {
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
-        className={`relative z-[350] flex items-center justify-between gap-2 min-w-0
-          px-2.5 py-2 sm:px-4 sm:py-2.5 md:px-5 md:py-3
+        className={`relative ${UI_LAYERS.topbar} flex items-center justify-between gap-2 min-w-0
+          px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2
           border-b ${lightMode ? "border-cyan-600/25" : "border-cyan-500/30"} bg-gradient-to-r ${gradientClass}
-          backdrop-blur-2xl ${lightMode ? "text-slate-800" : "text-gray-200"} ${themeGlow}
+          backdrop-blur-2xl ${lightMode ? "text-slate-800" : "text-gray-200"}
           transition-all duration-500 ease-in-out select-none overflow-hidden md:overflow-visible`}
       >
         {/* ✨ Portal Sweep */}
@@ -192,25 +193,25 @@ export default function Topbar() {
         />
 
         {/* Toggle sidebar: ikon Menu (hamburger) di mobile, JARVIS di desktop */}
-        <motion.button
-          type="button"
-          whileHover={{ scale: 1.06 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleJarvisToggle}
-          className={`p-2 relative rounded-lg border transition flex-shrink-0 ${
-            lightMode
-              ? "border-cyan-600/30 bg-white/50 hover:bg-cyan-100/60"
-              : "border-cyan-500/30 bg-black/10 hover:bg-cyan-500/10"
-          }`}
-          title="Buka/tutup sidebar (JARVIS)"
-          aria-label="Buka atau tutup sidebar"
-        >
-          <motion.svg
-            viewBox="0 0 512 512"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-8 h-8 md:w-10 md:h-10"
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleJarvisToggle}
+            className={`p-1.5 relative rounded-lg border transition flex-shrink-0 ${
+              lightMode
+                ? "border-cyan-600/30 bg-white/50 hover:bg-cyan-100/60"
+                : "border-cyan-500/30 bg-black/10 hover:bg-cyan-500/10"
+            }`}
+            title="Buka/tutup sidebar (JARVIS)"
+            aria-label="Buka atau tutup sidebar"
           >
+            <motion.svg
+              viewBox="0 0 512 512"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-7 h-7 md:w-8 md:h-8"
+            >
             <path
               d="M256 20C150 20 60 110 60 216c0 84 48 156 120 190v60h152v-60c72-34 120-106 120-190 0-106-90-196-196-196zM180 216h-40v-56h40v56zm192 0h-40v-56h40v56z"
               fill="#00ffff"
@@ -314,13 +315,13 @@ export default function Topbar() {
               aria-label={
                 lightMode ? "Aktifkan mode malam" : "Aktifkan mode siang"
               }
-              className={`p-2 rounded-lg border transition flex-shrink-0 ${
+              className={`p-1.5 rounded-lg border transition flex-shrink-0 ${
                 lightMode
                   ? "border-cyan-600/35 bg-white/60 text-amber-600 hover:bg-amber-50"
                   : "border-cyan-500/35 bg-cyan-500/10 text-amber-300 hover:bg-cyan-500/20"
               }`}
             >
-              {lightMode ? <Moon size={18} /> : <Sun size={18} />}
+              {lightMode ? <Moon size={16} /> : <Sun size={16} />}
             </motion.button>
             <UiZoomControl />
             <motion.button
@@ -330,13 +331,13 @@ export default function Topbar() {
               onClick={toggleSettings}
               title="Pengaturan tampilan"
               aria-label="Buka pengaturan tampilan"
-              className={`p-2 rounded-lg border transition flex-shrink-0 ${
+              className={`p-1.5 rounded-lg border transition flex-shrink-0 ${
                 lightMode
                   ? "border-cyan-600/35 bg-white/60 text-cyan-800 hover:bg-cyan-50"
                   : "border-cyan-500/35 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/25"
               }`}
             >
-              <Settings size={18} />
+              <Settings size={16} />
             </motion.button>
             <ToolbarNotificationBell />
             <span
@@ -355,17 +356,17 @@ export default function Topbar() {
               disabled={loggingOut}
               aria-label={loggingOut ? "Sedang logout…" : "Logout"}
               aria-busy={loggingOut}
-              className={`p-2 rounded-full transition-all disabled:opacity-80 ${
+              className={`p-1.5 rounded-full transition-all disabled:opacity-80 ${
                 lightMode
                   ? "bg-cyan-600/15 hover:bg-cyan-600/25 text-cyan-800 shadow-sm"
-                  : "bg-cyan-600/20 hover:bg-gradient-to-r hover:from-cyan-500/30 hover:to-amber-400/30 text-cyan-300 shadow-[0_0_10px_rgba(0,255,255,0.3)]"
+                  : "bg-cyan-600/20 hover:bg-gradient-to-r hover:from-cyan-500/30 hover:to-amber-400/30 text-cyan-300"
               }`}
               title={loggingOut ? "Sedang logout…" : "Logout"}
             >
               {loggingOut ? (
-                <Loader2 size={18} className="animate-spin" />
+                <Loader2 size={16} className="animate-spin" />
               ) : (
-                <LogOut size={18} />
+                <LogOut size={16} />
               )}
             </motion.button>
           </div>

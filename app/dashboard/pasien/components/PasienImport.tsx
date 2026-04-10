@@ -8,6 +8,8 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 import { usePasien } from "../contexts/PasienContext";
 import { useNotification } from "@/app/contexts/NotificationContext";
 
@@ -105,7 +107,7 @@ export default function PasienImport() {
 
       {open && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+          className={cn("fixed inset-0 flex items-center justify-center p-4 bg-black/70 animate-in fade-in duration-200", UI_LAYERS.fab)}
           onClick={close}
         >
           <div

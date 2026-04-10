@@ -24,6 +24,7 @@ type LineIn = {
   lot?: string;
   ukuran?: string;
   ed?: string;
+  isKonsolidasi?: boolean;
   harga?: number;
 };
 
@@ -138,6 +139,7 @@ export async function POST(req: Request) {
             : undefined,
         ed:
           typeof it.ed === "string" && it.ed.trim() ? it.ed.trim() : undefined,
+        isKonsolidasi: !!it.isKonsolidasi,
         ...(typeof it.harga === "number" &&
         Number.isFinite(it.harga) &&
         it.harga >= 0
@@ -158,6 +160,91 @@ export async function POST(req: Request) {
   }
 
   const id = newOrderId();
+
+  // --- AUTO-CREATE MASTER BARANG & DISTRIBUTOR ---
+  // Kita proses pendaftaran barang baru ke Master jika belum ada.
+  try {
+    const { data: allMasters } = await supabase
+      .from("master_barang")
+      .select("id, nama");
+    const { data: allDists } = await supabase
+      .from("master_distributor")
+      .select("id, nama_pt");
+
+    for (const item of normalized) {
+      const namaBarang = item.barang.trim();
+      const namaDist = item.distributor?.trim();
+
+      // 1. Cari atau buat Master Barang
+      let masterId = allMasters?.find(
+        (m) => m.nama.toLowerCase() === namaBarang.toLowerCase(),
+      )?.id;
+
+      if (!masterId) {
+        const { data: newMaster, error: errM } = await supabase
+          .from("master_barang")
+          .insert({
+            nama: namaBarang,
+            jenis: "ALKES",
+            kategori: item.kategori || null,
+            is_active: true,
+          })
+          .select("id")
+          .single();
+        if (!errM && newMaster) masterId = newMaster.id;
+      }
+
+      // 2. Cari atau buat Master Distributor (jika ada nama distributor)
+      let distId = null;
+      if (namaDist) {
+        distId = allDists?.find(
+          (d) => d.nama_pt.toLowerCase() === namaDist.toLowerCase(),
+        )?.id;
+
+        if (!distId) {
+          const { data: newDist, error: errD } = await supabase
+            .from("master_distributor")
+            .insert({
+              nama_pt: namaDist,
+              is_konsolidasi: item.status === "KONSOLIDASI",
+            })
+            .select("id")
+            .single();
+          if (!errD && newDist) distId = newDist.id;
+        }
+      }
+
+      // 3. Daftarkan Varian (distributor_barang) jika ada LOT/Ukuran/ED
+      if (masterId && (item.lot || item.ukuran || item.ed)) {
+        // Cek apakah varian ini sudah ada
+        const { data: existingVar } = await supabase
+          .from("distributor_barang")
+          .select("id")
+          .match({
+            master_barang_id: masterId,
+            lot: item.lot || null,
+            ukuran: item.ukuran || null,
+            ed: item.ed || null,
+          })
+          .maybeSingle();
+
+        if (!existingVar) {
+          await supabase.from("distributor_barang").insert({
+            master_barang_id: masterId,
+            distributor_id: distId,
+            lot: item.lot || null,
+            ukuran: item.ukuran || null,
+            ed: item.ed || null,
+            is_active: true,
+          });
+        }
+      }
+    }
+  } catch (e) {
+    console.error("[AutoCreateMaster] Gagal:", e);
+    // Kita biarkan lanjut simpan order meskipun auto-create master gagal
+  }
+
   const row = {
     id,
     mode,
@@ -211,11 +298,14 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const tindakanFilter = searchParams.get("tindakanId")?.trim() ?? "";
+  const limitRaw = Number(searchParams.get("limit") ?? 1000);
+  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 5000) : 1000;
 
   let query = supabase
     .from("cathlab_pemakaian_order")
     .select("*")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(limit);
 
   if (tindakanFilter) {
     query = query.eq("tindakan_id", tindakanFilter);

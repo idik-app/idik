@@ -102,7 +102,7 @@ export async function GET(_req: Request, ctx: Params) {
 
   const { data, error } = await supabase
     .from("tindakan")
-    .select("*")
+    .select("id, tanggal, dokter, ruangan, cath, tindakan, status, pasien_id, no_rm, nama, nama_pasien, asisten, sirkuler, logger, diagnosa, severity_level, hasil_lab_ppm, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, fast_track_fotos, tarif_tindakan, total, krs, selisih, consumable, pemakaian")
     .eq("id", tindakanId)
     .maybeSingle();
 

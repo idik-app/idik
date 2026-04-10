@@ -37,6 +37,10 @@ function pickHarga(
   return null;
 }
 
+/** Cache master barang & variants di memori server (5 menit) */
+let variantsCache: any[] | null = null;
+let variantsCacheExpires = 0;
+
 /**
  * Baris untuk pilih barang di pemakaian: gabungan master_barang +
  * variant distributor_barang (LOT / ukuran / ED bila ada).
@@ -44,6 +48,11 @@ function pickHarga(
 export async function GET() {
   const user = await requireUser();
   if (!user.ok) return user.response;
+
+  const now = Date.now();
+  if (variantsCache && now < variantsCacheExpires) {
+    return NextResponse.json({ ok: true, items: variantsCache, cached: true });
+  }
 
   const supabase = getServiceSupabaseAdmin();
   if (!supabase) {
@@ -193,6 +202,10 @@ export async function GET() {
       });
     }
   }
+
+  // Update Cache
+  variantsCache = items;
+  variantsCacheExpires = Date.now() + 300 * 1000; // 5 menit
 
   return NextResponse.json({ ok: true, items });
 }

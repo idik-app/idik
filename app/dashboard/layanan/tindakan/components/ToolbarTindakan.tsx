@@ -9,7 +9,7 @@ export default function TindakanToolbar({
   isLoading: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-3 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between bg-black/30 border border-cyan-900/40 rounded-xl px-3 py-3 sm:px-4 backdrop-blur-sm min-w-0">
+    <div className="flex flex-col gap-3 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between bg-black/30 border border-cyan-900/40 rounded-xl px-3 py-3 sm:px-4 min-w-0">
       <div className="text-gray-400 text-xs sm:text-sm min-w-0">
         Filter tindakan / Dokter
       </div>

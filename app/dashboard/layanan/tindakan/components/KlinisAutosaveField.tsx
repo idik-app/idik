@@ -41,6 +41,7 @@ function draftsEqualToServer(draft: string, serverVal: unknown): boolean {
 
 type Props = {
   tindakanId: string;
+  pasienId?: string | null;
   field: KlinisFieldKey;
   value: unknown;
   onSaved?: () => void;
@@ -48,6 +49,7 @@ type Props = {
 
 export default function KlinisAutosaveField({
   tindakanId,
+  pasienId,
   field,
   value,
   onSaved,
@@ -55,27 +57,54 @@ export default function KlinisAutosaveField({
   const [draft, setDraft] = useState(() => draftFromValue(value));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
+  const inputFocusedRef = useRef(false);
+  const blurUnfocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const valueRef = useRef(value);
+
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
 
   useEffect(() => {
     draftRef.current = draft;
   }, [draft]);
 
   useEffect(() => {
-    setDraft(draftFromValue(value));
+    inputFocusedRef.current = false;
+    if (blurUnfocusTimerRef.current) {
+      clearTimeout(blurUnfocusTimerRef.current);
+      blurUnfocusTimerRef.current = null;
+    }
+  }, [tindakanId]);
+
+  useEffect(() => {
+    if (inputFocusedRef.current) return;
+    const next = draftFromValue(value);
+    setDraft((prev) => {
+      // Jangan hapus teks yang sedang diketik hanya karena refresh data di latar.
+      if (next === "" && prev.trim() !== "") return prev;
+      return next;
+    });
   }, [value, field, tindakanId]);
 
   useEffect(
     () => () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      // Flush any pending changes on unmount
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        void persist(draftRef.current);
+      }
+      if (blurUnfocusTimerRef.current) clearTimeout(blurUnfocusTimerRef.current);
     },
     [],
   );
 
   const persist = async (draftNow: string) => {
-    if (draftsEqualToServer(draftNow, value)) return;
+    if (draftsEqualToServer(draftNow, valueRef.current)) return;
     const payloadVal = normalizeForCompare(draftNow);
 
     try {
+      // 1. Simpan ke tabel TINDAKAN
       const res = await fetch(
         `/api/tindakan/${encodeURIComponent(tindakanId)}`,
         {
@@ -92,12 +121,25 @@ export default function KlinisAutosaveField({
       if (!res.ok || !json.ok) {
         throw new Error(json.message || res.statusText);
       }
+
+      // 2. Simpan ke tabel PASIEN (Master) agar tersimpan otomatis per pasien
+      if (pasienId) {
+        await fetch(`/api/pasien/${encodeURIComponent(pasienId)}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [field]: payloadVal }),
+        }).catch((err) => {
+          console.warn("[KlinisAutosaveField] Gagal sync ke master pasien:", err);
+        });
+      }
+
       onSaved?.();
     } catch (e) {
       if (process.env.NODE_ENV === "development") {
         console.warn("[KlinisAutosaveField]", field, e);
       }
-      setDraft(draftFromValue(value));
+      // Jangan reset ke `value` agar isian user tidak hilang saat gagal simpan sementara.
     }
   };
 
@@ -115,6 +157,28 @@ export default function KlinisAutosaveField({
       debounceRef.current = null;
     }
     void persist(draftRef.current);
+  };
+
+  const handleFocus = () => {
+    if (blurUnfocusTimerRef.current) {
+      clearTimeout(blurUnfocusTimerRef.current);
+      blurUnfocusTimerRef.current = null;
+    }
+    inputFocusedRef.current = true;
+  };
+
+  const handleBlur = () => {
+    flushBlur();
+    if (blurUnfocusTimerRef.current) clearTimeout(blurUnfocusTimerRef.current);
+    blurUnfocusTimerRef.current = setTimeout(() => {
+      blurUnfocusTimerRef.current = null;
+      inputFocusedRef.current = false;
+      const next = draftFromValue(valueRef.current);
+      setDraft((prev) => {
+        if (next === "" && prev.trim() !== "") return prev;
+        return next;
+      });
+    }, 800);
   };
 
   const handleExtract = async () => {
@@ -163,12 +227,13 @@ export default function KlinisAutosaveField({
             placeholder="https://docs.google.com/document/d/..."
             value={draft}
             aria-label={aria}
+            onFocus={handleFocus}
             onChange={(e) => {
               const v = e.target.value;
               setDraft(v);
               schedulePersist(v);
             }}
-            onBlur={flushBlur}
+            onBlur={handleBlur}
           />
           <button
             onClick={handleExtract}
@@ -233,12 +298,13 @@ export default function KlinisAutosaveField({
         placeholder="—"
         value={draft}
         aria-label={aria}
+        onFocus={handleFocus}
         onChange={(e) => {
           const v = e.target.value;
           setDraft(v);
           schedulePersist(v);
         }}
-        onBlur={flushBlur}
+        onBlur={handleBlur}
       />
     );
   }
@@ -251,12 +317,13 @@ export default function KlinisAutosaveField({
       placeholder="—"
       value={draft}
       aria-label={aria}
+      onFocus={handleFocus}
       onChange={(e) => {
         const v = e.target.value;
         setDraft(v);
         schedulePersist(v);
       }}
-      onBlur={flushBlur}
+      onBlur={handleBlur}
     />
   );
 }

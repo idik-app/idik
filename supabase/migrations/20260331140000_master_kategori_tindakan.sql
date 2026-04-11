@@ -53,5 +53,18 @@ insert into public.master_kategori_tindakan (nama, urutan, aktif) values
   ('STAGING RCA', 180, true),
   ('SVT', 190, true),
   ('THROMBUS', 200, true),
-  ('WPW', 210, true)
+  ('WPW', 210, true),
+  ('BRADIKARDI', 220, true),
+  ('PVC', 230, true),
+  ('PAC', 240, true),
+  ('PSVT', 250, true),
+  ('AVRT', 260, true),
+  ('AVNRT', 270, true),
+  ('NORMAL SA NODAL AND AV NODAL FUNCTION', 280, true),
+  ('RIGHT-SIDED ATRIAL TACHYCARDIA', 290, true),
+  ('INTERMEDIATE SEPTAL RVOT PVC', 300, true),
+  ('ORTODROMIC AVRT EC CONCEALED POSTEROLATERAL AP', 310, true),
+  ('TYPICAL SLOW-FAST AVNRT', 320, true),
+  ('INDUCIBLE NON SUSTAINED AF', 330, true),
+  ('INFREQUENT PVC', 340, true)
 on conflict (nama) do nothing;

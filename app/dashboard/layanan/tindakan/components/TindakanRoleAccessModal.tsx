@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, PackageOpen, X } from "lucide-react";
+import { Building2, PackageOpen, X, RefreshCcw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-export type AccessTarget = "depo" | "distributor";
+export type AccessTarget = "depo" | "distributor" | "cssd";
 
 export default function TindakanRoleAccessModal({
   open,
@@ -23,9 +23,10 @@ export default function TindakanRoleAccessModal({
   onOpenChange: (open: boolean) => void;
 }) {
   const isDepo = target === "depo";
-  const title = isDepo ? "UI Depo Farmasi" : "UI Distributor";
-  const Icon = isDepo ? PackageOpen : Building2;
-  const embeddedHref = isDepo ? "/depo/dashboard" : "/distributor/barang";
+  const isCssd = target === "cssd";
+  const title = isDepo ? "UI Depo Farmasi" : isCssd ? "UI CSSD / Sterilisasi" : "UI Distributor";
+  const Icon = isDepo ? PackageOpen : isCssd ? RefreshCcw : Building2;
+  const embeddedHref = isDepo ? "/depo/dashboard" : isCssd ? "/cssd/dashboard" : "/distributor/barang";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

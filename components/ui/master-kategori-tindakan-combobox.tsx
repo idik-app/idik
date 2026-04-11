@@ -1,0 +1,273 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, ChevronDown } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+
+export type MasterKategoriOption = {
+  id: string;
+  nama: string;
+  aktif?: boolean;
+  urutan?: number;
+};
+
+export function formatMasterKategoriLabel(
+  o: Pick<MasterKategoriOption, "nama">,
+): string {
+  return String(o.nama ?? "").trim();
+}
+
+function normalize(s: string): string {
+  return s.trim().toLowerCase();
+}
+
+/** Satu saran unik: exact → prefix → substring (case-insensitive). */
+export function resolveMasterKategoriAutofill(
+  query: string,
+  options: MasterKategoriOption[],
+): MasterKategoriOption | null {
+  const q = normalize(query);
+  if (!q || q === "belum diisi") return null;
+
+  const exact = options.find((o) => normalize(o.nama) === q);
+  if (exact) return exact;
+
+  const prefix = options.filter((o) => normalize(o.nama).startsWith(q));
+  if (prefix.length === 1) return prefix[0] ?? null;
+
+  const sub = options.filter((o) => normalize(o.nama).includes(q));
+  if (sub.length === 1) return sub[0] ?? null;
+
+  return null;
+}
+
+export function MasterKategoriTindakanCombobox({
+  value,
+  onChange,
+  onSelectOption,
+  onInputBlur,
+  options,
+  loading,
+  className,
+  inputClassName,
+  listboxId = "master-kategori-listbox",
+}: {
+  value: string;
+  onChange: (label: string) => void;
+  onSelectOption?: (opt: MasterKategoriOption) => void;
+  /** Nilai setelah autofill (jika ada); gunakan ini untuk commit ke server. */
+  onInputBlur?: (finalValue: string) => void;
+  options: MasterKategoriOption[];
+  loading?: boolean;
+  className?: string;
+  inputClassName?: string;
+  listboxId?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const skipBlurRef = useRef(false);
+
+  const filtered = useMemo(() => {
+    const q = normalize(value);
+    if (!q || q === "belum diisi") return options;
+    return options.filter((r) => {
+      const hay = normalize(r.nama ?? "");
+      return hay.includes(q);
+    });
+  }, [options, value]);
+
+  useEffect(() => {
+    setHighlightIndex(0);
+  }, [filtered]);
+
+  const pickOption = useCallback(
+    (opt: MasterKategoriOption) => {
+      const label = formatMasterKategoriLabel(opt);
+      onChange(label);
+      onSelectOption?.(opt);
+      setOpen(false);
+      skipBlurRef.current = false;
+    },
+    [onChange, onSelectOption],
+  );
+
+  const commitBlur = useCallback(() => {
+    const trimmed = value.trim();
+    const resolved =
+      resolveMasterKategoriAutofill(trimmed, options) ??
+      resolveMasterKategoriAutofill(trimmed, filtered);
+    const finalLabel = resolved
+      ? formatMasterKategoriLabel(resolved)
+      : trimmed;
+    if (finalLabel !== value) {
+      onChange(finalLabel);
+      if (resolved) onSelectOption?.(resolved);
+    }
+    onInputBlur?.(finalLabel.trim());
+  }, [value, options, filtered, onChange, onSelectOption, onInputBlur]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (loading) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) setOpen(true);
+      if (filtered.length === 0) return;
+      setHighlightIndex((i) => (i + 1) % filtered.length);
+      return;
+    }
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) setOpen(true);
+      if (filtered.length === 0) return;
+      setHighlightIndex((i) => (i - 1 + filtered.length) % filtered.length);
+      return;
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (open && filtered.length > 0) {
+        const idx = Math.min(highlightIndex, filtered.length - 1);
+        pickOption(filtered[idx]!);
+        return;
+      }
+      const one =
+        filtered.length === 1
+          ? filtered[0]
+          : resolveMasterKategoriAutofill(value.trim(), filtered);
+      if (one) {
+        pickOption(one);
+        return;
+      }
+      setOpen(false);
+      commitBlur();
+      return;
+    }
+
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      return;
+    }
+
+    if (e.key === "Tab" && open && filtered.length === 1) {
+      e.preventDefault();
+      pickOption(filtered[0]!);
+    }
+  };
+
+  return (
+    <div ref={wrapRef} className={cn("relative w-full", className)}>
+      <div className="relative">
+        <input
+          ref={inputRef}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setOpen(true);
+          }}
+          onBlur={() => {
+            if (skipBlurRef.current) {
+              skipBlurRef.current = false;
+              return;
+            }
+            commitBlur();
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={onInputKeyDown}
+          autoComplete="off"
+          spellCheck={false}
+          placeholder={
+            loading ? "Memuat daftar kategori…" : "Pilih atau ketik kategori…"
+          }
+          className={cn(
+            "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",
+            inputClassName,
+          )}
+          aria-autocomplete="list"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          aria-activedescendant={
+            open && filtered.length > 0
+              ? `${listboxId}-opt-${highlightIndex}`
+              : undefined
+          }
+        />
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
+          {loading ? (
+            <Loader2
+              className="h-3.5 w-3.5 animate-spin text-cyan-400/80"
+              aria-hidden
+            />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5 text-white/30" />
+          )}
+        </div>
+      </div>
+      {open && !loading && filtered.length > 0 ? (
+        <ul
+          id={listboxId}
+          role="listbox"
+          onMouseDown={() => {
+            skipBlurRef.current = true;
+          }}
+          className="absolute left-0 right-0 top-full z-[60] mt-1 max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl"
+        >
+          {filtered.map((r, i) => {
+            const label = formatMasterKategoriLabel(r);
+            const active = i === highlightIndex;
+            return (
+              <li key={r.id} role="presentation">
+                <button
+                  type="button"
+                  id={`${listboxId}-opt-${i}`}
+                  role="option"
+                  aria-selected={active}
+                  className={cn(
+                    "w-full px-2 py-1.5 text-left text-[11px] text-white focus:outline-none",
+                    active
+                      ? "bg-cyan-500/25 ring-1 ring-inset ring-cyan-500/35"
+                      : "hover:bg-cyan-500/20",
+                  )}
+                  onMouseEnter={() => setHighlightIndex(i)}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => pickOption(r)}
+                >
+                  <span className="block font-medium text-white/95">
+                    {label || r.nama}
+                    {r.aktif === false ? (
+                      <span className="ml-1 font-normal text-slate-400">
+                        (nonaktif)
+                      </span>
+                    ) : null}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      {open && !loading && options.length === 0 ? (
+        <p className="absolute left-0 right-0 top-full z-[60] mt-1 rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/85">
+          Belum ada kategori di master. Klik{" "}
+          <span className="text-cyan-400/90">+ Master</span> untuk menambah.
+        </p>
+      ) : null}
+    </div>
+  );
+}

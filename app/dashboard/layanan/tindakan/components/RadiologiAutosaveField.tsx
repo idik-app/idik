@@ -137,7 +137,10 @@ export default function RadiologiAutosaveField({
 
   useEffect(
     () => () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        void persist(draftRef.current);
+      }
       if (blurUnfocusTimerRef.current) clearTimeout(blurUnfocusTimerRef.current);
     },
     [],

@@ -57,6 +57,7 @@ export const TINDAKAN_SCHEMA_38 = [
   "hasil_lab_ppm",
   "diagnosa",
   "severity_level",
+  "pci_report_link",
   "asisten",
   "sirkuler",
   "logger",
@@ -102,6 +103,7 @@ export const DETAIL_GROUPS = {
   klinis: [
     "diagnosa",
     "hasil_lab_ppm",
+    "pci_report_link",
     "asisten",
     "sirkuler",
     "logger",
@@ -138,6 +140,7 @@ export const EDITOR_TABS = {
   klinis: [
     "diagnosa",
     "hasil_lab_ppm",
+    "pci_report_link",
     "asisten",
     "sirkuler",
     "logger",

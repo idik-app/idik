@@ -30,6 +30,7 @@
     "@hello-pangea/dnd": "^18.0.1",
     "@mui/x-data-grid": "^8.17.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
+    "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-slot": "^1.2.3",
     "@react-spring/web": "^10.0.3",

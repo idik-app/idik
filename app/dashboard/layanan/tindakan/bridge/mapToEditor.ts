@@ -56,6 +56,7 @@ export function mapToEditor(data: TindakanJoinResult): TindakanEditorState {
     klinis: {
       diagnosa: toStr(data.diagnosa),
       hasil_lab_ppm: toStr(data.hasil_lab_ppm),
+      pci_report_link: toStr(data.pci_report_link),
       asisten: toStr(data.asisten),
       sirkuler: toStr(data.sirkuler),
       logger: toStr(data.logger),

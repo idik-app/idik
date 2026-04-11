@@ -164,7 +164,10 @@ export default function BiayaAutosaveField({
 
   useEffect(
     () => () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        void persist(draftRef.current);
+      }
       if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
     },
     [],

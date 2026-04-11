@@ -39,7 +39,7 @@ type NormalizedLine = {
   distributor?: string;
   qtyRencana: number;
   qtyDipakai: number;
-  tipe: "N" | "R";
+  tipe: "N" | "R" | "B";
   lot?: string;
   ukuran?: string;
   ed?: string;
@@ -75,7 +75,12 @@ function normalizeItems(
           typeof it.qtyDipakai === "number" && !Number.isNaN(it.qtyDipakai)
             ? Math.max(0, it.qtyDipakai)
             : 0,
-        tipe: (it.tipe === "R" || it.tipe === "REUSE" ? "R" : "N") as "N" | "R",
+        tipe:
+          it.tipe === "R" || it.tipe === "REUSE"
+            ? "R"
+            : it.tipe === "B" || it.tipe === "RUSAK" || it.tipe === "BROKEN"
+              ? "B"
+              : "N",
         lot:
           typeof it.lot === "string" && it.lot.trim()
             ? it.lot.trim()
@@ -146,7 +151,7 @@ export async function GET(_req: Request, { params }: Params) {
 
   const { data, error } = await supabase
     .from("cathlab_pemakaian_order")
-    .select("id, mode, tanggal, pasien, no_rm, dokter, ruangan, depo, status, items, catatan, template_input_barang, tindakan_id, created_at, updated_at")
+    .select("id, mode, tanggal, pasien, no_rm, dokter, ruangan, depo, petugas_cssd, asisten_cathlab, status, status_alkes_cssd, items, catatan, template_input_barang, tindakan_id, created_at, updated_at")
     .eq("id", id)
     .maybeSingle();
 
@@ -261,6 +266,12 @@ export async function PATCH(req: Request, { params }: Params) {
   if (body.depo !== undefined) {
     patch.depo = String(body.depo ?? "").trim();
   }
+  if (body.petugas_cssd !== undefined) {
+    patch.petugas_cssd = String(body.petugas_cssd ?? "").trim() || null;
+  }
+  if (body.asisten_cathlab !== undefined) {
+    patch.asisten_cathlab = String(body.asisten_cathlab ?? "").trim() || null;
+  }
 
   if (body.mode !== undefined) {
     const m =
@@ -294,6 +305,11 @@ export async function PATCH(req: Request, { params }: Params) {
     patch.template_input_barang = normalizeTemplateInputBarang(
       body.templateInputBarang,
     );
+  }
+
+  if (body.status_alkes_cssd !== undefined) {
+    const s = String(body.status_alkes_cssd ?? "").trim();
+    patch.status_alkes_cssd = s || null;
   }
 
   if (Object.keys(patch).length === 0) {

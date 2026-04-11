@@ -14,6 +14,10 @@ const pasienApiPatchBodySchema = z
     tanggalLahir: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     alamat: z.string().min(1).optional(),
     noHP: z.string().optional(),
+    pci_report_link: z.string().optional().nullable(),
+    diagnosa: z.string().optional().nullable(),
+    severity_level: z.string().optional().nullable(),
+    hasil_lab_ppm: z.string().optional().nullable(),
   })
   .strict()
   .refine((o) => Object.keys(o).length > 0, {

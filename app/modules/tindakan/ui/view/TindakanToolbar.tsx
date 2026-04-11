@@ -14,7 +14,10 @@ export function TindakanToolbar() {
   const { show } = useNotification();
 
   const handleExport = () => {
-    show("📤 Ekspor tindakan: hubungkan ke backend untuk file unduhan.", "info");
+    show(
+      "📤 Ekspor tindakan: hubungkan ke backend untuk file unduhan.",
+      "info",
+    );
   };
 
   return (

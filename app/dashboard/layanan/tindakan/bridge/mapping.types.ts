@@ -37,6 +37,7 @@ export interface TindakanJoinResult {
   hasil_lab_ppm: string | null;
   diagnosa: string | null;
   severity_level: string | null;
+  pci_report_link: string | null;
 
   /** Fast-Track STEMI / IGD (teks) */
   is_fast_track?: boolean | null;
@@ -115,6 +116,7 @@ export interface TindakanEditorState {
   klinis: {
     diagnosa: string;
     hasil_lab_ppm: string;
+    pci_report_link: string;
     asisten: string;
     sirkuler: string;
     logger: string;

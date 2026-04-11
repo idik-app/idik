@@ -37,12 +37,14 @@ interface Props {
   onFilter: (
     dokter: string,
     ruangan: string,
+    tindakan?: string,
     tanggalFrom?: string,
     tanggalTo?: string,
     isPciOnly?: boolean,
   ) => void;
   dokterOptions: string[];
   ruanganOptions: string[];
+  tindakanOptions: string[];
   /** Indikator halus: sinkronisasi latar sedang berjalan */
   isSyncing?: boolean;
   /** Buat master pasien minimal dari tabel `tindakan` (no_rm + nama_pasien). */
@@ -79,6 +81,7 @@ export default function TableToolbar({
   onFilter,
   dokterOptions,
   ruanganOptions,
+  tindakanOptions = [],
   isSyncing = false,
   isSyncingMasterPasien = false,
   onOpenFastTrack,
@@ -88,6 +91,7 @@ export default function TableToolbar({
 }: Props) {
   const [dokter, setDokter] = useState("");
   const [ruangan, setRuangan] = useState("");
+  const [tindakan, setTindakan] = useState("");
   const [tanggalFrom, setTanggalFrom] = useState("");
   const [tanggalTo, setTanggalTo] = useState("");
   const [isPciOnly, setIsPciOnly] = useState(false);
@@ -109,7 +113,8 @@ export default function TableToolbar({
   const hasLaporanLab = typeof onOpenTindakanTerbanyakLab === "function";
   const hasLaporanMatriks = typeof onOpenLaporan === "function";
   const hasLaporanPemakaian = typeof onOpenLaporanPemakaian === "function";
-  const hasAnyLaporan = hasLaporanLab || hasLaporanMatriks || hasLaporanPemakaian;
+  const hasAnyLaporan =
+    hasLaporanLab || hasLaporanMatriks || hasLaporanPemakaian;
 
   useEffect(() => {
     if (!laporanMenuOpen) return;
@@ -219,7 +224,7 @@ export default function TableToolbar({
 
     setTanggalFrom(from);
     setTanggalTo(to);
-    onFilter(dokter, ruangan, from, to, isPciOnly);
+    onFilter(dokter, ruangan, tindakan, from, to, isPciOnly);
   };
 
   useEffect(() => {
@@ -305,7 +310,9 @@ export default function TableToolbar({
               "text-white dark:text-black",
             )}
           />
-          <span className={cn("tracking-wide text-white dark:text-black uppercase")}>
+          <span
+            className={cn("tracking-wide text-white dark:text-black uppercase")}
+          >
             Tambah Pasien
           </span>
         </button>
@@ -356,7 +363,9 @@ export default function TableToolbar({
                 strokeWidth={3}
                 className="shrink-0 motion-safe:transition-transform group-hover:scale-110 text-white"
               />
-              <span className="tracking-wide text-white uppercase">Laporan</span>
+              <span className="tracking-wide text-white uppercase">
+                Laporan
+              </span>
               <ChevronDown
                 size={14}
                 strokeWidth={3}
@@ -626,7 +635,7 @@ export default function TableToolbar({
             onChange={(e) => {
               const v = e.target.value;
               setDokter(v);
-              onFilter(v, ruangan, tanggalFrom, tanggalTo, isPciOnly);
+              onFilter(v, ruangan, tindakan, tanggalFrom, tanggalTo, isPciOnly);
             }}
             className={cn(
               "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
@@ -647,7 +656,14 @@ export default function TableToolbar({
                 type="button"
                 onClick={() => {
                   setDokter("");
-                  onFilter("", ruangan, tanggalFrom, tanggalTo, isPciOnly);
+                  onFilter(
+                    "",
+                    ruangan,
+                    tindakan,
+                    tanggalFrom,
+                    tanggalTo,
+                    isPciOnly,
+                  );
                 }}
                 className={cn(
                   "p-0.5 rounded-md transition-colors pointer-events-auto",
@@ -674,7 +690,7 @@ export default function TableToolbar({
             onChange={(e) => {
               const v = e.target.value;
               setRuangan(v);
-              onFilter(dokter, v, tanggalFrom, tanggalTo, isPciOnly);
+              onFilter(dokter, v, tindakan, tanggalFrom, tanggalTo, isPciOnly);
             }}
             className={cn(
               "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
@@ -695,7 +711,14 @@ export default function TableToolbar({
                 type="button"
                 onClick={() => {
                   setRuangan("");
-                  onFilter(dokter, "", tanggalFrom, tanggalTo, isPciOnly);
+                  onFilter(
+                    dokter,
+                    "",
+                    tindakan,
+                    tanggalFrom,
+                    tanggalTo,
+                    isPciOnly,
+                  );
                 }}
                 className={cn(
                   "p-0.5 rounded-md transition-colors pointer-events-auto",
@@ -703,6 +726,61 @@ export default function TableToolbar({
                   "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
                 )}
                 title="Bersihkan filter ruangan"
+              >
+                <X size={13} strokeWidth={2.5} />
+              </button>
+            ) : (
+              <ChevronDown
+                size={14}
+                className="text-cyan-700/60 dark:text-slate-400/60"
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Filter tindakan — master tindakan */}
+        <div className="relative min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem] group">
+          <select
+            value={tindakan}
+            onChange={(e) => {
+              const v = e.target.value;
+              setTindakan(v);
+              onFilter(dokter, ruangan, v, tanggalFrom, tanggalTo, isPciOnly);
+            }}
+            className={cn(
+              "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
+              "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
+              "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:[color-scheme:dark]",
+            )}
+          >
+            <option value="">Semua tindakan</option>
+            {tindakanOptions.map((t, idx) => (
+              <option key={idx} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+          <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none group-focus-within:pointer-events-auto">
+            {tindakan ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setTindakan("");
+                  onFilter(
+                    dokter,
+                    ruangan,
+                    "",
+                    tanggalFrom,
+                    tanggalTo,
+                    isPciOnly,
+                  );
+                }}
+                className={cn(
+                  "p-0.5 rounded-md transition-colors pointer-events-auto",
+                  "text-slate-400 hover:text-red-500 hover:bg-red-50",
+                  "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
+                )}
+                title="Bersihkan filter tindakan"
               >
                 <X size={13} strokeWidth={2.5} />
               </button>
@@ -766,7 +844,7 @@ export default function TableToolbar({
               onChange={(e) => {
                 const v = e.target.value;
                 setTanggalFrom(v);
-                onFilter(dokter, ruangan, v, tanggalTo, isPciOnly);
+                onFilter(dokter, ruangan, tindakan, v, tanggalTo, isPciOnly);
               }}
               className={cn(
                 "cursor-pointer text-[13px] font-semibold pl-2 pr-8 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
@@ -781,7 +859,7 @@ export default function TableToolbar({
                 type="button"
                 onClick={() => {
                   setTanggalFrom("");
-                  onFilter(dokter, ruangan, "", tanggalTo, isPciOnly);
+                  onFilter(dokter, ruangan, tindakan, "", tanggalTo, isPciOnly);
                 }}
                 className={cn(
                   "absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md transition-colors",
@@ -811,7 +889,7 @@ export default function TableToolbar({
               onChange={(e) => {
                 const v = e.target.value;
                 setTanggalTo(v);
-                onFilter(dokter, ruangan, tanggalFrom, v, isPciOnly);
+                onFilter(dokter, ruangan, tindakan, tanggalFrom, v, isPciOnly);
               }}
               className={cn(
                 "cursor-pointer text-[13px] font-semibold pl-2 pr-8 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
@@ -826,7 +904,14 @@ export default function TableToolbar({
                 type="button"
                 onClick={() => {
                   setTanggalTo("");
-                  onFilter(dokter, ruangan, tanggalFrom, "", isPciOnly);
+                  onFilter(
+                    dokter,
+                    ruangan,
+                    tindakan,
+                    tanggalFrom,
+                    "",
+                    isPciOnly,
+                  );
                 }}
                 className={cn(
                   "absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md transition-colors",
@@ -847,7 +932,7 @@ export default function TableToolbar({
             onClick={() => {
               const next = !isPciOnly;
               setIsPciOnly(next);
-              onFilter(dokter, ruangan, tanggalFrom, tanggalTo, next);
+              onFilter(dokter, ruangan, tindakan, tanggalFrom, tanggalTo, next);
             }}
             className={cn(
               "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
@@ -865,6 +950,7 @@ export default function TableToolbar({
         {(searchValue ||
           dokter ||
           ruangan ||
+          tindakan ||
           tanggalFrom ||
           tanggalTo ||
           isPciOnly) && (
@@ -875,10 +961,11 @@ export default function TableToolbar({
               onSearch("");
               setDokter("");
               setRuangan("");
+              setTindakan("");
               setTanggalFrom("");
               setTanggalTo("");
               setIsPciOnly(false);
-              onFilter("", "", "", "", false);
+              onFilter("", "", "", "", "", false);
             }}
             className={cn(
               "flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all",
@@ -899,10 +986,7 @@ export default function TableToolbar({
         onSaved={handleSavedPasien}
       />
 
-      <TarifModal
-        open={tarifOpen}
-        onClose={() => setTarifOpen(false)}
-      />
+      <TarifModal open={tarifOpen} onClose={() => setTarifOpen(false)} />
 
       <DiagnosaModal
         open={diagnosaOpen}
@@ -914,10 +998,7 @@ export default function TableToolbar({
         onClose={() => setSeverityLevelOpen(false)}
       />
 
-      <IndenanModal
-        open={indenanOpen}
-        onClose={() => setIndenanOpen(false)}
-      />
+      <IndenanModal open={indenanOpen} onClose={() => setIndenanOpen(false)} />
 
       <JadwalCathModal
         open={jadwalCathOpen}

@@ -31,6 +31,7 @@ import {
   type DoctorOption,
 } from "@/components/ui/doctor-combobox";
 import ReportExportActionBar from "./ReportExportActionBar";
+import { UI_LAYERS } from "@/lib/ui/layers";
 import {
   buildFastTrackReportHtml,
   buildFastTrackWhatsAppText,
@@ -449,10 +450,13 @@ export default function FastTrackListModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        hideOverlay
         className={cn(
+          "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
           "h-[98vh] w-[98vw] max-w-[1400px] overflow-hidden p-0 flex flex-col sm:h-[95vh] sm:w-[96vw]",
           "border-slate-300/60 bg-slate-50 dark:border-amber-500/35 dark:bg-[#0f1115]",
-          "shadow-2xl ring-1 ring-black/5 dark:ring-white/10"
+          "shadow-2xl ring-1 ring-black/5 dark:ring-white/10",
+          UI_LAYERS.modalTop
         )}
       >
         <div
@@ -485,6 +489,19 @@ export default function FastTrackListModal({
                 buildWhatsAppText={buildExportWhatsApp}
                 onDownloadExcel={onDownloadExcel}
               />
+              <button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                className="group relative flex h-8 items-center gap-2 overflow-hidden rounded-full bg-slate-800/50 pl-2 pr-3 transition-all hover:bg-red-500/10 hover:ring-1 hover:ring-red-500/30 sm:h-9 sm:pl-3 sm:pr-4"
+                aria-label="Tutup"
+              >
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-700/50 text-slate-400 transition-colors group-hover:bg-red-500 group-hover:text-white sm:h-6 sm:w-6">
+                  <X className="h-3 w-3 sm:h-3.5 sm:w-3.5" strokeWidth={3} />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 transition-colors group-hover:text-red-400 sm:text-[11px]">
+                  Tutup
+                </span>
+              </button>
             </div>
           </div>
 

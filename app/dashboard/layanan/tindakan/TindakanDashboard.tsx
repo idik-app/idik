@@ -48,7 +48,7 @@ export default function TindakanDashboard() {
     [],
   );
 
-  const drawerOpen = Boolean(adapter.detailOpenId && adapter.selectedRecord);
+  const drawerOpen = Boolean(adapter.detailOpenId);
   const onRoleAccessClick = useCallback((target: AccessTarget) => {
     setRoleAccessTarget(target);
     setRoleAccessOpen(true);
@@ -134,7 +134,13 @@ export default function TindakanDashboard() {
 
       <TindakanDetailDrawer
         open={drawerOpen}
-        record={(adapter.selectedRecord as TindakanJoinResult | null) ?? null}
+        record={
+          (adapter.selectedRecord as TindakanJoinResult | null) ??
+          (filteredSummary?.allRows?.find(
+            (r) => String(r.id) === String(adapter.detailOpenId),
+          ) as TindakanJoinResult | null) ??
+          null
+        }
         allTindakanRows={
           Array.isArray(adapter.tindakanList)
             ? (adapter.tindakanList as TindakanJoinResult[])

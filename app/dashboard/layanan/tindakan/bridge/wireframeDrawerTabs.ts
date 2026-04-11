@@ -55,6 +55,7 @@ export const WIREFRAME_DRAWER_TABS: {
     /**
      * + Sign in / Time out / Sign out (jam) di `SignTimeFields` di bawah daftar field.
      * `tindakan`: combobox master (`MasterJenisTindakanField`), autofill nama kanonik, PATCH + refresh silent (tanpa toast sukses).
+     * `kategori`: combobox master (`KategoriTindakanField`), kelola daftar (modal), PATCH + refresh silent.
      */
     fields: ["tanggal_tindakan", "tindakan", "kategori"],
   },

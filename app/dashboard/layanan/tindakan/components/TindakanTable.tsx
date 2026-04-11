@@ -72,9 +72,12 @@ import {
 } from "../lib/displayTindakanRow";
 import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
 import {
-  fetchPasienCompactDeduped,
-  invalidatePasienCompactDedupedCache,
-} from "../lib/fetchPasienCompactDeduped";
+  useMasterDoctors,
+  useMasterRuangan,
+  useMasterTindakan,
+  useMasterPasien,
+  usePemakaianOrders,
+} from "../hooks/useMasterData";
 import { runDeduped } from "@/lib/api/runDeduped";
 
 type Adapter = ReturnType<typeof useTindakanBridgeAdapter>;
@@ -90,6 +93,9 @@ const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
 /** Sel tabel: grid jelas seperti spreadsheet (border-collapse di `<table>`). */
 const TINDAKAN_SHEET_CELL =
   "border border-amber-200/60 dark:border-amber-800/45";
+
+const ZOOM_CELL_CLASSES =
+  "focus-within:z-[50] focus-within:relative focus-within:scale-[1.3] focus-within:w-[200%] focus-within:shadow-2xl focus-within:transition-all focus-within:duration-200 focus-within:bg-white dark:focus-within:bg-slate-900";
 
 function useDebouncedValue(value: string, ms: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -634,6 +640,85 @@ function EditableMasterTindakanCell({
   );
 }
 
+function EditableTimeCell({
+  value,
+  onCommit,
+  placeholder = "—",
+}: {
+  value: string;
+  onCommit: (next: string) => Promise<boolean>;
+  placeholder?: string;
+}) {
+  const [draft, setDraft] = useState(value.trim());
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!saving) setDraft(value.trim());
+  }, [value, saving]);
+
+  const formatTimeInput = (input: string) => {
+    // Ambil hanya angka
+    const digits = input.replace(/\D/g, "");
+    if (!digits) return "";
+
+    // Jika 4 angka atau lebih (misal 1520 -> 15:20)
+    if (digits.length >= 4) {
+      const hh = digits.slice(0, 2);
+      const mm = digits.slice(2, 4);
+      return `${hh}:${mm}`;
+    }
+    // Jika 3 angka (misal 820 -> 08:20)
+    if (digits.length === 3) {
+      const hh = `0${digits.slice(0, 1)}`;
+      const mm = digits.slice(1, 3);
+      return `${hh}:${mm}`;
+    }
+    return digits;
+  };
+
+  const commit = useCallback(async () => {
+    if (saving) return;
+    const formatted = formatTimeInput(draft);
+    const cur = value.trim();
+    if (formatted === cur) {
+      setDraft(cur);
+      return;
+    }
+    setSaving(true);
+    const ok = await onCommit(formatted);
+    setSaving(false);
+    if (!ok) setDraft(cur);
+    else setDraft(formatted);
+  }, [draft, value, onCommit, saving]);
+
+  return (
+    <input
+      type="text"
+      disabled={saving}
+      value={draft}
+      placeholder={placeholder}
+      onChange={(e) => setDraft(e.target.value)}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      onBlur={() => void commit()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          void commit();
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setDraft(value.trim());
+        }
+      }}
+      className={cn(
+        "w-full rounded border px-2 py-1 text-xs font-semibold focus:outline-none text-center",
+        "border-cyan-400/55 bg-white text-slate-800 dark:border-cyan-700/50 dark:bg-black/40 dark:text-slate-100",
+      )}
+    />
+  );
+}
+
 function EditableDateCell({
   value,
   onCommit,
@@ -834,6 +919,65 @@ export default function TindakanTable({
   const { show: notify } = useNotification();
   const { confirm: appConfirm } = useAppDialog();
 
+  const {
+    doctors: doctorRaw,
+    isLoading: doctorLoading,
+    isError: doctorErrorRaw,
+    mutate: mutateDoctors,
+  } = useMasterDoctors();
+  const {
+    ruangan: ruanganMaster,
+    isLoading: ruanganLoading,
+    isError: ruanganErrorRaw,
+    mutate: mutateRuangan,
+  } = useMasterRuangan();
+  const {
+    masterTindakan: masterTindakanRaw,
+    isLoading: masterTindakanLoading,
+    isError: masterTindakanErrorRaw,
+    mutate: mutateMasterTindakan,
+  } = useMasterTindakan();
+  const {
+    pasien: pasienRaw,
+    isLoading: pasienLoading,
+    isError: pasienErrorRaw,
+    mutate: mutatePasien,
+  } = useMasterPasien();
+  const { orders: pemakaianOrdersRaw, mutate: mutateOrders } = usePemakaianOrders();
+
+  const doctorOptionsMaster = useMemo(() => {
+    return (doctorRaw || [])
+      .map((r) => mapApiDoctorRow(r))
+      .filter((d): d is DoctorOption => Boolean(d && d.nama_dokter));
+  }, [doctorRaw]);
+
+  const masterTindakanOptions = useMemo(() => {
+    return (masterTindakanRaw || [])
+      .map((r) =>
+        r && typeof r === "object" && "id" in r && "nama" in r
+          ? {
+              id: String((r as MasterTindakanOption).id),
+              nama: String((r as MasterTindakanOption).nama ?? "").trim(),
+              aktif: (r as MasterTindakanOption).aktif !== false,
+            }
+          : null,
+      )
+      .filter(Boolean) as MasterTindakanOption[];
+  }, [masterTindakanRaw]);
+
+  const pasienOptions = useMemo(() => {
+    return (pasienRaw || [])
+      .map((r) =>
+        r && typeof r === "object" ? mapApiPasienRow(r as any) : null,
+      )
+      .filter(Boolean) as PasienOption[];
+  }, [pasienRaw]);
+
+  const doctorError = doctorErrorRaw ? extractErrorMessage(doctorErrorRaw) : null;
+  const ruanganError = ruanganErrorRaw ? extractErrorMessage(ruanganErrorRaw) : null;
+  const masterTindakanError = masterTindakanErrorRaw ? extractErrorMessage(masterTindakanErrorRaw) : null;
+  const pasienError = pasienErrorRaw ? extractErrorMessage(pasienErrorRaw) : null;
+
   /** Cegah sync ganda (auto + manual) dalam waktu bersamaan. */
   const syncInFlightRef = useRef(false);
   const [isSyncingMasterPasien, setIsSyncingMasterPasien] = useState(false);
@@ -848,6 +992,7 @@ export default function TindakanTable({
   const [perPage, setPerPage] = useState(15);
   const [filterDokter, setFilterDokter] = useState("");
   const [filterRuangan, setFilterRuangan] = useState("");
+  const [filterTindakan, setFilterTindakan] = useState("");
   const [filterTanggalFrom, setFilterTanggalFrom] = useState("");
   const [filterTanggalTo, setFilterTanggalTo] = useState("");
   const [filterPciOnly, setFilterPciOnly] = useState(false);
@@ -865,221 +1010,14 @@ export default function TindakanTable({
   >({});
   const [pemakaianModalRow, setPemakaianModalRow] =
     useState<TindakanJoinResult | null>(null);
-  /** Cache GET /api/pemakaian-orders (urutan API: created_at desc). */
-  const [pemakaianOrdersRaw, setPemakaianOrdersRaw] = useState<
-    Record<string, unknown>[]
-  >([]);
 
-  const refreshPemakaianOrderIndex = useCallback(async () => {
-    try {
-      const { res, j } = await runDeduped(
-        "GET:/api/pemakaian-orders?limit=1000",
-        async () => {
-          const res = await fetch("/api/pemakaian-orders?limit=1000", {
-            credentials: "include",
-            cache: "no-store",
-          });
-          const j = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            orders?: Array<Record<string, unknown>>;
-          };
-          return { res, j };
-        },
-      );
-      if (!res.ok || !j?.ok || !Array.isArray(j.orders)) {
-        setPemakaianOrdersRaw([]);
-        return;
-      }
-      setPemakaianOrdersRaw(j.orders);
-    } catch {
-      setPemakaianOrdersRaw([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refreshPemakaianOrderIndex();
-  }, [refreshPemakaianOrderIndex]);
-
-  const [pasienOptions, setPasienOptions] = useState<PasienOption[]>([]);
-  const [pasienLoading, setPasienLoading] = useState(false);
-  const [pasienError, setPasienError] = useState<string | null>(null);
   const [pasienLabelByRowId, setPasienLabelByRowId] = useState<
     Record<string, string>
   >({});
 
-  const [ruanganMaster, setRuanganMaster] = useState<RuanganOption[]>([]);
-  const [ruanganLoading, setRuanganLoading] = useState(false);
-  const [ruanganError, setRuanganError] = useState<string | null>(null);
-
-  const refreshRuanganMaster = useCallback(async () => {
-    setRuanganLoading(true);
-    setRuanganError(null);
-    try {
-      const { res, json } = await runDeduped("GET:/api/ruangan", async () => {
-        const res = await fetch("/api/ruangan", {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          ruangan?: RuanganOption[];
-          message?: string;
-        };
-        return { res, json };
-      });
-      if (!res.ok || !json?.ok) {
-        throw new Error(json?.message || "Gagal mengambil master ruangan.");
-      }
-      const rows = Array.isArray(json.ruangan) ? json.ruangan : [];
-      setRuanganMaster(rows);
-    } catch (e) {
-      setRuanganMaster([]);
-      setRuanganError(extractErrorMessage(e));
-    } finally {
-      setRuanganLoading(false);
-    }
-  }, []);
-
-  const [doctorOptionsMaster, setDoctorOptionsMaster] = useState<
-    DoctorOption[]
-  >([]);
-  const [doctorLoading, setDoctorLoading] = useState(false);
-  const [doctorError, setDoctorError] = useState<string | null>(null);
   const [doctorLabelByRowId, setDoctorLabelByRowId] = useState<
     Record<string, string>
   >({});
-
-  const [masterTindakanOptions, setMasterTindakanOptions] = useState<
-    MasterTindakanOption[]
-  >([]);
-  const [masterTindakanLoading, setMasterTindakanLoading] = useState(false);
-  const [masterTindakanError, setMasterTindakanError] = useState<string | null>(
-    null,
-  );
-
-  const refreshMasterTindakan = useCallback(async () => {
-    setMasterTindakanLoading(true);
-    setMasterTindakanError(null);
-    try {
-      const { res, json } = await runDeduped(
-        "GET:/api/master-tindakan",
-        async () => {
-          const res = await fetch("/api/master-tindakan", {
-            credentials: "include",
-            cache: "no-store",
-          });
-          const json = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            masterTindakan?: MasterTindakanOption[];
-            message?: string;
-          };
-          return { res, json };
-        },
-      );
-      if (!res.ok || !json?.ok) {
-        throw new Error(
-          json?.message || "Gagal mengambil master jenis tindakan.",
-        );
-      }
-      const rows = Array.isArray(json.masterTindakan)
-        ? json.masterTindakan
-        : [];
-      const mapped = rows
-        .map((r) =>
-          r && typeof r === "object" && "id" in r && "nama" in r
-            ? {
-                id: String((r as MasterTindakanOption).id),
-                nama: String((r as MasterTindakanOption).nama ?? "").trim(),
-                aktif: (r as MasterTindakanOption).aktif !== false,
-              }
-            : null,
-        )
-        .filter(Boolean) as MasterTindakanOption[];
-      setMasterTindakanOptions(mapped);
-    } catch (e) {
-      setMasterTindakanOptions([]);
-      setMasterTindakanError(extractErrorMessage(e));
-    } finally {
-      setMasterTindakanLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    setPasienLoading(true);
-    setPasienError(null);
-    (async () => {
-      try {
-        const rows = await fetchPasienCompactDeduped();
-        const mapped = rows
-          .map((r) =>
-            r && typeof r === "object" ? mapApiPasienRow(r as any) : null,
-          )
-          .filter(Boolean) as PasienOption[];
-        if (!cancelled) setPasienOptions(mapped);
-      } catch (e) {
-        if (!cancelled) {
-          setPasienOptions([]);
-          setPasienError(extractErrorMessage(e));
-        }
-      } finally {
-        if (!cancelled) setPasienLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    void refreshRuanganMaster();
-  }, [refreshRuanganMaster]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setDoctorLoading(true);
-    setDoctorError(null);
-    (async () => {
-      try {
-        const { res, json } = await runDeduped("GET:/api/doctors", async () => {
-          const res = await fetch("/api/doctors", {
-            credentials: "include",
-            cache: "no-store",
-          });
-          const json = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            doctors?: unknown;
-            message?: string;
-          };
-          return { res, json };
-        });
-        if (!res.ok || !json?.ok) {
-          throw new Error(json?.message || "Gagal mengambil data dokter.");
-        }
-        const rows = Array.isArray(json.doctors) ? json.doctors : [];
-        const mapped = rows
-          .map((r) =>
-            r && typeof r === "object" ? mapApiDoctorRow(r as any) : null,
-          )
-          .filter((d): d is DoctorOption => Boolean(d && d.nama_dokter));
-        if (!cancelled) setDoctorOptionsMaster(mapped);
-      } catch (e) {
-        if (!cancelled) {
-          setDoctorOptionsMaster([]);
-          setDoctorError(extractErrorMessage(e));
-        }
-      } finally {
-        if (!cancelled) setDoctorLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    void refreshMasterTindakan();
-  }, [refreshMasterTindakan]);
 
   const dokterSourceRows = useMemo((): TindakanJoinResult[] => {
     if (tindakanList.length) return tindakanList as TindakanJoinResult[];
@@ -1087,30 +1025,41 @@ export default function TindakanTable({
     return [];
   }, [tindakanList, cathlabFallbackRows]);
 
-  const { dokterOptions, ruanganFilterOptions } = useMemo(() => {
-    const dSet = new Set<string>();
-    const rSet = new Set<string>();
-    const master = doctorOptionsMaster;
-    for (const r of dokterSourceRows) {
-      const d = String(r.dokter ?? "").trim();
-      if (d)
-        dSet.add(master.length > 0 ? canonicalDoctorStoredValue(master, d) : d);
-      const rx = String(r.ruangan ?? "").trim();
-      if (rx) rSet.add(rx);
-    }
-    for (const opt of ruanganMaster) {
-      const label = formatRuanganLabel(opt).trim();
-      if (label) rSet.add(label);
-      const nama = String(opt.nama ?? "").trim();
-      if (nama) rSet.add(nama);
-    }
-    return {
-      dokterOptions: Array.from(dSet).sort((a, b) => a.localeCompare(b, "id")),
-      ruanganFilterOptions: Array.from(rSet).sort((a, b) =>
-        a.localeCompare(b, "id"),
-      ),
-    };
-  }, [dokterSourceRows, doctorOptionsMaster, ruanganMaster]);
+  const { dokterOptions, ruanganFilterOptions, tindakanFilterOptions } =
+    useMemo(() => {
+      const dSet = new Set<string>();
+      const rSet = new Set<string>();
+      const tSet = new Set<string>();
+      const master = doctorOptionsMaster;
+      for (const r of dokterSourceRows) {
+        const d = String(r.dokter ?? "").trim();
+        if (d)
+          dSet.add(
+            master.length > 0 ? canonicalDoctorStoredValue(master, d) : d,
+          );
+        const rx = String(r.ruangan ?? "").trim();
+        if (rx) rSet.add(rx);
+        const tx = String(r.tindakan ?? "").trim();
+        if (tx) tSet.add(tx);
+      }
+      for (const opt of ruanganMaster) {
+        const label = formatRuanganLabel(opt).trim();
+        if (label) rSet.add(label);
+        const nama = String(opt.nama ?? "").trim();
+        if (nama) rSet.add(nama);
+      }
+      return {
+        dokterOptions: Array.from(dSet).sort((a, b) =>
+          a.localeCompare(b, "id"),
+        ),
+        ruanganFilterOptions: Array.from(rSet).sort((a, b) =>
+          a.localeCompare(b, "id"),
+        ),
+        tindakanFilterOptions: Array.from(tSet).sort((a, b) =>
+          a.localeCompare(b, "id"),
+        ),
+      };
+    }, [dokterSourceRows, doctorOptionsMaster, ruanganMaster]);
 
   const doctorOptionsForPemakaianModal = useMemo(
     () =>
@@ -1358,6 +1307,13 @@ export default function TindakanTable({
         (r) => String(r.ruangan ?? "").trim() === filterRuangan,
       );
     }
+    if (filterTindakan.trim()) {
+      const ft = filterTindakan.trim().toLowerCase();
+      list = list.filter((r) => {
+        const t = String(r.tindakan ?? "").toLowerCase();
+        return t.includes(ft);
+      });
+    }
     if (filterTanggalFrom.trim() || filterTanggalTo.trim()) {
       const from = filterTanggalFrom.trim();
       const to = filterTanggalTo.trim();
@@ -1414,6 +1370,7 @@ export default function TindakanTable({
     filterRm,
     filterDokter,
     filterRuangan,
+    filterTindakan,
     filterTanggalFrom,
     filterTanggalTo,
     filterPciOnly,
@@ -1433,6 +1390,10 @@ export default function TindakanTable({
     const fr = String(filterRuangan ?? "").trim();
     if (fr) {
       lines.push(`Ruangan: ${fr}`);
+    }
+    const ft = String(filterTindakan ?? "").trim();
+    if (ft) {
+      lines.push(`Tindakan: ${ft}`);
     }
     const from = String(filterTanggalFrom ?? "").trim();
     const to = String(filterTanggalTo ?? "").trim();
@@ -1668,6 +1629,7 @@ export default function TindakanTable({
       dokterBreakdown: kpiDokterBreakdown,
       kpiMode: hasTanggalFilter ? "filter" : "default",
       kpiModeLabel,
+      allRows: filteredRecords,
     });
   }, [
     filteredRecords,
@@ -1690,8 +1652,10 @@ export default function TindakanTable({
     filterRm,
     filterDokter,
     filterRuangan,
+    filterTindakan,
     filterTanggalFrom,
     filterTanggalTo,
+    filterPciOnly,
     perPage,
   ]);
 
@@ -2010,11 +1974,11 @@ export default function TindakanTable({
     async (id: string, next: string) => {
       const ok = await patchRowField(id, { ruangan: next || null });
       if (ok && next.trim()) {
-        void refreshRuanganMaster();
+        void mutateRuangan();
       }
       return ok;
     },
-    [patchRowField, refreshRuanganMaster],
+    [patchRowField, mutateRuangan],
   );
 
   const commitTindakanForRow = useCallback(
@@ -2022,11 +1986,11 @@ export default function TindakanTable({
       const ok = await patchRowField(id, { tindakan: next || null });
       const t = next.trim();
       if (ok && t && t.toLowerCase() !== "belum diisi") {
-        void refreshMasterTindakan();
+        void mutateMasterTindakan();
       }
       return ok;
     },
-    [patchRowField, refreshMasterTindakan],
+    [patchRowField, mutateMasterTindakan],
   );
 
   const syncMasterPasienFromTindakanCore = useCallback(
@@ -2062,38 +2026,8 @@ export default function TindakanTable({
         // Refresh dulu daftar tindakan agar drawer/tabel konsisten.
         await refresh();
 
-        // Refresh combobox pasien agar item baru langsung muncul.
-        invalidatePasienCompactDedupedCache();
-        setPasienLoading(true);
-        setPasienError(null);
-        try {
-          const resPas = await fetch("/api/pasien?compact=1", {
-            credentials: "include",
-            cache: "no-store",
-          });
-          const jsonPas = (await resPas.json().catch(() => ({}))) as {
-            ok?: boolean;
-            data?: unknown;
-            error?: string;
-          };
-          if (!resPas.ok || !jsonPas?.ok) {
-            throw new Error(
-              jsonPas?.error || "Gagal mengambil data pasien setelah sync.",
-            );
-          }
-          const rows = Array.isArray(jsonPas.data) ? jsonPas.data : [];
-          const mapped = rows
-            .map((r) =>
-              r && typeof r === "object" ? mapApiPasienRow(r as any) : null,
-            )
-            .filter(Boolean) as PasienOption[];
-          setPasienOptions(mapped);
-        } catch (e) {
-          setPasienOptions([]);
-          setPasienError(silent ? null : extractErrorMessage(e));
-        } finally {
-          setPasienLoading(false);
-        }
+        // Refresh hook pasien
+        await mutatePasien();
 
         if (!silent) {
           notify({
@@ -2119,7 +2053,7 @@ export default function TindakanTable({
         setIsSyncingMasterPasien(false);
       }
     },
-    [notify, refresh],
+    [notify, refresh, mutatePasien],
   );
 
   const syncMasterPasienFromTindakan = useCallback(async () => {
@@ -2161,6 +2095,8 @@ export default function TindakanTable({
     })();
   }, [syncMasterPasienFromTindakanCore]);
 
+  const [focusedCellId, setFocusedCellId] = useState<string | null>(null);
+
   return (
     <TableContainer>
       <div className="relative z-10 flex h-full min-h-0 max-h-full flex-1 flex-col min-w-0 max-md:h-auto max-md:max-h-none max-md:flex-none">
@@ -2169,15 +2105,17 @@ export default function TindakanTable({
           onRefresh={refresh}
           onCreateDraftForPasien={createDraftForPasien}
           onSyncMasterPasien={syncMasterPasienFromTindakan}
-          onFilter={(d, rg, from, to, pci) => {
+          onFilter={(d, rg, t, from, to, pci) => {
             setFilterDokter(d);
             setFilterRuangan(rg);
+            setFilterTindakan(t ?? "");
             setFilterTanggalFrom(String(from ?? ""));
             setFilterTanggalTo(String(to ?? ""));
             setFilterPciOnly(Boolean(pci));
           }}
           dokterOptions={dokterOptions}
           ruanganOptions={ruanganFilterOptions}
+          tindakanOptions={tindakanFilterOptions}
           isSyncing={isSyncing}
           isSyncingMasterPasien={isSyncingMasterPasien}
           onOpenFastTrack={() => setFastTrackModalOpen(true)}
@@ -2521,6 +2459,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
+                                ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle",
                                 "text-amber-800 dark:text-slate-100",
                               )}
@@ -2537,17 +2476,27 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
+                                ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle tabular-nums",
                                 "text-slate-800 dark:text-slate-100",
                               )}
                               title="Dari tab Fast-Track (Time out)"
                             >
-                              {String(rec.fast_track_time_out ?? "").trim() ||
-                                "—"}
+                              <div className="mx-auto w-full max-w-[6rem]">
+                                <EditableTimeCell
+                                  value={String(rec.fast_track_time_out ?? "")}
+                                  onCommit={async (next) =>
+                                    patchRowField(id, {
+                                      fast_track_time_out: next || null,
+                                    })
+                                  }
+                                />
+                              </div>
                             </td>
                             <td
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
+                                ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 font-mono text-[11px] text-center align-middle",
                                 "text-amber-800 dark:text-slate-100",
                               )}
@@ -2570,74 +2519,123 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
+                                ZOOM_CELL_CLASSES,
                                 "relative px-2 sm:px-2.5 py-1 max-w-[18rem] text-center align-middle",
                                 "text-amber-800 dark:text-white",
                               )}
                             >
-                              {/* Quick Actions Hover Toolbar (closer to patient name) */}
-                              <div
-                                className={cn(
-                                  "absolute top-1/2 right-1 z-[15] -translate-y-1/2",
-                                  "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100",
-                                  "flex items-center gap-1 transition-all duration-150",
-                                  "max-xl:hidden", // Optional: hide on smaller screens where side-buttons are close enough
-                                )}
-                              >
-                                {id && pemakaianOrderByTindakanId[id] ? (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setPemakaianModalRow(rec);
-                                    }}
-                                    className={cn(
-                                      "flex h-7 w-7 items-center justify-center rounded-full border shadow-lg transition-transform hover:scale-110",
-                                      "border-amber-500 bg-amber-100 text-amber-900 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-200",
-                                    )}
-                                    title="Edit Pemakaian"
-                                  >
-                                    <SquarePen className="h-3.5 w-3.5" />
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setPemakaianModalRow(rec);
-                                    }}
-                                    className={cn(
-                                      "flex h-7 w-7 items-center justify-center rounded-full border shadow-lg transition-transform hover:scale-110",
-                                      "border-cyan-500 bg-cyan-100 text-cyan-950 dark:border-cyan-600 dark:bg-cyan-950 dark:text-cyan-200",
-                                    )}
-                                    title="Input Pemakaian"
-                                  >
-                                    <ClipboardList className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  disabled={!id || deletingId === id}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    void handleDelete(id, rec);
-                                  }}
-                                  className={cn(
-                                    "flex h-7 w-7 items-center justify-center rounded-full border shadow-lg transition-transform hover:scale-110 disabled:opacity-30",
-                                    "border-red-400 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
-                                  )}
-                                  title="Hapus"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-
                               <div
                                 data-no-row-click="true"
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClick={(e) => e.stopPropagation()}
-                                className="relative mx-auto min-w-[10rem] sm:min-w-[14rem] max-w-[18rem]"
+                                className="relative mx-auto min-w-[10rem] sm:min-w-[14rem] max-w-[18rem] flex items-center gap-1.5"
                                 title={pasienError ?? undefined}
                               >
+                                {/* Quick Actions Hover Toolbar (Now inside protected div) */}
+                                <div
+                                  className={cn(
+                                    "absolute top-1/2 -right-8 z-[60] -translate-y-1/2",
+                                    "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100",
+                                    "flex items-center gap-1 transition-all duration-150",
+                                    "max-xl:hidden", 
+                                  )}
+                                >
+                                  {id && pemakaianOrderByTindakanId[id] ? (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPemakaianModalRow(rec);
+                                      }}
+                                      className={cn(
+                                        "flex h-7 w-7 items-center justify-center rounded-full border shadow-lg transition-transform hover:scale-110",
+                                        "border-amber-500 bg-amber-100 text-amber-900 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-200",
+                                      )}
+                                      title="Edit Pemakaian"
+                                    >
+                                      <SquarePen className="h-3.5 w-3.5" />
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPemakaianModalRow(rec);
+                                      }}
+                                      className={cn(
+                                        "flex h-7 w-7 items-center justify-center rounded-full border shadow-lg transition-transform hover:scale-110",
+                                        "border-cyan-500 bg-cyan-100 text-cyan-950 dark:border-cyan-600 dark:bg-cyan-950 dark:text-cyan-200",
+                                      )}
+                                      title="Input Pemakaian"
+                                    >
+                                      <ClipboardList className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    disabled={!id || deletingId === id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void handleDelete(id, rec);
+                                    }}
+                                    className={cn(
+                                      "flex h-7 w-7 items-center justify-center rounded-full border shadow-lg transition-transform hover:scale-110 disabled:opacity-30",
+                                      "border-red-400 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
+                                    )}
+                                    title="Hapus"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+
+                                {(() => {
+                                  const t = String(rec.tindakan ?? "").toLowerCase();
+                                  const isEpAblasi = t.includes("ep ") || t.includes("eps") || t.includes("ablasi") || t.includes("ablation");
+                                  if (!isEpAblasi) return null;
+
+                                  const isoDate = extractCalendarDateKey(String(rec.tanggal ?? ""));
+                                  if (!isoDate) return null;
+
+                                  const today = todayWibYmd();
+                                  const scheduledDate = new Date(isoDate);
+                                  const todayDate = new Date(today);
+                                  const diffTime = scheduledDate.getTime() - todayDate.getTime();
+                                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                                  
+                                  const orderId = id ? pemakaianOrderByTindakanId[id] : null;
+                                  const order = orderId ? pemakaianOrdersRaw.find(o => o.id === orderId) : null;
+                                  const isReady = order && (order as any).status_alkes_cssd === 'READY';
+                                  
+                                  if (isReady) return null; // Sudah siap, tidak perlu indikator warning
+
+                                  let colorClass = "";
+                                  let tooltip = "";
+                                  
+                                  if (diffDays <= 0) {
+                                    colorClass = "bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]";
+                                    tooltip = "ALERTI: Alkes BELUM SIAP (Hari-H/H-1)";
+                                  } else if (diffDays <= 2) {
+                                    colorClass = "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.4)]";
+                                    tooltip = `WARNING: Persiapan Alkes H-${diffDays}`;
+                                  } else {
+                                    return null;
+                                  }
+
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPemakaianModalRow(rec);
+                                      }}
+                                      className={cn(
+                                        "w-2.5 h-2.5 rounded-full shrink-0 border border-white/20 transition-transform hover:scale-125 cursor-pointer",
+                                        colorClass
+                                      )} 
+                                      title={`${tooltip} (Klik untuk buka Pemakaian Alkes)`}
+                                    />
+                                  );
+                                })()}
                                 {/* High Priority / Fast-Track Pulse Indicator */}
                                 {(() => {
                                   const s = String(
@@ -2773,6 +2771,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
+                                ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 text-[11px] text-center align-middle whitespace-nowrap",
                                 "text-slate-800 dark:text-slate-100",
                               )}
@@ -2787,6 +2786,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
+                                ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
                                 "text-amber-800 dark:text-slate-100",
                               )}
@@ -2891,6 +2891,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
+                                ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
                                 "text-amber-800 dark:text-white",
                               )}
@@ -2930,6 +2931,7 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
+                                ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
                                 "text-amber-800 dark:text-amber-300",
                               )}

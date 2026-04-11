@@ -3,7 +3,7 @@ import useSWR from 'swr';
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export function useMasterRuangan() {
-  const { data, error, isLoading } = useSWR('/api/ruangan', fetcher, {
+  const { data, error, isLoading, mutate } = useSWR('/api/ruangan', fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 300000, // 5 menit
   });
@@ -12,11 +12,12 @@ export function useMasterRuangan() {
     ruangan: data?.ruangan || [],
     isLoading,
     isError: error,
+    mutate,
   };
 }
 
 export function useMasterVariants() {
-  const { data, error, isLoading } = useSWR('/api/master-barang/variants', fetcher, {
+  const { data, error, isLoading, mutate } = useSWR('/api/master-barang/variants', fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 300000, // 5 menit
   });
@@ -25,11 +26,12 @@ export function useMasterVariants() {
     items: data?.items || [],
     isLoading,
     isError: error,
+    mutate,
   };
 }
 
 export function useMasterDoctors() {
-  const { data, error, isLoading } = useSWR('/api/doctors', fetcher, {
+  const { data, error, isLoading, mutate } = useSWR('/api/doctors', fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 300000, // 5 menit
   });
@@ -38,6 +40,63 @@ export function useMasterDoctors() {
     doctors: data?.doctors || [],
     isLoading,
     isError: error,
+    mutate,
+  };
+}
+
+export function useMasterTindakan() {
+  const { data, error, isLoading, mutate } = useSWR('/api/master-tindakan', fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 300000, // 5 menit
+  });
+
+  return {
+    masterTindakan: data?.masterTindakan || [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+export function useMasterPerawat() {
+  const { data, error, isLoading, mutate } = useSWR('/api/master-perawat', fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 300000, // 5 menit
+  });
+
+  return {
+    perawat: data?.perawat || [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+export function useMasterTindakanKategori() {
+  const { data, error, isLoading, mutate } = useSWR('/api/master-tindakan-kategori', fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 300000, // 5 menit
+  });
+
+  return {
+    kategori: data?.kategori || [],
+    isLoading,
+    isError: error,
+    mutate,
+  };
+}
+
+export function useMasterPasien() {
+  const { data, error, isLoading, mutate } = useSWR('/api/pasien?compact=1&limit=1000', fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 600000, // 10 menit
+  });
+
+  return {
+    pasien: data?.data || [],
+    isLoading,
+    isError: error,
+    mutate,
   };
 }
 
@@ -50,7 +109,7 @@ export function usePasienDetail(id?: string | null, noRm?: string | null, nama?:
         ? `/api/pasien?nama=${encodeURIComponent(nama)}`
         : null;
 
-  const { data, error, isLoading } = useSWR(key, fetcher, {
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 60000, // 1 menit
   });
@@ -59,12 +118,13 @@ export function usePasienDetail(id?: string | null, noRm?: string | null, nama?:
     pasien: data?.data || null,
     isLoading,
     isError: error,
+    mutate,
   };
 }
 
 export function useTindakanDetail(id?: string | null) {
   const key = id ? `/api/tindakan/${encodeURIComponent(id)}` : null;
-  const { data, error, isLoading } = useSWR(key, fetcher, {
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 30000, // 1 menit
   });
@@ -73,5 +133,21 @@ export function useTindakanDetail(id?: string | null) {
     tindakan: data?.data || null,
     isLoading,
     isError: error,
+    mutate,
+  };
+}
+
+export function usePemakaianOrders(tindakanId?: string | null) {
+  const key = tindakanId ? `/api/pemakaian-orders?tindakanId=${encodeURIComponent(tindakanId)}` : '/api/pemakaian-orders?limit=1000';
+  const { data, error, isLoading, mutate } = useSWR(key, fetcher, {
+    revalidateOnFocus: true,
+    dedupingInterval: 10000, // 10 detik
+  });
+
+  return {
+    orders: data?.orders || [],
+    isLoading,
+    isError: error,
+    mutate,
   };
 }

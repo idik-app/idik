@@ -59,6 +59,9 @@ export async function POST(req: Request) {
   const no_rm_raw = String(body.no_rm ?? "").trim();
   const dokter = String(body.dokter ?? "").trim();
   const depo = String(body.depo ?? "").trim();
+  const petugas_cssd = String(body.petugas_cssd ?? "").trim() || null;
+  const asisten_cathlab = String(body.asisten_cathlab ?? "").trim() || null;
+  const status_alkes_cssd = String(body.status_alkes_cssd ?? "").trim() || null;
   const tanggalRaw = String(body.tanggal ?? "").trim();
   const mode =
     body.mode === "RESEP" || body.mode === "PEMAKAIAN"
@@ -103,11 +106,11 @@ export async function POST(req: Request) {
   }
 
   const rawItems = body.items;
-  const items: LineIn[] = Array.isArray(rawItems) ? (rawItems as LineIn[]) : [];
-  const normalized = items
-    .map((it, i) => {
-      const barang = String(it.barang ?? "").trim();
-      if (!barang) return null;
+    const items: LineIn[] = Array.isArray(rawItems) ? (rawItems as LineIn[]) : [];
+    const normalized = items
+      .map((it: LineIn, i: number) => {
+        const barang = String(it.barang ?? "").trim();
+        if (!barang) return null;
       const kategori = normalizeKategoriAlkesLine(it.kategori);
       return {
         lineId:
@@ -128,7 +131,12 @@ export async function POST(req: Request) {
           typeof it.qtyDipakai === "number" && !Number.isNaN(it.qtyDipakai)
             ? Math.max(0, it.qtyDipakai)
             : 0,
-        tipe: (it.tipe === "R" || it.tipe === "REUSE") ? "R" : "N",
+        tipe:
+          it.tipe === "R" || it.tipe === "REUSE"
+            ? "R"
+            : it.tipe === "B" || it.tipe === "RUSAK" || it.tipe === "BROKEN"
+              ? "B"
+              : "N",
         lot:
           typeof it.lot === "string" && it.lot.trim()
             ? it.lot.trim()
@@ -254,6 +262,9 @@ export async function POST(req: Request) {
     dokter,
     ruangan,
     depo,
+    petugas_cssd,
+    asisten_cathlab,
+    status_alkes_cssd,
     status: "MENUNGGU_VALIDASI" as const,
     items: normalized,
     catatan,

@@ -80,12 +80,16 @@ export const mapFromSupabase = (p: any) => {
     kelasPerawatan: normalizeKelasPerawatanFromDb(p.kelas_perawatan ?? p.kelas),
     asuransi: p.asuransi ?? "",
     dokter: p.dokter_nama ?? p.nama_dokter ?? p.dokter ?? "",
+    pci_report_link: p.pci_report_link ?? "",
+    diagnosa: p.diagnosa ?? "",
+    severity_level: p.severity_level ?? "",
+    hasil_lab_ppm: p.hasil_lab_ppm ?? "",
     created_at: p.created_at ?? "",
     updated_at: p.updated_at ?? "",
   };
 };
 
-export const mapToSupabase = (p: PasienFormData) => ({
+export const mapToSupabase = (p: PasienFormData & { pci_report_link?: string; diagnosa?: string; severity_level?: string; hasil_lab_ppm?: string }) => ({
   no_rm: p.noRM,
   nama: p.nama,
   jenis_kelamin: p.jenisKelamin,
@@ -95,4 +99,8 @@ export const mapToSupabase = (p: PasienFormData) => ({
   jenis_pembiayaan: p.jenisPembiayaan,
   kelas_perawatan: p.kelasPerawatan,
   asuransi: p.asuransi ?? "",
+  pci_report_link: p.pci_report_link,
+  diagnosa: p.diagnosa,
+  severity_level: p.severity_level,
+  hasil_lab_ppm: p.hasil_lab_ppm,
 });

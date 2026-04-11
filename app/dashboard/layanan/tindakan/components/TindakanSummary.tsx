@@ -28,6 +28,8 @@ export type TindakanFilteredSummary = {
   kpiMode?: "default" | "filter";
   /** Label mode KPI untuk ditampilkan ke user. */
   kpiModeLabel?: string;
+  /** Semua baris hasil filter (termasuk fallback) untuk pencarian record di drawer. */
+  allRows?: any[];
 };
 
 type SummaryProps = {

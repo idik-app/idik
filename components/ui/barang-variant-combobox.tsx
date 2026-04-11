@@ -32,9 +32,11 @@ export type MasterBarangPickRow = {
   ed: string | null;
   /** Harga jual referensi (master / mapping distributor); null jika belum diisi di DB. */
   harga_jual: number | null;
+  /** Apakah barang ini konsolidasi (dari master_distributor). */
+  is_konsolidasi?: boolean | null;
 };
 
-/** 
+/**
  * Pre-calculate haystack for faster searching.
  * We can store this in a Map to avoid repeated string concatenation.
  */
@@ -417,7 +419,7 @@ export function BarangVariantCombobox({
     variant === "table"
       ? "w-full min-w-[90px] bg-black/50 border border-white/15 rounded px-1.5 py-1 text-[10px] text-white/95 placeholder:text-white/35 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50 pr-7"
       : "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40",
-    inputClassName
+    inputClassName,
   );
 
   const listCls = cn(
@@ -437,7 +439,8 @@ export function BarangVariantCombobox({
             className={cn(
               "w-full px-3 py-2 text-left text-white hover:bg-slate-700 focus:bg-slate-700/80 focus:outline-none transition-colors border-b border-white/[0.04] last:border-0",
               variant === "table" && "px-4 py-3",
-              idx === activeIndex && "bg-slate-700 ring-1 ring-inset ring-emerald-500/50"
+              idx === activeIndex &&
+                "bg-slate-700 ring-1 ring-inset ring-emerald-500/50",
             )}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
@@ -445,50 +448,71 @@ export function BarangVariantCombobox({
               setOpen(false);
             }}
           >
-            <span className={cn(
-              "block font-bold text-white uppercase tracking-wide",
-              variant === "table" ? "text-sm mb-1" : "font-medium text-white/95"
-            )}>
+            <span
+              className={cn(
+                "block font-bold text-white uppercase tracking-wide",
+                variant === "table"
+                  ? "text-sm mb-1"
+                  : "font-medium text-white/95",
+              )}
+            >
               {v.nama}
             </span>
             <span className="block text-[10px] text-slate-400 mt-0.5 space-x-1 italic">
-              {[v.kode && `Kode: ${v.kode}`, v.jenis].filter(Boolean).join(" · ")}
+              {[v.kode && `Kode: ${v.kode}`, v.jenis]
+                .filter(Boolean)
+                .join(" · ")}
             </span>
             {(v.lot || v.ukuran || v.ed || v.distributor_nama) && (
-              <span className={cn(
-                "block mt-1.5 leading-relaxed font-medium",
-                variant === "table" ? "text-[12px] text-emerald-400" : "text-[9px] text-teal-200/90"
-              )}>
+              <span
+                className={cn(
+                  "block mt-1.5 leading-relaxed font-medium",
+                  variant === "table"
+                    ? "text-[12px] text-emerald-400"
+                    : "text-[9px] text-teal-200/90",
+                )}
+              >
                 {[
                   v.lot && (
                     <span key="lot">
-                      <span className="opacity-70 font-normal">LOT:</span> {v.lot}
+                      <span className="opacity-70 font-normal">LOT:</span>{" "}
+                      {v.lot}
                     </span>
                   ),
                   v.ukuran && (
                     <span key="ukuran">
-                      <span className="opacity-70 font-normal ml-1">Uk:</span> {v.ukuran}
+                      <span className="opacity-70 font-normal ml-1">Uk:</span>{" "}
+                      {v.ukuran}
                     </span>
                   ),
                   v.ed && (
                     <span key="ed">
-                      <span className="opacity-70 font-normal ml-1">ED:</span> {v.ed}
+                      <span className="opacity-70 font-normal ml-1">ED:</span>{" "}
+                      {v.ed}
                     </span>
                   ),
                   v.distributor_nama && (
-                    <span key="dist" className={cn(
-                      "block italic font-normal",
-                      variant === "table" ? "text-[11px] text-slate-400 mt-1" : "text-[9px] text-slate-400 mt-0.5"
-                    )}>
+                    <span
+                      key="dist"
+                      className={cn(
+                        "block italic font-normal",
+                        variant === "table"
+                          ? "text-[11px] text-slate-400 mt-1"
+                          : "text-[9px] text-slate-400 mt-0.5",
+                      )}
+                    >
                       Distributor: {v.distributor_nama}
                     </span>
                   ),
-                ].filter(Boolean).reduce((prev, curr, i) => {
-                  if (i === 0) return [curr];
-                  // Don't add separator before distributor which is a block
-                  if ((curr as any).props?.className?.includes('block')) return [...(prev as any), curr];
-                  return [...(prev as any), " — ", curr];
-                }, [])}
+                ]
+                  .filter(Boolean)
+                  .reduce((prev, curr, i) => {
+                    if (i === 0) return [curr];
+                    // Don't add separator before distributor which is a block
+                    if ((curr as any).props?.className?.includes("block"))
+                      return [...(prev as any), curr];
+                    return [...(prev as any), " — ", curr];
+                  }, [])}
               </span>
             )}
           </button>
@@ -509,7 +533,7 @@ export function BarangVariantCombobox({
           "rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 shadow-xl pointer-events-auto",
           variant === "table" ? UI_LAYERS.pickerFloating : UI_LAYERS.popover,
           variant === "default" &&
-            "absolute left-0 right-0 top-full z-[60] mt-1"
+            "absolute left-0 right-0 top-full z-[60] mt-1",
         )}
         style={
           variant === "table" && menuPos
@@ -538,7 +562,7 @@ export function BarangVariantCombobox({
         className={cn(
           listCls,
           variant === "default" &&
-            "absolute left-0 right-0 top-full z-[60] mt-1"
+            "absolute left-0 right-0 top-full z-[60] mt-1",
         )}
         style={
           variant === "table" && menuPos
@@ -558,7 +582,11 @@ export function BarangVariantCombobox({
   const emptyMsg =
     open && !loading && options.length === 0
       ? "Belum ada data master / mapping distributor."
-      : open && !loading && options.length > 0 && filtered.length === 0 && qActive
+      : open &&
+          !loading &&
+          options.length > 0 &&
+          filtered.length === 0 &&
+          qActive
         ? "Tidak ada baris yang cocok dengan pencarian."
         : null;
 
@@ -568,8 +596,7 @@ export function BarangVariantCombobox({
       className={cn(
         "rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] pointer-events-auto",
         variant === "table" ? UI_LAYERS.pickerFloating : UI_LAYERS.popover,
-        variant === "default" &&
-          "absolute left-0 right-0 top-full mt-1 z-[60]"
+        variant === "default" && "absolute left-0 right-0 top-full mt-1 z-[60]",
       )}
       style={
         variant === "table" && menuPos
@@ -614,7 +641,7 @@ export function BarangVariantCombobox({
         <input
           ref={inputRef}
           value={value}
-            onChange={(e) => {
+          onChange={(e) => {
             clearBlurCloseTimer();
             const next = e.target.value;
             onChange(next);
@@ -638,7 +665,9 @@ export function BarangVariantCombobox({
                 setOpen(true);
                 if (variant === "table") syncMenuPositionImmediate();
               } else {
-                setActiveIndex((prev) => (prev < filtered.length - 1 ? prev + 1 : prev));
+                setActiveIndex((prev) =>
+                  prev < filtered.length - 1 ? prev + 1 : prev,
+                );
               }
               return;
             }
@@ -653,7 +682,8 @@ export function BarangVariantCombobox({
               if (loading || !open) return;
               if (filtered.length === 0) return;
               e.preventDefault();
-              const target = activeIndex >= 0 ? filtered[activeIndex] : filtered[0];
+              const target =
+                activeIndex >= 0 ? filtered[activeIndex] : filtered[0];
               onPickVariant(target);
               setOpen(false);
               return;
@@ -707,7 +737,7 @@ export function BarangVariantCombobox({
           <Loader2
             className={cn(
               "pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 animate-spin text-[#E8C547]/80",
-              variant === "default" && "right-2 h-3.5 w-3.5"
+              variant === "default" && "right-2 h-3.5 w-3.5",
             )}
             aria-hidden
           />
@@ -723,12 +753,17 @@ export function BarangVariantCombobox({
             }}
             className={cn(
               "absolute top-1/2 -translate-y-1/2 rounded p-0.5 text-white/70 hover:text-white hover:bg-white/10 focus:outline-none focus:ring-1 focus:ring-[#E8C547]/50 dark:text-white/85",
-              variant === "table" ? "right-1" : "right-1.5"
+              variant === "table" ? "right-1" : "right-1.5",
             )}
             aria-label="Hapus teks"
             title="Hapus teks"
           >
-            <X className={cn("shrink-0", variant === "table" ? "h-3 w-3" : "h-3.5 w-3.5")} />
+            <X
+              className={cn(
+                "shrink-0",
+                variant === "table" ? "h-3 w-3" : "h-3.5 w-3.5",
+              )}
+            />
           </button>
         ) : null}
       </div>

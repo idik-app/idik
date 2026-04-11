@@ -681,3 +681,153 @@ export function buildBulananMatrixWhatsAppText(
   lines.push(`JUMLAH\t${jum}\t${matrix.grandTotal}`);
   return lines.join("\n");
 }
+
+export function buildAnalisisGabunganHtml(
+  rows: readonly TindakanJoinResult[],
+  subtitleLines: string[],
+): string {
+  const bodyRows = rows
+    .map((r, i) => {
+      const raw = r as unknown as Record<string, unknown>;
+      const nama = normalizeNamaPasien(displayNamaPasien(raw));
+      const rm = displayRm(raw);
+      return `<tr>
+        <td class="num">${i + 1}</td>
+        <td class="num">${escapeHtml(String(r.tanggal ?? "").slice(0, 10) || "—")}</td>
+        <td><strong>${escapeHtml(nama)}</strong><br/><small>RM: ${escapeHtml(rm)}</small></td>
+        <td>${escapeHtml(r.tindakan || "—")}</td>
+        <td>${escapeHtml(r.kategori || "—")}</td>
+        <td>${escapeHtml(r.dokter || "—")}</td>
+        <td>${escapeHtml(r.diagnosa || "—")}</td>
+        <td>${escapeHtml(r.status || "—")}</td>
+      </tr>`;
+    })
+    .join("\n");
+
+  const table = `<table>
+    <thead>
+      <tr>
+        <th>No</th>
+        <th>Tanggal</th>
+        <th>Pasien / RM</th>
+        <th>Tindakan</th>
+        <th>Kategori</th>
+        <th>Dokter</th>
+        <th>Diagnosa</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${bodyRows || '<tr><td colspan="8" class="num">Tidak ada data.</td></tr>'}
+    </tbody>
+  </table>`;
+
+  return wrapReportHtmlDocument({
+    title: "LAPORAN ANALISIS GABUNGAN TINDAKAN CATHLAB",
+    subtitleLines,
+    bodyInnerHtml: table,
+  });
+}
+
+export function buildAnalisisGabunganWhatsAppText(
+  rows: readonly TindakanJoinResult[],
+  subtitleLines: string[],
+): string {
+  const lines = [
+    "*LAPORAN ANALISIS GABUNGAN TINDAKAN CATHLAB*",
+    "",
+    ...subtitleLines,
+    "",
+  ];
+
+  const maxRows = 20;
+  rows.slice(0, maxRows).forEach((r, i) => {
+    const raw = r as unknown as Record<string, unknown>;
+    const nama = normalizeNamaPasien(displayNamaPasien(raw));
+    const tgl = String(r.tanggal ?? "").slice(8, 10);
+    lines.push(`${i + 1}. [Tgl ${tgl}] ${nama} — ${r.tindakan || "—"} (${r.kategori || "—"})`);
+  });
+
+  if (rows.length > maxRows) {
+    lines.push("", `... +${rows.length - maxRows} lainnya (buka aplikasi untuk detail).`);
+  }
+
+  return lines.join("\n");
+}
+
+export function downloadAnalisisGabunganExcel(
+  rows: readonly TindakanJoinResult[],
+  filename: string,
+): void {
+  const data = rows.map((r, i) => {
+    const raw = r as unknown as Record<string, unknown>;
+    return {
+      No: i + 1,
+      Tanggal: String(r.tanggal ?? "").slice(0, 10) || "—",
+      RM: displayRm(raw),
+      Nama: normalizeNamaPasien(displayNamaPasien(raw)),
+      Tindakan: r.tindakan || "—",
+      Kategori: r.kategori || "—",
+      Dokter: r.dokter || "—",
+      Diagnosa: r.diagnosa || "—",
+      Status: r.status || "—",
+      Ruangan: r.ruangan || "—",
+      Cathlab: r.cath || "—",
+      Severity: r.severity_level || "—",
+      Asisten: r.asisten || "—",
+      Sirkuler: r.sirkuler || "—",
+      Logger: r.logger || "—",
+      Pembiayaan: r.kelas_pembiayaan || r.pembiayaan || "—",
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "AnalisisGabungan");
+
+  const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const finalBlob = new Blob([excelBuffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  saveAs(finalBlob, `${filename}.xlsx`);
+}
+
+export function downloadMonthlyMatrixExcel(
+  matrix: MonthlyMatrixAgg,
+  title: string,
+  filename: string,
+): void {
+  const { rowLabels, data, rowTotals, colTotals, grandTotal, daysInMonth } = matrix;
+
+  // Header: Kategori, 1, 2, ..., 31, Total
+  const header = [title.split(" ").slice(-1)[0] || "KATEGORI"];
+  for (let d = 1; d <= daysInMonth; d++) header.push(String(d));
+  header.push("TOTAL");
+
+  const rows = rowLabels.map((label, ri) => {
+    const rowData: (string | number)[] = [label];
+    for (let di = 0; di < daysInMonth; di++) {
+      rowData.push(data[ri][di] || 0);
+    }
+    rowData.push(rowTotals[ri] || 0);
+    return rowData;
+  });
+
+  // Baris JUMLAH (Footer)
+  const footer = ["JUMLAH"];
+  for (let di = 0; di < daysInMonth; di++) {
+    footer.push(colTotals[di] || 0);
+  }
+  footer.push(grandTotal);
+  rows.push(footer);
+
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "LaporanBulanan");
+
+  const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const finalBlob = new Blob([excelBuffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  saveAs(finalBlob, `${filename}.xlsx`);
+}

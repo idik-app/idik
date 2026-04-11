@@ -219,6 +219,12 @@ function mergePasienMasterIntoRow(
     ? buildKelasPembiayaanFromPasienMaster(pasien)
     : row.kelas_pembiayaan;
 
+  /** Field klinis — "Tersimpan otomatis per pasien": jika baris tindakan kosong, ambil dari master pasien. */
+  const pci_report_link = isBlank(row.pci_report_link) ? pasien.pci_report_link || null : row.pci_report_link;
+  const diagnosa = isBlank(row.diagnosa) ? pasien.diagnosa || null : row.diagnosa;
+  const severity_level = isBlank(row.severity_level) ? pasien.severity_level || null : row.severity_level;
+  const hasil_lab_ppm = isBlank(row.hasil_lab_ppm) ? pasien.hasil_lab_ppm || null : row.hasil_lab_ppm;
+
   return {
     ...row,
     no_rm,
@@ -229,6 +235,10 @@ function mergePasienMasterIntoRow(
     alamat,
     no_telp,
     kelas_pembiayaan,
+    pci_report_link,
+    diagnosa,
+    severity_level,
+    hasil_lab_ppm,
   };
 }
 
@@ -301,6 +311,7 @@ export default function TindakanDetailDrawer({
   onRecordPatch,
 }: Props) {
   const [tab, setTab] = useState<WireframeTabId>("pasien");
+  const lastIdRef = useRef<string | null>(null);
   const tabRowMeasureRef = useRef<HTMLDivElement>(null);
   const tabScrollRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -357,7 +368,19 @@ export default function TindakanDetailDrawer({
   }, [tindakanDetail]);
 
   useEffect(() => {
-    if (open) setTab("pasien");
+    if (!open) {
+      lastIdRef.current = null;
+      return;
+    }
+    const currentId = record?.id ? String(record.id) : null;
+    // Reset tab only if we have a valid ID and it's DIFFERENT from before (switching cases)
+    // or if the drawer was just opened (lastIdRef was null).
+    if (currentId && currentId !== lastIdRef.current) {
+      setTab("pasien");
+    }
+    if (currentId) {
+      lastIdRef.current = currentId;
+    }
   }, [open, record?.id]);
 
   const displayRecord = useMemo(() => {
@@ -562,210 +585,217 @@ export default function TindakanDetailDrawer({
               className={cn(
                 "min-h-0 flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-cyan-900/40",
                 "bg-transparent",
-                tab === "klinis" && "max-h-none h-full",
               )}
             >
               {!displayRecord ? (
                 <p className="text-sm font-semibold text-white">
                   Tidak ada data baris.
                 </p>
-              ) : tab === "history" ? (
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
-                      Resume
-                    </h3>
-                    <p className="mt-1 text-xs font-medium text-white/80">
-                      Ringkasan semua bagian ada di versi teks WhatsApp di
-                      bawah. Lanjut: metadata sistem dan riwayat tindakan pasien
-                      yang sama.
-                    </p>
-                  </div>
-
-                  <div
-                    className={cn(
-                      "rounded-xl border p-4 transition-all duration-300",
-                      "border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/40",
-                    )}
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
-                        Versi teks WhatsApp
-                      </p>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (!resumeWhatsAppText) return;
-                          try {
-                            await navigator.clipboard.writeText(
-                              resumeWhatsAppText,
-                            );
-                            setWaCopied(true);
-                            window.setTimeout(() => setWaCopied(false), 2500);
-                          } catch {
-                            setWaCopied(false);
-                          }
-                        }}
-                        disabled={!resumeWhatsAppText}
-                        className={cn(
-                          "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-black uppercase tracking-wider transition-all duration-300 disabled:opacity-50",
-                          "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)]",
-                        )}
-                      >
-                        <Copy size={14} aria-hidden />
-                        Salin untuk WA
-                      </button>
-                    </div>
-                    {waCopied ? (
-                      <p
-                        className="mt-2 text-xs font-bold text-emerald-400 animate-pulse"
-                        role="status"
-                      >
-                        Tersalin — tempel di WhatsApp.
-                      </p>
-                    ) : null}
-                    <label className="mt-3 block">
-                      <span className="sr-only">Pratinjau teks WhatsApp</span>
-                      <textarea
-                        readOnly
-                        value={resumeWhatsAppText}
-                        rows={8}
-                        className={cn(
-                          "mt-1 w-full resize-none rounded-lg border px-3 py-2.5 font-mono text-[11px] font-medium leading-relaxed outline-none transition-all duration-300",
-                          "border-emerald-500/20 bg-black/40 text-emerald-50/90 focus:border-emerald-500/50 focus:shadow-[0_0_15px_rgba(16,185,129,0.1)]",
-                        )}
-                      />
-                    </label>
-                  </div>
-
-                  <div
-                    className={cn(
-                      "rounded-lg border px-4 py-3 transition-all duration-300",
-                      "border-cyan-500/20 bg-black/20 hover:border-cyan-500/40",
-                    )}
-                  >
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
-                      Metadata sistem
-                    </p>
-                    <dl className="mt-3 grid grid-cols-1 gap-4 text-xs sm:grid-cols-3">
-                      {(
-                        [
-                          ["id", "ID kasus"],
-                          ["created_at", "Dibuat"],
-                          ["updated_at", "Diperbarui"],
-                        ] as const
-                      ).map(([key, label]) => {
-                        const rec = displayRecord as unknown as Record<
-                          string,
-                          unknown
-                        >;
-                        const raw =
-                          key === "id"
-                            ? displayRecord.id
-                            : key === "updated_at"
-                              ? getWireframeFieldValue(rec, "updated_at") ||
-                                getWireframeFieldValue(rec, "inserted_at")
-                              : getWireframeFieldValue(rec, key);
-                        const display =
-                          key === "id"
-                            ? raw != null && String(raw).trim() !== ""
-                              ? String(raw)
-                              : "—"
-                            : formatFieldValue(key, raw);
-                        return (
-                          <div key={key}>
-                            <dt className="text-[10px] font-black uppercase tracking-wider text-gray-600">
-                              {label}
-                            </dt>
-                            <dd className="mt-1 font-mono font-bold text-white">
-                              {display}
-                            </dd>
-                          </div>
-                        );
-                      })}
-                    </dl>
-                  </div>
-
-                  <section className="space-y-3">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">
-                        Riwayat tindakan pasien
-                      </p>
-                      <p className="text-[10px] font-bold text-yellow-400">
-                        {displayRecord.no_rm
-                          ? `NO. RM: ${String(displayRecord.no_rm).trim()}`
-                          : displayRecord.pasien_id
-                            ? `PASIEN ID: ${String(displayRecord.pasien_id).trim()}`
-                            : "IDENTITAS PASIEN TERBATAS"}
-                      </p>
-                    </div>
-                    {riwayatPasienRows.length === 0 ? (
-                      <p className="rounded-lg border border-dashed border-cyan-500/20 bg-black/20 px-4 py-4 text-xs font-medium text-white/60">
-                        Tidak ada baris lain yang cocok dengan RM / ID pasien
-                        ini dalam snapshot data saat ini.
-                      </p>
-                    ) : (
-                      <ul className="space-y-2">
-                        {riwayatPasienRows.map((r, idx) => {
-                          const rid = String(r.id ?? "").trim();
-                          const curId = String(displayRecord.id ?? "").trim();
-                          const isCurrent =
-                            rid !== "" && curId !== "" && rid === curId;
-                          return (
-                            <li
-                              key={rid || `peer-${idx}-${r.tanggal ?? ""}`}
-                              className={cn(
-                                "rounded-xl border px-4 py-3 text-sm transition-all duration-300",
-                                isCurrent
-                                  ? "border-cyan-500 bg-cyan-500/10 shadow-[0_0_20px_rgba(34,211,238,0.1)]"
-                                  : "border-cyan-500/20 bg-black/20 hover:border-cyan-500/40",
-                              )}
-                            >
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-mono text-xs font-black text-cyan-400">
-                                  {formatFieldValue(
-                                    "tanggal_tindakan",
-                                    getWireframeFieldValue(
-                                      r as unknown as Record<string, unknown>,
-                                      "tanggal_tindakan",
-                                    ),
-                                  )}
-                                </span>
-                                {isCurrent ? (
-                                  <span className="rounded border border-cyan-500 bg-cyan-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white">
-                                    KASUS INI
-                                  </span>
-                                ) : null}
-                              </div>
-                              <p className="mt-1.5 font-bold text-white">
-                                {r.tindakan?.trim() || "—"}
-                              </p>
-                              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-medium text-white/70">
-                                <span>
-                                  <span className="font-black uppercase tracking-tighter text-gray-500 mr-1">
-                                    Dokter:
-                                  </span>
-                                  {r.dokter?.trim() || "—"}
-                                </span>
-                                <span>
-                                  <span className="font-black uppercase tracking-tighter text-gray-500 mr-1">
-                                    Ruangan:
-                                  </span>
-                                  {r.ruangan?.trim() || "—"}
-                                </span>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </section>
-                </div>
               ) : (
                 <>
-                  {WIREFRAME_DRAWER_TABS.filter((x) => x.id === tab).map(
+                  {/* Tab: History (Resume) */}
+                  <div className={cn(tab !== "history" && "hidden")}>
+                    <div className="space-y-4">
+                      {/* ... existing history content ... */}
+                      <div>
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                          Resume
+                        </h3>
+                        <p className="mt-1 text-xs font-medium text-white/80">
+                          Ringkasan semua bagian ada di versi teks WhatsApp di
+                          bawah. Lanjut: metadata sistem dan riwayat tindakan pasien
+                          yang sama.
+                        </p>
+                      </div>
+
+                      <div
+                        className={cn(
+                          "rounded-xl border p-4 transition-all duration-300",
+                          "border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/40",
+                        )}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                            Versi teks WhatsApp
+                          </p>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!resumeWhatsAppText) return;
+                              try {
+                                await navigator.clipboard.writeText(
+                                  resumeWhatsAppText,
+                                );
+                                setWaCopied(true);
+                                window.setTimeout(() => setWaCopied(false), 2500);
+                              } catch {
+                                setWaCopied(false);
+                              }
+                            }}
+                            disabled={!resumeWhatsAppText}
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-black uppercase tracking-wider transition-all duration-300 disabled:opacity-50",
+                              "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)]",
+                            )}
+                          >
+                            <Copy size={14} aria-hidden />
+                            Salin untuk WA
+                          </button>
+                        </div>
+                        {waCopied ? (
+                          <p
+                            className="mt-2 text-xs font-bold text-emerald-400 animate-pulse"
+                            role="status"
+                          >
+                            Tersalin — tempel di WhatsApp.
+                          </p>
+                        ) : null}
+                        <label className="mt-3 block">
+                          <span className="sr-only">Pratinjau teks WhatsApp</span>
+                          <textarea
+                            readOnly
+                            value={resumeWhatsAppText}
+                            rows={8}
+                            className={cn(
+                              "mt-1 w-full resize-none rounded-lg border px-3 py-2.5 font-mono text-[11px] font-medium leading-relaxed outline-none transition-all duration-300",
+                              "border-emerald-500/20 bg-black/40 text-emerald-50/90 focus:border-emerald-500/50 focus:shadow-[0_0_15px_rgba(16,185,129,0.1)]",
+                            )}
+                          />
+                        </label>
+                      </div>
+
+                      <div
+                        className={cn(
+                          "rounded-lg border px-4 py-3 transition-all duration-300",
+                          "border-cyan-500/20 bg-black/20 hover:border-cyan-500/40",
+                        )}
+                      >
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                          Metadata sistem
+                        </p>
+                        <dl className="mt-3 grid grid-cols-1 gap-4 text-xs sm:grid-cols-3">
+                          {(
+                            [
+                              ["id", "ID kasus"],
+                              ["created_at", "Dibuat"],
+                              ["updated_at", "Diperbarui"],
+                            ] as const
+                          ).map(([key, label]) => {
+                            const rec = displayRecord as unknown as Record<
+                              string,
+                              unknown
+                            >;
+                            const raw =
+                              key === "id"
+                                ? displayRecord.id
+                                : key === "updated_at"
+                                  ? getWireframeFieldValue(rec, "updated_at") ||
+                                    getWireframeFieldValue(rec, "inserted_at")
+                                  : getWireframeFieldValue(rec, key);
+                            const display =
+                              key === "id"
+                                ? raw != null && String(raw).trim() !== ""
+                                  ? String(raw)
+                                  : "—"
+                                : formatFieldValue(key, raw);
+                            return (
+                              <div key={key}>
+                                <dt className="text-[10px] font-black uppercase tracking-wider text-gray-600">
+                                  {label}
+                                </dt>
+                                <dd className="mt-1 font-mono font-bold text-white">
+                                  {display}
+                                </dd>
+                              </div>
+                            );
+                          })}
+                        </dl>
+                      </div>
+
+                      <section className="space-y-3">
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">
+                            Riwayat tindakan pasien
+                          </p>
+                          <p className="text-[10px] font-bold text-yellow-400">
+                            {displayRecord.no_rm
+                              ? `NO. RM: ${String(displayRecord.no_rm).trim()}`
+                              : displayRecord.pasien_id
+                                ? `PASIEN ID: ${String(displayRecord.pasien_id).trim()}`
+                                : "IDENTITAS PASIEN TERBATAS"}
+                          </p>
+                        </div>
+                        {riwayatPasienRows.length === 0 ? (
+                          <p className="rounded-lg border border-dashed border-cyan-500/20 bg-black/20 px-4 py-4 text-xs font-medium text-white/60">
+                            Tidak ada baris lain yang cocok dengan RM / ID pasien
+                            ini dalam snapshot data saat ini.
+                          </p>
+                        ) : (
+                          <ul className="space-y-2">
+                            {riwayatPasienRows.map((r, idx) => {
+                              const rid = String(r.id ?? "").trim();
+                              const curId = String(displayRecord.id ?? "").trim();
+                              const isCurrent =
+                                rid !== "" && curId !== "" && rid === curId;
+                              return (
+                                <li
+                                  key={rid || `peer-${idx}-${r.tanggal ?? ""}`}
+                                  className={cn(
+                                    "rounded-xl border px-4 py-3 text-sm transition-all duration-300",
+                                    isCurrent
+                                      ? "border-cyan-500 bg-cyan-500/10 shadow-[0_0_20px_rgba(34,211,238,0.1)]"
+                                      : "border-cyan-500/20 bg-black/20 hover:border-cyan-500/40",
+                                  )}
+                                >
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="font-mono text-xs font-black text-cyan-400">
+                                      {formatFieldValue(
+                                        "tanggal_tindakan",
+                                        getWireframeFieldValue(
+                                          r as unknown as Record<string, unknown>,
+                                          "tanggal_tindakan",
+                                        ),
+                                      )}
+                                    </span>
+                                    {isCurrent ? (
+                                      <span className="rounded border border-cyan-500 bg-cyan-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white">
+                                        KASUS INI
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  <p className="mt-1.5 font-bold text-white">
+                                    {r.tindakan?.trim() || "—"}
+                                  </p>
+                                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-medium text-white/70">
+                                    <span>
+                                      <span className="font-black uppercase tracking-tighter text-gray-500 mr-1">
+                                        Dokter:
+                                      </span>
+                                      {r.dokter?.trim() || "—"}
+                                    </span>
+                                    <span>
+                                      <span className="font-black uppercase tracking-tighter text-gray-500 mr-1">
+                                        Ruangan:
+                                      </span>
+                                      {r.ruangan?.trim() || "—"}
+                                    </span>
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </section>
+                    </div>
+                  </div>
+
+                  {/* Other Tabs */}
+                  {WIREFRAME_DRAWER_TABS.filter((x) => x.id !== "history").map(
                     (def) => (
-                      <div key={def.id} className="space-y-3">
+                      <div
+                        key={def.id}
+                        className={cn("space-y-3", tab !== def.id && "hidden")}
+                      >
                         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
                           {def.label}
                         </h3>
@@ -828,6 +858,9 @@ export default function TindakanDetailDrawer({
                                   const tindakanId = String(
                                     displayRecord.id ?? "",
                                   ).trim();
+                                  const pasienId = String(
+                                    displayRecord.pasien_id ?? "",
+                                  ).trim();
                                   return (
                                     <div
                                       key={key}
@@ -842,6 +875,7 @@ export default function TindakanDetailDrawer({
                                       <dd className="mt-1 text-[13px] font-bold leading-snug text-white">
                                         <KlinisAutosaveField
                                           tindakanId={tindakanId}
+                                          pasienId={pasienId}
                                           field={key as KlinisFieldKey}
                                           value={rawVal}
                                           onSaved={onRecordPatch}
@@ -873,6 +907,9 @@ export default function TindakanDetailDrawer({
                                     const tindakanId = String(
                                       displayRecord.id ?? "",
                                     ).trim();
+                                    const pasienId = String(
+                                      displayRecord.pasien_id ?? "",
+                                    ).trim();
                                     return (
                                       <div key={key}>
                                         <dt className="text-[9px] font-black uppercase tracking-widest text-gray-600">
@@ -881,6 +918,7 @@ export default function TindakanDetailDrawer({
                                         <dd className="mt-1 text-[13px] font-bold leading-snug text-white">
                                           <KlinisAutosaveField
                                             tindakanId={tindakanId}
+                                            pasienId={pasienId}
                                             field={key as KlinisFieldKey}
                                             value={rawVal}
                                             onSaved={onRecordPatch}

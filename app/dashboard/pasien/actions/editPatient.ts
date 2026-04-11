@@ -14,7 +14,12 @@ export type PasienPatchInput = Partial<
     PasienFormData,
     "noRM" | "nama" | "jenisKelamin" | "tanggalLahir" | "alamat" | "noHP"
   >
->;
+> & {
+  pci_report_link?: string | null;
+  diagnosa?: string | null;
+  severity_level?: string | null;
+  hasil_lab_ppm?: string | null;
+};
 
 export async function editPatient(
   id: string,
@@ -33,6 +38,10 @@ export async function editPatient(
     jenis_pembiayaan: data.jenisPembiayaan,
     kelas_perawatan: data.kelasPerawatan,
     asuransi: data.asuransi ?? null,
+    pci_report_link: data.pci_report_link ?? null,
+    diagnosa: data.diagnosa ?? null,
+    severity_level: data.severity_level ?? null,
+    hasil_lab_ppm: data.hasil_lab_ppm ?? null,
   };
 
   const { data: row, error } = await supabase
@@ -93,6 +102,13 @@ export async function patchPatientFields(
     asuransi: current.asuransi ?? "",
   };
 
+  const clinical = {
+    pci_report_link: defined.pci_report_link !== undefined ? defined.pci_report_link : current.pci_report_link,
+    diagnosa: defined.diagnosa !== undefined ? defined.diagnosa : current.diagnosa,
+    severity_level: defined.severity_level !== undefined ? defined.severity_level : current.severity_level,
+    hasil_lab_ppm: defined.hasil_lab_ppm !== undefined ? defined.hasil_lab_ppm : current.hasil_lab_ppm,
+  };
+
   const parsed = pasienSchema.safeParse(merged);
   if (!parsed.success) {
     const flat = parsed.error.flatten();
@@ -103,5 +119,5 @@ export async function patchPatientFields(
     throw new Error(msg);
   }
 
-  return editPatient(id, parsed.data as Omit<Pasien, "id">);
+  return editPatient(id, { ...parsed.data, ...clinical } as Omit<Pasien, "id">);
 }

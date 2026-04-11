@@ -1,8 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useNotification } from "@/app/contexts/NotificationContext";
+import {
+  MasterKategoriTindakanCombobox,
+  formatMasterKategoriLabel,
+  resolveMasterKategoriAutofill,
+} from "@/components/ui/master-kategori-tindakan-combobox";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
 
@@ -34,11 +39,18 @@ export default function KategoriTindakanField({
   const [loadingList, setLoadingList] = useState(false);
   const [draft, setDraft] = useState(() => norm(String(value ?? "")));
   const [savingRow, setSavingRow] = useState(false);
+  const lastPersistedRef = useRef("");
+  const skipBlurCommitRef = useRef(false);
   const [manageOpen, setManageOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNama, setEditNama] = useState("");
   const [newNama, setNewNama] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    lastPersistedRef.current =
+      value == null || value === "" ? "" : norm(String(value));
+  }, [value, tindakanId]);
 
   const loadItems = useCallback(async () => {
     setLoadingList(true);
@@ -74,19 +86,16 @@ export default function KategoriTindakanField({
     setDraft(norm(String(value ?? "")));
   }, [value, tindakanId]);
 
-  const activeNames = useMemo(
-    () =>
-      items
-        .filter((x) => x.aktif !== false)
-        .map((x) => x.nama)
-        .filter(Boolean),
-    [items],
-  );
+  const pickerOptions = useMemo(() => {
+    const v = (value == null ? "" : String(value)).trim();
+    return items.filter(
+      (o) => o.aktif !== false || formatMasterKategoriLabel(o) === v,
+    );
+  }, [items, value]);
 
-  const saveKategoriRow = async (next: string) => {
-    const trimmed = norm(next);
-    const apiVal = trimmed.length ? trimmed : null;
-    const prev = value == null || value === "" ? "" : norm(String(value));
+  const persistKategori = async (next: string | null) => {
+    const trimmed = next == null ? "" : norm(next);
+    const prev = lastPersistedRef.current;
     if (trimmed === prev) return;
 
     setSavingRow(true);
@@ -97,7 +106,7 @@ export default function KategoriTindakanField({
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kategori: apiVal }),
+          body: JSON.stringify({ kategori: trimmed || null }),
         },
       );
       const json = (await res.json().catch(() => ({}))) as {
@@ -107,7 +116,7 @@ export default function KategoriTindakanField({
       if (!res.ok || !json.ok) {
         throw new Error(json.message || res.statusText);
       }
-      show({ type: "success", message: "Kategori tersimpan." });
+      lastPersistedRef.current = trimmed;
       onSaved?.();
     } catch (e) {
       show({
@@ -118,6 +127,17 @@ export default function KategoriTindakanField({
     } finally {
       setSavingRow(false);
     }
+  };
+
+  const handleBlurCommit = (current: string) => {
+    if (skipBlurCommitRef.current) return;
+    const trimmed = norm(current);
+    const resolved =
+      resolveMasterKategoriAutofill(trimmed, items) ??
+      resolveMasterKategoriAutofill(trimmed, pickerOptions);
+    const canonical = resolved ? formatMasterKategoriLabel(resolved) : trimmed;
+    setDraft(canonical);
+    void persistKategori(canonical || null);
   };
 
   const addMasterFromDraft = async () => {
@@ -256,24 +276,29 @@ export default function KategoriTindakanField({
     <div className="space-y-2">
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-0 flex-1">
-          <input
-            className={cn(
-              "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",
-              "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
-            )}
-            list={listId}
+          <MasterKategoriTindakanCombobox
+            listboxId={`${listId}-kategori-tindakan`}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onBlur={() => void saveKategoriRow(draft)}
-            disabled={savingRow}
-            placeholder="Pilih atau ketik kategori…"
-            autoComplete="off"
+            loading={loadingList || savingRow}
+            options={pickerOptions}
+            onChange={(label) => setDraft(label)}
+            onInputBlur={handleBlurCommit}
+            onSelectOption={(picked) => {
+              skipBlurCommitRef.current = true;
+              const canonical = formatMasterKategoriLabel(picked);
+              setDraft(canonical);
+              void persistKategori(canonical);
+              queueMicrotask(() => {
+                skipBlurCommitRef.current = false;
+              });
+            }}
+            inputClassName={cn(
+              "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:outline-none focus:ring-1",
+              "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500",
+              "dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
+              savingRow ? "opacity-70" : undefined,
+            )}
           />
-          <datalist id={listId}>
-            {activeNames.map((n) => (
-              <option key={n} value={n} />
-            ))}
-          </datalist>
         </div>
         <button
           type="button"
@@ -282,7 +307,7 @@ export default function KategoriTindakanField({
           disabled={busyId !== null || savingRow}
           className={cn(
             "inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-semibold disabled:opacity-50",
-          "border-cyan-600/45 bg-cyan-100 text-cyan-900 hover:bg-cyan-200/80 dark:border-cyan-700/40 dark:bg-cyan-950/40 dark:text-white dark:hover:bg-cyan-900/30",
+            "border-cyan-600/45 bg-cyan-100 text-cyan-900 hover:bg-cyan-200/80 dark:border-cyan-700/40 dark:bg-cyan-950/40 dark:text-white dark:hover:bg-cyan-900/30",
           )}
         >
           <Plus size={14} />
@@ -312,12 +337,7 @@ export default function KategoriTindakanField({
           Menyimpan…
         </p>
       ) : loadingList && items.length === 0 ? (
-        <p
-          className={cn(
-            "text-[11px]",
-            "text-slate-600 dark:text-white",
-          )}
-        >
+        <p className={cn("text-[11px]", "text-slate-600 dark:text-white")}>
           Memuat saran…
         </p>
       ) : null}
@@ -359,10 +379,7 @@ export default function KategoriTindakanField({
                 Daftar kategori (master)
               </p>
               <p
-                className={cn(
-                  "text-[11px]",
-                  "text-slate-600 dark:text-white",
-                )}
+                className={cn("text-[11px]", "text-slate-600 dark:text-white")}
               >
                 Ubah / hapus entri di sini. Nilai pada kasus tidak ikut berubah
                 otomatis.
@@ -375,7 +392,7 @@ export default function KategoriTindakanField({
                     key={it.id}
                     className={cn(
                       "flex items-center gap-1 rounded-lg border px-2 py-1.5",
-                  "border-slate-200 bg-slate-50 dark:border-white/5 dark:bg-black/25",
+                      "border-slate-200 bg-slate-50 dark:border-white/5 dark:bg-black/25",
                     )}
                   >
                     {editingId === it.id ? (
@@ -472,7 +489,7 @@ export default function KategoriTindakanField({
               <p
                 className={cn(
                   "mb-1 text-[10px] font-semibold uppercase tracking-wide",
-                    "text-slate-500 dark:text-white/90",
+                  "text-slate-500 dark:text-white/90",
                 )}
               >
                 Tambah baru

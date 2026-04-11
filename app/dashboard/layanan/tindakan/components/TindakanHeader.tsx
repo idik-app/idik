@@ -24,14 +24,6 @@ export default function TindakanHeader({
   dashboardRows?: readonly TindakanJoinResult[];
   dashboardLoading?: boolean;
 }) {
-  const now = new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date());
-
   return (
     <div
       className={cn(
@@ -96,6 +88,17 @@ export default function TindakanHeader({
               </button>
               <button
                 type="button"
+                onClick={() => onRoleAccessClick("cssd")}
+                className={cn(
+                  "rounded-lg px-2 py-0.5 text-[11px] font-bold transition",
+                  "bg-amber-100 text-amber-900 hover:bg-amber-200",
+                  "dark:bg-amber-500/30 dark:text-white dark:hover:bg-amber-500/40",
+                )}
+              >
+                CSSD
+              </button>
+              <button
+                type="button"
                 onClick={() => onRoleAccessClick("distributor")}
                 className={cn(
                   "rounded-lg px-2 py-0.5 text-[11px] font-bold transition",
@@ -105,34 +108,6 @@ export default function TindakanHeader({
               >
                 Distributor Cathlab
               </button>
-            </div>
-            <div
-              className={cn(
-                "inline-flex items-center gap-1 rounded-lg border px-2 py-1",
-                themeTone === "emerald"
-                  ? "border-emerald-400/45 bg-white/80 dark:border-emerald-700/45 dark:bg-black"
-                  : "border-cyan-400/45 bg-white/80 dark:border-cyan-700/45 dark:bg-black",
-              )}
-            >
-              <Sparkles
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  themeTone === "emerald"
-                    ? "text-emerald-700 dark:text-white"
-                    : "text-cyan-700 dark:text-white",
-                )}
-              />
-              <span
-                className={cn(
-                  "text-[10px] sm:text-xs font-semibold min-w-0 max-w-full sm:max-w-[20rem] md:max-w-none truncate",
-                  themeTone === "emerald"
-                    ? "text-emerald-900/90 dark:text-white"
-                    : "text-cyan-900/90 dark:text-white",
-                )}
-                title={now}
-              >
-                {now}
-              </span>
             </div>
           </div>
         </div>

@@ -21,6 +21,13 @@ export interface Pasien {
   asuransi?: string;
   /** Jika view/join menyediakan nama DPJP (opsional) */
   dokter?: string;
+
+  /** Data klinis yang tersimpan per pasien (sinkron dengan tindakan) */
+  pci_report_link?: string;
+  diagnosa?: string;
+  severity_level?: string;
+  hasil_lab_ppm?: string;
+
   created_at?: string;
   updated_at?: string;
 }

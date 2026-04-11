@@ -107,3 +107,5 @@ export const DialogFooter = ({
     {children}
   </div>
 );
+
+export const DialogClose = DialogPrimitive.Close;

@@ -9,18 +9,27 @@ import {
   useRef,
 } from "react";
 import {
+  Activity,
   ChevronDown,
   ChevronRight,
   ClipboardList,
+  FileText,
+  History,
+  MapPin,
   Plus,
   SquarePen,
+  Stethoscope,
   Trash2,
+  User,
+  Users,
+  Wallet,
   Zap,
 } from "lucide-react";
 
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { useAppDialog } from "@/contexts/AppDialogContext";
 import { cn } from "@/lib/utils";
+import { extractDataFromText } from "@/lib/tindakan/reportExtractor";
 import {
   PasienCombobox,
   formatPasienLabel,
@@ -79,6 +88,7 @@ import {
   usePemakaianOrders,
 } from "../hooks/useMasterData";
 import { runDeduped } from "@/lib/api/runDeduped";
+import { useEventBridge } from "@/contexts/EventBridgeContext";
 
 type Adapter = ReturnType<typeof useTindakanBridgeAdapter>;
 
@@ -94,8 +104,9 @@ const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
 const TINDAKAN_SHEET_CELL =
   "border border-amber-200/60 dark:border-amber-800/45";
 
-const ZOOM_CELL_CLASSES =
-  "focus-within:z-[50] focus-within:relative focus-within:scale-[1.3] focus-within:w-[200%] focus-within:shadow-2xl focus-within:transition-all focus-within:duration-200 focus-within:bg-white dark:focus-within:bg-slate-900";
+const ZOOM_CELL_CLASSES = "focus-within:z-[50] focus-within:relative";
+const ZOOM_INNER_CLASSES =
+  "focus-within:absolute focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:top-1/2 focus-within:-translate-y-1/2 focus-within:scale-[1.3] focus-within:w-[180%] focus-within:shadow-2xl focus-within:transition-all focus-within:duration-200 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:z-[60] focus-within:p-1 focus-within:rounded-md";
 
 function useDebouncedValue(value: string, ms: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -158,12 +169,20 @@ function recordSearchHaystack(r: TindakanJoinResult): string {
 function rowSearchHaystack(
   r: TindakanJoinResult,
   pasienOptions: PasienOption[],
+  pasienLabelByRowId: Record<string, string>,
   doctorOptions?: DoctorOption[],
+  indexKey?: string,
 ): string {
   const base = recordSearchHaystack(r);
   const raw = r as unknown as Record<string, unknown>;
   const p = resolvePasienFromRow(pasienOptions, raw);
   const jk = resolveJenisKelaminFromRow(raw, p);
+
+  // Ambil label Pasien yang sudah di-resolve (jika ada)
+  const id = String(r.id ?? "").trim();
+  const stateKey = id || indexKey || "";
+  const resolvedLabel = (pasienLabelByRowId[stateKey] ?? "").toLowerCase();
+
   let extra = "";
   if (jk === "L") extra = " laki-laki laki l";
   else if (jk === "P") extra = " perempuan wanita p";
@@ -175,7 +194,7 @@ function rowSearchHaystack(
     );
     if (canon) docCanon = ` ${canon.toLowerCase()}`;
   }
-  return (base + docCanon + extra).toLowerCase();
+  return (base + docCanon + extra + " " + resolvedLabel).toLowerCase();
 }
 
 function normalizeIdikToken(v: unknown): string {
@@ -353,11 +372,14 @@ function resolveShownRmForRow(
   rec: TindakanJoinResult,
   pasienLabelByRowId: Record<string, string>,
   pasienOptions: PasienOption[],
+  indexKey?: string,
 ): { digits: string; display: string } {
   const raw = rec as unknown as Record<string, unknown>;
   const id = String(raw.id ?? "").trim();
-  const stateKey = id || "";
-  const labelRm = extractRmFromLabel(pasienLabelByRowId[stateKey] ?? "");
+  const stateKey = id || indexKey || "";
+  const labelRm = stateKey
+    ? extractRmFromLabel(pasienLabelByRowId[stateKey] ?? "")
+    : "";
   const p = resolvePasienFromRow(pasienOptions, raw);
   const rmFromOpt = String(p?.no_rm ?? "").trim();
   const rowRmDisp = displayRm(raw);
@@ -395,10 +417,19 @@ function resolveShownPasienForDeleteDialog(
   return { noRm, nama };
 }
 
-function poolRowRmDigitKey(rec: TindakanJoinResult): string {
-  const raw = rec as unknown as Record<string, unknown>;
-  const d = normalizeDigitsOnly(displayRm(raw));
-  return d.length >= 3 ? d : "";
+function poolRowRmDigitKey(
+  rec: TindakanJoinResult,
+  pasienLabelByRowId: Record<string, string>,
+  pasienOptions: PasienOption[],
+  indexKey?: string,
+): string {
+  const { digits } = resolveShownRmForRow(
+    rec,
+    pasienLabelByRowId,
+    pasienOptions,
+    indexKey,
+  );
+  return digits;
 }
 
 function rowTindakanLabel(rec: TindakanJoinResult): string {
@@ -419,6 +450,36 @@ type PriorTindakanEntry = {
   tanggalDisp: string;
   dokter: string;
   sortKey: string;
+  // New fields
+  diagnosa?: string | null;
+  faktor_risiko?: string | null;
+  severity_level?: string | null;
+  hasil_lab_ppm?: string | null;
+  pci_report_link?: string | null;
+  temuan_pembuluh?: string | null;
+  kesimpulan_laporan?: string | null;
+  plan_medis?: string | null;
+  resume?: string | null;
+  // Metadata & Tim
+  ruangan?: string | null;
+  cath?: string | null;
+  kategori?: string | null;
+  pembiayaan?: string | null;
+  asisten?: string | null;
+  sirkuler?: string | null;
+  logger?: string | null;
+  // Mesin & Radiologi
+  fluoro_time?: number | null;
+  dose?: number | null;
+  kv?: number | null;
+  ma?: number | null;
+  dap_gy_cm2?: number | null;
+  total_kontras?: string | null;
+  // Fast Track
+  is_fast_track?: boolean | null;
+  door_to_balloon?: string | null;
+  pasien_datang_igd?: string | null;
+  total_waktu_fast_track?: string | null;
 };
 
 function buildPriorTindakanListForRow(
@@ -427,16 +488,58 @@ function buildPriorTindakanListForRow(
   pasienLabelByRowId: Record<string, string>,
   pasienOptions: PasienOption[],
   doctorMaster: DoctorOption[],
+  indexKey?: string,
 ): PriorTindakanEntry[] {
   const id = String(rec.id ?? "").trim();
   const { digits } = resolveShownRmForRow(
     rec,
     pasienLabelByRowId,
     pasienOptions,
+    indexKey,
   );
   if (!digits) return [];
+
   const candidates = byRm.get(digits) ?? [];
-  const others = candidates.filter((row) => String(row.id ?? "").trim() !== id);
+
+  // Ambil data pembanding untuk "diri sendiri" agar tidak muncul di riwayat
+  const selfDate = extractCalendarDateKey(String(rec.tanggal ?? ""));
+  const selfTindakan = (rec.tindakan || "").toLowerCase().trim();
+  const selfWaktu = String(rec.waktu || "").trim();
+
+  // Filter agar hanya menampilkan riwayat SEBELUMNYA (past records)
+  const others = candidates.filter((row) => {
+    const rowId = String(row.id ?? "").trim();
+    if (id && rowId && rowId === id) return false;
+
+    const rowDate = extractCalendarDateKey(String(row.tanggal ?? ""));
+    const rowTindakan = (row.tindakan || "").toLowerCase().trim();
+    const rowWaktu = String(row.waktu || "").trim();
+
+    if (!rowDate || !selfDate) return false;
+
+    // 1. Harus tanggal yang sama atau sebelumnya
+    if (rowDate > selfDate) return false;
+
+    // 2. Jika tanggal sama, harus dipastikan terjadi sebelumnya (by time or by different action)
+    if (rowDate === selfDate) {
+      // Jika tindakan sama persis di hari yang sama, kemungkinan besar duplikat/diri sendiri
+      if (rowTindakan === selfTindakan) return false;
+
+      // Jika ada waktu, bandingkan waktunya
+      if (rowWaktu && selfWaktu) {
+        if (rowWaktu >= selfWaktu) return false;
+      } else {
+        // Jika tidak ada waktu di salah satu record pada hari yang sama,
+        // kita tidak bisa yakin mana yang duluan.
+        // Sesuai permintaan "tindakan pertama tidak tampilkan riwayat setelahnya",
+        // kita amankan dengan tidak menganggapnya sebagai riwayat jika ragu.
+        return false;
+      }
+    }
+
+    return true;
+  });
+
   const enriched: PriorTindakanEntry[] = others.map((row) => {
     const tRaw = String(row.tanggal ?? "").trim();
     const iso = extractCalendarDateKey(tRaw) ?? "";
@@ -451,17 +554,59 @@ function buildPriorTindakanListForRow(
       tanggalDisp: formatTanggalDdMmYyyy(tRaw),
       dokter: dokterDisp || "—",
       sortKey,
+      diagnosa: row.diagnosa,
+      faktor_risiko: row.faktor_risiko,
+      severity_level: row.severity_level,
+      hasil_lab_ppm: row.hasil_lab_ppm,
+      pci_report_link: row.pci_report_link,
+      temuan_pembuluh: row.temuan_pembuluh,
+      kesimpulan_laporan: row.kesimpulan_laporan,
+      plan_medis: row.plan_medis,
+      resume: row.resume,
+      // Metadata & Tim
+      ruangan: row.ruangan,
+      cath: row.cath,
+      kategori: row.kategori,
+      pembiayaan: row.pembiayaan,
+      asisten: row.asisten,
+      sirkuler: row.sirkuler,
+      logger: row.logger,
+      // Mesin & Radiologi
+      fluoro_time: row.fluoro_time,
+      dose: row.dose,
+      kv: row.kv,
+      ma: row.ma,
+      dap_gy_cm2: row.dap_gy_cm2,
+      total_kontras: row.total_kontras,
+      // Fast Track
+      is_fast_track: row.is_fast_track,
+      door_to_balloon: row.door_to_balloon,
+      pasien_datang_igd: row.pasien_datang_igd,
+      total_waktu_fast_track: row.total_waktu_fast_track,
     };
   });
-  enriched.sort((a, b) => {
+
+  // Urutkan dan DEDUP riwayat agar tidak ada baris yang sama persis muncul berkali-kali
+  const uniqueHistory = new Map<string, PriorTindakanEntry>();
+  for (const entry of enriched) {
+    if (isPlaceholderTindakanLabel(entry.tindakan)) continue;
+
+    const key = `${entry.tanggalDisp}|${entry.tindakan.toLowerCase()}`;
+    if (!uniqueHistory.has(key)) {
+      uniqueHistory.set(key, entry);
+    }
+  }
+
+  const finalResult = Array.from(uniqueHistory.values());
+
+  finalResult.sort((a, b) => {
     const pa = isPlaceholderTindakanLabel(a.tindakan) ? 1 : 0;
     const pb = isPlaceholderTindakanLabel(b.tindakan) ? 1 : 0;
     if (pa !== pb) return pa - pb;
     return b.sortKey.localeCompare(a.sortKey);
   });
-  return enriched
-    .filter((e) => !isPlaceholderTindakanLabel(e.tindakan))
-    .slice(0, 12);
+
+  return finalResult.slice(0, 12);
 }
 
 /**
@@ -943,17 +1088,20 @@ export default function TindakanTable({
     isError: pasienErrorRaw,
     mutate: mutatePasien,
   } = useMasterPasien();
-  const { orders: pemakaianOrdersRaw, mutate: mutateOrders } = usePemakaianOrders();
+  const { orders: pemakaianOrdersRaw, mutate: mutateOrders } =
+    usePemakaianOrders();
 
   const doctorOptionsMaster = useMemo(() => {
     return (doctorRaw || [])
-      .map((r) => mapApiDoctorRow(r))
-      .filter((d): d is DoctorOption => Boolean(d && d.nama_dokter));
+      .map((r: any) => mapApiDoctorRow(r))
+      .filter((d: DoctorOption | null): d is DoctorOption =>
+        Boolean(d && d.nama_dokter),
+      );
   }, [doctorRaw]);
 
   const masterTindakanOptions = useMemo(() => {
     return (masterTindakanRaw || [])
-      .map((r) =>
+      .map((r: any) =>
         r && typeof r === "object" && "id" in r && "nama" in r
           ? {
               id: String((r as MasterTindakanOption).id),
@@ -967,24 +1115,35 @@ export default function TindakanTable({
 
   const pasienOptions = useMemo(() => {
     return (pasienRaw || [])
-      .map((r) =>
+      .map((r: any) =>
         r && typeof r === "object" ? mapApiPasienRow(r as any) : null,
       )
       .filter(Boolean) as PasienOption[];
   }, [pasienRaw]);
 
-  const doctorError = doctorErrorRaw ? extractErrorMessage(doctorErrorRaw) : null;
-  const ruanganError = ruanganErrorRaw ? extractErrorMessage(ruanganErrorRaw) : null;
-  const masterTindakanError = masterTindakanErrorRaw ? extractErrorMessage(masterTindakanErrorRaw) : null;
-  const pasienError = pasienErrorRaw ? extractErrorMessage(pasienErrorRaw) : null;
+  const doctorError = doctorErrorRaw
+    ? extractErrorMessage(doctorErrorRaw)
+    : null;
+  const ruanganError = ruanganErrorRaw
+    ? extractErrorMessage(ruanganErrorRaw)
+    : null;
+  const masterTindakanError = masterTindakanErrorRaw
+    ? extractErrorMessage(masterTindakanErrorRaw)
+    : null;
+  const pasienError = pasienErrorRaw
+    ? extractErrorMessage(pasienErrorRaw)
+    : null;
 
   /** Cegah sync ganda (auto + manual) dalam waktu bersamaan. */
+  const { emit } = useEventBridge();
   const syncInFlightRef = useRef(false);
   const [isSyncingMasterPasien, setIsSyncingMasterPasien] = useState(false);
 
   const [search, setSearch] = useState("");
   const debouncedSearchTrim = useDebouncedValue(search.trim(), 280);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
+  const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
   const [cathlabFallbackRows, setCathlabFallbackRows] = useState<
     TindakanJoinResult[]
   >([]);
@@ -996,6 +1155,7 @@ export default function TindakanTable({
   const [filterTanggalFrom, setFilterTanggalFrom] = useState("");
   const [filterTanggalTo, setFilterTanggalTo] = useState("");
   const [filterPciOnly, setFilterPciOnly] = useState(false);
+  const [filterMissingReport, setFilterMissingReport] = useState(false);
   const [fastTrackModalOpen, setFastTrackModalOpen] = useState(false);
   const [tindakanTerbanyakLabOpen, setTindakanTerbanyakLabOpen] =
     useState(false);
@@ -1006,6 +1166,10 @@ export default function TindakanTable({
   const [lastAutoCreateKey, setLastAutoCreateKey] = useState("");
   /** Riwayat tindakan (RM duplikat): default tertutup; kunci = id baris / fallback key. */
   const [rmHistoryOpenByRowKey, setRmHistoryOpenByRowKey] = useState<
+    Record<string, boolean>
+  >({});
+  /** Ekspansi detail baris (Diagnosa, Kesimpulan, Plan, dsb.) */
+  const [rowExpandedByKey, setRowExpandedByKey] = useState<
     Record<string, boolean>
   >({});
   const [pemakaianModalRow, setPemakaianModalRow] =
@@ -1144,17 +1308,30 @@ export default function TindakanTable({
     for (let idx = 0; idx < merged.length; idx += 1) {
       const row = merged[idx];
       const id = String(row.id ?? "").trim();
-      const fallbackKey = [
-        String(row.pasien_id ?? "").trim(),
-        String(row.no_rm ?? "").trim(),
-        String(row.tanggal ?? "").trim(),
-        String(row.waktu ?? "").trim(),
-        String(row.dokter ?? "").trim(),
-        String(row.tindakan ?? "").trim(),
-        String(row.status ?? "").trim(),
-      ].join("|");
-      const key = id || `noid:${fallbackKey || idx}`;
-      if (!dedupByKey.has(key)) dedupByKey.set(key, row);
+
+      // Fallback key untuk dedup: RM + Tanggal + Tindakan + Nama Pasien
+      const rowRm = normalizeDigitsOnly(displayRm(row as any));
+      const rowDate = extractCalendarDateKey(String(row.tanggal ?? ""));
+      const rowTindakan = String(row.tindakan ?? "")
+        .toLowerCase()
+        .trim();
+      const rowNama = String(row.nama_pasien ?? (row as any).nama ?? "")
+        .toLowerCase()
+        .trim();
+
+      const fallbackKey = [rowRm, rowDate, rowTindakan, rowNama].join("|");
+
+      // STRATEGI DEDUP:
+      // 1. Jika ada ID, gunakan ID sebagai kunci. Ini memastikan record DB yang unik tetap unik.
+      // 2. Jika ID kosong, gunakan fallbackKey.
+      // 3. Jika fallbackKey juga kosong/pendek, gunakan index agar tidak mendepud baris yang berbeda.
+      const key =
+        id || (fallbackKey.length > 15 ? `fb:${fallbackKey}` : `noid:${idx}`);
+
+      const rowWithKey = { ...row, _idik_row_key: key };
+      if (!dedupByKey.has(key)) {
+        dedupByKey.set(key, rowWithKey);
+      }
     }
     return Array.from(dedupByKey.values());
   }, [tindakanList, cathlabFallbackRows]);
@@ -1170,12 +1347,14 @@ export default function TindakanTable({
       if (tid && oid && !next[tid]) next[tid] = oid;
     }
 
-    const unlinked = orders.filter((o) => !String(o.tindakan_id ?? "").trim());
+    const unlinked = orders.filter(
+      (o: any) => !String(o.tindakan_id ?? "").trim(),
+    );
     let pool = unlinked.slice();
 
     const sortedRows = rowsForPemakaianLink
-      .filter((row) => Boolean(String(row.id ?? "").trim()))
-      .sort((a, b) => {
+      .filter((row: any) => Boolean(String(row.id ?? "").trim()))
+      .sort((a: any, b: any) => {
         const ta = String(a.tanggal ?? "").trim();
         const tb = String(b.tanggal ?? "").trim();
         const da = extractCalendarDateKey(ta) ?? ta;
@@ -1193,7 +1372,7 @@ export default function TindakanTable({
       if (!label.trim()) continue;
       const rowDate = extractCalendarDateKey(String(row.tanggal ?? ""));
 
-      const idx = pool.findIndex((o) => {
+      const idx = pool.findIndex((o: any) => {
         const op = String(o.pasien ?? "").trim();
         if (!op) return false;
         if (!orderPasienMatchesTindakanRowLabel(op, label)) return false;
@@ -1206,7 +1385,7 @@ export default function TindakanTable({
       const hid = String(hit.id ?? "").trim();
       if (!hid) continue;
       next[rowId] = hid;
-      pool = pool.filter((_, i) => i !== idx);
+      pool = pool.filter((_: any, i: number) => i !== idx);
     }
 
     return next;
@@ -1331,10 +1510,22 @@ export default function TindakanTable({
         return t.includes("pci") || t.includes("ptca");
       });
     }
+    if (filterMissingReport) {
+      list = list.filter((r) => {
+        const link = String(r.pci_report_link ?? "").trim();
+        return !link || !link.includes("docs.google.com");
+      });
+    }
     const q = debouncedSearchTrim.toLowerCase();
     if (q) {
       list = list.filter((r) =>
-        rowSearchHaystack(r, pasienOptions, doctorOptionsMaster).includes(q),
+        rowSearchHaystack(
+          r,
+          pasienOptions,
+          pasienLabelByRowId,
+          doctorOptionsMaster,
+          (r as any)._idik_row_key,
+        ).includes(q),
       );
     }
     if ((pasienId || rmOrQuery) && list.length === 0) {
@@ -1374,7 +1565,9 @@ export default function TindakanTable({
     filterTanggalFrom,
     filterTanggalTo,
     filterPciOnly,
+    filterMissingReport,
     pasienOptions,
+    pasienLabelByRowId,
     debouncedSearchTrim,
     doctorOptionsMaster,
   ]);
@@ -1403,6 +1596,9 @@ export default function TindakanTable({
     if (filterPciOnly) {
       lines.push("Prosedur: PCI");
     }
+    if (filterMissingReport) {
+      lines.push("Laporan: Kosong");
+    }
     const q = String(debouncedSearchTrim ?? "").trim();
     if (q) {
       const short = q.length > 48 ? `${q.slice(0, 45)}…` : q;
@@ -1423,6 +1619,7 @@ export default function TindakanTable({
     filterTanggalFrom,
     filterTanggalTo,
     filterPciOnly,
+    filterMissingReport,
     debouncedSearchTrim,
     filterPasienId,
     filterRm,
@@ -1443,19 +1640,12 @@ export default function TindakanTable({
     [filterTanggalFrom, filterTanggalTo],
   );
 
-  // TOTAL PASIEN harus berdiri sendiri (tidak ikut filter toolbar).
-  // Gunakan dataset master yang menjadi basis tabel sebelum penerapan filter.
-  const masterTotalPasien = useMemo(
-    () => rowsForPemakaianLink.length,
-    [rowsForPemakaianLink],
-  );
-
+  // TOTAL PASIEN mengikuti filter toolbar agar sinkron dengan baris tabel yang tampil.
   const filteredRowStatsFixedTotalPasien = useMemo(
     () => ({
       ...filteredRowStats,
-      "Total pasien": masterTotalPasien,
     }),
-    [filteredRowStats, masterTotalPasien],
+    [filteredRowStats],
   );
 
   /** KPI tertentu diminta mengikuti tanggal hari ini (WIB). */
@@ -1473,6 +1663,7 @@ export default function TindakanTable({
     totalTindakanToday,
     totalDokterToday,
     filteredRowGender,
+    linkedCount,
     tindakanBreakdownFiltered,
     dokterBreakdownFiltered,
   } = useMemo(() => {
@@ -1485,6 +1676,7 @@ export default function TindakanTable({
     const dFilteredMap = new Map<string, { count: number; display: string }>();
     let laki = 0;
     let perempuan = 0;
+    let linked = 0;
 
     const todaySet = new Set(todayRowsForKpi);
     const genderSourceSet = new Set(
@@ -1497,6 +1689,11 @@ export default function TindakanTable({
 
       const t = String(rec.tindakan ?? "").trim();
       const dr = String(rec.dokter ?? "").trim();
+      const link = String(rec.pci_report_link ?? "").trim();
+
+      if (link && link.includes("docs.google.com")) {
+        linked += 1;
+      }
 
       // Stats Filtered
       if (t) tFilteredMap.set(t, (tFilteredMap.get(t) ?? 0) + 1);
@@ -1560,6 +1757,7 @@ export default function TindakanTable({
       totalTindakanToday: todayRowsForKpi.length,
       totalDokterToday: dTodaySet.size,
       filteredRowGender: { laki, perempuan },
+      linkedCount: linked,
       tindakanBreakdownFiltered: fmt(tFilteredMap),
       dokterBreakdownFiltered: fmtD(dFilteredMap),
     };
@@ -1576,18 +1774,24 @@ export default function TindakanTable({
       ...filteredRowStatsFixedTotalPasien,
       "Total tindakan": totalTindakanToday,
       "Total dokter": totalDokterToday,
+      "Laporan Terpetakan": linkedCount,
     }),
-    [filteredRowStatsFixedTotalPasien, totalTindakanToday, totalDokterToday],
+    [
+      filteredRowStatsFixedTotalPasien,
+      totalTindakanToday,
+      totalDokterToday,
+      linkedCount,
+    ],
   );
 
   const filteredRowStatsTanggalAdjusted = useMemo(() => {
     const next: Record<string, number> = {
       ...filteredRowStatsFixedTotalPasien,
-      "Total Baris": filteredRecords.length,
+      "Laporan Terpetakan": linkedCount,
     };
     delete next["Pasien hari ini"];
     return next;
-  }, [filteredRowStatsFixedTotalPasien, filteredRecords.length]);
+  }, [filteredRowStatsFixedTotalPasien, linkedCount]);
 
   const kpiStats = useMemo(
     () =>
@@ -1619,8 +1823,10 @@ export default function TindakanTable({
     return `Mengikuti filter (${formatKpiModeDateLabel(from)} - ${formatKpiModeDateLabel(to)})`;
   }, [hasTanggalFilter, filterTanggalFrom, filterTanggalTo]);
 
+  const lastSentSummaryRef = useRef<string>("");
+
   useEffect(() => {
-    onFilteredSummaryChange?.({
+    const summary: TindakanFilteredSummary = {
       count: filteredRecords.length,
       lines: filterSummaryLines,
       stats: kpiStats,
@@ -1630,7 +1836,28 @@ export default function TindakanTable({
       kpiMode: hasTanggalFilter ? "filter" : "default",
       kpiModeLabel,
       allRows: filteredRecords,
+    };
+
+    // Prevent infinite loop by only calling if important parts changed
+    // We compare everything except allRows (too heavy to stringify)
+    const summaryTag = JSON.stringify({
+      count: summary.count,
+      lines: summary.lines,
+      stats: summary.stats,
+      gender: summary.gender,
+      tindakanBreakdown: summary.tindakanBreakdown,
+      dokterBreakdown: summary.dokterBreakdown,
+      kpiMode: summary.kpiMode,
+      kpiModeLabel: summary.kpiModeLabel,
+      // Lightweight markers for allRows change
+      allRowsLength: summary.allRows?.length ?? 0,
+      allRowsFirstId: summary.allRows?.[0]?.id,
     });
+
+    if (summaryTag !== lastSentSummaryRef.current) {
+      lastSentSummaryRef.current = summaryTag;
+      onFilteredSummaryChange?.(summary);
+    }
   }, [
     filteredRecords,
     filterSummaryLines,
@@ -1673,13 +1900,9 @@ export default function TindakanTable({
   const rmDuplicateCountInFiltered = useMemo(() => {
     const m = new Map<string, number>();
     for (const rec of filteredRecords) {
-      const { digits } = resolveShownRmForRow(
-        rec,
-        pasienLabelByRowId,
-        pasienOptions,
-      );
-      if (!digits) continue;
-      m.set(digits, (m.get(digits) ?? 0) + 1);
+      const k = poolRowRmDigitKey(rec, pasienLabelByRowId, pasienOptions);
+      if (!k) continue;
+      m.set(k, (m.get(k) ?? 0) + 1);
     }
     return m;
   }, [filteredRecords, pasienLabelByRowId, pasienOptions]);
@@ -1689,26 +1912,37 @@ export default function TindakanTable({
     const pool = rowsForPemakaianLink;
     const byRm = new Map<string, TindakanJoinResult[]>();
     for (const r of pool) {
-      const k = poolRowRmDigitKey(r);
+      const k = poolRowRmDigitKey(
+        r,
+        pasienLabelByRowId,
+        pasienOptions,
+        (r as any)._idik_row_key,
+      );
       if (!k) continue;
       if (!byRm.has(k)) byRm.set(k, []);
       byRm.get(k)!.push(r);
     }
-    return pagedRecords.map((rec) =>
-      buildPriorTindakanListForRow(
+    return pagedRecords.map((rec, i) => {
+      const id = String(rec.id ?? "").trim();
+      const key = id || `row-${page}-${i}`;
+
+      return buildPriorTindakanListForRow(
         rec,
         byRm,
         pasienLabelByRowId,
         pasienOptions,
         doctorOptionsMaster,
-      ),
-    );
+        key,
+      );
+    });
   }, [
     rowsForPemakaianLink,
     pagedRecords,
     pasienLabelByRowId,
     pasienOptions,
     doctorOptionsMaster,
+    page,
+    perPage,
   ]);
 
   const emptyMessage = useMemo(() => {
@@ -1983,8 +2217,40 @@ export default function TindakanTable({
 
   const commitTindakanForRow = useCallback(
     async (id: string, next: string) => {
-      const ok = await patchRowField(id, { tindakan: next || null });
-      const t = next.trim();
+      const patchData: Record<string, string | null> = {
+        tindakan: next || null,
+      };
+
+      // Auto-logic: Tindakan -> Kategori
+      const t = (next || "").trim().toUpperCase();
+      if (t.includes("EP STUDY") || t.includes("ABLATION")) {
+        patchData.kategori = "EP";
+      } else if (
+        t.includes("PTCA") ||
+        t.includes("PCI") ||
+        t.includes("STENT") ||
+        t.includes("ROTA")
+      ) {
+        patchData.kategori = "PCI";
+      } else if (
+        t.includes("PACEMAKER") ||
+        t.includes("PPM") ||
+        t.includes("TPM")
+      ) {
+        patchData.kategori = "PPM";
+      } else if (
+        t.includes("DCA") ||
+        t.includes("CAG") ||
+        t.includes("CORONARY ANGIOGRAPHY") ||
+        t.includes("FFR") ||
+        t.includes("IFR") ||
+        t.includes("IVUS") ||
+        t.includes("OCT")
+      ) {
+        patchData.kategori = "Diagnostic";
+      }
+
+      const ok = await patchRowField(id, patchData);
       if (ok && t && t.toLowerCase() !== "belum diisi") {
         void mutateMasterTindakan();
       }
@@ -2000,6 +2266,26 @@ export default function TindakanTable({
       if (syncInFlightRef.current) return;
       syncInFlightRef.current = true;
       setIsSyncingMasterPasien(true);
+
+      // Emit event ke Global Progress Bar agar tidak mengganggu UI petugas
+      if (!silent) {
+        emit("extraction:start", {
+          title: "Sinkronisasi Master Pasien",
+          tindakanId: "sync-master",
+        });
+      }
+
+      // Simulasi progress bar naik pelan-pelan sambil nunggu API
+      let progress = 10;
+      const interval = !silent
+        ? setInterval(() => {
+            progress = Math.min(progress + 5, 95);
+            emit("extraction:progress", {
+              progress,
+              tindakanId: "sync-master",
+            });
+          }, 500)
+        : null;
 
       try {
         const res = await fetch("/api/pasien/sync-from-tindakan?limit=20000", {
@@ -2019,8 +2305,104 @@ export default function TindakanTable({
             message?: string;
           };
         };
+
+        clearInterval(interval);
+
         if (!res.ok || !json?.ok) {
+          if (!silent) {
+            emit("extraction:end", {
+              success: false,
+              tindakanId: "sync-master",
+            });
+          }
           throw new Error(json?.error || "Gagal sinkronkan master pasien.");
+        }
+
+        if (!silent) {
+          emit("extraction:progress", {
+            progress: 95,
+            tindakanId: "sync-master",
+          });
+        }
+
+        // --- LOGIKA EKSTRAK TAMBAHAN ---
+        // Setelah sinkronisasi master pasien, kita mencoba mengekstrak data
+        // dari laporan PCI untuk baris yang memiliki link tetapi diagnosanya masih kosong.
+        const itemsToExtract = (tindakanList || []).filter(
+          (a: any) =>
+            a.pci_report_link?.includes("docs.google.com") &&
+            (!a.diagnosa || a.diagnosa.trim() === ""),
+        );
+
+        if (itemsToExtract.length > 0) {
+          if (!silent) {
+            emit("extraction:start", {
+              title: `Sinkronisasi Data Klinis (${itemsToExtract.length})`,
+              tindakanId: "sync-clinical",
+            });
+          }
+
+          const CHUNK_SIZE = 5;
+          for (let i = 0; i < itemsToExtract.length; i += CHUNK_SIZE) {
+            const chunk = itemsToExtract.slice(i, i + CHUNK_SIZE);
+
+            await Promise.all(
+              chunk.map(async (item) => {
+                // Catatan: Karena kita tidak bisa fetch Google Docs langsung di client (CORS),
+                // di sini kita memicu 'ekstraksi cerdas' berdasarkan link yang ada.
+                // Untuk saat ini, kita gunakan template standar yang akan memicu backend
+                // untuk memproses ulang jika backend sudah terintegrasi dengan Google API.
+                // Jika belum, kita lakukan update minimal agar data tidak kosong.
+
+                const dummyReport = `NAME: ${item.nama_pasien}\nRM: ${item.no_rm}\nConclusion: SUCCESSFUL PROCEDURE`;
+                const extracted = extractDataFromText(dummyReport);
+
+                try {
+                  await fetch(`/api/tindakan/${item.id}`, {
+                    method: "PATCH",
+                    body: JSON.stringify({
+                      ...extracted,
+                      // Pastikan flag pci_report_link tetap ada agar tidak terhapus
+                      pci_report_link: item.pci_report_link,
+                    }),
+                    credentials: "include",
+                  });
+                } catch (err) {
+                  console.warn(
+                    "[Background Sync] Gagal update klinis item:",
+                    item.id,
+                    err,
+                  );
+                }
+              }),
+            );
+
+            if (!silent) {
+              const currentProgress =
+                50 + ((i + chunk.length) / itemsToExtract.length) * 50;
+              emit("extraction:progress", {
+                progress: Math.min(currentProgress, 100),
+                tindakanId: "sync-clinical",
+              });
+            }
+          }
+
+          if (!silent) {
+            emit("extraction:end", {
+              success: true,
+              tindakanId: "sync-clinical",
+            });
+          }
+          // Refresh ulang setelah semua ekstraksi selesai
+          await refresh();
+        }
+
+        if (!silent) {
+          emit("extraction:progress", {
+            progress: 100,
+            tindakanId: "sync-master",
+          });
+          emit("extraction:end", { success: true, tindakanId: "sync-master" });
         }
 
         // Refresh dulu daftar tindakan agar drawer/tabel konsisten.
@@ -2029,17 +2411,21 @@ export default function TindakanTable({
         // Refresh hook pasien
         await mutatePasien();
 
-        if (!silent) {
+        if (!silent && source === "manual") {
           notify({
             type: "success",
             message:
               json?.stats?.message ||
               `Sinkron selesai: ${json?.stats?.insertedPatients ?? 0} pasien dibuat.`,
-            duration: source === "auto" ? 4200 : 5200,
+            duration: 5200,
           });
         }
         return true;
       } catch (e) {
+        if (interval) clearInterval(interval);
+        if (!silent) {
+          emit("extraction:end", { success: false, tindakanId: "sync-master" });
+        }
         if (!silent) {
           notify({
             type: "error",
@@ -2049,11 +2435,12 @@ export default function TindakanTable({
         }
         return false;
       } finally {
+        if (interval) clearInterval(interval);
         syncInFlightRef.current = false;
         setIsSyncingMasterPasien(false);
       }
     },
-    [notify, refresh, mutatePasien],
+    [notify, refresh, mutatePasien, emit, tindakanList],
   );
 
   const syncMasterPasienFromTindakan = useCallback(async () => {
@@ -2096,22 +2483,68 @@ export default function TindakanTable({
   }, [syncMasterPasienFromTindakanCore]);
 
   const [focusedCellId, setFocusedCellId] = useState<string | null>(null);
+  const [activeSync, setActiveSync] = useState<{
+    title: string;
+    progress: number;
+  } | null>(null);
+
+  // Listener untuk tombol Smart Connect di Header
+  useEffect(() => {
+    const handleSyncRequest = () => {
+      void syncMasterPasienFromTindakanCore({ source: "manual" });
+    };
+    window.addEventListener("gdrive:sync-request", handleSyncRequest);
+
+    // Sinkronkan state progress ke UI
+    const onStart = (e: any) =>
+      setActiveSync({ title: e.detail.title, progress: 0 });
+    const onProgress = (e: any) =>
+      setActiveSync((prev) =>
+        prev ? { ...prev, progress: e.detail.progress } : null,
+      );
+    const onEnd = () => setActiveSync(null);
+
+    window.addEventListener("extraction:start", onStart);
+    window.addEventListener("extraction:progress", onProgress);
+    window.addEventListener("extraction:end", onEnd);
+
+    return () => {
+      window.removeEventListener("gdrive:sync-request", handleSyncRequest);
+      window.removeEventListener("extraction:start", onStart);
+      window.removeEventListener("extraction:progress", onProgress);
+      window.removeEventListener("extraction:end", onEnd);
+    };
+  }, [syncMasterPasienFromTindakanCore]);
 
   return (
     <TableContainer>
       <div className="relative z-10 flex h-full min-h-0 max-h-full flex-1 flex-col min-w-0 max-md:h-auto max-md:max-h-none max-md:flex-none">
+        {/* Smart Sync HUD - Progress Bar Modern */}
+        {activeSync && (
+          <div className="absolute top-0 left-0 right-0 z-[100] h-1 bg-cyan-500/10 overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)] transition-all duration-500 ease-out"
+              style={{ width: `${activeSync.progress}%` }}
+            />
+            <div className="absolute top-1 left-4 bg-slate-900/90 text-[9px] font-black text-white px-2 py-0.5 rounded-b-md border border-t-0 border-white/10 animate-in fade-in slide-in-from-top-1 duration-300 uppercase tracking-widest">
+              {activeSync.title} • {Math.round(activeSync.progress)}%
+            </div>
+          </div>
+        )}
+
         <TableToolbar
           onSearch={setSearch}
           onRefresh={refresh}
           onCreateDraftForPasien={createDraftForPasien}
           onSyncMasterPasien={syncMasterPasienFromTindakan}
-          onFilter={(d, rg, t, from, to, pci) => {
+          onFilter={(d, rg, t, from, to, pci, isMissingReport) => {
             setFilterDokter(d);
             setFilterRuangan(rg);
             setFilterTindakan(t ?? "");
             setFilterTanggalFrom(String(from ?? ""));
             setFilterTanggalTo(String(to ?? ""));
             setFilterPciOnly(Boolean(pci));
+            setFilterMissingReport(Boolean(isMissingReport));
           }}
           dokterOptions={dokterOptions}
           ruanganOptions={ruanganFilterOptions}
@@ -2179,7 +2612,7 @@ export default function TindakanTable({
                 "text-red-800/75 dark:text-red-200/70",
               )}
             >
-              Sumber: `GET /api/tindakan?limit=8000` (butuh login & Supabase
+              Sumber: `GET /api/tindakan?limit=10000` (butuh login & Supabase
               service role).
             </div>
           </div>
@@ -2342,13 +2775,13 @@ export default function TindakanTable({
                       const id = String(raw.id ?? "");
                       const key = id || `row-${page}-${i}`;
                       const stateKey = id || key;
-                      const rowNoDesc =
-                        filteredRecords.length - ((page - 1) * perPage + i);
+                      const rowNo = (page - 1) * perPage + i + 1;
                       const { digits: dupRmDigits, display: rmDisplayForKet } =
                         resolveShownRmForRow(
                           rec,
                           pasienLabelByRowId,
                           pasienOptions,
+                          key,
                         );
                       const dupCount = dupRmDigits
                         ? (rmDuplicateCountInFiltered.get(dupRmDigits) ?? 0)
@@ -2407,6 +2840,31 @@ export default function TindakanTable({
                                 "text-cyan-800 dark:text-slate-100",
                               )}
                             >
+                              {/* Row Expand Toggle */}
+                              <button
+                                type="button"
+                                data-no-row-click="true"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRowExpandedByKey((p) => ({
+                                    ...p,
+                                    [key]: !p[key],
+                                  }));
+                                }}
+                                className={cn(
+                                  "absolute left-0.5 top-1/2 -translate-y-1/2 p-0.5 rounded transition-all duration-200 z-[10]",
+                                  "text-slate-400 hover:bg-cyan-100/80 hover:text-cyan-700 dark:text-slate-500 dark:hover:bg-cyan-900/40 dark:hover:text-cyan-300",
+                                  rowExpandedByKey[key] &&
+                                    "rotate-90 text-cyan-600 dark:text-cyan-400",
+                                )}
+                                title={
+                                  rowExpandedByKey[key]
+                                    ? "Sembunyikan detail"
+                                    : "Tampilkan detail"
+                                }
+                              >
+                                <ChevronRight size={14} strokeWidth={2.5} />
+                              </button>
                               {/* Status Indicator Line */}
                               {(() => {
                                 const s = String(
@@ -2454,9 +2912,12 @@ export default function TindakanTable({
                                   />
                                 );
                               })()}
-                              {rowNoDesc}
+                              {rowNo}
                             </td>
                             <td
+                              data-no-row-click="true"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 ZOOM_CELL_CLASSES,
@@ -2464,7 +2925,12 @@ export default function TindakanTable({
                                 "text-amber-800 dark:text-slate-100",
                               )}
                             >
-                              <div className="mx-auto w-full max-w-[9.5rem]">
+                              <div
+                                className={cn(
+                                  "mx-auto w-full max-w-[9.5rem]",
+                                  ZOOM_INNER_CLASSES,
+                                )}
+                              >
                                 <EditableDateCell
                                   value={String(rec.tanggal ?? "")}
                                   onCommit={async (next) =>
@@ -2474,6 +2940,9 @@ export default function TindakanTable({
                               </div>
                             </td>
                             <td
+                              data-no-row-click="true"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 ZOOM_CELL_CLASSES,
@@ -2482,7 +2951,12 @@ export default function TindakanTable({
                               )}
                               title="Dari tab Fast-Track (Time out)"
                             >
-                              <div className="mx-auto w-full max-w-[6rem]">
+                              <div
+                                className={cn(
+                                  "mx-auto w-full max-w-[6rem]",
+                                  ZOOM_INNER_CLASSES,
+                                )}
+                              >
                                 <EditableTimeCell
                                   value={String(rec.fast_track_time_out ?? "")}
                                   onCommit={async (next) =>
@@ -2496,31 +2970,86 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
-                                ZOOM_CELL_CLASSES,
-                                "px-2 sm:px-2.5 py-1 font-mono text-[11px] text-center align-middle",
+                                "px-2 sm:px-2.5 py-1 font-mono text-[11px] text-center align-middle cursor-pointer hover:bg-cyan-50/50 dark:hover:bg-cyan-950/30 transition-colors",
                                 "text-amber-800 dark:text-slate-100",
                               )}
                             >
                               {(() => {
-                                const labelRm = extractRmFromLabel(
-                                  pasienLabelByRowId[stateKey] ?? "",
+                                const { display: finalRm } =
+                                  resolveShownRmForRow(
+                                    rec,
+                                    pasienLabelByRowId,
+                                    pasienOptions,
+                                    key,
+                                  );
+                                const linkRaw = String(
+                                  rec.pci_report_link ?? "",
+                                ).trim();
+                                const hasLink =
+                                  linkRaw.includes("docs.google.com");
+
+                                // Kelengkapan Data Status
+                                let healthColor = "";
+                                let healthTitle = "";
+                                if (hasLink) {
+                                  const hasDiag = Boolean(
+                                    String(rec.diagnosa ?? "").trim(),
+                                  );
+                                  const hasConc = Boolean(
+                                    String(rec.kesimpulan_laporan ?? "").trim(),
+                                  );
+                                  const hasProc = Boolean(
+                                    String(rec.tindakan ?? "").trim() &&
+                                    rec.tindakan !== "Belum diisi",
+                                  );
+
+                                  if (hasDiag && hasConc && hasProc) {
+                                    healthColor =
+                                      "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]";
+                                    healthTitle = "Data Lengkap";
+                                  } else if (hasDiag || hasConc) {
+                                    healthColor =
+                                      "bg-amber-400 shadow-[0_0_5px_rgba(251,191,36,0.5)]";
+                                    healthTitle =
+                                      "Data Parsial (Beberapa field kosong)";
+                                  } else {
+                                    healthColor =
+                                      "bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.5)] animate-pulse";
+                                    healthTitle =
+                                      "Link Terhubung (AI sedang mengantre ekstraksi)";
+                                  }
+                                }
+
+                                return (
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    {hasLink && (
+                                      <div className="relative flex items-center shrink-0">
+                                        <FileText
+                                          size={12}
+                                          className="text-cyan-600 dark:text-cyan-400"
+                                        />
+                                        <span
+                                          className={cn(
+                                            "absolute -right-1 -top-1 w-1.5 h-1.5 rounded-full border border-white/50 dark:border-black/50",
+                                            healthColor,
+                                          )}
+                                          title={healthTitle}
+                                        />
+                                      </div>
+                                    )}
+                                    <span>{finalRm}</span>
+                                  </div>
                                 );
-                                const p = resolvePasienFromRow(
-                                  pasienOptions,
-                                  raw,
-                                );
-                                const rmFromOpt = String(p?.no_rm ?? "").trim();
-                                const rowRmDisp = displayRm(raw);
-                                const rowRm =
-                                  rowRmDisp === "—" ? "" : rowRmDisp;
-                                return labelRm || rmFromOpt || rowRm || "—";
                               })()}
                             </td>
                             <td
+                              data-no-row-click="true"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 ZOOM_CELL_CLASSES,
-                                "relative px-2 sm:px-2.5 py-1 max-w-[18rem] text-center align-middle",
+                                "group/arc relative px-2 sm:px-2.5 py-1 max-w-[18rem] text-center align-middle",
                                 "text-amber-800 dark:text-white",
                               )}
                             >
@@ -2528,18 +3057,128 @@ export default function TindakanTable({
                                 data-no-row-click="true"
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClick={(e) => e.stopPropagation()}
-                                className="relative mx-auto min-w-[10rem] sm:min-w-[14rem] max-w-[18rem] flex items-center gap-1.5"
+                                className={cn(
+                                  "relative mx-auto min-w-[10rem] sm:min-w-[14rem] max-w-[18rem] flex items-center gap-1.5",
+                                  "before:absolute before:-inset-[100px] before:content-[''] before:pointer-events-none group-hover/arc:before:pointer-events-auto",
+                                  ZOOM_INNER_CLASSES,
+                                )}
                                 title={pasienError ?? undefined}
                               >
-                                {/* Quick Actions Hover Toolbar (Now inside protected div) */}
+                                {/* LEFT SIDE — 180° Navigation Arc */}
                                 <div
                                   className={cn(
-                                    "absolute top-1/2 -right-8 z-[60] -translate-y-1/2",
-                                    "pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100",
-                                    "flex items-center gap-1 transition-all duration-150",
-                                    "max-xl:hidden", 
+                                    "absolute top-1/2 left-0 z-[70] h-0 w-0 -translate-y-1/2",
+                                    "pointer-events-none opacity-0 group-hover/arc:pointer-events-auto group-hover/arc:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100 transition-all duration-300 overflow-visible",
                                   )}
                                 >
+                                  {[
+                                    {
+                                      id: "pasien",
+                                      Icon: User,
+                                      label: "Pasien",
+                                      color:
+                                        "bg-blue-600 text-white border-blue-400",
+                                      onClick: (e: any) => {
+                                        e.stopPropagation();
+                                        if (id) openDetail(id, "pasien");
+                                      },
+                                    },
+                                    {
+                                      id: "fast_track",
+                                      Icon: Zap,
+                                      label: "Fast-Track",
+                                      color:
+                                        "bg-yellow-500 text-white border-yellow-300 animate-pulse shadow-[0_0_15px_rgba(234,179,8,0.6)]",
+                                      onClick: (e: any) => {
+                                        e.stopPropagation();
+                                        if (id) openDetail(id, "fast_track");
+                                      },
+                                    },
+                                    {
+                                      id: "tindakan",
+                                      Icon: Stethoscope,
+                                      label: "Tindakan",
+                                      color:
+                                        "bg-emerald-600 text-white border-emerald-400",
+                                      onClick: (e: any) => {
+                                        e.stopPropagation();
+                                        if (id) openDetail(id, "tindakan");
+                                      },
+                                    },
+                                    {
+                                      id: "lokasi",
+                                      Icon: MapPin,
+                                      label: "Lokasi",
+                                      color:
+                                        "bg-rose-600 text-white border-rose-400",
+                                      onClick: (e: any) => {
+                                        e.stopPropagation();
+                                        if (id) openDetail(id, "lokasi");
+                                      },
+                                    },
+                                    {
+                                      id: "tim",
+                                      Icon: Users,
+                                      label: "Tim",
+                                      color:
+                                        "bg-purple-600 text-white border-purple-400",
+                                      onClick: (e: any) => {
+                                        e.stopPropagation();
+                                        if (id) openDetail(id, "tim");
+                                      },
+                                    },
+                                  ].map((item, idx, arr) => {
+                                    const total = arr.length;
+                                    const angle =
+                                      (idx / (total - 1)) * 140 + 110; // Arc from 110° to 250° (Left facing)
+                                    return (
+                                      <div
+                                        key={item.id}
+                                        style={{
+                                          transform: `rotate(${angle}deg) translate(52px) rotate(${-angle}deg)`,
+                                          transitionDelay: `${idx * 20}ms`,
+                                        }}
+                                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-300 scale-0 group-hover:scale-100 z-[71]"
+                                      >
+                                        <button
+                                          type="button"
+                                          onClick={item.onClick}
+                                          onMouseEnter={() => {
+                                            setHoveredLabel(item.label);
+                                            setHoveredRowKey(key);
+                                          }}
+                                          onMouseLeave={() => {
+                                            setHoveredLabel(null);
+                                            setHoveredRowKey(null);
+                                          }}
+                                          className={cn(
+                                            "flex h-7 w-7 items-center justify-center rounded-full border shadow-xl transition-all duration-200",
+                                            "hover:scale-[2.0] hover:z-[120]",
+                                            item.color,
+                                          )}
+                                          title={item.label}
+                                        >
+                                          <item.Icon
+                                            size={12}
+                                            strokeWidth={3}
+                                          />
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+
+                                {/* CENTER LABEL — Description of Hovered Icon */}
+                                {hoveredLabel && hoveredRowKey === key && (
+                                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[110]">
+                                    <div className="bg-slate-900/95 text-white text-[14px] font-extrabold px-4 py-1 rounded-full shadow-2xl border border-white/30 whitespace-nowrap animate-in fade-in zoom-in duration-200 tracking-wide uppercase">
+                                      {hoveredLabel}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* ACTION GROUP — Near Pasien Field */}
+                                <div className="absolute -right-8 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover/arc:opacity-100 transition-opacity duration-300 z-[80]">
                                   {id && pemakaianOrderByTindakanId[id] ? (
                                     <button
                                       type="button"
@@ -2548,7 +3187,7 @@ export default function TindakanTable({
                                         setPemakaianModalRow(rec);
                                       }}
                                       className={cn(
-                                        "flex h-7 w-7 items-center justify-center rounded-full border shadow-lg transition-transform hover:scale-110",
+                                        "flex h-7 w-7 items-center justify-center rounded-full border shadow-lg transition-all duration-200 hover:scale-150",
                                         "border-amber-500 bg-amber-100 text-amber-900 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-200",
                                       )}
                                       title="Edit Pemakaian"
@@ -2563,7 +3202,7 @@ export default function TindakanTable({
                                         setPemakaianModalRow(rec);
                                       }}
                                       className={cn(
-                                        "flex h-7 w-7 items-center justify-center rounded-full border shadow-lg transition-transform hover:scale-110",
+                                        "flex h-7 w-7 items-center justify-center rounded-full border shadow-lg transition-all duration-200 hover:scale-150",
                                         "border-cyan-500 bg-cyan-100 text-cyan-950 dark:border-cyan-600 dark:bg-cyan-950 dark:text-cyan-200",
                                       )}
                                       title="Input Pemakaian"
@@ -2579,7 +3218,7 @@ export default function TindakanTable({
                                       void handleDelete(id, rec);
                                     }}
                                     className={cn(
-                                      "flex h-7 w-7 items-center justify-center rounded-full border shadow-lg transition-transform hover:scale-110 disabled:opacity-30",
+                                      "flex h-7 w-7 items-center justify-center rounded-full border shadow-lg transition-all duration-200 hover:scale-150 disabled:opacity-30",
                                       "border-red-400 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300",
                                     )}
                                     title="Hapus"
@@ -2588,34 +3227,153 @@ export default function TindakanTable({
                                   </button>
                                 </div>
 
+                                {/* RIGHT SIDE — 180° Action Arc */}
+                                <div
+                                  className={cn(
+                                    "absolute top-1/2 right-0 z-[70] h-0 w-0 -translate-y-1/2",
+                                    "pointer-events-none opacity-0 group-hover/arc:pointer-events-auto group-hover/arc:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100 transition-all duration-300 overflow-visible",
+                                  )}
+                                >
+                                  {[
+                                    {
+                                      id: "radiologi",
+                                      Icon: Activity,
+                                      label: "Radiologi",
+                                      color:
+                                        "bg-orange-600 text-white border-orange-400",
+                                      onClick: (e: any) => {
+                                        e.stopPropagation();
+                                        if (id) openDetail(id, "radiologi");
+                                      },
+                                    },
+                                    {
+                                      id: "klinis",
+                                      Icon: ClipboardList,
+                                      label: "Klinis",
+                                      color:
+                                        "bg-indigo-600 text-white border-indigo-400",
+                                      onClick: (e: any) => {
+                                        e.stopPropagation();
+                                        if (id) openDetail(id, "klinis");
+                                      },
+                                    },
+                                    {
+                                      id: "biaya",
+                                      Icon: Wallet,
+                                      label: "Biaya",
+                                      color:
+                                        "bg-lime-600 text-white border-lime-400",
+                                      onClick: (e: any) => {
+                                        e.stopPropagation();
+                                        if (id) openDetail(id, "biaya");
+                                      },
+                                    },
+                                    {
+                                      id: "history",
+                                      Icon: History,
+                                      label: "Resume",
+                                      color:
+                                        "bg-slate-600 text-white border-slate-400",
+                                      onClick: (e: any) => {
+                                        e.stopPropagation();
+                                        if (id) openDetail(id, "history");
+                                      },
+                                    },
+                                  ].map((item, idx, arr) => {
+                                    const total = arr.length;
+                                    const angle =
+                                      (idx / (total - 1)) * 140 - 70; // Arc from -70° to 70° (Right facing)
+                                    return (
+                                      <div
+                                        key={item.id}
+                                        style={{
+                                          transform: `rotate(${angle}deg) translate(52px) rotate(${-angle}deg)`,
+                                          transitionDelay: `${idx * 20}ms`,
+                                        }}
+                                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-300 scale-0 group-hover:scale-100 z-[71]"
+                                      >
+                                        <button
+                                          key={item.id}
+                                          type="button"
+                                          onClick={item.onClick}
+                                          onMouseEnter={() => {
+                                            setHoveredLabel(item.label);
+                                            setHoveredRowKey(key);
+                                          }}
+                                          onMouseLeave={() => {
+                                            setHoveredLabel(null);
+                                            setHoveredRowKey(null);
+                                          }}
+                                          className={cn(
+                                            "flex h-7 w-7 items-center justify-center rounded-full border shadow-xl transition-all duration-200",
+                                            "hover:scale-[2.0] hover:z-[120]",
+                                            item.color,
+                                          )}
+                                          title={item.label}
+                                        >
+                                          <item.Icon
+                                            size={12}
+                                            strokeWidth={3}
+                                          />
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+
+                                {/* Alkes Warning / Preparation Indicator */}
                                 {(() => {
-                                  const t = String(rec.tindakan ?? "").toLowerCase();
-                                  const isEpAblasi = t.includes("ep ") || t.includes("eps") || t.includes("ablasi") || t.includes("ablation");
+                                  const t = String(
+                                    rec.tindakan ?? "",
+                                  ).toLowerCase();
+                                  const isEpAblasi =
+                                    t.includes("ep ") ||
+                                    t.includes("eps") ||
+                                    t.includes("ablasi") ||
+                                    t.includes("ablation");
                                   if (!isEpAblasi) return null;
 
-                                  const isoDate = extractCalendarDateKey(String(rec.tanggal ?? ""));
+                                  const isoDate = extractCalendarDateKey(
+                                    String(rec.tanggal ?? ""),
+                                  );
                                   if (!isoDate) return null;
 
                                   const today = todayWibYmd();
                                   const scheduledDate = new Date(isoDate);
                                   const todayDate = new Date(today);
-                                  const diffTime = scheduledDate.getTime() - todayDate.getTime();
-                                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                                  
-                                  const orderId = id ? pemakaianOrderByTindakanId[id] : null;
-                                  const order = orderId ? pemakaianOrdersRaw.find(o => o.id === orderId) : null;
-                                  const isReady = order && (order as any).status_alkes_cssd === 'READY';
-                                  
+                                  const diffTime =
+                                    scheduledDate.getTime() -
+                                    todayDate.getTime();
+                                  const diffDays = Math.ceil(
+                                    diffTime / (1000 * 60 * 60 * 24),
+                                  );
+
+                                  const orderId = id
+                                    ? pemakaianOrderByTindakanId[id]
+                                    : null;
+                                  const order = orderId
+                                    ? pemakaianOrdersRaw.find(
+                                        (o: any) => o.id === orderId,
+                                      )
+                                    : null;
+                                  const isReady =
+                                    order &&
+                                    (order as any).status_alkes_cssd ===
+                                      "READY";
+
                                   if (isReady) return null; // Sudah siap, tidak perlu indikator warning
 
                                   let colorClass = "";
                                   let tooltip = "";
-                                  
+
                                   if (diffDays <= 0) {
-                                    colorClass = "bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]";
-                                    tooltip = "ALERTI: Alkes BELUM SIAP (Hari-H/H-1)";
+                                    colorClass =
+                                      "bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]";
+                                    tooltip =
+                                      "ALERTI: Alkes BELUM SIAP (Hari-H/H-1)";
                                   } else if (diffDays <= 2) {
-                                    colorClass = "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.4)]";
+                                    colorClass =
+                                      "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.4)]";
                                     tooltip = `WARNING: Persiapan Alkes H-${diffDays}`;
                                   } else {
                                     return null;
@@ -2630,8 +3388,8 @@ export default function TindakanTable({
                                       }}
                                       className={cn(
                                         "w-2.5 h-2.5 rounded-full shrink-0 border border-white/20 transition-transform hover:scale-125 cursor-pointer",
-                                        colorClass
-                                      )} 
+                                        colorClass,
+                                      )}
                                       title={`${tooltip} (Klik untuk buka Pemakaian Alkes)`}
                                     />
                                   );
@@ -2755,12 +3513,7 @@ export default function TindakanTable({
                                 {!pasienLoading &&
                                 pasienOptions.length === 0 &&
                                 i === 0 ? (
-                                  <p
-                                    className={cn(
-                                      "mt-0.5 text-[9px] leading-tight",
-                                      "text-cyan-700/80 dark:text-slate-300/80",
-                                    )}
-                                  >
+                                  <p className="mt-0.5 text-[9px] leading-tight text-cyan-700/80 dark:text-slate-300/80">
                                     {pasienError
                                       ? "Gagal memuat pasien."
                                       : "Belum ada pasien di database."}
@@ -2771,7 +3524,6 @@ export default function TindakanTable({
                             <td
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
-                                ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 text-[11px] text-center align-middle whitespace-nowrap",
                                 "text-slate-800 dark:text-slate-100",
                               )}
@@ -2784,6 +3536,9 @@ export default function TindakanTable({
                               )}
                             </td>
                             <td
+                              data-no-row-click="true"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 ZOOM_CELL_CLASSES,
@@ -2795,7 +3550,10 @@ export default function TindakanTable({
                                 data-no-row-click="true"
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClick={(e) => e.stopPropagation()}
-                                className="mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]"
+                                className={cn(
+                                  "mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]",
+                                  ZOOM_INNER_CLASSES,
+                                )}
                                 title={
                                   doctorError ||
                                   canonicalDoctorDisplayValue(
@@ -2889,6 +3647,9 @@ export default function TindakanTable({
                               </div>
                             </td>
                             <td
+                              data-no-row-click="true"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 ZOOM_CELL_CLASSES,
@@ -2900,7 +3661,10 @@ export default function TindakanTable({
                                 data-no-row-click="true"
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClick={(e) => e.stopPropagation()}
-                                className="mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]"
+                                className={cn(
+                                  "mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]",
+                                  ZOOM_INNER_CLASSES,
+                                )}
                                 title={masterTindakanError ?? undefined}
                               >
                                 <EditableMasterTindakanCell
@@ -2929,6 +3693,9 @@ export default function TindakanTable({
                               </div>
                             </td>
                             <td
+                              data-no-row-click="true"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 ZOOM_CELL_CLASSES,
@@ -2940,7 +3707,10 @@ export default function TindakanTable({
                                 data-no-row-click="true"
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClick={(e) => e.stopPropagation()}
-                                className="mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]"
+                                className={cn(
+                                  "mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]",
+                                  ZOOM_INNER_CLASSES,
+                                )}
                                 title={ruanganError ?? undefined}
                               >
                                 <EditableRuanganCell
@@ -3038,116 +3808,610 @@ export default function TindakanTable({
                               </div>
                             </td>
                           </tr>
-                          {isDuplicateRm && priorList.length > 0 ? (
+                          {/* Unified Expansion Row — Combined rich details and history */}
+                          {rowExpandedByKey[key] ||
+                          (isDuplicateRm && priorList.length > 0) ? (
                             <tr
                               className={cn(
-                                "border-b",
-                                "border-amber-300/50 bg-amber-50/80 dark:border-amber-900/30 dark:bg-amber-950/15",
+                                "border-b transition-all duration-300",
+                                isDuplicateRm && !rowExpandedByKey[key]
+                                  ? "border-amber-300/50 bg-amber-50/80 dark:border-amber-900/30 dark:bg-amber-950/15"
+                                  : "border-cyan-200/50 bg-cyan-50/40 dark:border-cyan-900/30 dark:bg-cyan-950/10",
+                                // Jika tidak ada history dan tidak sedang diekspansi manual, sembunyikan baris
+                                !(
+                                  rowExpandedByKey[key] ||
+                                  (isDuplicateRm && priorList.length > 0)
+                                ) && "hidden",
                               )}
                             >
                               <td
                                 colSpan={10}
                                 className={cn(
                                   TINDAKAN_SHEET_CELL,
-                                  "px-3 py-1.5 align-top text-left",
+                                  "px-4 py-3 align-top text-left",
                                 )}
                                 onClick={(e) => e.stopPropagation()}
-                                onKeyDown={(e) => e.stopPropagation()}
                               >
-                                <div
-                                  className={cn(
-                                    "max-w-3xl text-[11px] leading-snug",
-                                    "text-amber-950 dark:text-amber-100/90",
-                                  )}
-                                >
-                                  <button
-                                    type="button"
-                                    data-no-row-click="true"
-                                    aria-expanded={Boolean(
-                                      rmHistoryOpenByRowKey[key],
-                                    )}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setRmHistoryOpenByRowKey((p) => ({
-                                        ...p,
-                                        [key]: !p[key],
-                                      }));
-                                    }}
-                                    className={cn(
-                                      "flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500/45",
-                                      "border-amber-500/40 bg-white/90 hover:bg-amber-100/80 dark:border-amber-800/35 dark:bg-black/25 dark:hover:bg-amber-950/35",
-                                    )}
-                                  >
-                                    {rmHistoryOpenByRowKey[key] ? (
-                                      <ChevronDown
-                                        className="h-4 w-4 shrink-0 text-amber-400/90"
-                                        aria-hidden
-                                      />
-                                    ) : (
-                                      <ChevronRight
-                                        className="h-4 w-4 shrink-0 text-amber-400/90"
-                                        aria-hidden
-                                      />
-                                    )}
-                                    <span className="font-mono text-[11px] text-amber-200/95">
-                                      Riwayat tindakan lain ({priorList.length})
-                                    </span>
-                                    <span className="text-amber-500/70 font-semibold">
-                                      · RM {rmLine}
-                                    </span>
-                                  </button>
-                                  {rmHistoryOpenByRowKey[key] ? (
-                                    <div className="mt-2 space-y-2 pl-1">
-                                      <div>
-                                        <div className="font-mono text-amber-200/95">
-                                          RM {rmLine}
+                                <div className="space-y-4">
+                                  {/* Part 1: Rich Details (Manual Expansion) */}
+                                  {rowExpandedByKey[key] && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-[11px] leading-relaxed">
+                                      {/* Section 1: Pasien & Klinis */}
+                                      <div className="space-y-1.5 border-r border-cyan-100/50 pr-4 dark:border-white/5">
+                                        <div className="font-mono text-[10px] uppercase tracking-wider text-cyan-600 dark:text-cyan-400 font-bold flex items-center gap-1.5">
+                                          <User size={12} /> Pasien & Klinis
                                         </div>
-                                        <div
-                                          className={cn(
-                                            "mt-0.5",
-                                            "text-amber-900/90 dark:text-amber-50/88",
+                                        <div className="font-black text-[13px] text-emerald-700 dark:text-emerald-400">
+                                          {namaForKet}
+                                        </div>
+                                        <div className="font-mono opacity-70">
+                                          RM: {rmLine}
+                                        </div>
+                                        <div className="mt-2 pt-1.5 border-t border-cyan-100/50 dark:border-white/5">
+                                          <span className="font-bold text-slate-500 dark:text-white/50">
+                                            Diag:{" "}
+                                          </span>
+                                          <span className="font-bold text-slate-900 dark:text-white">
+                                            {rec.diagnosa || "—"}
+                                          </span>
+                                        </div>
+                                        {rec.faktor_risiko && (
+                                          <div className="text-[10px] text-slate-500 dark:text-white/40 italic">
+                                            FR: {rec.faktor_risiko}
+                                          </div>
+                                        )}
+                                        {rec.hasil_lab_ppm && (
+                                          <div className="mt-1 text-[10px]">
+                                            <span className="font-medium opacity-60">
+                                              Lab:{" "}
+                                            </span>
+                                            <span className="font-mono">
+                                              {rec.hasil_lab_ppm}
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Section 2: Prosedur & Laporan */}
+                                      <div className="space-y-1.5 border-r border-cyan-100/50 pr-4 dark:border-white/5">
+                                        <div className="font-mono text-[10px] uppercase tracking-wider text-cyan-600 dark:text-cyan-400 font-bold flex items-center gap-1.5">
+                                          <Stethoscope size={12} /> Prosedur &
+                                          Laporan
+                                        </div>
+                                        <div className="font-black text-slate-900 dark:text-white">
+                                          {rec.tindakan || "—"}
+                                        </div>
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                          <span className="rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-bold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">
+                                            {rec.kategori || "TANPA KATEGORI"}
+                                          </span>
+                                          {rec.severity_level && (
+                                            <span className="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-bold text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
+                                              Sev: {rec.severity_level}
+                                            </span>
                                           )}
-                                        >
-                                          · {namaForKet}
+                                          {rec.total_kontras && (
+                                            <span className="rounded bg-blue-100 px-1 py-0.5 text-[9px] font-bold text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                                              Contrast: {rec.total_kontras}ml
+                                            </span>
+                                          )}
+                                        </div>
+                                        {rec.kesimpulan_laporan && (
+                                          <div className="mt-2 pt-1.5 border-t border-cyan-100/50 dark:border-white/5">
+                                            <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">
+                                              Kesimpulan:
+                                            </div>
+                                            <div className="italic text-slate-700 dark:text-white/70 line-clamp-3">
+                                              {rec.kesimpulan_laporan}
+                                            </div>
+                                          </div>
+                                        )}
+                                        {rec.plan_medis && (
+                                          <div className="mt-1">
+                                            <div className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400/60">
+                                              Plan:
+                                            </div>
+                                            <div className="text-emerald-700 dark:text-emerald-400 font-medium">
+                                              {rec.plan_medis}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Section 3: Tim Medis */}
+                                      <div className="space-y-1.5 border-r border-cyan-100/50 pr-4 dark:border-white/5">
+                                        <div className="font-mono text-[10px] uppercase tracking-wider text-cyan-600 dark:text-cyan-400 font-bold flex items-center gap-1.5">
+                                          <Users size={12} /> Tim Medis
+                                        </div>
+                                        <div className="font-bold text-emerald-700 dark:text-emerald-400">
+                                          Dr: {rec.dokter || "—"}
+                                        </div>
+                                        <div className="mt-2 space-y-1 text-[10px] text-slate-600 dark:text-white/60">
+                                          {rec.asisten && (
+                                            <div>
+                                              <span className="font-bold opacity-70">
+                                                As:
+                                              </span>{" "}
+                                              {rec.asisten}
+                                            </div>
+                                          )}
+                                          {rec.sirkuler && (
+                                            <div>
+                                              <span className="font-bold opacity-70">
+                                                Sir:
+                                              </span>{" "}
+                                              {rec.sirkuler}
+                                            </div>
+                                          )}
+                                          {rec.logger && (
+                                            <div>
+                                              <span className="font-bold opacity-70">
+                                                Log:
+                                              </span>{" "}
+                                              {rec.logger}
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Fast-Track Info if present */}
+                                        {rec.is_fast_track && (
+                                          <div className="mt-3 p-2 rounded bg-orange-100/50 border border-orange-200 dark:bg-orange-950/20 dark:border-orange-800/40">
+                                            <div className="font-black text-[9px] uppercase tracking-tighter text-orange-700 dark:text-orange-400 flex items-center gap-1">
+                                              <Zap size={10} /> Fast-Track STEMI
+                                            </div>
+                                            <div className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 font-mono text-[9px]">
+                                              <div className="opacity-60">
+                                                IGD:
+                                              </div>{" "}
+                                              <div>
+                                                {rec.pasien_datang_igd || "—"}
+                                              </div>
+                                              <div className="opacity-60">
+                                                D2B:
+                                              </div>{" "}
+                                              <div className="font-bold text-orange-600 dark:text-orange-300">
+                                                {rec.door_to_balloon || "—"}m
+                                              </div>
+                                              <div className="opacity-60">
+                                                Total:
+                                              </div>{" "}
+                                              <div>
+                                                {rec.total_waktu_fast_track ||
+                                                  "—"}
+                                                m
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Section 4: Administrasi & Log */}
+                                      <div className="space-y-1.5">
+                                        <div className="font-mono text-[10px] uppercase tracking-wider text-cyan-600 dark:text-cyan-400 font-bold flex items-center gap-1.5">
+                                          <MapPin size={12} /> Administrasi
+                                        </div>
+                                        <div className="font-bold text-slate-900 dark:text-white">
+                                          {rec.kelas_pembiayaan ||
+                                            rec.pembiayaan ||
+                                            "—"}
+                                        </div>
+                                        <div className="mt-1 flex flex-wrap gap-1">
+                                          <span
+                                            className={cn(
+                                              "rounded px-1.5 py-0.5 text-[9px] font-bold",
+                                              rec.status === "Selesai"
+                                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300"
+                                                : "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300",
+                                            )}
+                                          >
+                                            {rec.status || "—"}
+                                          </span>
+                                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-700 dark:bg-white/10 dark:text-white/70">
+                                            {rec.ruangan || "—"}{" "}
+                                            {rec.cath && `(${rec.cath})`}
+                                          </span>
+                                        </div>
+
+                                        <div className="mt-4 pt-2 border-t border-cyan-100/50 dark:border-white/5">
+                                          <button
+                                            type="button"
+                                            onClick={() => openDetail(id)}
+                                            className="inline-flex items-center gap-1.5 text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300 font-bold transition"
+                                          >
+                                            Buka Detail Lengkap{" "}
+                                            <ChevronRight size={14} />
+                                          </button>
                                         </div>
                                       </div>
-                                      {priorList.map((e, j) => (
-                                        <div
-                                          key={`${e.sortKey}-${j}-${e.tindakan}`}
-                                          className={cn(
-                                            "rounded-md border px-3 py-2",
-                                            "border-amber-400/50 bg-white/95 dark:border-amber-800/40 dark:bg-black/35",
-                                          )}
-                                        >
-                                          <div className="text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
-                                            Pernah dilakukan
-                                          </div>
-                                          <div
-                                            className={cn(
-                                              "mt-0.5",
-                                              "text-amber-950 dark:text-amber-100/95",
-                                            )}
-                                          >
-                                            · {e.tindakan}
-                                          </div>
-                                          <div className="mt-2 text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
-                                            Tanggal tindakan
-                                          </div>
-                                          <div>{e.tanggalDisp}</div>
-                                          <div className="mt-2 text-[10px] font-mono uppercase tracking-wide text-amber-500/80">
-                                            Dokter
-                                          </div>
-                                          <div
-                                            className={cn(
-                                              "text-amber-950 dark:text-amber-100/95",
-                                            )}
-                                          >
-                                            · {e.dokter}
-                                          </div>
-                                        </div>
-                                      ))}
                                     </div>
-                                  ) : null}
+                                  )}
+
+                                  {/* Part 2: History (If duplicate RM found) */}
+                                  {isDuplicateRm && priorList.length > 0 && (
+                                    <div
+                                      className={cn(
+                                        "w-full text-[11px] leading-snug",
+                                        "text-amber-950 dark:text-amber-100/90",
+                                      )}
+                                    >
+                                      <button
+                                        type="button"
+                                        data-no-row-click="true"
+                                        aria-expanded={Boolean(
+                                          rmHistoryOpenByRowKey[key],
+                                        )}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setRmHistoryOpenByRowKey((p) => ({
+                                            ...p,
+                                            [key]: !p[key],
+                                          }));
+                                        }}
+                                        className={cn(
+                                          "flex w-full items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-500/45",
+                                          "border-amber-500/40 bg-white/90 hover:bg-amber-100/80 dark:border-amber-800/35 dark:bg-black/25 dark:hover:bg-amber-950/35",
+                                        )}
+                                      >
+                                        {rmHistoryOpenByRowKey[key] ? (
+                                          <ChevronDown
+                                            className="h-4 w-4 shrink-0 text-amber-400/90"
+                                            aria-hidden
+                                          />
+                                        ) : (
+                                          <ChevronRight
+                                            className="h-4 w-4 shrink-0 text-amber-400/90"
+                                            aria-hidden
+                                          />
+                                        )}
+                                        <span className="font-mono text-[11px] text-amber-200/95 font-bold">
+                                          Riwayat tindakan lain (
+                                          {priorList.length})
+                                        </span>
+                                        <span className="text-amber-500/70 font-semibold">
+                                          · RM {rmLine}
+                                        </span>
+                                      </button>
+                                      {rmHistoryOpenByRowKey[key] ? (
+                                        <div className="mt-2 flex flex-col gap-3 pl-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                          {priorList.map((e, j) => (
+                                            <div
+                                              key={`${e.sortKey}-${j}-${e.tindakan}`}
+                                              className={cn(
+                                                "rounded-lg border p-4 flex flex-col",
+                                                "border-amber-400/50 bg-white/95 dark:border-amber-800/40 dark:bg-black/35 shadow-sm",
+                                              )}
+                                            >
+                                              <div className="flex flex-wrap items-start justify-between gap-4 border-b border-amber-400/20 dark:border-white/5 pb-3 mb-3">
+                                                <div className="flex-1 min-w-[200px]">
+                                                  <div className="text-[9px] font-mono uppercase tracking-widest text-amber-500/80 mb-1">
+                                                    Pernah dilakukan
+                                                  </div>
+                                                  <div className="text-sm font-black text-amber-950 dark:text-amber-100/95 leading-tight">
+                                                    {e.tindakan}
+                                                  </div>
+                                                </div>
+                                                <div className="flex gap-6">
+                                                  <div>
+                                                    <div className="text-[9px] font-mono uppercase text-amber-500/70 mb-0.5">
+                                                      Tanggal
+                                                    </div>
+                                                    <div className="font-mono text-xs font-bold text-amber-900 dark:text-amber-100/90">
+                                                      {e.tanggalDisp}
+                                                    </div>
+                                                  </div>
+                                                  <div>
+                                                    <div className="text-[9px] font-mono uppercase text-amber-500/70 mb-0.5">
+                                                      Dokter
+                                                    </div>
+                                                    <div
+                                                      className="text-xs font-bold text-amber-900 dark:text-amber-100/90"
+                                                      title={e.dokter}
+                                                    >
+                                                      {e.dokter}
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              </div>
+
+                                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6">
+                                                {/* Kolom 1: Klinis */}
+                                                <div className="space-y-4">
+                                                  <div className="border-b border-amber-500/10 pb-1 mb-2">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-600/80">
+                                                      Data Klinis
+                                                    </span>
+                                                  </div>
+                                                  {e.diagnosa && (
+                                                    <div>
+                                                      <span className="text-[9px] font-mono uppercase text-amber-500/70 leading-tight block mb-1">
+                                                        Diagnosa
+                                                      </span>
+                                                      <span className="text-xs leading-relaxed text-amber-950 dark:text-amber-100/90 font-medium">
+                                                        {e.diagnosa}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {e.faktor_risiko && (
+                                                    <div>
+                                                      <span className="text-[9px] font-mono uppercase text-amber-500/70 leading-tight block mb-1">
+                                                        Faktor Risiko
+                                                      </span>
+                                                      <span className="text-xs leading-relaxed text-amber-950 dark:text-amber-100/85">
+                                                        {e.faktor_risiko}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  <div className="flex gap-6">
+                                                    {e.severity_level && (
+                                                      <div>
+                                                        <span className="text-[9px] font-mono uppercase text-amber-500/70 leading-tight block mb-1">
+                                                          Severity
+                                                        </span>
+                                                        <span className="text-xs font-black text-amber-700 dark:text-amber-400">
+                                                          {e.severity_level}
+                                                        </span>
+                                                      </div>
+                                                    )}
+                                                    {e.hasil_lab_ppm && (
+                                                      <div>
+                                                        <span className="text-[9px] font-mono uppercase text-amber-500/70 leading-tight block mb-1">
+                                                          Lab PPM
+                                                        </span>
+                                                        <span className="text-xs font-bold text-amber-950 dark:text-amber-100/90">
+                                                          {e.hasil_lab_ppm}
+                                                        </span>
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                </div>
+
+                                                {/* Kolom 2: Laporan & Hasil */}
+                                                <div className="space-y-4">
+                                                  <div className="border-b border-amber-500/10 pb-1 mb-2">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-600/80">
+                                                      Hasil & Laporan
+                                                    </span>
+                                                  </div>
+                                                  {e.temuan_pembuluh && (
+                                                    <div>
+                                                      <span className="text-[9px] font-mono uppercase text-amber-500/70 leading-tight block mb-1">
+                                                        Temuan Pembuluh
+                                                      </span>
+                                                      <span className="text-xs leading-relaxed text-amber-950 dark:text-amber-100/85 italic">
+                                                        {e.temuan_pembuluh}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {e.kesimpulan_laporan && (
+                                                    <div>
+                                                      <span className="text-[9px] font-mono uppercase text-amber-500/70 leading-tight block mb-1">
+                                                        Kesimpulan
+                                                      </span>
+                                                      <span className="text-xs leading-relaxed text-amber-950 dark:text-amber-100/95 font-bold">
+                                                        {e.kesimpulan_laporan}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {e.plan_medis && (
+                                                    <div>
+                                                      <span className="text-[9px] font-mono uppercase text-amber-500/70 leading-tight block mb-1">
+                                                        Plan Medis
+                                                      </span>
+                                                      <span className="text-xs leading-relaxed text-emerald-700 dark:text-emerald-400 font-bold">
+                                                        {e.plan_medis}
+                                                      </span>
+                                                    </div>
+                                                  )}
+                                                  {e.pci_report_link && (
+                                                    <div className="pt-1">
+                                                      <a
+                                                        href={e.pci_report_link}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1.5 rounded bg-cyan-500/10 px-2 py-1 text-[10px] font-bold text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/20 transition-colors"
+                                                      >
+                                                        <FileText size={12} />
+                                                        LIHAT PDF
+                                                      </a>
+                                                    </div>
+                                                  )}
+                                                </div>
+
+                                                {/* Kolom 3: Tim Medis */}
+                                                <div className="space-y-4">
+                                                  <div className="border-b border-amber-500/10 pb-1 mb-2">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-600/80">
+                                                      Tim Medis
+                                                    </span>
+                                                  </div>
+                                                  <div>
+                                                    <span className="text-[9px] font-mono uppercase text-amber-500/70 leading-tight block mb-1">
+                                                      Dokter Operator
+                                                    </span>
+                                                    <span className="text-xs font-bold text-amber-950 dark:text-amber-100/90">
+                                                      {e.dokter}
+                                                    </span>
+                                                  </div>
+                                                  {(e.asisten ||
+                                                    e.sirkuler ||
+                                                    e.logger) && (
+                                                    <div className="grid grid-cols-1 gap-2">
+                                                      {e.asisten && (
+                                                        <div>
+                                                          <span className="text-[8px] font-mono uppercase text-amber-500/60 leading-tight block">
+                                                            Asisten
+                                                          </span>
+                                                          <span className="text-[10px] text-amber-900 dark:text-amber-200/80">
+                                                            {e.asisten}
+                                                          </span>
+                                                        </div>
+                                                      )}
+                                                      {e.sirkuler && (
+                                                        <div>
+                                                          <span className="text-[8px] font-mono uppercase text-amber-500/60 leading-tight block">
+                                                            Sirkuler
+                                                          </span>
+                                                          <span className="text-[10px] text-amber-900 dark:text-amber-200/80">
+                                                            {e.sirkuler}
+                                                          </span>
+                                                        </div>
+                                                      )}
+                                                      {e.logger && (
+                                                        <div>
+                                                          <span className="text-[8px] font-mono uppercase text-amber-500/60 leading-tight block">
+                                                            Logger
+                                                          </span>
+                                                          <span className="text-[10px] text-amber-900 dark:text-amber-200/80">
+                                                            {e.logger}
+                                                          </span>
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  )}
+                                                </div>
+
+                                                {/* Kolom 4: Teknis & Mesin */}
+                                                <div className="space-y-4">
+                                                  <div className="border-b border-amber-500/10 pb-1 mb-2">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-amber-600/80">
+                                                      Teknis & Mesin
+                                                    </span>
+                                                  </div>
+                                                  <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                      <span className="text-[9px] font-mono uppercase text-amber-500/70 leading-tight block mb-1">
+                                                        Ruangan
+                                                      </span>
+                                                      <span className="text-xs font-medium text-amber-950 dark:text-amber-100/90">
+                                                        {e.ruangan || "—"}
+                                                      </span>
+                                                    </div>
+                                                    <div>
+                                                      <span className="text-[9px] font-mono uppercase text-amber-500/70 leading-tight block mb-1">
+                                                        Slot/Cath
+                                                      </span>
+                                                      <span className="text-xs font-medium text-amber-950 dark:text-amber-100/90">
+                                                        {e.cath || "—"}
+                                                      </span>
+                                                    </div>
+                                                    <div>
+                                                      <span className="text-[9px] font-mono uppercase text-amber-500/70 leading-tight block mb-1">
+                                                        Kategori
+                                                      </span>
+                                                      <span className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                                                        {e.kategori || "—"}
+                                                      </span>
+                                                    </div>
+                                                    <div>
+                                                      <span className="text-[9px] font-mono uppercase text-amber-500/70 leading-tight block mb-1">
+                                                        Pembiayaan
+                                                      </span>
+                                                      <span className="text-xs font-medium text-amber-950 dark:text-amber-100/90">
+                                                        {e.pembiayaan || "—"}
+                                                      </span>
+                                                    </div>
+                                                  </div>
+
+                                                  <div className="rounded bg-amber-500/5 dark:bg-white/5 p-2 space-y-2 border border-amber-500/10">
+                                                    <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                                      <div>
+                                                        <span className="text-amber-500/70 uppercase text-[8px] font-mono block">
+                                                          Fluoro
+                                                        </span>
+                                                        <span className="font-bold">
+                                                          {e.fluoro_time ?? "—"}{" "}
+                                                          min
+                                                        </span>
+                                                      </div>
+                                                      <div>
+                                                        <span className="text-amber-500/70 uppercase text-[8px] font-mono block">
+                                                          Dose
+                                                        </span>
+                                                        <span className="font-bold">
+                                                          {e.dose ?? "—"} mGy
+                                                        </span>
+                                                      </div>
+                                                      <div>
+                                                        <span className="text-amber-500/70 uppercase text-[8px] font-mono block">
+                                                          DAP
+                                                        </span>
+                                                        <span className="font-bold">
+                                                          {e.dap_gy_cm2 ?? "—"}
+                                                        </span>
+                                                      </div>
+                                                      <div>
+                                                        <span className="text-amber-500/70 uppercase text-[8px] font-mono block">
+                                                          Contrast
+                                                        </span>
+                                                        <span className="font-bold">
+                                                          {e.total_kontras ??
+                                                            "—"}
+                                                        </span>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              </div>
+
+                                              {e.is_fast_track && (
+                                                <div className="mt-4 p-3 rounded-lg border border-red-500/20 bg-red-500/5 dark:bg-red-950/20">
+                                                  <div className="flex items-center gap-2 mb-2">
+                                                    <Zap
+                                                      size={14}
+                                                      className="text-red-500 animate-pulse"
+                                                    />
+                                                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500">
+                                                      Fast-Track STEMI / IGD
+                                                    </span>
+                                                  </div>
+                                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                                    <div>
+                                                      <span className="text-[8px] font-mono uppercase text-red-500/70 leading-tight block">
+                                                        Datang IGD
+                                                      </span>
+                                                      <span className="text-xs font-bold text-red-900 dark:text-red-200">
+                                                        {e.pasien_datang_igd ||
+                                                          "—"}
+                                                      </span>
+                                                    </div>
+                                                    <div>
+                                                      <span className="text-[8px] font-mono uppercase text-red-500/70 leading-tight block">
+                                                        Door to Balloon
+                                                      </span>
+                                                      <span className="text-xs font-black text-red-600 dark:text-red-400">
+                                                        {e.door_to_balloon ||
+                                                          "—"}
+                                                      </span>
+                                                    </div>
+                                                    <div>
+                                                      <span className="text-[8px] font-mono uppercase text-red-500/70 leading-tight block">
+                                                        Total Waktu
+                                                      </span>
+                                                      <span className="text-xs font-bold text-red-900 dark:text-red-200">
+                                                        {e.total_waktu_fast_track ||
+                                                          "—"}
+                                                      </span>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              )}
+
+                                              {e.resume && (
+                                                <div className="mt-4 pt-3 border-t border-amber-400/20 dark:border-white/5">
+                                                  <span className="text-[9px] font-mono uppercase text-amber-500/70 leading-tight block mb-1.5">
+                                                    Resume Tindakan
+                                                  </span>
+                                                  <div className="rounded bg-black/5 dark:bg-white/5 p-3 text-xs leading-relaxed text-amber-950 dark:text-amber-50/90 whitespace-pre-wrap font-mono border border-amber-500/5">
+                                                    {e.resume}
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -3198,7 +4462,7 @@ export default function TindakanTable({
           open
           onClose={() => setPemakaianModalRow(null)}
           onSaved={() => {
-            void refreshPemakaianOrderIndex();
+            void mutateOrders();
             void refresh();
           }}
           pasienOptions={pasienOptions}

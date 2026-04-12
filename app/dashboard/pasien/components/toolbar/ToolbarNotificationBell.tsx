@@ -2,8 +2,28 @@
 
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Bell, Trash2 } from "lucide-react";
+import { 
+  Bell, 
+  Trash2, 
+  CheckCircle2, 
+  AlertTriangle, 
+  Info, 
+  XCircle, 
+  Clock,
+  ExternalLink,
+  Settings
+} from "lucide-react";
 import { useNotificationBell } from "@/app/contexts/NotificationContext";
+import { formatDistanceToNow } from "date-fns";
+import { id } from "date-fns/locale";
+
+const NOTIF_ICONS = {
+  success: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />,
+  warning: <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />,
+  error: <XCircle className="w-3.5 h-3.5 text-rose-400" />,
+  info: <Info className="w-3.5 h-3.5 text-cyan-400" />,
+  system: <Settings className="w-3.5 h-3.5 text-slate-400" />,
+}
 
 export function ToolbarNotificationBell() {
   const [open, setOpen] = useState(false);
@@ -20,7 +40,6 @@ export function ToolbarNotificationBell() {
 
   useEffect(() => setMounted(true), []);
 
-  // Posisi dropdown saat dibuka (agar align dengan tombol bell)
   useEffect(() => {
     if (!open || !containerRef.current) {
       setDropdownRect(null);
@@ -28,12 +47,11 @@ export function ToolbarNotificationBell() {
     }
     const rect = containerRef.current.getBoundingClientRect();
     setDropdownRect({
-      top: rect.bottom + 8,
+      top: rect.bottom + 12,
       right: window.innerWidth - rect.right,
     });
   }, [open]);
 
-  // Tutup saat klik di luar (dropdown di portal, jadi cek container + dropdown)
   useEffect(() => {
     if (!open) return;
     const handleClickOutside = (e: MouseEvent) => {
@@ -50,14 +68,19 @@ export function ToolbarNotificationBell() {
     <div ref={containerRef} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="relative p-2 rounded-full border border-cyan-400/40 hover:bg-cyan-900/40"
+        className={`relative p-2 rounded-full border transition-all duration-300 ${
+          open 
+            ? "border-cyan-400 bg-cyan-900/40 shadow-[0_0_15px_rgba(0,255,255,0.4)]" 
+            : "border-cyan-400/40 hover:bg-cyan-900/30"
+        }`}
         aria-label={`Notifikasi${bellAlerts.length > 0 ? `, ${bellAlerts.length} baru` : ""}`}
       >
-        <Bell className="w-4 h-4 text-cyan-300" />
+        <Bell className={`w-4 h-4 transition-colors ${open ? "text-white" : "text-cyan-300"}`} />
         {bellAlerts.length > 0 && (
           <span
-            className="absolute top-0 right-0 bg-amber-400 text-black dark:text-white text-[9px]
-                           font-bold rounded-full px-1 min-w-[14px] text-center"
+            className="absolute -top-1 -right-1 bg-amber-400 text-black text-[9px]
+                           font-extrabold rounded-full h-4 min-w-[16px] flex items-center justify-center 
+                           px-1 shadow-[0_0_8px_rgba(255,215,0,0.6)] animate-pulse"
           >
             {bellAlerts.length > 99 ? "99+" : bellAlerts.length}
           </span>
@@ -70,56 +93,107 @@ export function ToolbarNotificationBell() {
             {open && dropdownRect && (
               <div
                 ref={dropdownRef}
-                onMouseLeave={() => setOpen(false)}
                 style={{
                   position: "fixed",
                   top: dropdownRect.top,
                   right: dropdownRect.right,
-                  width: 256,
+                  width: 320,
                   zIndex: 9999,
                 }}
-                className="w-64 max-h-80 overflow-hidden flex flex-col
-                         bg-black/90 border border-cyan-400/40 rounded-xl backdrop-blur-md
-                         text-xs text-cyan-100 shadow-xl
-                         animate-in fade-in slide-in-from-top-2 duration-200"
+                className="max-h-[480px] overflow-hidden flex flex-col
+                         bg-[#0a1118]/95 border border-cyan-500/20 rounded-2xl backdrop-blur-xl
+                         text-xs text-cyan-100 shadow-[0_20px_50px_rgba(0,0,0,0.6),0_0_20px_rgba(0,255,255,0.1)]
+                         animate-in fade-in slide-in-from-top-4 duration-300"
               >
-                <div className="p-2 border-b border-cyan-400/20 flex items-center justify-between sticky top-0 bg-black/90">
-                  <span className="font-semibold">Notifikasi</span>
+                {/* Header Dropdown */}
+                <div className="p-3.5 border-b border-cyan-500/10 flex items-center justify-between sticky top-0 bg-white/5 backdrop-blur-md">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1 rounded bg-cyan-500/10">
+                      <Bell size={14} className="text-cyan-400" />
+                    </div>
+                    <span className="font-bold tracking-wide uppercase text-[10px] text-cyan-100">Panel Notifikasi</span>
+                  </div>
                   {bellAlerts.length > 0 && (
                     <button
                       type="button"
                       onClick={() => clearAllBellAlerts()}
-                      className="p-1 rounded hover:bg-cyan-500/20 text-amber-400/90 flex items-center gap-1"
-                      title="Bersihkan semua"
+                      className="px-2 py-1 rounded hover:bg-rose-500/10 text-[9px] font-bold uppercase tracking-widest text-cyan-400/60 hover:text-rose-400 transition-all"
                     >
-                      <Trash2 className="w-3.5 h-3.5" /> Bersihkan
+                      Bersihkan
                     </button>
                   )}
                 </div>
-                <div className="overflow-y-auto p-2 space-y-1">
+
+                {/* List Dropdown */}
+                <div className="overflow-y-auto p-0 flex-1 divide-y divide-cyan-500/5 custom-scroll">
                   {bellAlerts.length === 0 ? (
-                    <p className="py-4 text-center text-cyan-400/70">
-                      Tidak ada notifikasi
-                    </p>
+                    <div className="py-12 px-6 text-center flex flex-col items-center">
+                      <div className="w-10 h-10 rounded-full bg-slate-800/50 flex items-center justify-center mb-3">
+                        <Bell className="w-5 h-5 text-slate-600" />
+                      </div>
+                      <p className="text-slate-400 font-medium">Tidak ada notifikasi baru</p>
+                      <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">Sistem Standby</p>
+                    </div>
                   ) : (
                     bellAlerts.map((a) => (
                       <div
                         key={a.id}
-                        className="p-2 border-b border-cyan-400/20 last:border-none flex items-start justify-between gap-2 group"
+                        className="p-4 hover:bg-white/5 transition-all flex items-start gap-3 group relative"
                       >
-                        <span className="flex-1 min-w-0">{a.message}</span>
-                        <button
-                          type="button"
-                          onClick={() => clearBellAlert(a.id)}
-                          className="p-1 rounded opacity-60 hover:opacity-100 hover:bg-cyan-500/20 shrink-0"
-                          aria-label="Hapus notifikasi"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                        <div className="mt-0.5 flex-shrink-0">
+                          {NOTIF_ICONS[a.type as keyof typeof NOTIF_ICONS] || NOTIF_ICONS.info}
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className={`text-[9px] font-bold uppercase tracking-widest ${
+                              a.type === 'success' ? 'text-emerald-400/70' :
+                              a.type === 'warning' ? 'text-amber-400/70' :
+                              a.type === 'error' ? 'text-rose-400/70' :
+                              'text-cyan-400/70'
+                            }`}>
+                              {a.type || 'info'}
+                            </span>
+                            <div className="flex items-center gap-1 text-[9px] text-slate-500">
+                              <Clock size={8} />
+                              {formatDistanceToNow(new Date(a.createdAt), { addSuffix: true, locale: id })}
+                            </div>
+                          </div>
+                          
+                          <p className="text-[12px] leading-relaxed text-slate-300 group-hover:text-cyan-50 transition-colors">
+                            {a.message.split('**').map((part, i) => 
+                              i % 2 === 1 ? <strong key={i} className="text-cyan-300 font-bold">{part}</strong> : part
+                            )}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-col gap-2 self-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              clearBellAlert(a.id);
+                            }}
+                            className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 transition-all"
+                            aria-label="Hapus"
+                            title="Hapus"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                     ))
                   )}
                 </div>
+
+                {/* Footer Dropdown */}
+                {bellAlerts.length > 0 && (
+                  <div className="p-2 border-t border-cyan-500/10 bg-white/5 text-center">
+                    <button className="text-[9px] font-bold uppercase tracking-[0.2em] text-cyan-500/50 hover:text-cyan-400 transition-colors py-1">
+                      Full Activity Log
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </>,

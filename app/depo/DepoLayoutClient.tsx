@@ -12,6 +12,7 @@ import {
   Pill,
   User,
 } from "lucide-react";
+import Topbar from "@/components/Topbar";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useEffect, useState } from "react";
@@ -54,32 +55,7 @@ export default function DepoLayoutClient({
       className="min-h-app min-w-0 bg-[#020617] text-white print:bg-white"
       suppressHydrationWarning
     >
-      <div className="border-b border-emerald-900/60 bg-slate-950/60 print:hidden">
-        <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-[11px] text-white">
-              IDIK-App • Portal Depo Farmasi
-            </div>
-            <div className="truncate text-sm font-semibold text-white">
-              Stok, verifikasi resep, dan laporan farmasi
-            </div>
-          </div>
-          <button
-            type="button"
-            suppressHydrationWarning
-            className="px-3 py-1.5 rounded-full text-[11px] text-white bg-slate-900/70 border border-emerald-800/70 hover:bg-slate-900"
-            onClick={async () => {
-              await fetch("/api/auth", {
-                method: "DELETE",
-                credentials: "include",
-              });
-              window.location.href = "/";
-            }}
-          >
-            Logout
-          </button>
-        </div>
-      </div>
+      <Topbar title="Depo Farmasi" />
 
       <div
         className={[

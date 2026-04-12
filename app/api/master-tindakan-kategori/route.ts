@@ -14,10 +14,19 @@ type Row = {
   updated_at?: string | null;
 };
 
+/** Cache master kategori (5 menit) */
+let kategoriCache: any[] | null = null;
+let kategoriCacheExpires = 0;
+
 /** Daftar master kategori tindakan untuk combobox drawer & kelola daftar. */
 export async function GET() {
   const user = await requireUser();
   if (!user.ok) return user.response;
+
+  const now = Date.now();
+  if (kategoriCache && now < kategoriCacheExpires) {
+    return NextResponse.json({ ok: true, items: kategoriCache, cached: true });
+  }
 
   const supabase = getServiceSupabaseAdmin();
   if (!supabase) {
@@ -48,16 +57,22 @@ export async function GET() {
     String(r.nama ?? "").trim().length > 0,
   );
 
+  const finalItems = rows.map((r: Row) => ({
+    id: String(r.id),
+    nama: String(r.nama ?? "").trim(),
+    urutan: typeof r.urutan === "number" ? r.urutan : 0,
+    aktif: r.aktif !== false,
+    created_at: r.created_at ?? null,
+    updated_at: r.updated_at ?? null,
+  }));
+
+  // Update Cache for 5 minutes
+  kategoriCache = finalItems;
+  kategoriCacheExpires = Date.now() + 5 * 60 * 1000;
+
   return NextResponse.json({
     ok: true,
-    items: rows.map((r: Row) => ({
-      id: String(r.id),
-      nama: String(r.nama ?? "").trim(),
-      urutan: typeof r.urutan === "number" ? r.urutan : 0,
-      aktif: r.aktif !== false,
-      created_at: r.created_at ?? null,
-      updated_at: r.updated_at ?? null,
-    })),
+    items: finalItems,
   });
 }
 

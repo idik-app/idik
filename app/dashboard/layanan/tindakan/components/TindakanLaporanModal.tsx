@@ -68,7 +68,10 @@ const AnalisisTable = React.memo(({ rows }: { rows: readonly TindakanJoinResult[
                   <div className="text-[10px] opacity-70">RM: {r.no_rm || "-"}</div>
                   <div className="mt-1 border-t border-slate-100 pt-1 dark:border-white/5">
                     <span className="font-medium text-slate-500 dark:text-white/50">Diag: </span>
-                    {r.diagnosa || "-"}
+                    <span className="font-bold">{r.diagnosa || "-"}</span>
+                    {r.faktor_risiko && (
+                      <div className="text-[9px] text-slate-400 italic">FR: {r.faktor_risiko}</div>
+                    )}
                   </div>
                 </td>
                 <td className="border border-slate-300/70 px-2 py-1 dark:border-white/10">
@@ -82,7 +85,24 @@ const AnalisisTable = React.memo(({ rows }: { rows: readonly TindakanJoinResult[
                         Sev: {r.severity_level}
                       </span>
                     )}
+                    {r.total_kontras && (
+                      <span className="rounded bg-blue-100 px-1 py-0.5 text-[9px] font-bold text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                        Contrast: {r.total_kontras}ml
+                      </span>
+                    )}
                   </div>
+                  {r.kesimpulan_laporan && (
+                    <div className="mt-1.5 border-t border-slate-100 pt-1 text-[10px] leading-relaxed dark:border-white/5">
+                      <div className="font-bold text-slate-500 uppercase text-[8px] tracking-wider dark:text-white/40">Kesimpulan:</div>
+                      <div className="italic text-slate-600 dark:text-white/70 line-clamp-2">{r.kesimpulan_laporan}</div>
+                    </div>
+                  )}
+                  {r.plan_medis && (
+                    <div className="mt-1 text-[10px] leading-relaxed">
+                      <div className="font-bold text-emerald-600 uppercase text-[8px] tracking-wider dark:text-emerald-400/60">Plan:</div>
+                      <div className="text-emerald-700 dark:text-emerald-400 line-clamp-1">{r.plan_medis}</div>
+                    </div>
+                  )}
                 </td>
                 <td className="border border-slate-300/70 px-2 py-1 dark:border-white/10">
                   <div className="font-medium text-emerald-600 dark:text-emerald-400">Dr: {r.dokter || "-"}</div>
@@ -188,12 +208,27 @@ const TableRow = React.memo(
                             key={pi}
                             className="border-b border-slate-100 py-1 last:border-0 dark:border-white/5"
                           >
-                            <div className="font-semibold">
+                            <div className="font-semibold text-emerald-700 dark:text-emerald-400">
                               {p.nama} | {p.tindakan || "-"}
                             </div>
-                            <div className="text-[10px] opacity-70">
-                              RM: {p.no_rm} | {p.dokter}
+                            <div className="text-[10px] opacity-70 flex flex-wrap gap-x-2">
+                              <span>RM: {p.no_rm}</span>
+                              <span className="font-bold">Dr: {p.dokter}</span>
                             </div>
+                            {(p.diagnosa || p.kategori) && (
+                              <div className="mt-1 flex flex-wrap gap-1 text-[9px]">
+                                {p.diagnosa && (
+                                  <span className="rounded bg-slate-100 px-1 py-0.5 font-medium dark:bg-white/10 dark:text-white/70">
+                                    {p.diagnosa}
+                                  </span>
+                                )}
+                                {p.kategori && (
+                                  <span className="rounded bg-emerald-100 px-1 py-0.5 font-bold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">
+                                    {p.kategori}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </li>
                         ))
                       ) : (
@@ -245,7 +280,7 @@ function formatCell(n: number): string {
   return n === 0 ? "" : String(n);
 }
 
-type ReportTab = "jenis" | "cara" | "kategori" | "analisis";
+type ReportTab = "jenis" | "kategori" | "cara" | "analisis";
 
 export default function TindakanLaporanModal({
   open,
@@ -306,9 +341,9 @@ export default function TindakanLaporanModal({
   const rawMatrix =
     tab === "jenis"
       ? matrixJenis
-      : tab === "cara"
-        ? matrixCara
-        : matrixKategori;
+      : tab === "kategori"
+        ? matrixKategori
+        : matrixCara;
 
   // Filter Matrix berdasarkan Search Query (Point 2)
   const activeMatrix = useMemo(() => {
@@ -326,7 +361,11 @@ export default function TindakanLaporanModal({
         const detailMatch = rawMatrix.details?.[idx]?.some(dayDetails => 
           dayDetails.some(p => 
             p.nama.toLowerCase().includes(query) || 
-            (p as any).tindakan?.toLowerCase().includes(query) || // Jika ada field tindakan
+            (p as any).tindakan?.toLowerCase().includes(query) ||
+            (p as any).diagnosa?.toLowerCase().includes(query) ||
+            (p as any).kategori?.toLowerCase().includes(query) ||
+            (p as any).kesimpulan_laporan?.toLowerCase().includes(query) ||
+            (p as any).plan_medis?.toLowerCase().includes(query) ||
             p.dokter.toLowerCase().includes(query)
           )
         );
@@ -349,6 +388,10 @@ export default function TindakanLaporanModal({
           return details.filter(p => 
             p.nama.toLowerCase().includes(query) || 
             p.tindakan?.toLowerCase().includes(query) ||
+            p.diagnosa?.toLowerCase().includes(query) ||
+            p.kategori?.toLowerCase().includes(query) ||
+            p.kesimpulan_laporan?.toLowerCase().includes(query) ||
+            p.plan_medis?.toLowerCase().includes(query) ||
             p.dokter.toLowerCase().includes(query)
           ).length;
         });
@@ -363,6 +406,10 @@ export default function TindakanLaporanModal({
           return dayDetails.filter(p => 
             p.nama.toLowerCase().includes(query) || 
             p.tindakan?.toLowerCase().includes(query) ||
+            p.diagnosa?.toLowerCase().includes(query) ||
+            p.kategori?.toLowerCase().includes(query) ||
+            p.kesimpulan_laporan?.toLowerCase().includes(query) ||
+            p.plan_medis?.toLowerCase().includes(query) ||
             p.dokter.toLowerCase().includes(query)
           );
         });
@@ -423,6 +470,12 @@ export default function TindakanLaporanModal({
       const severity = String(r.severity_level || "").toLowerCase();
       const pembiayaan = String(r.pembiayaan || "").toLowerCase();
       const kelas_pembiayaan = String(r.kelas_pembiayaan || "").toLowerCase();
+
+      // Field baru dari Laporan
+      const kesimpulan = String(r.kesimpulan_laporan || "").toLowerCase();
+      const plan = String(r.plan_medis || "").toLowerCase();
+      const faktor_risiko = String(r.faktor_risiko || "").toLowerCase();
+      const temuan = String(r.temuan_pembuluh || "").toLowerCase();
       
       return (
         nama.includes(query) ||
@@ -438,7 +491,11 @@ export default function TindakanLaporanModal({
         cath.includes(query) ||
         severity.includes(query) ||
         pembiayaan.includes(query) ||
-        kelas_pembiayaan.includes(query)
+        kelas_pembiayaan.includes(query) ||
+        kesimpulan.includes(query) ||
+        plan.includes(query) ||
+        faktor_risiko.includes(query) ||
+        temuan.includes(query)
       );
     });
   }, [rows, ym, tab, searchQuery]);
@@ -518,6 +575,7 @@ export default function TindakanLaporanModal({
   const exportFileBase = useMemo(() => {
     const safe = monthYyyyMm.replace(/[^\d-]/g, "") || "bulan";
     if (tab === "jenis") return `laporan-tindakan-jenis-${safe}`;
+    if (tab === "kategori") return `laporan-tindakan-kategori-${safe}`;
     if (tab === "cara") return `laporan-tindakan-cara-bayar-${safe}`;
     if (tab === "analisis") return `laporan-analisis-gabungan-${safe}`;
     return `laporan-tindakan-kategori-${safe}`;
@@ -605,7 +663,7 @@ export default function TindakanLaporanModal({
                     : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
                 )}
               >
-                Jenis Tindakan
+                Prosedur (Detail)
               </button>
               <button
                 type="button"
@@ -617,7 +675,7 @@ export default function TindakanLaporanModal({
                     : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
                 )}
               >
-                Kategori
+                Kategori (Grup)
               </button>
               <button
                 type="button"
@@ -823,9 +881,9 @@ export default function TindakanLaporanModal({
                       className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-1 text-left font-extrabold dark:border-white/10 dark:bg-zinc-900"
                     >
                       {tab === "jenis"
-                        ? "JENIS TINDAKAN"
+                        ? "PROSEDUR (DETAIL)"
                         : tab === "kategori"
-                          ? "KATEGORI"
+                          ? "KATEGORI (GRUP)"
                           : "CARA BAYAR"}
                     </th>
                     <th

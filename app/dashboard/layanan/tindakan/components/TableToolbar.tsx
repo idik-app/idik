@@ -41,6 +41,7 @@ interface Props {
     tanggalFrom?: string,
     tanggalTo?: string,
     isPciOnly?: boolean,
+    isMissingReport?: boolean,
   ) => void;
   dokterOptions: string[];
   ruanganOptions: string[];
@@ -95,6 +96,7 @@ export default function TableToolbar({
   const [tanggalFrom, setTanggalFrom] = useState("");
   const [tanggalTo, setTanggalTo] = useState("");
   const [isPciOnly, setIsPciOnly] = useState(false);
+  const [isMissingReport, setIsMissingReport] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [, setCountdown] = useState(POLL_INTERVAL_SEC);
   const [isPageVisible, setIsPageVisible] = useState(true);
@@ -224,7 +226,7 @@ export default function TableToolbar({
 
     setTanggalFrom(from);
     setTanggalTo(to);
-    onFilter(dokter, ruangan, tindakan, from, to, isPciOnly);
+    onFilter(dokter, ruangan, tindakan, from, to, isPciOnly, isMissingReport);
   };
 
   useEffect(() => {
@@ -635,7 +637,7 @@ export default function TableToolbar({
             onChange={(e) => {
               const v = e.target.value;
               setDokter(v);
-              onFilter(v, ruangan, tindakan, tanggalFrom, tanggalTo, isPciOnly);
+              onFilter(v, ruangan, tindakan, tanggalFrom, tanggalTo, isPciOnly, isMissingReport);
             }}
             className={cn(
               "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
@@ -690,7 +692,7 @@ export default function TableToolbar({
             onChange={(e) => {
               const v = e.target.value;
               setRuangan(v);
-              onFilter(dokter, v, tindakan, tanggalFrom, tanggalTo, isPciOnly);
+              onFilter(dokter, v, tindakan, tanggalFrom, tanggalTo, isPciOnly, isMissingReport);
             }}
             className={cn(
               "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
@@ -745,7 +747,7 @@ export default function TableToolbar({
             onChange={(e) => {
               const v = e.target.value;
               setTindakan(v);
-              onFilter(dokter, ruangan, v, tanggalFrom, tanggalTo, isPciOnly);
+              onFilter(dokter, ruangan, v, tanggalFrom, tanggalTo, isPciOnly, isMissingReport);
             }}
             className={cn(
               "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
@@ -844,7 +846,7 @@ export default function TableToolbar({
               onChange={(e) => {
                 const v = e.target.value;
                 setTanggalFrom(v);
-                onFilter(dokter, ruangan, tindakan, v, tanggalTo, isPciOnly);
+                onFilter(dokter, ruangan, tindakan, v, tanggalTo, isPciOnly, isMissingReport);
               }}
               className={cn(
                 "cursor-pointer text-[13px] font-semibold pl-2 pr-8 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
@@ -889,7 +891,7 @@ export default function TableToolbar({
               onChange={(e) => {
                 const v = e.target.value;
                 setTanggalTo(v);
-                onFilter(dokter, ruangan, tindakan, tanggalFrom, v, isPciOnly);
+                onFilter(dokter, ruangan, tindakan, tanggalFrom, v, isPciOnly, isMissingReport);
               }}
               className={cn(
                 "cursor-pointer text-[13px] font-semibold pl-2 pr-8 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
@@ -932,7 +934,7 @@ export default function TableToolbar({
             onClick={() => {
               const next = !isPciOnly;
               setIsPciOnly(next);
-              onFilter(dokter, ruangan, tindakan, tanggalFrom, tanggalTo, next);
+              onFilter(dokter, ruangan, tindakan, tanggalFrom, tanggalTo, next, isMissingReport);
             }}
             className={cn(
               "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
@@ -944,6 +946,23 @@ export default function TableToolbar({
           >
             PCI
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !isMissingReport;
+              setIsMissingReport(next);
+              onFilter(dokter, ruangan, tindakan, tanggalFrom, tanggalTo, isPciOnly, next);
+            }}
+            className={cn(
+              "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
+              isMissingReport
+                ? "border-rose-600 bg-rose-600 text-white shadow-[0_0_10px_rgba(225,29,72,0.3)] dark:border-rose-400 dark:bg-rose-500"
+                : "border-rose-500/40 bg-rose-50/50 text-rose-800 hover:bg-rose-100 dark:border-rose-500/30 dark:bg-rose-950/20 dark:text-rose-400 dark:hover:bg-rose-900/30",
+            )}
+            title="Tampilkan yang belum memiliki link laporan"
+          >
+            Tanpa Laporan
+          </button>
         </div>
 
         {/* 🔄 Reset All Filters */}
@@ -953,7 +972,8 @@ export default function TableToolbar({
           tindakan ||
           tanggalFrom ||
           tanggalTo ||
-          isPciOnly) && (
+          isPciOnly ||
+          isMissingReport) && (
           <button
             type="button"
             onClick={() => {
@@ -965,7 +985,8 @@ export default function TableToolbar({
               setTanggalFrom("");
               setTanggalTo("");
               setIsPciOnly(false);
-              onFilter("", "", "", "", "", false);
+              setIsMissingReport(false);
+              onFilter("", "", "", "", "", false, false);
             }}
             className={cn(
               "flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all",

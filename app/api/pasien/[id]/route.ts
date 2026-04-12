@@ -12,14 +12,31 @@ const pasienApiPatchBodySchema = z
     nama: z.string().min(1).optional(),
     jenisKelamin: z.enum(["L", "P"]).optional(),
     tanggalLahir: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    // Allow snake_case from KlinisAutosaveField
+    jenis_kelamin: z.enum(["L", "P"]).optional(),
+    tgl_lahir: z.string().optional(),
     alamat: z.string().min(1).optional(),
     noHP: z.string().optional(),
     pci_report_link: z.string().optional().nullable(),
     diagnosa: z.string().optional().nullable(),
+    faktor_risiko: z.string().optional().nullable(),
     severity_level: z.string().optional().nullable(),
     hasil_lab_ppm: z.string().optional().nullable(),
+    temuan_pembuluh: z.string().optional().nullable(),
+    kesimpulan_laporan: z.string().optional().nullable(),
+    plan_medis: z.string().optional().nullable(),
+    total_kontras: z.string().optional().nullable(),
+    air_kerma: z.union([z.number(), z.string()]).optional().nullable(),
+    dap_dose: z.union([z.number(), z.string()]).optional().nullable(),
   })
-  .strict()
+  .transform((val) => {
+    const { jenis_kelamin, tgl_lahir, ...rest } = val;
+    return {
+      ...rest,
+      jenisKelamin: rest.jenisKelamin ?? jenis_kelamin,
+      tanggalLahir: rest.tanggalLahir ?? tgl_lahir,
+    };
+  })
   .refine((o) => Object.keys(o).length > 0, {
     message: "Minimal satu field wajib dikirim",
   });

@@ -14,6 +14,7 @@ import {
   RotateCcw,
   User,
 } from "lucide-react";
+import Topbar from "@/components/Topbar";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
@@ -235,64 +236,36 @@ export default function DistributorLayoutClient({
 
   return (
     <div className="min-h-app min-w-0 bg-[#020617] text-cyan-100">
-      <div className="border-b border-cyan-900/60 bg-slate-950/60 backdrop-blur">
-        <div className="mx-auto max-w-7xl px-4 py-3 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-[11px] text-cyan-400/80">
-              IDIK-App • Portal Distributor
-            </div>
-            <div className="truncate text-sm font-semibold text-[#D4AF37]">
-              {headerPt}
-              <span className="ml-2 text-[11px] text-cyan-300/80">
-                Lokasi: {header?.ruangan ?? "Cathlab"}
-              </span>
-            </div>
+      <Topbar 
+        title={headerPt} 
+        extra={adminView && (
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-cyan-300/80">PT:</span>
+            <select
+              value={selectedDistributorId}
+              onChange={(e) => {
+                const v = e.target.value;
+                const params = new URLSearchParams(searchParams.toString());
+                if (v) params.set("distributor_id", v);
+                else params.delete("distributor_id");
+                const q = params.toString();
+                const nextUrl = q ? `${pathname}?${q}` : pathname;
+                router.replace(nextUrl);
+              }}
+              className="bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            >
+              <option value="">Semua PT</option>
+              {uniqueDistributors
+                .filter((d) => d.is_active)
+                .map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.nama_pt}
+                  </option>
+                ))}
+            </select>
           </div>
-
-          {adminView && (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-cyan-300/80">PT:</span>
-              <select
-                value={selectedDistributorId}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  const params = new URLSearchParams(searchParams.toString());
-                  if (v) params.set("distributor_id", v);
-                  else params.delete("distributor_id");
-                  const q = params.toString();
-                  const nextUrl = q ? `${pathname}?${q}` : pathname;
-                  router.replace(nextUrl);
-                }}
-                className="bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
-              >
-                <option value="">Semua PT</option>
-                {uniqueDistributors
-                  .filter((d) => d.is_active)
-                  .map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.nama_pt}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          )}
-
-          <button
-            type="button"
-            suppressHydrationWarning
-            className="px-3 py-1.5 rounded-full text-[11px] bg-slate-900/70 border border-cyan-800/70 hover:bg-slate-900"
-            onClick={async () => {
-              await fetch("/api/auth", {
-                method: "DELETE",
-                credentials: "include",
-              });
-              window.location.href = "/";
-            }}
-          >
-            Logout
-          </button>
-        </div>
-      </div>
+        )}
+      />
 
       <div
         className={[

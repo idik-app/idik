@@ -5,10 +5,19 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
+/** Cache master perawat (5 menit) */
+let perawatCache: any[] | null = null;
+let perawatCacheExpires = 0;
+
 /** Daftar perawat aktif/nonaktif dari `master_perawat` — tab Dokter & tim. */
 export async function GET() {
   const user = await requireUser();
   if (!user.ok) return user.response;
+
+  const now = Date.now();
+  if (perawatCache && now < perawatCacheExpires) {
+    return NextResponse.json({ ok: true, perawats: perawatCache, cached: true });
+  }
 
   const supabase = getServiceSupabaseAdmin();
   if (!supabase) {
@@ -65,14 +74,20 @@ export async function GET() {
     return nama.length > 0;
   });
 
+  const finalPerawats = rows.map((r: Row) => ({
+    id: r.id,
+    nama_perawat: String(r.nama_perawat ?? "").trim(),
+    bidang: r.bidang != null && String(r.bidang).trim() ? String(r.bidang).trim() : null,
+    aktif: r.aktif !== false,
+  }));
+
+  // Update Cache for 5 minutes
+  perawatCache = finalPerawats;
+  perawatCacheExpires = Date.now() + 5 * 60 * 1000;
+
   return NextResponse.json({
     ok: true,
-    perawats: rows.map((r: Row) => ({
-      id: r.id,
-      nama_perawat: String(r.nama_perawat ?? "").trim(),
-      bidang: r.bidang != null && String(r.bidang).trim() ? String(r.bidang).trim() : null,
-      aktif: r.aktif !== false,
-    })),
+    perawats: finalPerawats,
   });
 }
 

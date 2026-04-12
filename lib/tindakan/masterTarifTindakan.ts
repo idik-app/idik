@@ -64,9 +64,17 @@ export function enrichTindakanRowTarifFromMasterMap(
   return { ...row, tarif_tindakan: hit };
 }
 
+let tarifCache: Map<string, number> | null = null;
+let tarifCacheExpires = 0;
+
 export async function fetchMasterTarifLookupMap(
   supabase: unknown,
 ): Promise<Map<string, number>> {
+  const now = Date.now();
+  if (tarifCache && now < tarifCacheExpires) {
+    return tarifCache;
+  }
+
   const sb = supabase as {
     from: (table: string) => {
       select: (columns: string) => {
@@ -87,13 +95,19 @@ export async function fetchMasterTarifLookupMap(
       .eq("aktif", true);
     if (error) {
       console.warn("[master_tarif_tindakan]", error.message);
-      return new Map();
+      return tarifCache || new Map();
     }
     const rows = Array.isArray(data) ? data : [];
-    return buildMasterTarifMapFromRows(
+    const map = buildMasterTarifMapFromRows(
       rows as { nama_cari: string; tarif_rupiah: unknown }[],
     );
+    
+    // Cache for 5 minutes
+    tarifCache = map;
+    tarifCacheExpires = now + 5 * 60 * 1000;
+    
+    return map;
   } catch {
-    return new Map();
+    return tarifCache || new Map();
   }
 }

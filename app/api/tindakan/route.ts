@@ -19,6 +19,12 @@ export const dynamic = "force-dynamic";
  */
 const POSTGREST_SAFE_CHUNK = 1000;
 
+const PROJECTIONS_LIST = [
+  "id, tanggal, dokter, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, ruangan, pasien_id, created_at, inserted_at, updated_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian",
+  "id, tanggal, dokter, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian",
+  "*",
+];
+
 async function fetchTableOrderedInChunks(
   supabase: NonNullable<ReturnType<typeof getServiceSupabaseAdmin>>,
   table: "tindakan" | "tindakan_medik",
@@ -101,6 +107,12 @@ function mapLegacyTindakanMedikRow(
   };
 }
 
+/** Cache working projection to avoid re-testing on every request */
+let workingProjectionCache: string | null = null;
+
+/** Cache result for 15 seconds for default view to prevent server hammer */
+let tindakanListCache: { data: any[]; expires: number; key: string } | null = null;
+
 /** Daftar tindakan untuk dashboard (server-side service role, tahan RLS). */
 export async function GET(request: Request) {
   try {
@@ -119,18 +131,23 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const limitRaw = Number(searchParams.get("limit") ?? 1000);
     const limit = Number.isFinite(limitRaw)
-      ? Math.min(Math.max(Math.trunc(limitRaw), 1), 5000)
+      ? Math.min(Math.max(Math.trunc(limitRaw), 1), 20000)
       : 1000;
 
     const dateFrom = searchParams.get("from")?.trim();
     const dateTo = searchParams.get("to")?.trim();
     const search = searchParams.get("search")?.trim();
 
-    const projections = [
-      "id, tanggal, dokter, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, ruangan, pasien_id, created_at, inserted_at, updated_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian",
-      "id, tanggal, dokter, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian",
-      "*",
-    ];
+    // Key untuk cache (hanya cache view default tanpa filter berat)
+    const cacheKey = `${limit}|${dateFrom ?? ""}|${dateTo ?? ""}|${search ?? ""}`;
+    const now = Date.now();
+    if (tindakanListCache && now < tindakanListCache.expires && tindakanListCache.key === cacheKey) {
+      return NextResponse.json({ ok: true, data: tindakanListCache.data, cached: true }, { status: 200 });
+    }
+
+    const projections = workingProjectionCache 
+      ? [workingProjectionCache, ...PROJECTIONS_LIST.filter(p => p !== workingProjectionCache)]
+      : PROJECTIONS_LIST;
 
     let data: Record<string, unknown>[] | null = null;
     let lastError: { message?: string } | null = null;
@@ -138,24 +155,55 @@ export async function GET(request: Request) {
     const tarifMap = await fetchMasterTarifLookupMap(supabase);
 
     for (const projection of projections) {
-      let query = supabase
-        .from("tindakan")
-        .select(projection)
-        .order("tanggal", { ascending: false, nullsFirst: false })
-        .order("id", { ascending: false });
+      const getBaseQuery = () => {
+        let q = supabase
+          .from("tindakan")
+          .select(projection)
+          .order("tanggal", { ascending: false, nullsFirst: false })
+          .order("id", { ascending: false });
 
-      if (dateFrom) query = query.gte("tanggal", dateFrom);
-      if (dateTo) query = query.lte("tanggal", dateTo);
-      if (search) {
-        query = query.or(`nama_pasien.ilike.%${search}%,no_rm.ilike.%${search}%,dokter.ilike.%${search}%`);
-      }
+        if (dateFrom) q = q.gte("tanggal", dateFrom);
+        if (dateTo) q = q.lte("tanggal", dateTo);
+        if (search) {
+          q = q.or(`nama_pasien.ilike.%${search}%,no_rm.ilike.%${search}%,dokter.ilike.%${search}%`);
+        }
+        return q;
+      };
 
-      const { data: rawRows, error: chunkError } = await query.range(0, limit - 1);
+      // 1. Ambil chunk pertama (limit 1000)
+      const firstRes = await getBaseQuery().range(0, POSTGREST_SAFE_CHUNK - 1);
 
-      if (!chunkError) {
-        const rows = rawRows;
-        data = rows.map((row) => {
-          // Optimized mapping: Gabungkan logic enrichment untuk mengurangi object spreading
+      if (!firstRes.error) {
+        workingProjectionCache = projection; // Store the working one
+        let allRawRows = Array.isArray(firstRes.data)
+          ? (firstRes.data as unknown as Record<string, unknown>[])
+          : [];
+
+        // 2. Ambil sisanya jika limit > 1000 dan chunk pertama penuh
+        if (allRawRows.length === POSTGREST_SAFE_CHUNK && limit > POSTGREST_SAFE_CHUNK) {
+          const numChunks = Math.ceil(limit / POSTGREST_SAFE_CHUNK);
+          const ranges = Array.from({ length: numChunks - 1 }, (_, i) => {
+            const from = (i + 1) * POSTGREST_SAFE_CHUNK;
+            const to = Math.min(from + POSTGREST_SAFE_CHUNK - 1, limit - 1);
+            return { from, to };
+          });
+
+          // Ambil sisa chunk secara paralel
+          const otherResults = await Promise.all(
+            ranges.map(({ from, to }) => getBaseQuery().range(from, to)),
+          );
+
+          for (const res of otherResults) {
+            if (res.error) break;
+            const batch = Array.isArray(res.data)
+              ? (res.data as unknown as Record<string, unknown>[])
+              : [];
+            allRawRows.push(...batch);
+            if (batch.length < POSTGREST_SAFE_CHUNK) break; // Sudah habis
+          }
+        }
+
+        data = allRawRows.slice(0, limit).map((row) => {
           const noRm = coalesceNoRm(row) || (row.no_rm as string) || null;
           const withApiFields = {
             ...row,
@@ -169,7 +217,7 @@ export async function GET(request: Request) {
         lastError = null;
         break;
       }
-      lastError = (chunkError as { message?: string } | null) ?? null;
+      lastError = (firstRes.error as { message?: string } | null) ?? null;
     }
 
     if (lastError) {
@@ -193,7 +241,16 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json({ ok: true, data: data ?? [] }, { status: 200 });
+    const finalData = data ?? [];
+
+    // Cache results for 15 seconds
+    tindakanListCache = {
+      data: finalData,
+      expires: Date.now() + 15 * 1000,
+      key: cacheKey
+    };
+
+    return NextResponse.json({ ok: true, data: finalData }, { status: 200 });
   } catch (err) {
     console.error("[api/tindakan]", err);
     return NextResponse.json(

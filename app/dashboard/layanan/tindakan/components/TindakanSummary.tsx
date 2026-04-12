@@ -3,6 +3,7 @@
 import {
   Activity,
   CalendarDays,
+  ClipboardList,
   Filter,
   Mars,
   Stethoscope,
@@ -105,6 +106,14 @@ function pickItemStyle(
         "border-rose-400/45 bg-rose-100/90 text-rose-800 dark:border-rose-700/50 dark:bg-black dark:text-rose-200/90",
     };
   }
+  if (key.includes("laporan") || key.includes("terpetakan")) {
+    return {
+      icon: ClipboardList,
+      tone: "from-emerald-50/95 to-white border-emerald-300/55 dark:from-black dark:to-black dark:border-emerald-800/40",
+      iconWrap:
+        "border-emerald-400/45 bg-emerald-100/90 text-emerald-800 dark:border-emerald-700/50 dark:bg-black dark:text-emerald-300/90",
+    };
+  }
   return {
     icon: Activity,
     tone:
@@ -125,7 +134,8 @@ function sortStatEntries(entries: [string, number][]): [string, number][] {
     if (k.includes("hari")) return 1;
     if (k.includes("tindakan")) return 2;
     if (k.includes("dokter")) return 3;
-    return 4;
+    if (k.includes("laporan") || k.includes("terpetakan")) return 4;
+    return 5;
   };
   return [...entries].sort(([a], [b]) => {
     const d = rank(a) - rank(b);

@@ -44,7 +44,7 @@ export default function LayoutHeader() {
             : "1px solid transparent",
       }}
     >
-      <Topbar />
+      <Topbar transparent />
       <TabBar />
     </div>
   );

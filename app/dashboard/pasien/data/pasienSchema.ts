@@ -82,14 +82,33 @@ export const mapFromSupabase = (p: any) => {
     dokter: p.dokter_nama ?? p.nama_dokter ?? p.dokter ?? "",
     pci_report_link: p.pci_report_link ?? "",
     diagnosa: p.diagnosa ?? "",
+    faktor_risiko: p.faktor_risiko ?? "",
     severity_level: p.severity_level ?? "",
     hasil_lab_ppm: p.hasil_lab_ppm ?? "",
+    temuan_pembuluh: p.temuan_pembuluh ?? "",
+    kesimpulan_laporan: p.kesimpulan_laporan ?? "",
+    plan_medis: p.plan_medis ?? "",
+    total_kontras: p.total_kontras ?? "",
+    air_kerma: p.air_kerma ?? null,
+    dap_dose: p.dap_dose ?? null,
     created_at: p.created_at ?? "",
     updated_at: p.updated_at ?? "",
   };
 };
 
-export const mapToSupabase = (p: PasienFormData & { pci_report_link?: string; diagnosa?: string; severity_level?: string; hasil_lab_ppm?: string }) => ({
+export const mapToSupabase = (p: PasienFormData & {
+  pci_report_link?: string;
+  diagnosa?: string;
+  faktor_risiko?: string;
+  severity_level?: string;
+  hasil_lab_ppm?: string;
+  temuan_pembuluh?: string;
+  kesimpulan_laporan?: string;
+  plan_medis?: string;
+  total_kontras?: string;
+  air_kerma?: number | string | null;
+  dap_dose?: number | string | null;
+}) => ({
   no_rm: p.noRM,
   nama: p.nama,
   jenis_kelamin: p.jenisKelamin,
@@ -101,6 +120,13 @@ export const mapToSupabase = (p: PasienFormData & { pci_report_link?: string; di
   asuransi: p.asuransi ?? "",
   pci_report_link: p.pci_report_link,
   diagnosa: p.diagnosa,
+  faktor_risiko: p.faktor_risiko,
   severity_level: p.severity_level,
   hasil_lab_ppm: p.hasil_lab_ppm,
+  temuan_pembuluh: p.temuan_pembuluh,
+  kesimpulan_laporan: p.kesimpulan_laporan,
+  plan_medis: p.plan_medis,
+  total_kontras: p.total_kontras,
+  air_kerma: p.air_kerma,
+  dap_dose: p.dap_dose,
 });

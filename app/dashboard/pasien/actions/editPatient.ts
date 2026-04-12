@@ -17,8 +17,15 @@ export type PasienPatchInput = Partial<
 > & {
   pci_report_link?: string | null;
   diagnosa?: string | null;
+  faktor_risiko?: string | null;
   severity_level?: string | null;
   hasil_lab_ppm?: string | null;
+  temuan_pembuluh?: string | null;
+  kesimpulan_laporan?: string | null;
+  plan_medis?: string | null;
+  total_kontras?: string | null;
+  air_kerma?: number | string | null;
+  dap_dose?: number | string | null;
 };
 
 export async function editPatient(
@@ -40,8 +47,15 @@ export async function editPatient(
     asuransi: data.asuransi ?? null,
     pci_report_link: data.pci_report_link ?? null,
     diagnosa: data.diagnosa ?? null,
+    faktor_risiko: data.faktor_risiko ?? null,
     severity_level: data.severity_level ?? null,
     hasil_lab_ppm: data.hasil_lab_ppm ?? null,
+    temuan_pembuluh: data.temuan_pembuluh ?? null,
+    kesimpulan_laporan: data.kesimpulan_laporan ?? null,
+    plan_medis: data.plan_medis ?? null,
+    total_kontras: data.total_kontras ?? null,
+    air_kerma: data.air_kerma ?? null,
+    dap_dose: data.dap_dose ?? null,
   };
 
   const { data: row, error } = await supabase
@@ -105,8 +119,15 @@ export async function patchPatientFields(
   const clinical = {
     pci_report_link: defined.pci_report_link !== undefined ? defined.pci_report_link : current.pci_report_link,
     diagnosa: defined.diagnosa !== undefined ? defined.diagnosa : current.diagnosa,
+    faktor_risiko: defined.faktor_risiko !== undefined ? defined.faktor_risiko : current.faktor_risiko,
     severity_level: defined.severity_level !== undefined ? defined.severity_level : current.severity_level,
     hasil_lab_ppm: defined.hasil_lab_ppm !== undefined ? defined.hasil_lab_ppm : current.hasil_lab_ppm,
+    temuan_pembuluh: defined.temuan_pembuluh !== undefined ? defined.temuan_pembuluh : current.temuan_pembuluh,
+    kesimpulan_laporan: defined.kesimpulan_laporan !== undefined ? defined.kesimpulan_laporan : current.kesimpulan_laporan,
+    plan_medis: defined.plan_medis !== undefined ? defined.plan_medis : current.plan_medis,
+    total_kontras: defined.total_kontras !== undefined ? defined.total_kontras : current.total_kontras,
+    air_kerma: defined.air_kerma !== undefined ? defined.air_kerma : current.air_kerma,
+    dap_dose: defined.dap_dose !== undefined ? defined.dap_dose : current.dap_dose,
   };
 
   const parsed = pasienSchema.safeParse(merged);

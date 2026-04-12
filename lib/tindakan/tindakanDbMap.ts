@@ -61,6 +61,8 @@ export function finalizeTindakanPatchForSupabase(
     "total",
     "krs",
     "consumable",
+    "air_kerma",
+    "dap_dose",
   ] as const) {
     if (sanitized[key] === undefined) continue;
     const v = sanitized[key];
@@ -92,9 +94,14 @@ export function finalizeTindakanPatchForSupabase(
     "waktu",
     "pasien_id",
     "diagnosa",
+    "faktor_risiko",
     "severity_level",
     "pci_report_link",
     "hasil_lab_ppm",
+    "temuan_pembuluh",
+    "kesimpulan_laporan",
+    "plan_medis",
+    "total_kontras",
     "is_fast_track",
     "pasien_datang_igd",
     "door_to_balloon",
@@ -118,6 +125,12 @@ export function finalizeTindakanPatchForSupabase(
   if (sanitized.rm !== undefined) {
     const v = sanitized.rm;
     db.no_rm = v === "" ? null : v;
+  }
+
+  /** Alias UI `tanggal_tindakan` -> kolom `tanggal` (skema Cathlab). */
+  if (sanitized.tanggal_tindakan !== undefined) {
+    const v = sanitized.tanggal_tindakan;
+    db.tanggal = v === "" ? null : v;
   }
 
   // Kolom NOT NULL di skema sederhana: jangan kirim null (biarkan nilai DB tetap).
@@ -153,9 +166,14 @@ export function mapTindakanRowToApiDetail(data: Record<string, unknown>) {
     sirkuler: toText(data.sirkuler),
     logger: toText(data.logger),
     diagnosa: toText(data.diagnosa),
+    faktor_risiko: toText(data.faktor_risiko),
     severity_level: toText(data.severity_level),
     pci_report_link: toText(data.pci_report_link),
     hasil_lab_ppm: toText(data.hasil_lab_ppm),
+    temuan_pembuluh: toText(data.temuan_pembuluh),
+    kesimpulan_laporan: toText(data.kesimpulan_laporan),
+    plan_medis: toText(data.plan_medis),
+    total_kontras: toText(data.total_kontras),
     is_fast_track: data.is_fast_track === true || data.is_fast_track === 1 || String(data.is_fast_track) === "true" || String(data.is_fast_track) === "1",
     pasien_datang_igd: toText(data.pasien_datang_igd),
     door_to_balloon: toText(data.door_to_balloon),
@@ -169,6 +187,8 @@ export function mapTindakanRowToApiDetail(data: Record<string, unknown>) {
     krs: toText(data.krs),
     selisih: toFiniteNumberOrNull(data.selisih),
     consumable: toFiniteNumberOrNull(data.consumable),
+    air_kerma: toFiniteNumberOrNull(data.air_kerma),
+    dap_dose: toFiniteNumberOrNull(data.dap_dose),
     pemakaian: toText(data.pemakaian),
   };
 }

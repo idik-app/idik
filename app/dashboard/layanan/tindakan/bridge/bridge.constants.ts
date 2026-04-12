@@ -16,6 +16,8 @@ export const TINDAKAN_KATEGORI = [
   "Diagnostic",
   "PPM",
   "EVT",
+  "EP",
+  "EVLA",
   "Emergency",
   "Control",
 ];

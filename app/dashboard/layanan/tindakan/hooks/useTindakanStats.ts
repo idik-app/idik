@@ -19,14 +19,16 @@ function tanggalKey(raw: unknown): string {
   return String(raw).slice(0, 10);
 }
 
+const EMPTY_KPI_STATS: Record<string, number> = {
+  "Pasien hari ini": 0,
+  "Total pasien": 0,
+  "Total tindakan": 0,
+  "Total dokter": 0,
+};
+
 /** Nilai awal KPI sebelum tabel mengirim snapshot terfilter. */
 export function emptyTindakanKpiStats(): Record<string, number> {
-  return {
-    "Pasien hari ini": 0,
-    "Total pasien": 0,
-    "Total tindakan": 0,
-    "Total dokter": 0,
-  };
+  return EMPTY_KPI_STATS;
 }
 
 /**

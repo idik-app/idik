@@ -25,8 +25,15 @@ export interface Pasien {
   /** Data klinis yang tersimpan per pasien (sinkron dengan tindakan) */
   pci_report_link?: string;
   diagnosa?: string;
+  faktor_risiko?: string;
   severity_level?: string;
   hasil_lab_ppm?: string;
+  temuan_pembuluh?: string;
+  kesimpulan_laporan?: string;
+  plan_medis?: string;
+  total_kontras?: string;
+  air_kerma?: number | string;
+  dap_dose?: number | string;
 
   created_at?: string;
   updated_at?: string;

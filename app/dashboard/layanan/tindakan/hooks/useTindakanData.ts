@@ -8,7 +8,7 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export function useTindakanData() {
   const { data, error, isLoading, isValidating, mutate } = useSWR(
-    "/api/tindakan?limit=1000",
+    "/api/tindakan?limit=10000",
     fetcher,
     {
       revalidateOnFocus: false,

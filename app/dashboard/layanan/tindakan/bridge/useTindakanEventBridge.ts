@@ -20,8 +20,8 @@ export function useTindakanEventBridge() {
   }
 
   const emitOpenDetail = useCallback(
-    (id: string) => {
-      bus.emit(TINDAKAN_OPEN_DETAIL, { id });
+    (id: string, tab?: string) => {
+      bus.emit(TINDAKAN_OPEN_DETAIL, { id, tab });
     },
     [bus]
   );

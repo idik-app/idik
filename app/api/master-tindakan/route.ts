@@ -66,9 +66,9 @@ export async function GET() {
     updated_at: r.updated_at ?? null,
   }));
 
-  // Update Cache
+  // Update Cache for 5 minutes
   masterTindakanCache = finalMaster;
-  masterTindakanCacheExpires = Date.now() + 60 * 1000;
+  masterTindakanCacheExpires = Date.now() + 5 * 60 * 1000;
 
   return NextResponse.json({
     ok: true,

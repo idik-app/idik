@@ -32,6 +32,7 @@ export function useTindakanBridgeAdapter() {
   // --------------------------------------------------------------------
   const bridge = useTindakanEventBridge();
   const [detailOpenId, setDetailOpenId] = useState<string | null>(null);
+  const [detailInitialTab, setDetailInitialTab] = useState<string | null>(null);
 
   // --------------------------------------------------------------------
   // DOMAIN HOOKS (selalu aman → default fallback)
@@ -58,8 +59,8 @@ export function useTindakanBridgeAdapter() {
   }, [tindakanList]);
 
   const openDetail = useCallback(
-    (rowId: string) => {
-      bridge.emitOpenDetail(rowId);
+    (rowId: string, initialTab?: string) => {
+      bridge.emitOpenDetail(rowId, initialTab);
     },
     [bridge],
   );
@@ -116,13 +117,23 @@ export function useTindakanBridgeAdapter() {
   }, [bridge, reload]);
 
   useEffect(() => {
-    const unsub = bridge.on(TINDAKAN_OPEN_DETAIL, (p: { id?: string }) => {
-      if (p?.id) setDetailOpenId(String(p.id));
+    const unsub = bridge.on(TINDAKAN_OPEN_DETAIL, (p: { id?: string; tab?: string }) => {
+      if (p?.id) {
+        setDetailOpenId(String(p.id));
+        if (p.tab) {
+          setDetailInitialTab(p.tab);
+        } else {
+          setDetailInitialTab(null);
+        }
+      }
     });
     return () => unsub();
   }, [bridge]);
 
-  const closeDetailDrawer = useCallback(() => setDetailOpenId(null), []);
+  const closeDetailDrawer = useCallback(() => {
+    setDetailOpenId(null);
+    setDetailInitialTab(null);
+  }, []);
 
   // --------------------------------------------------------------------
   // DETAIL PANEL STATE BUILDER
@@ -172,6 +183,7 @@ export function useTindakanBridgeAdapter() {
     getEditorState,
 
     detailOpenId,
+    detailInitialTab,
     closeDetailDrawer,
     selectedRecord,
   };

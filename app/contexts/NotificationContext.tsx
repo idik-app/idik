@@ -10,6 +10,7 @@ import React, {
 } from "react";
 import { runDeduped } from "@/lib/api/runDeduped";
 import dynamic from "next/dynamic";
+import { supabase } from "@/lib/supabaseClient";
 
 const NotificationPanel = dynamic(() => import("@/components/NotificationPanel"), {
   ssr: false,
@@ -90,6 +91,23 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [bellAlerts, setBellAlerts] = useState<BellAlert[]>([]);
 
+  const show = useCallback(
+    ({ type, message, duration = 3000 }: Omit<Notification, "id">) => {
+      const id = crypto.randomUUID();
+      setNotifications((prev) => [...prev, { id, type, message, duration }]);
+
+      // auto remove
+      setTimeout(() => {
+        setNotifications((prev) => prev.filter((n) => n.id !== id));
+      }, duration);
+    },
+    []
+  );
+
+  const clear = useCallback((id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+
   // Muat notifikasi dari DB saat mount
   useEffect(() => {
     let cancelled = false;
@@ -114,22 +132,38 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
-  const show = useCallback(
-    ({ type, message, duration = 3000 }: Omit<Notification, "id">) => {
-      const id = crypto.randomUUID();
-      setNotifications((prev) => [...prev, { id, type, message, duration }]);
+  // Real-time Supabase listening
+  useEffect(() => {
+    const channel = supabase
+      .channel("notif-global-channel")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications" },
+        (payload) => {
+          const newAlert: BellAlert = {
+            id: payload.new.id || crypto.randomUUID(),
+            message: payload.new.message || payload.new.title || "Notifikasi baru",
+            type: (payload.new.type as BellAlert["type"]) || "info",
+            createdAt: payload.new.createdAt || new Date().toISOString(),
+          };
+          setBellAlerts((prev) => {
+            const next = [newAlert, ...prev];
+            return next.slice(0, MAX_BELL_ALERTS);
+          });
+          // Tampilkan pop up juga
+          show({
+            type: newAlert.type || "info",
+            message: newAlert.message,
+            duration: 5000,
+          });
+        }
+      )
+      .subscribe();
 
-      // auto remove
-      setTimeout(() => {
-        setNotifications((prev) => prev.filter((n) => n.id !== id));
-      }, duration);
-    },
-    []
-  );
-
-  const clear = useCallback((id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  }, []);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [show]);
 
   const addBellAlert = useCallback(
     (message: string, type: NotificationType = "info") => {

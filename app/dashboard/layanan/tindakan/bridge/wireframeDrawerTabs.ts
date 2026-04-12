@@ -57,7 +57,14 @@ export const WIREFRAME_DRAWER_TABS: {
      * `tindakan`: combobox master (`MasterJenisTindakanField`), autofill nama kanonik, PATCH + refresh silent (tanpa toast sukses).
      * `kategori`: combobox master (`KategoriTindakanField`), kelola daftar (modal), PATCH + refresh silent.
      */
-    fields: ["tanggal_tindakan", "tindakan", "kategori"],
+    fields: [
+      "tanggal_tindakan",
+      "tindakan",
+      "kategori",
+      "temuan_pembuluh",
+      "kesimpulan_laporan",
+      "plan_medis",
+    ],
   },
   {
     id: "lokasi",
@@ -76,13 +83,27 @@ export const WIREFRAME_DRAWER_TABS: {
     id: "radiologi",
     label: "Radiologi",
     short: "Rad",
-    fields: ["fluoro_time", "dose", "dap_gy_cm2", "kv", "ma", "waktu"],
+    fields: [
+      "fluoro_time",
+      "air_kerma",
+      "dap_dose",
+      "total_kontras",
+      "kv",
+      "ma",
+      "waktu",
+    ],
   },
   {
     id: "klinis",
     label: "Klinis dan Laporan",
     short: "Klin",
-    fields: ["pci_report_link", "diagnosa", "severity_level", "hasil_lab_ppm"],
+    fields: [
+      "pci_report_link",
+      "diagnosa",
+      "faktor_risiko",
+      "severity_level",
+      "hasil_lab_ppm",
+    ],
   },
   {
     id: "biaya",
@@ -112,10 +133,10 @@ export const FIELD_LABELS: Record<string, string> = {
   tanggal: "Tanggal",
   waktu: "Waktu",
   fluoro_time: "Fluoro time",
-  dose: "Dose (mGy)",
+  air_kerma: "Air kerma (mGy)",
   kv: "kV",
   ma: "mA",
-  dap_gy_cm2: "DAP (Gy·cm²)",
+  dap_dose: "DAP (mGy·cm)",
   status_duplikat: "Status duplikat",
   no_rm: "No. RM",
   nama_pasien: "Nama pasien",
@@ -133,12 +154,17 @@ export const FIELD_LABELS: Record<string, string> = {
   ruangan: "Ruangan",
   cath: "Cathlab",
   dokter: "Dokter",
-  tindakan: "Tindakan",
+  tindakan: "Prosedur Utama (Detail)",
   tanggal_tindakan: "Tanggal tindakan",
-  kategori: "Kategori",
-  hasil_lab_ppm: "Hasil lab PPM",
-  diagnosa: "Diagnosa",
+  kategori: "Kelompok Kasus (Grup)",
+  temuan_pembuluh: "Detail Anatomi (LM, LAD, RCA, dll)",
+  kesimpulan_laporan: "Hasil Akhir (Temuan Medis)",
+  plan_medis: "Rencana Lanjutan (Plan)",
+  hasil_lab_ppm: "Hasil Lab PPM",
+  diagnosa: "Diagnosa Klinis (Awal)",
+  faktor_risiko: "Faktor Risiko",
   severity_level: "Severity",
+  total_kontras: "Kontras Total (ml)",
   pci_report_link: "Link Laporan (Google Docs)",
   asisten: "Asisten",
   sirkuler: "Sirkuler",
@@ -164,6 +190,8 @@ export const FIELD_LABELS: Record<string, string> = {
 /** Kunci field UI → nama kolom di baris API (bila berbeda). */
 const WIREFRAME_FIELD_SOURCE: Partial<Record<string, string>> = {
   tanggal_tindakan: "tanggal",
+  air_kerma: "dose",
+  dap_dose: "dap_gy_cm2",
 };
 
 export function getWireframeFieldValue(
@@ -288,10 +316,10 @@ export function formatFieldValue(key: string, value: unknown): string {
   }
 
   if (typeof value === "number" && Number.isFinite(value)) {
-    if (key === "dose") {
+    if (key === "air_kerma") {
       return value.toLocaleString("id-ID");
     }
-    if (key === "dap_gy_cm2") {
+    if (key === "dap_dose") {
       return value.toLocaleString("id-ID", { maximumFractionDigits: 6 });
     }
     return String(value);

@@ -2,7 +2,20 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Copy, X } from "lucide-react";
+import {
+  Activity,
+  ClipboardList,
+  Copy,
+  History,
+  type LucideIcon,
+  MapPin,
+  Stethoscope,
+  User,
+  Users,
+  Wallet,
+  X,
+  Zap,
+} from "lucide-react";
 
 import type { Pasien } from "@/app/dashboard/pasien/types/pasien";
 import { formatKelasPerawatanDisplay } from "@/app/dashboard/pasien/utils/formatKelasPerawatan";
@@ -35,12 +48,14 @@ import BiayaAutosaveField, {
 import FastTrackBlock from "./FastTrackBlock";
 import SignTimeFields from "./SignTimeFields";
 import { buildResumeWhatsAppText } from "../lib/buildResumeWhatsAppText";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import { usePasienDetail, useTindakanDetail } from "../hooks/useMasterData";
 
 type Props = {
   open: boolean;
+  initialTab?: WireframeTabId;
   record: TindakanJoinResult | null;
   /** Snapshot daftar tindakan (untuk tab Resume: riwayat pasien yang sama). */
   allTindakanRows?: TindakanJoinResult[];
@@ -90,6 +105,11 @@ const KLINIS_AUTOSAVE_FIELDS: KlinisFieldKey[] = [
   "severity_level",
   "hasil_lab_ppm",
   "pci_report_link",
+  "kesimpulan_laporan",
+  "plan_medis",
+  "temuan_pembuluh",
+  "faktor_risiko",
+  "total_kontras",
 ];
 
 const BIAYA_AUTOSAVE_KEYS = new Set([
@@ -220,10 +240,51 @@ function mergePasienMasterIntoRow(
     : row.kelas_pembiayaan;
 
   /** Field klinis — "Tersimpan otomatis per pasien": jika baris tindakan kosong, ambil dari master pasien. */
-  const pci_report_link = isBlank(row.pci_report_link) ? pasien.pci_report_link || null : row.pci_report_link;
-  const diagnosa = isBlank(row.diagnosa) ? pasien.diagnosa || null : row.diagnosa;
-  const severity_level = isBlank(row.severity_level) ? pasien.severity_level || null : row.severity_level;
-  const hasil_lab_ppm = isBlank(row.hasil_lab_ppm) ? pasien.hasil_lab_ppm || null : row.hasil_lab_ppm;
+  const pci_report_link = isBlank(row.pci_report_link)
+    ? pasien.pci_report_link || null
+    : row.pci_report_link;
+  const diagnosa = isBlank(row.diagnosa)
+    ? pasien.diagnosa || null
+    : row.diagnosa;
+  const faktor_risiko = isBlank(row.faktor_risiko)
+    ? pasien.faktor_risiko || null
+    : row.faktor_risiko;
+  const severity_level = isBlank(row.severity_level)
+    ? pasien.severity_level || null
+    : row.severity_level;
+  const hasil_lab_ppm = isBlank(row.hasil_lab_ppm)
+    ? pasien.hasil_lab_ppm || null
+    : row.hasil_lab_ppm;
+
+  // Temuan pembuluh (coronary anatomy) hanya di-copy otomatis jika tindakan berkaitan dengan jantung koroner.
+  // Untuk tindakan perifer/vein seperti EVLA, kita biarkan kosong jika baris tindakan memang kosong.
+  const tStr = String(row.tindakan ?? "").toLowerCase();
+  const kStr = String(row.kategori ?? "");
+  const isCoronaryMaybe =
+    tStr.includes("pci") ||
+    tStr.includes("cag") ||
+    tStr.includes("dca") ||
+    tStr.includes("ptca") ||
+    tStr.includes("stent") ||
+    ["PCI", "Diagnostic"].includes(kStr);
+  const isPeriferOrVein =
+    tStr.includes("evla") || tStr.includes("varises") || kStr === "EVLA";
+
+  const temuan_pembuluh = isBlank(row.temuan_pembuluh)
+    ? isCoronaryMaybe && !isPeriferOrVein
+      ? pasien.temuan_pembuluh || null
+      : null
+    : row.temuan_pembuluh;
+
+  const kesimpulan_laporan = isBlank(row.kesimpulan_laporan)
+    ? pasien.kesimpulan_laporan || null
+    : row.kesimpulan_laporan;
+  const plan_medis = isBlank(row.plan_medis)
+    ? pasien.plan_medis || null
+    : row.plan_medis;
+  const total_kontras = isBlank(row.total_kontras)
+    ? pasien.total_kontras || null
+    : row.total_kontras;
 
   return {
     ...row,
@@ -237,14 +298,32 @@ function mergePasienMasterIntoRow(
     kelas_pembiayaan,
     pci_report_link,
     diagnosa,
+    faktor_risiko,
     severity_level,
     hasil_lab_ppm,
+    temuan_pembuluh,
+    kesimpulan_laporan,
+    plan_medis,
+    total_kontras,
   };
 }
+
+const TAB_ICONS: Record<WireframeTabId, LucideIcon> = {
+  pasien: User,
+  fast_track: Zap,
+  tindakan: Stethoscope,
+  lokasi: MapPin,
+  tim: Users,
+  radiologi: Activity,
+  klinis: ClipboardList,
+  biaya: Wallet,
+  history: History,
+};
 
 interface TabButtonProps {
   t: (typeof WIREFRAME_DRAWER_TABS)[number];
   isActive: boolean;
+  hasData?: boolean;
   onClick: () => void;
   mousePos: { x: number; y: number };
   isDragging: boolean;
@@ -253,12 +332,14 @@ interface TabButtonProps {
 function TabButton({
   t,
   isActive,
+  hasData,
   onClick,
   mousePos,
   isDragging,
 }: TabButtonProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [scale, setScale] = useState(1);
+  const Icon = TAB_ICONS[t.id as WireframeTabId];
 
   // Proximity Zoom Logic
   useEffect(() => {
@@ -292,19 +373,39 @@ function TabButton({
       onClick={onClick}
       style={{ transform: `scale(${scale})` }}
       className={cn(
-        "shrink-0 rounded-md px-3 py-1.5 text-left text-[11px] font-black uppercase tracking-wider transition-all duration-300 ease-out sm:text-xs focus-visible:outline-none",
+        "group relative shrink-0 rounded-md px-3 py-1.5 text-left text-[11px] font-black uppercase tracking-wider transition-all duration-300 ease-out sm:text-xs focus-visible:outline-none",
         isActive
           ? "border border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)]"
           : "border border-transparent text-gray-500 hover:text-cyan-300 hover:border-cyan-500/30",
       )}
     >
-      {t.label}
+      <div className="flex items-center gap-2">
+        {Icon && (
+          <Icon
+            size={14}
+            className={cn(
+              "shrink-0 transition-colors duration-300",
+              isActive
+                ? "text-cyan-400"
+                : "text-gray-500 group-hover:text-cyan-300",
+            )}
+          />
+        )}
+        <span>{t.label}</span>
+        {hasData && !isActive && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-1.5 w-1.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75"></span>
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-500"></span>
+          </span>
+        )}
+      </div>
     </button>
   );
 }
 
 export default function TindakanDetailDrawer({
   open,
+  initialTab,
   record,
   allTindakanRows = [],
   onClose,
@@ -312,6 +413,14 @@ export default function TindakanDetailDrawer({
 }: Props) {
   const [tab, setTab] = useState<WireframeTabId>("pasien");
   const lastIdRef = useRef<string | null>(null);
+
+  // Sync tab with initialTab when drawer opens or initialTab changes
+  useEffect(() => {
+    if (open && initialTab) {
+      setTab(initialTab);
+    }
+  }, [open, initialTab]);
+
   const tabRowMeasureRef = useRef<HTMLDivElement>(null);
   const tabScrollRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -346,12 +455,25 @@ export default function TindakanDetailDrawer({
   const { pasien: pasienMaster } = usePasienDetail(
     open ? record?.pasien_id : null,
     open ? record?.no_rm : null,
-    open ? record?.nama_pasien : null
+    open ? record?.nama_pasien : null,
   );
 
-  const { tindakan: tindakanDetail } = useTindakanDetail(
-    open && !isTarifPresent(record?.tarif_tindakan) ? record?.id : null
-  );
+  const { tindakan: tindakanDetail, mutate: mutateTindakan } =
+    useTindakanDetail(open ? record?.id : null);
+
+  // Jika record di-sync (mis. pci_report_link masuk dari drive), UI harus refresh
+  useEffect(() => {
+    if (!open || !record?.id) return;
+
+    // Polling kecil jika record sedang ditunggu (Background Sync HUD aktif)
+    // Ini memastikan jika user sedang buka drawer, link yang baru masuk
+    // akan muncul tanpa harus buka-tutup drawer.
+    const interval = setInterval(() => {
+      void mutateTindakan();
+    }, 10000); // 10 detik polling saat drawer terbuka
+
+    return () => clearInterval(interval);
+  }, [open, record?.id]);
 
   const detailTarifFromApi = useMemo(() => {
     if (!tindakanDetail) return null;
@@ -373,23 +495,41 @@ export default function TindakanDetailDrawer({
       return;
     }
     const currentId = record?.id ? String(record.id) : null;
-    // Reset tab only if we have a valid ID and it's DIFFERENT from before (switching cases)
-    // or if the drawer was just opened (lastIdRef was null).
+    // Persist active tab when switching records:
+    // If we're opening a new record but the drawer was already open (switching),
+    // we DON'T reset to "pasien". We stay on whatever tab the user was on.
+    // If the drawer was CLOSED (lastIdRef was null) and we're just opening it,
+    // only then do we reset to "pasien" (or respect initialTab).
     if (currentId && currentId !== lastIdRef.current) {
-      setTab("pasien");
-    }
-    if (currentId) {
+      if (!lastIdRef.current && !initialTab) {
+        setTab("pasien");
+      }
       lastIdRef.current = currentId;
     }
-  }, [open, record?.id]);
+  }, [open, record?.id, initialTab]);
 
   const displayRecord = useMemo(() => {
     if (!record) return null;
-    const merged = mergePasienMasterIntoRow(record, pasienMaster);
+
+    // Gabungkan data dari record (snapshot table), pasienMaster (SWR),
+    // dan tindakanDetail (SWR - data paling baru dari DB).
+    // Ini krusial agar saat Background Sync di drive masuk,
+    // link pci_report_link langsung muncul tanpa user harus tutup-buka drawer.
+    const baseRow = {
+      ...record,
+      ...(tindakanDetail || {}), // Prioritaskan data terbaru dari DB (SWR)
+    };
+
+    const merged = mergePasienMasterIntoRow(
+      baseRow as TindakanJoinResult,
+      pasienMaster,
+    );
+
+    // Fallback khusus tarif jika belum ada di DB
     if (isTarifPresent(merged.tarif_tindakan) || detailTarifFromApi == null)
       return merged;
     return { ...merged, tarif_tindakan: detailTarifFromApi };
-  }, [record, pasienMaster, detailTarifFromApi]);
+  }, [record, pasienMaster, tindakanDetail, detailTarifFromApi]);
 
   const riwayatPasienRows = useMemo(() => {
     if (!displayRecord) return [];
@@ -407,6 +547,25 @@ export default function TindakanDetailDrawer({
   useEffect(() => {
     setWaCopied(false);
   }, [tab, displayRecord?.id]);
+
+  // Jembatan Navigasi Otomatis (Auto-Jump Tab)
+  // Jika sedang di tab awal (Pasien) dan link laporan terdeteksi masuk (via Sync Drive),
+  // otomatis arahkan navigasi ke tab Klinis agar user langsung melihat hasilnya.
+  useEffect(() => {
+    if (!open || !displayRecord?.pci_report_link || tab !== "pasien") return;
+
+    // Hanya auto-jump jika link tersebut baru saja muncul (via SWR/Sync)
+    // dan user sedang tidak aktif mengedit field lain di tab Pasien.
+    const timer = setTimeout(() => {
+      setTab("klinis");
+      toast.info("Laporan ditemukan!", {
+        description: "Navigasi otomatis dialihkan ke tab Klinis.",
+        duration: 3000,
+      });
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [open, displayRecord?.pci_report_link]);
 
   useLayoutEffect(() => {
     if (!open) {
@@ -522,9 +681,9 @@ export default function TindakanDetailDrawer({
           >
             <div
               className={cn(
-              "shrink-0 border-b px-3 py-2 sm:px-3.5",
-              "border-cyan-500/20 bg-black/40",
-            )}
+                "shrink-0 border-b px-3 py-2 sm:px-3.5",
+                "border-cyan-500/20 bg-black/40",
+              )}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
@@ -566,16 +725,34 @@ export default function TindakanDetailDrawer({
                     role="tablist"
                     aria-label="Bagian detail tindakan"
                   >
-                    {WIREFRAME_DRAWER_TABS.map((t) => (
-                      <TabButton
-                        key={t.id}
-                        t={t}
-                        isActive={tab === t.id}
-                        onClick={() => !isDragging && setTab(t.id)}
-                        mousePos={mousePos}
-                        isDragging={isDragging}
-                      />
-                    ))}
+                    {WIREFRAME_DRAWER_TABS.map((t) => {
+                      // Cek apakah tab memiliki data untuk indikator dot navigasi
+                      const hasData =
+                        t.fields.some((f) => {
+                          const val = getWireframeFieldValue(
+                            displayRecord as unknown as Record<string, unknown>,
+                            f,
+                          );
+                          return !isBlank(val);
+                        }) ||
+                        (t.id === "fast_track" &&
+                          getWireframeFieldValue(
+                            displayRecord as unknown as Record<string, unknown>,
+                            "is_fast_track",
+                          ));
+
+                      return (
+                        <TabButton
+                          key={t.id}
+                          t={t}
+                          isActive={tab === t.id}
+                          hasData={hasData}
+                          onClick={() => !isDragging && setTab(t.id)}
+                          mousePos={mousePos}
+                          isDragging={isDragging}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -603,9 +780,70 @@ export default function TindakanDetailDrawer({
                         </h3>
                         <p className="mt-1 text-xs font-medium text-white/80">
                           Ringkasan semua bagian ada di versi teks WhatsApp di
-                          bawah. Lanjut: metadata sistem dan riwayat tindakan pasien
-                          yang sama.
+                          bawah. Lanjut: metadata sistem dan riwayat tindakan
+                          pasien yang sama.
                         </p>
+                      </div>
+
+                      {/* Ringkasan Klinis Sesi Ini */}
+                      <div
+                        className={cn(
+                          "rounded-xl border p-4 transition-all duration-300",
+                          "border-cyan-500/20 bg-cyan-500/5 hover:border-cyan-500/40",
+                        )}
+                      >
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-cyan-400">
+                          Hasil Klinis Sesi Ini
+                        </h3>
+                        <div className="mt-3 space-y-3">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <dt className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+                                Diagnosa Awal & Severity
+                              </dt>
+                              <dd className="mt-1 flex items-center gap-2">
+                                <span className="text-xs font-bold text-white">
+                                  {displayRecord.diagnosa || "—"}
+                                </span>
+                                {displayRecord.severity_level && (
+                                  <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-[10px] font-black text-red-400">
+                                    Lvl {displayRecord.severity_level}
+                                  </span>
+                                )}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+                                Kelompok Kasus (Grup)
+                              </dt>
+                              <dd className="mt-1">
+                                <span className="rounded bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-black text-cyan-400">
+                                  {displayRecord.kategori || "—"}
+                                </span>
+                              </dd>
+                            </div>
+                          </div>
+                          {displayRecord.kesimpulan_laporan && (
+                            <div>
+                              <dt className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+                                Hasil Akhir (Temuan Medis)
+                              </dt>
+                              <dd className="mt-1 border-l-2 border-cyan-500/30 pl-3 text-xs font-medium italic leading-relaxed text-white/90">
+                                {displayRecord.kesimpulan_laporan}
+                              </dd>
+                            </div>
+                          )}
+                          {displayRecord.plan_medis && (
+                            <div>
+                              <dt className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+                                Rencana Lanjutan (Plan)
+                              </dt>
+                              <dd className="mt-1 text-xs font-medium leading-relaxed text-emerald-400/90">
+                                {displayRecord.plan_medis}
+                              </dd>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <div
@@ -627,7 +865,10 @@ export default function TindakanDetailDrawer({
                                   resumeWhatsAppText,
                                 );
                                 setWaCopied(true);
-                                window.setTimeout(() => setWaCopied(false), 2500);
+                                window.setTimeout(
+                                  () => setWaCopied(false),
+                                  2500,
+                                );
                               } catch {
                                 setWaCopied(false);
                               }
@@ -651,7 +892,9 @@ export default function TindakanDetailDrawer({
                           </p>
                         ) : null}
                         <label className="mt-3 block">
-                          <span className="sr-only">Pratinjau teks WhatsApp</span>
+                          <span className="sr-only">
+                            Pratinjau teks WhatsApp
+                          </span>
                           <textarea
                             readOnly
                             value={resumeWhatsAppText}
@@ -727,14 +970,16 @@ export default function TindakanDetailDrawer({
                         </div>
                         {riwayatPasienRows.length === 0 ? (
                           <p className="rounded-lg border border-dashed border-cyan-500/20 bg-black/20 px-4 py-4 text-xs font-medium text-white/60">
-                            Tidak ada baris lain yang cocok dengan RM / ID pasien
-                            ini dalam snapshot data saat ini.
+                            Tidak ada baris lain yang cocok dengan RM / ID
+                            pasien ini dalam snapshot data saat ini.
                           </p>
                         ) : (
                           <ul className="space-y-2">
                             {riwayatPasienRows.map((r, idx) => {
                               const rid = String(r.id ?? "").trim();
-                              const curId = String(displayRecord.id ?? "").trim();
+                              const curId = String(
+                                displayRecord.id ?? "",
+                              ).trim();
                               const isCurrent =
                                 rid !== "" && curId !== "" && rid === curId;
                               return (
@@ -752,7 +997,10 @@ export default function TindakanDetailDrawer({
                                       {formatFieldValue(
                                         "tanggal_tindakan",
                                         getWireframeFieldValue(
-                                          r as unknown as Record<string, unknown>,
+                                          r as unknown as Record<
+                                            string,
+                                            unknown
+                                          >,
                                           "tanggal_tindakan",
                                         ),
                                       )}
@@ -765,7 +1013,17 @@ export default function TindakanDetailDrawer({
                                   </div>
                                   <p className="mt-1.5 font-bold text-white">
                                     {r.tindakan?.trim() || "—"}
+                                    {r.kategori && (
+                                      <span className="ml-2 rounded bg-cyan-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-cyan-400">
+                                        {r.kategori}
+                                      </span>
+                                    )}
                                   </p>
+                                  {r.kesimpulan_laporan && (
+                                    <p className="mt-1 text-[11px] italic text-white/60 line-clamp-1">
+                                      {r.kesimpulan_laporan}
+                                    </p>
+                                  )}
                                   <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-medium text-white/70">
                                     <span>
                                       <span className="font-black uppercase tracking-tighter text-gray-500 mr-1">
@@ -932,7 +1190,14 @@ export default function TindakanDetailDrawer({
                           </div>
                         ) : (
                           <>
-                            <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                            <dl
+                              className={cn(
+                                "grid grid-cols-1 gap-3",
+                                def.id === "radiologi"
+                                  ? "sm:grid-cols-4"
+                                  : "sm:grid-cols-3",
+                              )}
+                            >
                               {def.fields.map((key) => {
                                 const rawVal = getWireframeFieldValue(
                                   displayRecord as unknown as Record<
@@ -943,6 +1208,9 @@ export default function TindakanDetailDrawer({
                                 );
                                 const tindakanId = String(
                                   displayRecord.id ?? "",
+                                ).trim();
+                                const pasienId = String(
+                                  displayRecord.pasien_id ?? "",
                                 ).trim();
                                 const isJenisTindakanEditable =
                                   def.id === "tindakan" &&
@@ -972,6 +1240,18 @@ export default function TindakanDetailDrawer({
                                     key as RadiologiFieldKey,
                                   ) &&
                                   Boolean(tindakanId);
+                                const isGenericKlinisEditable =
+                                  KLINIS_AUTOSAVE_FIELDS.includes(
+                                    key as KlinisFieldKey,
+                                  ) && Boolean(tindakanId);
+
+                                const isCompactField = [
+                                  "kv",
+                                  "ma",
+                                  "total_kontras",
+                                  "air_kerma",
+                                  "dap_dose",
+                                ].includes(key);
 
                                 const canPatchTindakan = Boolean(tindakanId);
                                 const isBiayaAutosaveField =
@@ -991,6 +1271,10 @@ export default function TindakanDetailDrawer({
                                       "border-cyan-500/10 bg-black/20 hover:border-cyan-500/30 hover:shadow-[0_0_10px_rgba(34,211,238,0.05)]",
                                       key === "no_rm" &&
                                         "border-yellow-500/20 bg-yellow-500/5",
+                                      isCompactField && "sm:col-span-1",
+                                      (key === "air_kerma" ||
+                                        key === "dap_dose") &&
+                                        "border-amber-500/20 bg-amber-500/5",
                                     )}
                                   >
                                     <dt className="text-[9px] font-black uppercase tracking-widest text-gray-600">
@@ -1008,6 +1292,14 @@ export default function TindakanDetailDrawer({
                                         <RadiologiAutosaveField
                                           tindakanId={tindakanId}
                                           field={key as RadiologiFieldKey}
+                                          value={rawVal}
+                                          onSaved={onRecordPatch}
+                                        />
+                                      ) : isGenericKlinisEditable ? (
+                                        <KlinisAutosaveField
+                                          tindakanId={tindakanId}
+                                          pasienId={pasienId}
+                                          field={key as KlinisFieldKey}
                                           value={rawVal}
                                           onSaved={onRecordPatch}
                                         />

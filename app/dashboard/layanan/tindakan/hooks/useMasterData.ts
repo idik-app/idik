@@ -2,6 +2,8 @@ import useSWR from 'swr';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
+const EMPTY_ARRAY: any[] = [];
+
 export function useMasterRuangan() {
   const { data, error, isLoading, mutate } = useSWR('/api/ruangan', fetcher, {
     revalidateOnFocus: false,
@@ -9,7 +11,7 @@ export function useMasterRuangan() {
   });
 
   return {
-    ruangan: data?.ruangan || [],
+    ruangan: data?.ruangan || EMPTY_ARRAY,
     isLoading,
     isError: error,
     mutate,
@@ -23,7 +25,7 @@ export function useMasterVariants() {
   });
 
   return {
-    items: data?.items || [],
+    items: data?.items || EMPTY_ARRAY,
     isLoading,
     isError: error,
     mutate,
@@ -37,7 +39,7 @@ export function useMasterDoctors() {
   });
 
   return {
-    doctors: data?.doctors || [],
+    doctors: data?.doctors || EMPTY_ARRAY,
     isLoading,
     isError: error,
     mutate,
@@ -51,7 +53,7 @@ export function useMasterTindakan() {
   });
 
   return {
-    masterTindakan: data?.masterTindakan || [],
+    masterTindakan: data?.masterTindakan || EMPTY_ARRAY,
     isLoading,
     isError: error,
     mutate,
@@ -65,7 +67,7 @@ export function useMasterPerawat() {
   });
 
   return {
-    perawat: data?.perawat || [],
+    perawat: data?.perawat || EMPTY_ARRAY,
     isLoading,
     isError: error,
     mutate,
@@ -79,7 +81,7 @@ export function useMasterTindakanKategori() {
   });
 
   return {
-    kategori: data?.kategori || [],
+    kategori: data?.kategori || EMPTY_ARRAY,
     isLoading,
     isError: error,
     mutate,
@@ -93,7 +95,7 @@ export function useMasterPasien() {
   });
 
   return {
-    pasien: data?.data || [],
+    pasien: data?.data || EMPTY_ARRAY,
     isLoading,
     isError: error,
     mutate,
@@ -145,7 +147,7 @@ export function usePemakaianOrders(tindakanId?: string | null) {
   });
 
   return {
-    orders: data?.orders || [],
+    orders: data?.orders || EMPTY_ARRAY,
     isLoading,
     isError: error,
     mutate,

@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { motion, useAnimationControls } from "framer-motion";
 import { useUI } from "@/contexts/UIContext";
 import { useSession } from "@/contexts/SessionContext";
-import { LogOut, Loader2, Sun, Moon, Settings } from "lucide-react";
+import { LogOut, Loader2, Sun, Moon, Settings, RefreshCw } from "lucide-react";
 import HoloSettingsPanel from "@/components/HoloSettingsPanel";
 import UiZoomControl from "@/components/UiZoomControl";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import { useTheme } from "@/contexts/ThemeContext";
 import { ToolbarNotificationBell } from "@/app/dashboard/pasien/components/toolbar/ToolbarNotificationBell";
+import { useNotificationBell } from "@/app/contexts/NotificationContext";
+import { useJarvisVoice } from "@/app/hooks/useJarvisVoice";
 
 const LOGOUT_REDIRECT_PATH = "/";
 const JARVIS_LOGOUT_KEY = "jarvis_logout";
@@ -30,7 +32,15 @@ const THEME_STYLES = {
   },
 } as const;
 
-export default function Topbar() {
+export default function Topbar({
+  title,
+  extra,
+  transparent = false,
+}: {
+  title?: string | React.ReactNode;
+  extra?: React.ReactNode;
+  transparent?: boolean;
+}) {
   const {
     toggleSidebar,
     setCollapsed,
@@ -41,6 +51,8 @@ export default function Topbar() {
   } = useUI();
   const { theme, toggleTheme } = useTheme();
   const { username, resetSession } = useSession();
+  const { bellAlerts } = useNotificationBell();
+  const { speak } = useJarvisVoice();
   const lightMode = theme === "light";
 
   const [mounted, setMounted] = useState(false);
@@ -50,9 +62,57 @@ export default function Topbar() {
   const [isOnline, setIsOnline] = useState(true);
   const [sweepTrigger, setSweepTrigger] = useState(0);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  /* 🧭 Safe mount */
-  useEffect(() => setMounted(true), []);
+  /* 🔄 Sync Events Listener & Voice */
+  useEffect(() => {
+    if (!mounted) return;
+    const onStart = () => {
+      setIsSyncing(true);
+      speak("Starting data synchronization. All systems operational.");
+    };
+    const onEnd = () => {
+      setIsSyncing(false);
+      speak("Synchronization complete. Records are up to date.");
+    };
+    window.addEventListener("extraction:start", onStart);
+    window.addEventListener("extraction:end", onEnd);
+    return () => {
+      window.removeEventListener("extraction:start", onStart);
+      window.removeEventListener("extraction:end", onEnd);
+    };
+  }, [mounted, speak]);
+
+  const hasNotifications = bellAlerts.length > 0;
+  const prevNotifCountRef = useRef(bellAlerts.length);
+
+  /* 🔔 Notification Voice Feedback */
+  useEffect(() => {
+    if (!mounted || bellAlerts.length <= 0) {
+      prevNotifCountRef.current = bellAlerts.length;
+      return;
+    }
+    // Hanya bicara jika jumlah notifikasi bertambah
+    if (bellAlerts.length > prevNotifCountRef.current) {
+      speak("New alerts detected, Sir.");
+    }
+    prevNotifCountRef.current = bellAlerts.length;
+  }, [bellAlerts.length, mounted, speak]);
+
+  /* 🧭 Safe mount + Welcome Voice */
+  useEffect(() => {
+    setMounted(true);
+    // Welcome message setelah sedikit delay agar suara sistem browser siap
+    const timer = setTimeout(() => {
+      if (username) {
+        speak(`All diagnostics online. Welcome back, Sir.`);
+      } else {
+        speak("All diagnostics online. System is ready.");
+      }
+    }, 1500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speak]); // Jangan masukkan username agar tidak bicara tiap kali username berubah/load
 
   const sweepControls = useAnimationControls();
 
@@ -180,7 +240,9 @@ export default function Topbar() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className={`relative ${UI_LAYERS.topbar} flex items-center justify-between gap-2 min-w-0
           px-2 py-1 sm:px-3 sm:py-1.5 md:px-4 md:py-2
-          border-b ${lightMode ? "border-cyan-600/25" : "border-cyan-500/30"} bg-gradient-to-r ${gradientClass}
+          border-b ${lightMode ? "border-cyan-600/25" : "border-cyan-500/30"} ${
+            transparent ? "bg-transparent" : `bg-gradient-to-r ${gradientClass}`
+          }
           backdrop-blur-2xl ${lightMode ? "text-slate-800" : "text-gray-200"}
           transition-all duration-500 ease-in-out select-none overflow-hidden md:overflow-visible`}
       >
@@ -193,37 +255,177 @@ export default function Topbar() {
         />
 
         {/* Toggle sidebar: ikon Menu (hamburger) di mobile, JARVIS di desktop */}
-          <motion.button
-            type="button"
-            whileHover={{ scale: 1.06 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleJarvisToggle}
-            className={`p-1.5 relative rounded-lg border transition flex-shrink-0 ${
-              lightMode
-                ? "border-cyan-600/30 bg-white/50 hover:bg-cyan-100/60"
-                : "border-cyan-500/30 bg-black/10 hover:bg-cyan-500/10"
-            }`}
-            title="Buka/tutup sidebar (JARVIS)"
-            aria-label="Buka atau tutup sidebar"
-          >
-            <motion.svg
-              viewBox="0 0 512 512"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-7 h-7 md:w-8 md:h-8"
+        <motion.button
+          type="button"
+          whileHover={{ 
+            scale: 1.08,
+            boxShadow: hasNotifications 
+              ? "0 0 20px rgba(245, 158, 11, 0.4)" 
+              : lightMode 
+                ? "0 0 15px rgba(8, 145, 178, 0.3)" 
+                : "0 0 20px rgba(34, 211, 238, 0.4)"
+          }}
+          whileTap={{ scale: 0.94 }}
+          onClick={handleJarvisToggle}
+          className={`p-1.5 relative rounded-xl border transition-all duration-300 flex-shrink-0 group overflow-hidden ${
+            hasNotifications
+              ? "border-amber-500/50 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+              : lightMode
+                ? "border-cyan-600/30 bg-white/40 hover:bg-cyan-50/80 hover:border-cyan-500/50 shadow-sm"
+                : "border-cyan-500/40 bg-slate-900/40 hover:bg-cyan-950/40 hover:border-cyan-400/60 shadow-[0_0_10px_rgba(0,0,0,0.3)]"
+          }`}
+          title={isSyncing ? "Sedang sinkronisasi..." : "Buka/tutup sidebar (JARVIS)"}
+          aria-label="Buka atau tutup sidebar"
+        >
+          {/* Animated Background Glow */}
+          <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-tr ${
+            hasNotifications
+              ? "from-amber-500/20 to-rose-500/10"
+              : lightMode ? "from-cyan-100/40 to-amber-50/40" : "from-cyan-500/10 to-amber-400/5"
+          }`} />
+
+          {/* Sync Spinner Overlay */}
+          {isSyncing && (
+            <motion.div 
+              className="absolute inset-0 flex items-center justify-center z-30 bg-black/20 backdrop-blur-[1px]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
             >
-            <path
-              d="M256 20C150 20 60 110 60 216c0 84 48 156 120 190v60h152v-60c72-34 120-106 120-190 0-106-90-196-196-196zM180 216h-40v-56h40v56zm192 0h-40v-56h40v56z"
-              fill="#00ffff"
-              stroke="#f4b400"
-              strokeWidth="4"
+              <RefreshCw className="w-5 h-5 text-cyan-400 animate-spin" />
+            </motion.div>
+          )}
+
+          <motion.svg
+            viewBox="0 0 100 100"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className={`w-7 h-7 md:w-8 md:h-8 relative z-10 transition-all duration-500 ${
+              isSyncing ? "opacity-20 scale-90 blur-[1px]" : "opacity-100"
+            }`}
+          >
+            <defs>
+              <linearGradient id="jarvisGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor={hasNotifications ? "#f59e0b" : (lightMode ? "#0891b2" : "#22d3ee")} />
+                <stop offset="100%" stopColor={hasNotifications ? "#d97706" : (lightMode ? "#0e7490" : "#0891b2")} />
+              </linearGradient>
+              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="2" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+            
+            {/* Outer Ring */}
+            <circle 
+              cx="50" cy="50" r="48" 
+              stroke={hasNotifications ? "#f59e0b" : (lightMode ? "#0891b2" : "#22d3ee")} 
+              strokeWidth="1" 
+              strokeDasharray="4 4"
+              className={`opacity-20 ${isSyncing ? "animate-[spin_2s_linear_infinite]" : "group-hover:animate-[spin_20s_linear_infinite]"}`}
             />
+            
+            {/* Iron Man / JARVIS Mask */}
+            <g 
+              className={`transition-transform duration-500 ${!isSyncing && "group-hover:scale-105"}`} 
+              style={{ transformOrigin: 'center' }}
+            >
+              {/* Main Face Plate */}
+              <motion.path
+                d="M50 10 
+                   C35 10, 22 18, 20 35 
+                   L18 55 
+                   C18 75, 30 85, 35 88 
+                   L50 95 
+                   L65 88 
+                   C70 85, 82 75, 82 55 
+                   L80 35 
+                   C78 18, 65 10, 50 10 Z"
+                fill="url(#jarvisGradient)"
+                fillOpacity={lightMode ? "0.1" : "0.15"}
+                stroke="url(#jarvisGradient)"
+                strokeWidth="2.5"
+                strokeLinejoin="round"
+                filter={lightMode ? "" : "url(#glow)"}
+                animate={hasNotifications ? {
+                  strokeWidth: [2.5, 4, 2.5],
+                  filter: ["blur(0px)", "blur(2px)", "blur(0px)"]
+                } : {}}
+                transition={{ repeat: Infinity, duration: 2 }}
+                className="group-hover:stroke-amber-400 transition-colors duration-500"
+              />
+              
+              {/* Internal Mechanical Lines */}
+              <path 
+                d="M30 40 L35 45 M65 45 L70 40 M40 80 L50 85 L60 80" 
+                stroke="currentColor" 
+                strokeWidth="1" 
+                className={hasNotifications ? "text-amber-500/40" : (lightMode ? "text-cyan-600/40" : "text-cyan-400/40")}
+              />
+
+              {/* Eye Slits (Glowing) */}
+              <motion.path
+                d="M32 48 L44 52 L44 55 L32 52 Z M56 52 L68 48 L68 52 L56 55 Z"
+                fill={hasNotifications ? "#f59e0b" : (lightMode ? "#0891b2" : "#22d3ee")}
+                animate={{
+                  // Neural Heartbeat (Systole & Diastole pulse)
+                  opacity: hasNotifications ? [0.6, 1, 0.6] : [0.4, 1, 0.7, 1, 0.4],
+                  scale: hasNotifications ? [1, 1.1, 1] : [1, 1.05, 1, 1.03, 1],
+                }}
+                transition={{ 
+                  repeat: Infinity, 
+                  duration: hasNotifications ? 0.8 : 2.8, 
+                  times: hasNotifications ? [0, 0.5, 1] : [0, 0.12, 0.25, 0.4, 1],
+                  ease: "easeInOut"
+                }}
+                className="group-hover:fill-amber-400 transition-colors duration-500"
+              />
+              
+              {/* Forehead Detail */}
+              <path 
+                d="M45 25 L50 30 L55 25" 
+                stroke="url(#jarvisGradient)" 
+                strokeWidth="1.5" 
+                fill="none"
+                className="group-hover:stroke-amber-400 transition-colors duration-500"
+              />
+            </g>
           </motion.svg>
+          
+          {/* Subtle Status Dot */}
+          <div className={`absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full z-20 ${
+            isSyncing 
+              ? "bg-cyan-400 animate-ping" 
+              : hasNotifications 
+                ? "bg-amber-500 animate-pulse shadow-[0_0_8px_#f59e0b]" 
+                : lightMode ? "bg-cyan-500/60" : "bg-cyan-400 animate-pulse shadow-[0_0_5px_#22d3ee]"
+          }`} />
+
+          {/* Notification Badge */}
+          {hasNotifications && !isSyncing && (
+            <motion.span
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-rose-500 rounded-full border border-white dark:border-slate-900 z-30"
+            />
+          )}
         </motion.button>
 
-        {/* 🏥 Judul: IDIK di mobile, lengkap di desktop */}
-        <div className="flex-1 text-center min-w-0">
-          {isMobile ? (
+        {/* 🏥 Judul: Custom title or default IDIK title */}
+        <div className="flex-1 text-center min-w-0 flex items-center justify-center gap-3">
+          {title ? (
+            typeof title === "string" ? (
+              <h1
+                className={`font-extrabold tracking-wide text-sm md:text-base truncate ${
+                  lightMode
+                    ? "text-cyan-950"
+                    : "text-cyan-300 drop-shadow-[0_0_6px_#00e0ff]"
+                }`}
+              >
+                {title}
+              </h1>
+            ) : (
+              title
+            )
+          ) : isMobile ? (
             <h1
               className={`font-bold tracking-widest text-base ${
                 lightMode
@@ -254,14 +456,15 @@ export default function Topbar() {
                 </span>
               </h1>
               <p
-                className={`text-[10px] md:text-xs font-bold tracking-widest mt-0.5 ${
+                className={`text-[10px] md:text-xs font-bold tracking-widest mt-0.5 ml-2 ${
                   lightMode ? "text-slate-800" : "text-gray-400"
-                }`}
+                } hidden lg:block`}
               >
                 RSUD dr. M. Soewandhie – Surabaya
               </p>
             </>
           )}
+          {extra && <div className="hidden sm:block">{extra}</div>}
         </div>
 
         {/* ⏱ Info Waktu + User + Settings */}

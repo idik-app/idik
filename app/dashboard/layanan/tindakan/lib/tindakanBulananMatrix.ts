@@ -6,6 +6,10 @@ import {
   LAB_TINDAKAN_ROW_LABELS,
 } from "./tindakanTerbanyakLab";
 
+import {
+  TINDAKAN_KATEGORI,
+} from "../bridge/bridge.constants";
+
 /** Baris laporan cara bayar (tetap). Baris BELUM TERISI ditambahkan di agregasi hanya jika ada kasus tanpa data biaya. */
 export const CARA_BAYAR_ROW_LABELS_CORE = [
   "BPJS NON PBI KLS 1",
@@ -46,6 +50,10 @@ export type MonthlyMatrixAgg = {
     no_rm: string;
     dokter: string;
     tindakan?: string;
+    diagnosa?: string;
+    kategori?: string;
+    kesimpulan_laporan?: string;
+    plan_medis?: string;
   }[][][];
 };
 
@@ -333,6 +341,10 @@ export function aggregateMonthlyJenisOperasi(
       no_rm: row.no_rm || "-",
       dokter: row.dokter || "-",
       tindakan: String(row.tindakan || "").trim(),
+      diagnosa: row.diagnosa || undefined,
+      kategori: row.kategori || undefined,
+      kesimpulan_laporan: row.kesimpulan_laporan || undefined,
+      plan_medis: row.plan_medis || undefined,
     };
 
     if (byLabel.has(label)) {
@@ -386,8 +398,10 @@ export function aggregateMonthlyKategori(
   const byLabel = new Map<string, number[]>();
   const detailsByLabel = new Map<string, MonthlyMatrixAgg["details"][number]>();
 
-  // Inisialisasi dengan Master Kategori agar urutan tetap dan semua muncul
-  for (const label of MASTER_KATEGORI_LABELS) {
+  // Gunakan TINDAKAN_KATEGORI sebagai Master Grup
+  const masterLabels = TINDAKAN_KATEGORI.map(k => k.toUpperCase());
+
+  for (const label of masterLabels) {
     byLabel.set(label, new Array(dim).fill(0));
     detailsByLabel.set(
       label,
@@ -395,10 +409,11 @@ export function aggregateMonthlyKategori(
     );
   }
 
-  // Tambahkan kategori "TANPA KATEGORI" untuk data yang tidak terpetakan
-  byLabel.set(KATEGORI_LABEL_TANPA_KATEGORI, new Array(dim).fill(0));
+  // Tambahkan kategori "LAIN-LAIN" untuk data yang tidak terpetakan
+  const OTHER_LABEL = "LAIN-LAIN";
+  byLabel.set(OTHER_LABEL, new Array(dim).fill(0));
   detailsByLabel.set(
-    KATEGORI_LABEL_TANPA_KATEGORI,
+    OTHER_LABEL,
     Array.from({ length: dim }, () => []),
   );
 
@@ -409,8 +424,8 @@ export function aggregateMonthlyKategori(
     const di = day - 1;
 
     let label = String(row.kategori || "").trim().toUpperCase();
-    if (!label || !MASTER_KATEGORI_LABELS.includes(label as any)) {
-      label = KATEGORI_LABEL_TANPA_KATEGORI;
+    if (!label || !masterLabels.includes(label)) {
+      label = OTHER_LABEL;
     }
 
     const detail = {
@@ -418,6 +433,10 @@ export function aggregateMonthlyKategori(
       no_rm: row.no_rm || "-",
       dokter: row.dokter || "-",
       tindakan: String(row.tindakan || "").trim(),
+      diagnosa: row.diagnosa || undefined,
+      kategori: row.kategori || undefined,
+      kesimpulan_laporan: row.kesimpulan_laporan || undefined,
+      plan_medis: row.plan_medis || undefined,
     };
 
     if (byLabel.has(label)) {
@@ -426,13 +445,64 @@ export function aggregateMonthlyKategori(
     }
   }
 
-  const rowLabels = [...MASTER_KATEGORI_LABELS];
-  // Hanya tampilkan "TANPA KATEGORI" jika ada datanya
-  const tanpaKategoriData = byLabel.get(KATEGORI_LABEL_TANPA_KATEGORI)!;
-  if (tanpaKategoriData.some((n) => n > 0)) {
-    rowLabels.push(KATEGORI_LABEL_TANPA_KATEGORI);
+  const rowLabels = masterLabels.filter(l => byLabel.get(l)!.some(n => n > 0));
+  if (byLabel.get(OTHER_LABEL)!.some(n => n > 0)) {
+    rowLabels.push(OTHER_LABEL);
   }
 
+  const data: number[][] = rowLabels.map((l) => [...byLabel.get(l)!]);
+  const details: MonthlyMatrixAgg["details"] = rowLabels.map(
+    (l) => detailsByLabel.get(l)!,
+  );
+
+  return finalizeMatrix(year, month1to12, rowLabels, data, details);
+}
+
+/** Fungsi baru untuk Temuan Medis (Clinical Findings) */
+export function aggregateMonthlyTemuan(
+  rows: readonly TindakanJoinResult[],
+  year: number,
+  month1to12: number,
+): MonthlyMatrixAgg {
+  const dim = daysInMonth(year, month1to12);
+  const byLabel = new Map<string, number[]>();
+  const detailsByLabel = new Map<string, MonthlyMatrixAgg["details"][number]>();
+
+  for (const label of MASTER_KATEGORI_LABELS) {
+    byLabel.set(label, new Array(dim).fill(0));
+    detailsByLabel.set(
+      label,
+      Array.from({ length: dim }, () => []),
+    );
+  }
+
+  for (const row of rows) {
+    if (!isInYearMonth(row.tanggal, year, month1to12)) continue;
+    const day = dayOfMonthFromTanggal(row.tanggal);
+    if (day == null || day < 1 || day > dim) continue;
+    const di = day - 1;
+
+    // Temukan apakah kesimpulan mengandung salah satu Master Temuan
+    const conclusion = String(row.kesimpulan_laporan || "").toUpperCase();
+    for (const label of MASTER_KATEGORI_LABELS) {
+      if (conclusion.includes(label)) {
+        const detail = {
+          nama: row.nama_pasien || "Tanpa Nama",
+          no_rm: row.no_rm || "-",
+          dokter: row.dokter || "-",
+          tindakan: String(row.tindakan || "").trim(),
+          diagnosa: row.diagnosa || undefined,
+          kategori: row.kategori || undefined,
+          kesimpulan_laporan: row.kesimpulan_laporan || undefined,
+          plan_medis: row.plan_medis || undefined,
+        };
+        byLabel.get(label)![di] += 1;
+        detailsByLabel.get(label)![di].push(detail);
+      }
+    }
+  }
+
+  const rowLabels = MASTER_KATEGORI_LABELS.filter(l => byLabel.get(l)!.some(n => n > 0));
   const data: number[][] = rowLabels.map((l) => [...byLabel.get(l)!]);
   const details: MonthlyMatrixAgg["details"] = rowLabels.map(
     (l) => detailsByLabel.get(l)!,
@@ -490,6 +560,10 @@ export function aggregateMonthlyCaraBayar(
       no_rm: row.no_rm || "-",
       dokter: row.dokter || "-",
       tindakan: String(row.tindakan || "").trim(),
+      diagnosa: row.diagnosa || undefined,
+      kategori: row.kategori || undefined,
+      kesimpulan_laporan: row.kesimpulan_laporan || undefined,
+      plan_medis: row.plan_medis || undefined,
     };
 
     if (bucket === CARA_BAYAR_LABEL_BELUM_TERISI) {

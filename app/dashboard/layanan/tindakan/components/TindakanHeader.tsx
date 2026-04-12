@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Phone, ChevronLeft, Sparkles } from "lucide-react";
+import { Phone, ChevronLeft, Sparkles, Cloud } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import type { AccessTarget } from "./TindakanRoleAccessModal";
@@ -51,6 +51,28 @@ export default function TindakanHeader({
         </Link>
         <div className="flex flex-col gap-1.5 lg:flex-row lg:items-center lg:justify-between min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 lg:min-w-[12rem] lg:flex-1">
+            <button
+              type="button"
+              onClick={() => {
+                // Memicu event untuk refresh data dari GDrive (akan ditangkap oleh TindakanTable)
+                window.dispatchEvent(new CustomEvent("gdrive:sync-request"));
+              }}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-bold transition-all animate-in fade-in slide-in-from-left-2 duration-500",
+                "border-cyan-500/30 bg-cyan-500/5 text-cyan-600 dark:border-cyan-400/20 dark:bg-cyan-400/5 dark:text-cyan-400",
+                "shadow-[0_0_10px_rgba(6,182,212,0.1)] hover:shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:scale-105 active:scale-95",
+              )}
+              title="Klik untuk memicu pengecekan file baru di Google Drive"
+            >
+              <div className="relative">
+                <Cloud size={14} className="shrink-0" />
+                <span className="absolute -right-0.5 -top-0.5 flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75"></span>
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-500"></span>
+                </span>
+              </div>
+              <span className="tracking-tight uppercase">GDrive Smart Connect</span>
+            </button>
             {summary ? (
               <div className="min-w-0 flex-1 basis-full sm:basis-auto sm:flex-initial">
                 {summary}

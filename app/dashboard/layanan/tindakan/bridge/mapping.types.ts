@@ -33,10 +33,15 @@ export interface TindakanJoinResult {
   dokter: string | null;
   tindakan: string | null;
   kategori: string | null;
+  temuan_pembuluh: string | null;
+  kesimpulan_laporan: string | null;
+  plan_medis: string | null;
 
   hasil_lab_ppm: string | null;
   diagnosa: string | null;
+  faktor_risiko: string | null;
   severity_level: string | null;
+  total_kontras: string | null;
   pci_report_link: string | null;
 
   /** Fast-Track STEMI / IGD (teks) */

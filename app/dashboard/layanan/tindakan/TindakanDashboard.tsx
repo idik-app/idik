@@ -134,6 +134,7 @@ export default function TindakanDashboard() {
 
       <TindakanDetailDrawer
         open={drawerOpen}
+        initialTab={adapter.detailInitialTab as any}
         record={
           (adapter.selectedRecord as TindakanJoinResult | null) ??
           (filteredSummary?.allRows?.find(

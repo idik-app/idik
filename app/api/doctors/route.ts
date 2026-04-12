@@ -63,9 +63,9 @@ export async function GET() {
     aktif: r.status !== false,
   }));
 
-  // Update Cache
+  // Update Cache for 5 minutes
   doctorsCache = finalDoctors;
-  doctorsCacheExpires = Date.now() + 60 * 1000;
+  doctorsCacheExpires = Date.now() + 5 * 60 * 1000;
 
   return NextResponse.json({
     ok: true,

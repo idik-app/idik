@@ -149,6 +149,11 @@ export async function GET(request: Request) {
     let data: Record<string, unknown>[] | null = null;
     let lastError: { message?: string } | null = null;
 
+    const supabase = getServiceSupabaseAdmin();
+    if (!supabase) {
+      return NextResponse.json({ ok: false, error: "Supabase not configured" }, { status: 500 });
+    }
+
     const tarifMap = await fetchMasterTarifLookupMap(supabase);
 
     for (const projection of projections) {

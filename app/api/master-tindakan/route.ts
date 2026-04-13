@@ -11,13 +11,13 @@ let masterTindakanCacheExpires = 0;
 
 /** Daftar master jenis tindakan untuk combobox & halaman admin. */
 export async function GET() {
-  const user = await requireUser();
-  if (!user.ok) return user.response;
-
   const now = Date.now();
   if (masterTindakanCache && now < masterTindakanCacheExpires) {
     return NextResponse.json({ ok: true, masterTindakan: masterTindakanCache, cached: true });
   }
+
+  const user = await requireUser();
+  if (!user.ok) return user.response;
 
   const supabase = getServiceSupabaseAdmin();
   if (!supabase) {

@@ -67,84 +67,26 @@ async function fetchTableOrderedInChunks(
 
 export async function GET(request: Request) {
   try {
-    const user = await requireUser();
-    if (!user.ok) return user.response;
-
-    const supabase = getServiceSupabaseAdmin();
-    if (!supabase) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "Server tidak dikonfigurasi (NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY).",
-        },
-        { status: 503 }
-      );
-    }
-
     const { searchParams } = new URL(request.url);
+    const compact =
+      searchParams.get("compact") === "1" ||
+      searchParams.get("lite") === "1";
     const noRm =
       searchParams.get("noRm")?.trim() ??
       searchParams.get("no_rm")?.trim() ??
       "";
     const namaLookup = searchParams.get("nama")?.trim() ?? "";
-
-    if (noRm) {
-      const { data, error } = await supabase
-        .from("pasien")
-        .select("*")
-        .eq("no_rm", noRm)
-        .maybeSingle();
-
-      if (error) {
-        return NextResponse.json(
-          { ok: false, error: error.message ?? "Gagal mencari pasien" },
-          { status: 500 }
-        );
-      }
-      return NextResponse.json(
-        {
-          ok: true,
-          data: data ? mapFromSupabase(data) : null,
-        },
-        { status: 200 }
-      );
-    }
-
-    if (namaLookup) {
-      const { data, error } = await supabase
-        .from("pasien")
-        .select("*")
-        .ilike("nama", namaLookup)
-        .limit(2);
-
-      if (error) {
-        return NextResponse.json(
-          { ok: false, error: error.message ?? "Gagal mencari pasien" },
-          { status: 500 }
-        );
-      }
-      const rows = Array.isArray(data) ? data : [];
-      const one = rows.length === 1 ? rows[0] : null;
-      return NextResponse.json(
-        {
-          ok: true,
-          data: one ? mapFromSupabase(one) : null,
-        },
-        { status: 200 }
-      );
-    }
-
-    const compact =
-      searchParams.get("compact") === "1" ||
-      searchParams.get("lite") === "1";
     const limitRaw = Number(searchParams.get("limit") ?? "");
 
-    // Jika compact dan tidak ada filter spesifik, gunakan cache
+    // Jika compact dan tidak ada filter spesifik, gunakan cache (default limit 1000)
     const now = Date.now();
-    if (compact && !noRm && !namaLookup && !limitRaw && pasienCompactCache && now < pasienCompactCacheExpires) {
+    const effectiveLimit = limitRaw || 1000;
+    if (compact && !noRm && !namaLookup && effectiveLimit === 1000 && pasienCompactCache && now < pasienCompactCacheExpires) {
       return NextResponse.json({ ok: true, data: pasienCompactCache, cached: true }, { status: 200 });
     }
+
+    const user = await requireUser();
+    if (!user.ok) return user.response;
 
     const defaultLimit = compact ? 1000 : 0;
     const limit =

@@ -9,13 +9,13 @@ let doctorsCacheExpires = 0;
 
 /** Daftar dokter aktif untuk form pemakaian / pemilihan operator (master `doctor`). */
 export async function GET() {
-  const user = await requireUser();
-  if (!user.ok) return user.response;
-
   const now = Date.now();
   if (doctorsCache && now < doctorsCacheExpires) {
     return NextResponse.json({ ok: true, doctors: doctorsCache, cached: true });
   }
+
+  const user = await requireUser();
+  if (!user.ok) return user.response;
 
   const supabase = getServiceSupabaseAdmin();
   if (!supabase) {

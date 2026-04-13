@@ -9,13 +9,13 @@ let ruanganCacheExpires = 0;
 
 /** Daftar master ruangan untuk form pemakaian / combobox (semua baris dengan nama). */
 export async function GET() {
-  const user = await requireUser();
-  if (!user.ok) return user.response;
-
   const now = Date.now();
   if (ruanganCache && now < ruanganCacheExpires) {
     return NextResponse.json({ ok: true, ruangan: ruanganCache, cached: true });
   }
+
+  const user = await requireUser();
+  if (!user.ok) return user.response;
 
   const supabase = getServiceSupabaseAdmin();
   if (!supabase) {

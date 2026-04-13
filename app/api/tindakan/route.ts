@@ -116,18 +116,6 @@ let tindakanListCache: { data: any[]; expires: number; key: string } | null = nu
 /** Daftar tindakan untuk dashboard (server-side service role, tahan RLS). */
 export async function GET(request: Request) {
   try {
-    const { requireRole } = await import("@/lib/auth/guards");
-    const auth = await requireRole(["perawat", "admin", "administrator", "superadmin"]);
-    if (!auth.ok) return auth.response;
-
-    const supabase = getServiceSupabaseAdmin();
-    if (!supabase) {
-      return NextResponse.json(
-        { ok: false, error: "Supabase service role tidak dikonfigurasi." },
-        { status: 503 },
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const limitRaw = Number(searchParams.get("limit") ?? 1000);
     const limit = Number.isFinite(limitRaw)
@@ -141,9 +129,18 @@ export async function GET(request: Request) {
     // Key untuk cache (hanya cache view default tanpa filter berat)
     const cacheKey = `${limit}|${dateFrom ?? ""}|${dateTo ?? ""}|${search ?? ""}`;
     const now = Date.now();
+    
+    // Default view (limit 10000, no filters) gets a longer cache (30s)
+    const isDefaultView = limit === 10000 && !dateFrom && !dateTo && !search;
+    const cacheTTL = isDefaultView ? 30 * 1000 : 15 * 1000;
+
     if (tindakanListCache && now < tindakanListCache.expires && tindakanListCache.key === cacheKey) {
       return NextResponse.json({ ok: true, data: tindakanListCache.data, cached: true }, { status: 200 });
     }
+
+    const { requireRole } = await import("@/lib/auth/guards");
+    const auth = await requireRole(["perawat", "admin", "administrator", "superadmin"]);
+    if (!auth.ok) return auth.response;
 
     const projections = workingProjectionCache 
       ? [workingProjectionCache, ...PROJECTIONS_LIST.filter(p => p !== workingProjectionCache)]
@@ -203,16 +200,39 @@ export async function GET(request: Request) {
           }
         }
 
+        // High-performance mapping for 10k+ rows
         data = allRawRows.slice(0, limit).map((row) => {
-          const noRm = coalesceNoRm(row) || (row.no_rm as string) || null;
+          // Inline some logic to avoid function call overhead in hot loop
+          const rawNoRm = row.no_rm || row.rm || row.no_rekam_medis || row.nomor_rm || row.no_rm_pasien;
+          const noRm = typeof rawNoRm === 'string' ? rawNoRm.trim() || null : (rawNoRm ? String(rawNoRm) : null);
+          
+          const rawNama = row.nama_pasien || row.nama;
+          const nama_pasien = typeof rawNama === 'string' ? rawNama.trim() || null : (rawNama ? String(rawNama) : null);
+          
           const withApiFields = {
             ...row,
-            nama_pasien: toText(row.nama_pasien) || toText(row.nama) || null,
+            nama_pasien,
             no_rm: noRm,
             ruangan: row.ruangan || null,
             created_at: row.created_at || row.inserted_at || row.updated_at || null,
           };
-          return enrichTindakanRowTarifFromMasterMap(withApiFields, tarifMap);
+          
+          // Inline enrich logic for speed
+          const dbTarif = row.tarif_tindakan;
+          if (dbTarif !== null && dbTarif !== undefined && dbTarif !== "" && Number.isFinite(Number(dbTarif))) {
+            return withApiFields;
+          }
+          
+          const tindakan = row.tindakan ?? row.jenis;
+          if (tindakan && tarifMap.size > 0) {
+            const k = String(tindakan).trim().replace(/\s+/g, " ").toUpperCase();
+            const hit = tarifMap.get(k);
+            if (hit !== undefined) {
+              (withApiFields as any).tarif_tindakan = hit;
+            }
+          }
+          
+          return withApiFields;
         });
         lastError = null;
         break;
@@ -243,10 +263,10 @@ export async function GET(request: Request) {
 
     const finalData = data ?? [];
 
-    // Cache results for 15 seconds
+    // Cache results
     tindakanListCache = {
       data: finalData,
-      expires: Date.now() + 15 * 1000,
+      expires: Date.now() + cacheTTL,
       key: cacheKey
     };
 

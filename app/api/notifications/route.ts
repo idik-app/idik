@@ -4,16 +4,22 @@ import { requireUser } from "@/lib/auth/guards";
 
 const LIMIT = 50;
 
+/** Cache notifikasi (10 detik) */
+let notificationsCache: { data: any[]; expires: number } | null = null;
+
 /**
  * GET    → ambil notifikasi terbaru dari DB (untuk bell Topbar)
  * POST   → tambah notifikasi baru (message, type?)
  * DELETE → hapus satu (?id=uuid) atau hapus semua (tanpa id)
  */
 export async function GET() {
+  const now = Date.now();
+  if (notificationsCache && now < notificationsCache.expires) {
+    return NextResponse.json({ ok: true, data: notificationsCache.data, cached: true });
+  }
+
   const user = await requireUser();
   if (!user.ok) {
-    return NextResponse.json({ ok: true, data: [] });
-  }
 
   try {
     const supabase = createAdminClient(true);
@@ -25,14 +31,22 @@ export async function GET() {
 
     if (error) throw error;
 
+    const finalData = (data ?? []).map((row) => ({
+      id: row.id,
+      message: row.message,
+      type: row.type ?? "info",
+      createdAt: row.created_at,
+    }));
+
+    // Update Cache for 10 seconds
+    notificationsCache = {
+      data: finalData,
+      expires: now + 10 * 1000
+    };
+
     return NextResponse.json({
       ok: true,
-      data: (data ?? []).map((row) => ({
-        id: row.id,
-        message: row.message,
-        type: row.type ?? "info",
-        createdAt: row.created_at,
-      })),
+      data: finalData,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to fetch notifications";

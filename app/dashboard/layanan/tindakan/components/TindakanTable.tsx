@@ -3064,25 +3064,24 @@ export default function TindakanTable({
                                 )}
                                 title={pasienError ?? undefined}
                               >
-                                {/* LEFT SIDE — 180° Navigation Arc */}
+                                {/* CENTER LABEL — Description of Hovered Icon */}
+                                {hoveredLabel && hoveredRowKey === key && (
+                                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[110]">
+                                    <div className="bg-slate-900/95 text-white text-[14px] font-extrabold px-4 py-1 rounded-full shadow-2xl border border-white/30 whitespace-nowrap animate-in fade-in zoom-in duration-200 tracking-wide uppercase">
+                                      {hoveredLabel}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* CONSOLIDATED NAVIGATION ARC — Right Side */}
                                 <div
                                   className={cn(
-                                    "absolute top-1/2 left-0 z-[70] h-0 w-0 -translate-y-1/2",
-                                    "pointer-events-none opacity-0 group-hover/arc:pointer-events-auto group-hover/arc:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100 transition-all duration-300 overflow-visible",
+                                    // Bawa container lebih dekat ke icon hapus
+                                    "absolute top-1/2 right-[-10px] z-[70] h-0 w-0 -translate-y-1/2",
+                                    "pointer-events-none opacity-0 group-hover/arc:pointer-events-auto group-hover/arc:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100 transition-all duration-500 ease-in-out overflow-visible",
                                   )}
                                 >
                                   {[
-                                    {
-                                      id: "pasien",
-                                      Icon: User,
-                                      label: "Pasien",
-                                      color:
-                                        "bg-blue-600 text-white border-blue-400",
-                                      onClick: (e: any) => {
-                                        e.stopPropagation();
-                                        if (id) openDetail(id, "pasien");
-                                      },
-                                    },
                                     {
                                       id: "fast_track",
                                       Icon: Zap,
@@ -3127,18 +3126,50 @@ export default function TindakanTable({
                                         if (id) openDetail(id, "tim");
                                       },
                                     },
+                                    {
+                                      id: "radiologi",
+                                      Icon: Activity,
+                                      label: "Radiologi",
+                                      color:
+                                        "bg-orange-600 text-white border-orange-400",
+                                      onClick: (e: any) => {
+                                        e.stopPropagation();
+                                        if (id) openDetail(id, "radiologi");
+                                      },
+                                    },
+                                    {
+                                      id: "klinis",
+                                      Icon: ClipboardList,
+                                      label: "Klinis",
+                                      color:
+                                        "bg-indigo-600 text-white border-indigo-400",
+                                      onClick: (e: any) => {
+                                        e.stopPropagation();
+                                        if (id) openDetail(id, "klinis");
+                                      },
+                                    },
                                   ].map((item, idx, arr) => {
                                     const total = arr.length;
+                                    // Spacing rapat, radius lebih kecil agar memeluk icon hapus
+                                    const SPAN_DEG = 160;
+                                    const RADIUS_PX = 42;
+                                    const baseAngle = -SPAN_DEG / 2;
                                     const angle =
-                                      (idx / (total - 1)) * 140 + 110; // Arc from 110° to 250° (Left facing)
+                                      baseAngle +
+                                      (idx / (total - 1)) * SPAN_DEG;
                                     return (
                                       <div
                                         key={item.id}
                                         style={{
-                                          transform: `rotate(${angle}deg) translate(52px) rotate(${-angle}deg)`,
-                                          transitionDelay: `${idx * 20}ms`,
+                                          // Radius 42px, concave left shape: ")"
+                                          transform: `rotate(${angle}deg) translate(${RADIUS_PX}px) rotate(${-angle}deg)`,
+                                          transitionDelay: `${idx * 15}ms`,
                                         }}
-                                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-300 scale-0 group-hover:scale-100 z-[71]"
+                                        className={cn(
+                                          "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ease-in-out scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-100 z-[71]",
+                                          "group-hover:animate-in group-hover:fade-in group-hover:zoom-in group-hover:duration-500",
+                                          "animate-out fade-out zoom-out duration-500",
+                                        )}
                                       >
                                         <button
                                           type="button"
@@ -3152,7 +3183,7 @@ export default function TindakanTable({
                                             setHoveredRowKey(null);
                                           }}
                                           className={cn(
-                                            "flex h-7 w-7 items-center justify-center rounded-full border shadow-xl transition-all duration-200",
+                                            "flex h-7 w-7 items-center justify-center rounded-full border shadow-xl transition-all duration-300",
                                             "hover:scale-[2.0] hover:z-[120]",
                                             item.color,
                                           )}
@@ -3168,17 +3199,8 @@ export default function TindakanTable({
                                   })}
                                 </div>
 
-                                {/* CENTER LABEL — Description of Hovered Icon */}
-                                {hoveredLabel && hoveredRowKey === key && (
-                                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[110]">
-                                    <div className="bg-slate-900/95 text-white text-[14px] font-extrabold px-4 py-1 rounded-full shadow-2xl border border-white/30 whitespace-nowrap animate-in fade-in zoom-in duration-200 tracking-wide uppercase">
-                                      {hoveredLabel}
-                                    </div>
-                                  </div>
-                                )}
-
                                 {/* ACTION GROUP — Near Pasien Field */}
-                                <div className="absolute -right-8 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover/arc:opacity-100 transition-opacity duration-300 z-[80]">
+                                <div className="absolute -right-8 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover/arc:opacity-100 transition-all duration-500 ease-in-out z-[80]">
                                   {id && pemakaianOrderByTindakanId[id] ? (
                                     <button
                                       type="button"
@@ -3225,100 +3247,6 @@ export default function TindakanTable({
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </button>
-                                </div>
-
-                                {/* RIGHT SIDE — 180° Action Arc */}
-                                <div
-                                  className={cn(
-                                    "absolute top-1/2 right-0 z-[70] h-0 w-0 -translate-y-1/2",
-                                    "pointer-events-none opacity-0 group-hover/arc:pointer-events-auto group-hover/arc:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100 transition-all duration-300 overflow-visible",
-                                  )}
-                                >
-                                  {[
-                                    {
-                                      id: "radiologi",
-                                      Icon: Activity,
-                                      label: "Radiologi",
-                                      color:
-                                        "bg-orange-600 text-white border-orange-400",
-                                      onClick: (e: any) => {
-                                        e.stopPropagation();
-                                        if (id) openDetail(id, "radiologi");
-                                      },
-                                    },
-                                    {
-                                      id: "klinis",
-                                      Icon: ClipboardList,
-                                      label: "Klinis",
-                                      color:
-                                        "bg-indigo-600 text-white border-indigo-400",
-                                      onClick: (e: any) => {
-                                        e.stopPropagation();
-                                        if (id) openDetail(id, "klinis");
-                                      },
-                                    },
-                                    {
-                                      id: "biaya",
-                                      Icon: Wallet,
-                                      label: "Biaya",
-                                      color:
-                                        "bg-lime-600 text-white border-lime-400",
-                                      onClick: (e: any) => {
-                                        e.stopPropagation();
-                                        if (id) openDetail(id, "biaya");
-                                      },
-                                    },
-                                    {
-                                      id: "history",
-                                      Icon: History,
-                                      label: "Resume",
-                                      color:
-                                        "bg-slate-600 text-white border-slate-400",
-                                      onClick: (e: any) => {
-                                        e.stopPropagation();
-                                        if (id) openDetail(id, "history");
-                                      },
-                                    },
-                                  ].map((item, idx, arr) => {
-                                    const total = arr.length;
-                                    const angle =
-                                      (idx / (total - 1)) * 140 - 70; // Arc from -70° to 70° (Right facing)
-                                    return (
-                                      <div
-                                        key={item.id}
-                                        style={{
-                                          transform: `rotate(${angle}deg) translate(52px) rotate(${-angle}deg)`,
-                                          transitionDelay: `${idx * 20}ms`,
-                                        }}
-                                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-300 scale-0 group-hover:scale-100 z-[71]"
-                                      >
-                                        <button
-                                          key={item.id}
-                                          type="button"
-                                          onClick={item.onClick}
-                                          onMouseEnter={() => {
-                                            setHoveredLabel(item.label);
-                                            setHoveredRowKey(key);
-                                          }}
-                                          onMouseLeave={() => {
-                                            setHoveredLabel(null);
-                                            setHoveredRowKey(null);
-                                          }}
-                                          className={cn(
-                                            "flex h-7 w-7 items-center justify-center rounded-full border shadow-xl transition-all duration-200",
-                                            "hover:scale-[2.0] hover:z-[120]",
-                                            item.color,
-                                          )}
-                                          title={item.label}
-                                        >
-                                          <item.Icon
-                                            size={12}
-                                            strokeWidth={3}
-                                          />
-                                        </button>
-                                      </div>
-                                    );
-                                  })}
                                 </div>
 
                                 {/* Alkes Warning / Preparation Indicator */}
@@ -3452,7 +3380,7 @@ export default function TindakanTable({
 
                                   return (
                                     <div
-                                      className="absolute -left-6 top-1/2 -translate-y-1/2 animate-pulse cursor-help"
+                                      className="absolute -left-6 top-1/2 -translate-y-1/2 animate-pulse cursor-help z-[90]"
                                       title={`Pasien Fast-Track | Datang: ${ftIgd} | D2B: ${ftD2b} | Total: ${ftTotal || "-"}${isLate ? " (Melebihi Target KPI 90m)" : ""}`}
                                     >
                                       <Zap

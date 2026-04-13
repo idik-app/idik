@@ -59,11 +59,11 @@ async function getJwtIdentity(): Promise<GuardOk | null> {
 }
 
 export async function requireUser(): Promise<GuardOk | GuardFail> {
-  const supa = await getSupabaseIdentity();
-  if (supa) return supa;
-
   const jwtId = await getJwtIdentity();
   if (jwtId) return jwtId;
+
+  const supa = await getSupabaseIdentity();
+  if (supa) return supa;
 
   return { ok: false, response: json(401, "Unauthorized") };
 }

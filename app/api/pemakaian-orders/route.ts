@@ -290,8 +290,22 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, order: data }, { status: 201 });
 }
 
+/** Cache orders (1 menit) untuk dashboard */
+let ordersCache: { data: any[]; expires: number; key: string } | null = null;
+
 /** GET /api/pemakaian-orders — daftar order; `?tindakanId=` = filter per kasus tindakan. */
 export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const tindakanFilter = searchParams.get("tindakanId")?.trim() ?? "";
+  const limitRaw = Number(searchParams.get("limit") ?? 1000);
+  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 5000) : 1000;
+
+  const cacheKey = `${tindakanFilter}|${limit}`;
+  const now = Date.now();
+  if (ordersCache && now < ordersCache.expires && ordersCache.key === cacheKey) {
+    return NextResponse.json({ ok: true, orders: ordersCache.data, cached: true });
+  }
+
   const user = await requireUser();
   if (!user.ok) return user.response;
 
@@ -306,11 +320,6 @@ export async function GET(request: Request) {
       { status: 503 },
     );
   }
-
-  const { searchParams } = new URL(request.url);
-  const tindakanFilter = searchParams.get("tindakanId")?.trim() ?? "";
-  const limitRaw = Number(searchParams.get("limit") ?? 1000);
-  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 5000) : 1000;
 
   let query = supabase
     .from("cathlab_pemakaian_order")
@@ -331,5 +340,14 @@ export async function GET(request: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true, orders: data ?? [] });
+  const finalData = data ?? [];
+  
+  // Cache for 1 minute
+  ordersCache = {
+    data: finalData,
+    expires: now + 60 * 1000,
+    key: cacheKey
+  };
+
+  return NextResponse.json({ ok: true, orders: finalData });
 }

@@ -20,6 +20,8 @@ export async function GET() {
 
   const user = await requireUser();
   if (!user.ok) {
+    return NextResponse.json({ ok: true, data: [] });
+  }
 
   try {
     const supabase = createAdminClient(true);

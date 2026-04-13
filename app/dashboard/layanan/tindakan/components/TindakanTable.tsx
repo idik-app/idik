@@ -3049,7 +3049,7 @@ export default function TindakanTable({
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 ZOOM_CELL_CLASSES,
-                                "group/arc relative px-2 sm:px-2.5 py-1 max-w-[18rem] text-center align-middle",
+                                "relative px-2 sm:px-2.5 py-1 max-w-[18rem] text-center align-middle",
                                 "text-amber-800 dark:text-white",
                               )}
                             >
@@ -3058,7 +3058,7 @@ export default function TindakanTable({
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClick={(e) => e.stopPropagation()}
                                 className={cn(
-                                  "relative mx-auto min-w-[10rem] sm:min-w-[14rem] max-w-[18rem] flex items-center gap-1.5",
+                                  "group/arc relative mx-auto min-w-[10rem] sm:min-w-[14rem] max-w-[18rem] flex items-center gap-1.5",
                                   "before:absolute before:-inset-[100px] before:content-[''] before:pointer-events-none group-hover/arc:before:pointer-events-auto",
                                   ZOOM_INNER_CLASSES,
                                 )}

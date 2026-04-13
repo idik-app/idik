@@ -2162,7 +2162,7 @@ export default function PemakaianAlkesModal({
                                     }}
                                     options={barangVariantList}
                                     loading={barangVariantLoading}
-                                    inputClassName="bg-transparent border-none p-0 text-black font-extrabold uppercase text-sm focus:ring-0 placeholder:text-slate-300"
+                                    inputClassName="bg-transparent border-none p-0 text-black font-extrabold uppercase text-sm focus:ring-0 placeholder:text-slate-300 transition-all focus:scale-[1.3] focus:z-50 focus:relative active:scale-[2.0] origin-left"
                                   />
                                   {!isEmpty && (
                                     <div className="mt-1 flex flex-col gap-1">
@@ -2224,7 +2224,7 @@ export default function PemakaianAlkesModal({
                                   })
                                 }
                                 placeholder="—"
-                                className="bg-white text-black px-3 py-2 rounded-lg font-mono text-sm font-bold border border-slate-200 w-full focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/30 transition-all shadow-sm focus:scale-[1.3] focus:w-[200%] focus:z-50 focus:relative origin-center shadow-2xl"
+                                className="bg-white text-black px-3 py-2 rounded-lg font-mono text-sm font-bold border border-slate-200 w-full focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/30 transition-all shadow-sm focus:scale-[1.3] focus:w-[200%] focus:z-50 focus:relative origin-center shadow-2xl active:scale-[2.0]"
                               />
                             </td>
                             <td className="p-4 border-r border-slate-100">
@@ -2246,7 +2246,7 @@ export default function PemakaianAlkesModal({
                                   });
                                 }}
                                 placeholder="—"
-                                className="bg-white text-black px-3 py-2 rounded-lg font-mono text-sm font-bold border border-slate-200 w-full focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/30 transition-all shadow-sm focus:scale-[1.3] focus:w-[200%] focus:z-50 focus:relative origin-center shadow-2xl"
+                                className="bg-white text-black px-3 py-2 rounded-lg font-mono text-sm font-bold border border-slate-200 w-full focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/30 transition-all shadow-sm focus:scale-[1.3] focus:w-[200%] focus:z-50 focus:relative origin-center shadow-2xl active:scale-[2.0]"
                               />
                             </td>
                             <td className="p-4 border-r border-slate-100">
@@ -2260,7 +2260,7 @@ export default function PemakaianAlkesModal({
                                 }
                                 placeholder="MM-YYYY"
                                 className={cn(
-                                  "bg-white border rounded-lg px-3 py-2 font-bold text-sm w-full focus:ring-4 focus:ring-emerald-500/30 transition-all shadow-sm focus:scale-[1.3] focus:w-[200%] focus:z-50 focus:relative origin-center shadow-2xl",
+                                  "bg-white border rounded-lg px-3 py-2 font-bold text-sm w-full focus:ring-4 focus:ring-emerald-500/30 transition-all shadow-sm focus:scale-[1.3] focus:w-[200%] focus:z-50 focus:relative origin-center shadow-2xl active:scale-[2.0]",
                                   !cleanFormText(line.ed ?? "") ||
                                     line.ed === "MM-YYYY" ||
                                     line.ed === "—"
@@ -2270,7 +2270,7 @@ export default function PemakaianAlkesModal({
                               />
                             </td>
                             <td className="p-4 border-r border-slate-100">
-                              <div className="flex items-center bg-white rounded-lg border border-slate-300 overflow-hidden w-24 mx-auto shadow-sm">
+                              <div className="flex items-center bg-white rounded-lg border border-slate-300 overflow-hidden w-24 mx-auto shadow-sm transition-all focus-within:scale-[1.3] focus-within:z-50 focus-within:relative active:scale-[2.0]">
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -2320,7 +2320,7 @@ export default function PemakaianAlkesModal({
                                     distributor: e.target.value || undefined,
                                   })
                                 }
-                                className="bg-white border border-slate-200 rounded px-2 py-1 text-[11px] text-black italic w-full focus:border-emerald-500 focus:ring-0"
+                                className="bg-white border border-slate-200 rounded px-2 py-1 text-[11px] text-black italic w-full focus:border-emerald-500 focus:ring-0 transition-all focus:scale-[1.3] focus:z-50 focus:relative active:scale-[2.0]"
                                 placeholder="Distributor..."
                               />
                             </td>
@@ -2333,7 +2333,7 @@ export default function PemakaianAlkesModal({
                                   })
                                 }
                                 className={cn(
-                                  "border text-black text-[11px] font-bold rounded-lg px-2 py-1 focus:ring-4 transition-all appearance-none cursor-pointer w-12 text-center",
+                                  "border text-black text-[11px] font-bold rounded-lg px-2 py-1 focus:ring-4 transition-all appearance-none cursor-pointer w-12 text-center focus:scale-[1.3] focus:z-50 focus:relative active:scale-[2.0]",
                                   line.tipe === "N"
                                     ? "bg-emerald-50 border-emerald-200 text-emerald-700 focus:ring-emerald-500/20"
                                     : line.tipe === "R"
@@ -2358,7 +2358,7 @@ export default function PemakaianAlkesModal({
                                       })
                                     }
                                     className={cn(
-                                      "bg-white border rounded px-2 py-1 text-[11px] text-black w-full focus:border-emerald-500 focus:ring-0",
+                                      "bg-white border rounded px-2 py-1 text-[11px] text-black w-full focus:border-emerald-500 focus:ring-0 transition-all focus:scale-[1.3] focus:z-50 focus:relative active:scale-[2.0]",
                                       line.status === "NON KONSOLIDASI" &&
                                         !cleanFormText(line.keterangan ?? "")
                                         ? "border-red-300 bg-red-50/30 placeholder:text-red-400"
@@ -2380,11 +2380,15 @@ export default function PemakaianAlkesModal({
                                       });
                                     }
                                   }}
-                                  className="text-[9px] bg-slate-50 text-slate-500 border-slate-200 rounded px-1 py-0.5 focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                                  className="text-[16px] bg-slate-50 text-slate-500 border-slate-200 rounded px-1 py-0.5 focus:ring-1 focus:ring-emerald-500 cursor-pointer transition-all hover:scale-[1.5] focus:scale-[2.5] focus:z-50 focus:relative active:scale-[2.5] origin-center shadow-2xl"
                                 >
-                                  <option value="">Pilih Alasan...</option>
+                                  <option value="">Pilih Alasan</option>
                                   {KETERANGAN_OPTIONS.map((opt) => (
-                                    <option key={opt} value={opt}>
+                                    <option
+                                      key={opt}
+                                      value={opt}
+                                      className="text-sm font-bold bg-white text-black hover:bg-emerald-50"
+                                    >
                                       {opt}
                                     </option>
                                   ))}

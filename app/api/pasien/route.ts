@@ -88,6 +88,64 @@ export async function GET(request: Request) {
     const user = await requireUser();
     if (!user.ok) return user.response;
 
+    const supabase = getServiceSupabaseAdmin();
+    if (!supabase) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Server tidak dikonfigurasi (NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY).",
+        },
+        { status: 503 }
+      );
+    }
+
+    if (noRm) {
+      const { data, error } = await supabase
+        .from("pasien")
+        .select("*")
+        .eq("no_rm", noRm)
+        .maybeSingle();
+
+      if (error) {
+        return NextResponse.json(
+          { ok: false, error: error.message ?? "Gagal mencari pasien" },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json(
+        {
+          ok: true,
+          data: data ? mapFromSupabase(data) : null,
+        },
+        { status: 200 }
+      );
+    }
+
+    if (namaLookup) {
+      const { data, error } = await supabase
+        .from("pasien")
+        .select("*")
+        .ilike("nama", namaLookup)
+        .limit(2);
+
+      if (error) {
+        return NextResponse.json(
+          { ok: false, error: error.message ?? "Gagal mencari pasien" },
+          { status: 500 }
+        );
+      }
+      const rows = Array.isArray(data) ? data : [];
+      const one = rows.length === 1 ? rows[0] : null;
+      return NextResponse.json(
+        {
+          ok: true,
+          data: one ? mapFromSupabase(one) : null,
+        },
+        { status: 200 }
+      );
+    }
+
     const defaultLimit = compact ? 1000 : 0;
     const limit =
       Number.isFinite(limitRaw) && limitRaw > 0

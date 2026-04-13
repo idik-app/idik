@@ -53,6 +53,7 @@ const Koronar3DPage = dynamic(
 const AnalyticsPage = dynamic(
   () => import("@/app/dashboard/smart/analytics/page")
 );
+const CSSDPage = dynamic(() => import("@/app/cssd/dashboard/page"));
 const DatabasePage = dynamic(() => import("@/app/system/database/page"));
 const SystemPage = dynamic(() => import("@/app/system/page"));
 
@@ -132,6 +133,8 @@ export default function TabContent() {
         return <Koronar3DPage />;
       case "analytics":
         return <AnalyticsPage />;
+      case "cssd":
+        return <CSSDPage />;
       case "diagnostics":
         return <SystemPage />;
       case "admin":

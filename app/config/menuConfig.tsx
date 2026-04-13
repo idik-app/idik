@@ -26,6 +26,7 @@ import {
   Tags,
   Building2,
   PackageOpen,
+  RefreshCcw,
 } from "lucide-react";
 
 /* ⚡ menuConfig v4.0 – Neo-Hologram Gold-Cyan Hybrid
@@ -182,6 +183,15 @@ export const menuConfig = [
         priority: 2,
         module: "Koronar3DAnnotation",
         hologram: "scan",
+      },
+      {
+        id: "cssd",
+        label: "CSSD / Sterilisasi",
+        icon: <RefreshCcw size={18} />,
+        href: "/cssd/dashboard",
+        priority: 3,
+        module: "CSSDDashboard",
+        hologram: "pulse",
       },
     ],
   },

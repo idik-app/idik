@@ -91,7 +91,7 @@ export default function DiagnosaModal({
   if (!open) return null;
 
   return (
-    <ModalWrapper onClose={onClose}>
+    <ModalWrapper onClose={onClose} zIndex={UI_LAYERS.modalTop}>
       <div className={`relative w-full max-w-3xl mx-auto ${UI_LAYERS.floatingCard}`}>
         <div
           className={cn(

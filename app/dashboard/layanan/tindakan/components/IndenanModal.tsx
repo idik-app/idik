@@ -88,7 +88,7 @@ export default function IndenanModal({ open, onClose }: IndenanModalProps) {
   if (!open) return null;
 
   return (
-    <ModalWrapper onClose={onClose} isWide>
+    <ModalWrapper onClose={onClose} isWide zIndex={UI_LAYERS.modalTop}>
       <div className="flex flex-col h-[88vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 p-3 dark:border-white/10 shrink-0">

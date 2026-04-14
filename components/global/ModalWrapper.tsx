@@ -2,6 +2,7 @@
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, ReactNode, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 /**
  * ✅ ModalWrapper v2 — kompatibel dengan nested modal
@@ -16,6 +17,8 @@ interface ModalWrapperProps {
   zIndex?: number; // tambahan: bisa dikontrol manual
   /** Jika true, modal tidak dibatasi max-w kecil (default false) */
   isWide?: boolean;
+  /** Jika true, klik pada backdrop tidak akan menutup modal (default false) */
+  disableOutsideClick?: boolean;
 }
 
 export function ModalWrapperContent({
@@ -25,6 +28,7 @@ export function ModalWrapperContent({
   className,
   zIndex = 300,
   isWide = false,
+  disableOutsideClick = false,
 }: ModalWrapperProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -33,8 +37,9 @@ export function ModalWrapperContent({
   onCloseRef.current = onClose;
 
   const backdropClick = useCallback(() => {
+    if (disableOutsideClick) return;
     onCloseRef.current?.();
-  }, []);
+  }, [disableOutsideClick]);
 
   useEffect(() => {
     const el = document.createElement("div");
@@ -46,6 +51,7 @@ export function ModalWrapperContent({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        if (disableOutsideClick) return;
         e.stopPropagation();
         onCloseRef.current?.();
       }
@@ -59,7 +65,7 @@ export function ModalWrapperContent({
       document.body.style.overflow = "";
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [disableOutsideClick]);
 
   if (!mounted || !ref.current) return null;
 
@@ -67,7 +73,10 @@ export function ModalWrapperContent({
     <div
       onClick={backdropClick}
       style={{ zIndex }}
-      className="fixed inset-0 overflow-y-auto overflow-x-hidden bg-black/45 backdrop-blur-[2px] sm:bg-black/60 sm:backdrop-blur-sm"
+      className={cn(
+        "fixed inset-0 overflow-y-auto overflow-x-hidden bg-black/45 backdrop-blur-[2px] sm:bg-black/60 sm:backdrop-blur-sm",
+        UI_LAYERS.dialogOverlayTop // Pastikan ModalWrapper juga punya z-index tinggi tapi di bawah AppDialog
+      )}
     >
       <div className="flex min-h-full items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
         <div

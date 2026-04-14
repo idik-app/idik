@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import ModalWrapper from "@/components/global/ModalWrapper";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import type { Pasien } from "@/app/dashboard/pasien/types/pasien";
 import { pasienSchema } from "@/app/dashboard/pasien/data/pasienValidation";
 import { formatTanggalLahirFromDb } from "@/app/dashboard/pasien/data/pasienSchema";
@@ -12,6 +12,7 @@ import {
 } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
 import { formatPasienApiValidationError } from "@/app/dashboard/pasien/utils/pasienValidationMessages";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useAppDialog } from "@/app/contexts/AppDialogContext";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
 
@@ -105,6 +106,7 @@ export default function TambahPasienQuickModal({
 }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const { confirm } = useAppDialog();
 
   const [formData, setFormData] = useState<Omit<Pasien, "id">>(initialForm);
   const [matchedPatient, setMatchedPatient] = useState<Pasien | null>(null);
@@ -112,29 +114,33 @@ export default function TambahPasienQuickModal({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const rmInputRef = useRef(formData.noRM);
-  rmInputRef.current = formData.noRM;
-
+  const noRmInputRef = useRef<HTMLInputElement>(null);
+  const rmInputRef = useRef("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastOpenRef = useRef(false);
+
+  // Reset form HANYA saat modal baru dibuka (transisi false -> true)
+  useEffect(() => {
+    if (open && !lastOpenRef.current) {
+      setFormData(initialForm());
+      setMatchedPatient(null);
+      setError("");
+      setRmChecking(false);
+      setLoading(false);
+      rmInputRef.current = "";
+      // Autofokus kursor ke input No. RM
+      setTimeout(() => {
+        noRmInputRef.current?.focus();
+      }, 100);
+    }
+    lastOpenRef.current = open;
+  }, [open]);
 
   const umurTeks = useMemo(() => {
     const t = formatTanggalLahirFromDb(formData.tanggalLahir?.trim() ?? "");
     if (!t || !/^\d{4}-\d{2}-\d{2}$/.test(t)) return "—";
     return hitungUsia(t).teks;
   }, [formData.tanggalLahir]);
-
-  useEffect(() => {
-    if (!open) return;
-    setFormData(initialForm());
-    setMatchedPatient(null);
-    setError("");
-    setRmChecking(false);
-    setLoading(false);
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-    }
-  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -144,14 +150,15 @@ export default function TambahPasienQuickModal({
       }
       return;
     }
-    if (debounceRef.current) clearTimeout(debounceRef.current);
 
     const rmTyped = formData.noRM.trim();
     if (rmTyped.length < RM_LOOKUP_MIN_LEN) {
-      setMatchedPatient(null);
-      setRmChecking(false);
+      setMatchedPatient((prev) => (prev ? null : prev));
+      setRmChecking((prev) => (prev ? false : prev));
       return;
     }
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
 
     setRmChecking(true);
     debounceRef.current = setTimeout(() => {
@@ -168,12 +175,25 @@ export default function TambahPasienQuickModal({
           if (rmInputRef.current.trim() !== lookupRm) return;
           if (found && rmEquivalent(found.noRM, lookupRm)) {
             setMatchedPatient(found);
-            setFormData(patientToFormFields(found));
+            const fields = patientToFormFields(found);
+            setFormData((prev) => {
+              if (prev.noRM.trim() === lookupRm) {
+                const isDifferent = 
+                  prev.nama !== fields.nama || 
+                  prev.alamat !== fields.alamat || 
+                  prev.noHP !== fields.noHP;
+                
+                if (isDifferent) {
+                  return { ...fields, noRM: prev.noRM };
+                }
+              }
+              return prev;
+            });
           } else {
-            setMatchedPatient(null);
+            setMatchedPatient((prev) => (prev ? null : prev));
           }
         } catch {
-          if (rmInputRef.current.trim() === lookupRm) setMatchedPatient(null);
+          if (rmInputRef.current.trim() === lookupRm) setMatchedPatient((prev) => (prev ? null : prev));
         } finally {
           if (rmInputRef.current.trim() === lookupRm) setRmChecking(false);
         }
@@ -185,11 +205,16 @@ export default function TambahPasienQuickModal({
     };
   }, [open, formData.noRM]);
 
-  const handleChange = (
+  const handleChange = useCallback((
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     setError("");
     const { name, value } = e.target;
+    
+    if (name === "noRM") {
+      rmInputRef.current = value;
+    }
+
     setFormData((p) => {
       const nextVal =
         name === "jenisKelamin"
@@ -210,14 +235,14 @@ export default function TambahPasienQuickModal({
 
       return { ...p, [name]: nextVal } as Omit<Pasien, "id">;
     });
-  };
+  }, []);
 
-  const handleTanggalLahirBlur = () => {
+  const handleTanggalLahirBlur = useCallback(() => {
     setFormData((p) => ({
       ...p,
       tanggalLahir: formatTanggalLahirFromDb(p.tanggalLahir.trim()),
     }));
-  };
+  }, []);
 
   const handleSubmit = async () => {
     const namaFinal = normalizeNamaPasien(formData.nama);
@@ -271,7 +296,6 @@ export default function TambahPasienQuickModal({
         const putJson = (await putRes.json().catch(() => ({}))) as {
           ok?: boolean;
           data?: Pasien;
-          // Selaras dengan formatPasienApiValidationError (jika API mengembalikan error/message)
           error?: unknown;
           message?: string;
         };
@@ -279,7 +303,7 @@ export default function TambahPasienQuickModal({
           throw new Error(formatPasienApiValidationError(putJson));
         }
 
-        onClose();
+        onClose(); // Berhasil simpan, langsung tutup tanpa konfirmasi
         await onSaved(putJson.data);
         return;
       }
@@ -316,7 +340,7 @@ export default function TambahPasienQuickModal({
       }
 
       const patient = json.data as Pasien;
-      onClose();
+      onClose(); // Berhasil simpan, langsung tutup tanpa konfirmasi
       await onSaved(patient);
     } catch (err: any) {
       setError(err?.message || "Terjadi kesalahan saat menyimpan data");
@@ -325,32 +349,73 @@ export default function TambahPasienQuickModal({
     }
   };
 
-  if (!open) return null;
-
   const primaryLabel = matchedPatient ? "Tambah kasus tindakan" : "💾 Simpan";
   const primaryLoadingLabel = matchedPatient
     ? "Memperbarui master & menambah kasus…"
     : "⏳ Menyimpan…";
 
+  const isDirty = useMemo(() => {
+    const initial = initialForm();
+    return (
+      formData.noRM !== initial.noRM ||
+      formData.nama !== initial.nama ||
+      formData.alamat !== initial.alamat ||
+      formData.noHP !== initial.noHP ||
+      formData.asuransi !== initial.asuransi
+    );
+  }, [formData]);
+
+  const handleClose = async () => {
+    if (isDirty) {
+      const confirmClose = await confirm({
+        title: "Batalkan Pengisian?",
+        message: "Data yang Anda masukkan belum disimpan. Tetap keluar?",
+        confirmLabel: "Ya, Keluar",
+        cancelLabel: "Lanjutkan Mengisi",
+        danger: true,
+      });
+      if (!confirmClose) return;
+    }
+    onClose();
+  };
+
   return (
-    <ModalWrapper onClose={onClose}>
-      <div className={`relative ${UI_LAYERS.floatingCard}`}>
-        <div
+    <DialogPrimitive.Root open={open} onOpenChange={(v) => { if (!v) handleClose(); }} modal={true}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay
+          className="fixed inset-0 z-[100000] bg-black/20 backdrop-blur-sm transition-opacity animate-in fade-in duration-300"
+        />
+        <DialogPrimitive.Content
           className={cn(
-            "animate-in fade-in zoom-in-95 duration-200 rounded-xl border p-3 sm:rounded-2xl sm:p-6",
-            isDark
-              ? "border-cyan-500/45 bg-gradient-to-br from-cyan-950/90 via-cyan-950/70 to-black/95 text-white shadow-lg shadow-cyan-900/25"
-              : "border-cyan-500/35 bg-gradient-to-br from-white to-cyan-50/80 text-slate-800 shadow-lg shadow-cyan-900/10",
+            "fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] z-[100001] outline-none",
+            "p-0 border-none bg-transparent shadow-none max-w-[min(30rem,95vw)] w-full"
           )}
+          onPointerDownOutside={(e) => {
+            if (isDirty) e.preventDefault();
+          }}
+          onEscapeKeyDown={(e) => {
+            if (isDirty) e.preventDefault();
+          }}
         >
-          <h3
+          <div
             className={cn(
-              "mb-2 text-center text-lg font-semibold sm:mb-4 sm:text-2xl",
-              isDark ? "text-cyan-100" : "text-cyan-900",
+              "animate-in fade-in zoom-in-95 duration-200 rounded-xl border p-3 sm:rounded-2xl sm:p-6",
+              isDark
+                ? "border-cyan-500/45 bg-slate-950 text-white shadow-2xl shadow-cyan-900/50"
+                : "border-cyan-500/35 bg-white text-slate-800 shadow-2xl shadow-cyan-900/20",
             )}
           >
-            ➕ Tambah Pasien
-          </h3>
+            <DialogPrimitive.Title
+              className={cn(
+                "mb-2 text-center text-lg font-semibold sm:mb-4 sm:text-2xl",
+                isDark ? "text-cyan-100" : "text-cyan-900",
+              )}
+            >
+              ➕ Tambah Pasien
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Description className="sr-only">
+              Lengkapi data pasien untuk menambahkan ke master dan kasus tindakan baru.
+            </DialogPrimitive.Description>
 
           {matchedPatient ? (
             <p
@@ -387,6 +452,7 @@ export default function TambahPasienQuickModal({
                 onChange={handleChange}
                 isDark={isDark}
                 autoComplete="off"
+                inputRef={noRmInputRef}
               />
               {rmChecking ? (
                 <p
@@ -425,7 +491,7 @@ export default function TambahPasienQuickModal({
                   className={cn(
                     "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-sm focus:border-yellow-500 focus:outline-none sm:px-3 sm:py-2 sm:text-base",
                     isDark
-                      ? "border-cyan-600/60 bg-black/30 text-cyan-100 [color-scheme:dark]"
+                      ? "border-cyan-600/60 bg-slate-900 text-cyan-100 [color-scheme:dark]"
                       : "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]",
                   )}
                 >
@@ -613,7 +679,7 @@ export default function TambahPasienQuickModal({
               {loading ? primaryLoadingLabel : primaryLabel}
             </button>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className={cn(
                 "w-full shrink-0 rounded-lg border bg-transparent px-4 py-2.5 transition-all sm:w-auto sm:px-6 sm:py-2",
                 isDark
@@ -625,9 +691,10 @@ export default function TambahPasienQuickModal({
             </button>
           </div>
         </div>
-      </div>
-    </ModalWrapper>
-  );
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
+  </DialogPrimitive.Root>
+);
 }
 
 function InputField({
@@ -641,6 +708,7 @@ function InputField({
   placeholder,
   autoComplete,
   isDark,
+  inputRef,
 }: {
   label: string;
   name: string;
@@ -652,6 +720,7 @@ function InputField({
   placeholder?: string;
   autoComplete?: string;
   isDark: boolean;
+  inputRef?: React.RefObject<HTMLInputElement | null>;
 }) {
   return (
     <div className={colSpan ? "col-span-1 sm:col-span-2" : ""}>
@@ -664,6 +733,7 @@ function InputField({
         {label}
       </label>
       <input
+        ref={inputRef}
         type={type}
         name={name}
         value={value}
@@ -674,7 +744,7 @@ function InputField({
         className={cn(
           "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-sm focus:border-yellow-500 focus:outline-none sm:px-3 sm:py-2 sm:text-base",
           isDark
-            ? "border-cyan-600/60 bg-black/30 text-cyan-100 placeholder:text-cyan-200 [color-scheme:dark]"
+            ? "border-cyan-600/60 bg-slate-900 text-cyan-100 placeholder:text-cyan-200 [color-scheme:dark]"
             : "border-cyan-500/45 bg-white text-slate-800 placeholder:text-slate-500 [color-scheme:light]",
         )}
       />

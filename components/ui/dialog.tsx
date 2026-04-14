@@ -32,7 +32,11 @@ export function DialogContent({
     <DialogPrimitive.Portal>
       <AnimatePresence>
         {!hideOverlay && (
-          <DialogPrimitive.Overlay key="jarvis-dialog-overlay" asChild forceMount>
+          <DialogPrimitive.Overlay
+            key="jarvis-dialog-overlay"
+            asChild
+            forceMount
+          >
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.7 }}

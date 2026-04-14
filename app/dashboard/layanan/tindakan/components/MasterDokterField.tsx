@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useMemo } from "react";
 import { useNotification } from "@/app/contexts/NotificationContext";
+import { useMasterDoctors } from "@/app/hooks/useMasterData";
 import {
   DoctorCombobox,
   formatDoctorLabel,
@@ -23,8 +24,17 @@ function norm(s: string) {
 export default function MasterDokterField({ tindakanId, value, onSaved }: Props) {
   const { show } = useNotification();
   const listId = useId();
-  const [options, setOptions] = useState<DoctorOption[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { doctors: rawDoctors, isLoading: loading } = useMasterDoctors();
+  
+  const options = useMemo(() => {
+    return rawDoctors.map((r: any) => ({
+      id: r.id,
+      nama_dokter: r.nama_dokter,
+      spesialis: r.spesialis,
+      aktif: r.aktif
+    }) as DoctorOption);
+  }, [rawDoctors]);
+
   const [draft, setDraft] = useState(() => norm(String(value ?? "")));
   const [saving, setSaving] = useState(false);
   const lastPersistedRef = useRef("");
@@ -34,63 +44,6 @@ export default function MasterDokterField({ tindakanId, value, onSaved }: Props)
     lastPersistedRef.current =
       value == null || value === "" ? "" : norm(String(value));
   }, [value, tindakanId]);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/doctors", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        doctors?: unknown;
-        message?: string;
-      };
-      if (!res.ok || !json.ok) {
-        throw new Error(json.message || res.statusText);
-      }
-      const rows = Array.isArray(json.doctors) ? json.doctors : [];
-      const mapped = rows
-        .map((r) => {
-          if (!r || typeof r !== "object") return null;
-          const rec = r as Record<string, unknown>;
-          const id = String(rec.id ?? rec.user_id ?? "").trim();
-          const nama = String(rec.nama_dokter ?? rec.nama ?? "").trim();
-          if (!id || !nama) return null;
-          const spesialisRaw = rec.spesialis;
-          const spesialis =
-            typeof spesialisRaw === "string" ? spesialisRaw.trim() : "";
-          const aktifRaw = rec.aktif;
-          const aktif =
-            typeof aktifRaw === "boolean"
-              ? aktifRaw
-              : typeof aktifRaw === "number"
-                ? aktifRaw !== 0
-                : undefined;
-          return {
-            id,
-            nama_dokter: nama,
-            spesialis: spesialis || null,
-            ...(aktif !== undefined ? { aktif } : {}),
-          } satisfies DoctorOption;
-        })
-        .filter((d): d is DoctorOption => Boolean(d));
-      setOptions(mapped);
-    } catch (e) {
-      show({
-        type: "error",
-        message: `Gagal memuat master dokter: ${(e as Error).message}`,
-      });
-      setOptions([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [show]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   useEffect(() => {
     setDraft(norm(String(value ?? "")));

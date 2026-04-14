@@ -62,7 +62,11 @@ export default function TarifModal({
     }
   }, [open]);
 
-  const handleUpdateField = (index: number, field: keyof TarifItem, value: string) => {
+  const handleUpdateField = (
+    index: number,
+    field: keyof TarifItem,
+    value: string,
+  ) => {
     const newTarif = [...tarif];
     if (field === "harga") {
       const numericValue = parseInt(value.replace(/\D/g, "")) || 0;
@@ -71,7 +75,7 @@ export default function TarifModal({
       newTarif[index] = { ...newTarif[index], [field]: value };
     }
     setTarif(newTarif);
-    
+
     // Autosave silent
     setIsSaving(true);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newTarif));
@@ -81,9 +85,10 @@ export default function TarifModal({
     }, 500);
   };
 
-  const filteredTarif = tarif.filter((item) =>
-    item.nama.toLowerCase().includes(search.toLowerCase()) ||
-    item.kode?.toLowerCase().includes(search.toLowerCase())
+  const filteredTarif = tarif.filter(
+    (item) =>
+      item.nama.toLowerCase().includes(search.toLowerCase()) ||
+      item.kode?.toLowerCase().includes(search.toLowerCase()),
   );
 
   const formatRupiah = (val: number) => {
@@ -98,7 +103,9 @@ export default function TarifModal({
 
   return (
     <ModalWrapper onClose={onClose} zIndex={UI_LAYERS.modalTop}>
-      <div className={`relative w-full max-w-2xl mx-auto ${UI_LAYERS.floatingCard}`}>
+      <div
+        className={`relative w-full max-w-2xl mx-auto ${UI_LAYERS.floatingCard}`}
+      >
         <div
           className={cn(
             "animate-in fade-in zoom-in-95 duration-200 rounded-xl border p-4 sm:rounded-2xl sm:p-6",
@@ -120,7 +127,9 @@ export default function TarifModal({
               onClick={onClose}
               className={cn(
                 "p-1.5 rounded-full transition-colors",
-                isDark ? "hover:bg-white/10 text-white" : "hover:bg-black/5 text-slate-600"
+                isDark
+                  ? "hover:bg-white/10 text-white"
+                  : "hover:bg-black/5 text-slate-600",
               )}
             >
               <X size={20} />
@@ -132,7 +141,7 @@ export default function TarifModal({
               size={18}
               className={cn(
                 "absolute left-3 top-1/2 -translate-y-1/2 opacity-60",
-                isDark ? "text-cyan-300" : "text-cyan-700"
+                isDark ? "text-cyan-300" : "text-cyan-700",
               )}
             />
             <input
@@ -144,7 +153,7 @@ export default function TarifModal({
                 "w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-cyan-500 focus:outline-none transition-all",
                 isDark
                   ? "bg-black/40 border-cyan-500/30 text-white placeholder:text-white/40"
-                  : "bg-white border-cyan-500/30 text-slate-900 placeholder:text-slate-400"
+                  : "bg-white border-cyan-500/30 text-slate-900 placeholder:text-slate-400",
               )}
             />
           </div>
@@ -152,7 +161,9 @@ export default function TarifModal({
           <div className="max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
             <div className="grid grid-cols-1 gap-2">
               {filteredTarif.map((item, idx) => {
-                const originalIndex = tarif.findIndex((t) => t.nama === item.nama);
+                const originalIndex = tarif.findIndex(
+                  (t) => t.nama === item.nama,
+                );
                 return (
                   <div
                     key={item.nama}
@@ -160,11 +171,16 @@ export default function TarifModal({
                       "flex items-center justify-between p-3 rounded-lg border transition-all",
                       isDark
                         ? "bg-black/20 border-white/10 hover:border-cyan-500/40"
-                        : "bg-white border-slate-200 hover:border-cyan-500/40 shadow-sm"
+                        : "bg-white border-slate-200 hover:border-cyan-500/40 shadow-sm",
                     )}
                   >
                     <div className="flex-1 min-w-0 mr-3">
-                      <span className={cn("font-bold text-sm tracking-wide block truncate", isDark ? "text-cyan-100" : "text-cyan-900")}>
+                      <span
+                        className={cn(
+                          "font-bold text-sm tracking-wide block truncate",
+                          isDark ? "text-cyan-100" : "text-cyan-900",
+                        )}
+                      >
                         {item.nama}
                       </span>
                     </div>
@@ -173,25 +189,39 @@ export default function TarifModal({
                         type="text"
                         placeholder="Kode"
                         value={item.kode || ""}
-                        onChange={(e) => handleUpdateField(originalIndex, "kode", e.target.value)}
+                        onChange={(e) =>
+                          handleUpdateField(
+                            originalIndex,
+                            "kode",
+                            e.target.value,
+                          )
+                        }
                         className={cn(
                           "px-2 py-1.5 w-28 text-center font-mono text-xs font-bold rounded-md border focus:ring-2 focus:ring-cyan-500 focus:outline-none transition-all uppercase",
                           isDark
                             ? "bg-black/40 border-cyan-500/20 text-cyan-300 placeholder:text-white/20"
-                            : "bg-slate-50 border-slate-200 text-cyan-700 placeholder:text-slate-300"
+                            : "bg-slate-50 border-slate-200 text-cyan-700 placeholder:text-slate-300",
                         )}
                       />
                       <div className="relative">
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold opacity-50">Rp</span>
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold opacity-50">
+                          Rp
+                        </span>
                         <input
                           type="text"
                           value={item.harga.toLocaleString("id-ID")}
-                          onChange={(e) => handleUpdateField(originalIndex, "harga", e.target.value)}
+                          onChange={(e) =>
+                            handleUpdateField(
+                              originalIndex,
+                              "harga",
+                              e.target.value,
+                            )
+                          }
                           className={cn(
                             "pl-8 pr-2 py-1.5 w-28 text-right font-mono text-sm font-bold rounded-md border focus:ring-2 focus:ring-cyan-500 focus:outline-none transition-all",
                             isDark
                               ? "bg-black/40 border-cyan-500/30 text-white"
-                              : "bg-slate-50 border-slate-300 text-slate-900"
+                              : "bg-slate-50 border-slate-300 text-slate-900",
                           )}
                         />
                       </div>
@@ -212,17 +242,25 @@ export default function TarifModal({
               {isSaving ? (
                 <>
                   <Loader2 size={14} className="animate-spin text-cyan-400" />
-                  <span className={isDark ? "text-cyan-400" : "text-cyan-600"}>Menyimpan otomatis...</span>
+                  <span className={isDark ? "text-cyan-400" : "text-cyan-600"}>
+                    Menyimpan otomatis...
+                  </span>
                 </>
               ) : lastSaved ? (
                 <>
                   <CheckCircle2 size={14} className="text-emerald-400" />
                   <span className={isDark ? "text-white/60" : "text-slate-500"}>
-                    Tersimpan {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    Tersimpan{" "}
+                    {lastSaved.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </span>
                 </>
               ) : (
-                <span className={isDark ? "text-white/40" : "text-slate-400 italic"}>
+                <span
+                  className={isDark ? "text-white/40" : "text-slate-400 italic"}
+                >
                   Perubahan akan disimpan otomatis
                 </span>
               )}
@@ -233,7 +271,7 @@ export default function TarifModal({
                 "px-6 py-2 rounded-lg font-bold transition-all border",
                 isDark
                   ? "bg-cyan-600/20 border-cyan-500/50 text-cyan-100 hover:bg-cyan-600/40"
-                  : "bg-cyan-50 border-cyan-500/30 text-cyan-900 hover:bg-cyan-100"
+                  : "bg-cyan-50 border-cyan-500/30 text-cyan-900 hover:bg-cyan-100",
               )}
             >
               Tutup

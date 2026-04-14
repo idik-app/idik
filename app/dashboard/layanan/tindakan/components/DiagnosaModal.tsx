@@ -69,11 +69,15 @@ export default function DiagnosaModal({
     }
   }, [open]);
 
-  const handleUpdateField = (index: number, field: keyof DiagnosaItem, value: string) => {
+  const handleUpdateField = (
+    index: number,
+    field: keyof DiagnosaItem,
+    value: string,
+  ) => {
     const newData = [...data];
     newData[index] = { ...newData[index], [field]: value };
     setData(newData);
-    
+
     // Autosave silent
     setIsSaving(true);
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newData));
@@ -83,16 +87,19 @@ export default function DiagnosaModal({
     }, 500);
   };
 
-  const filteredData = data.filter((item) =>
-    item.diagnosa.toLowerCase().includes(search.toLowerCase()) ||
-    item.icd10.toLowerCase().includes(search.toLowerCase())
+  const filteredData = data.filter(
+    (item) =>
+      item.diagnosa.toLowerCase().includes(search.toLowerCase()) ||
+      item.icd10.toLowerCase().includes(search.toLowerCase()),
   );
 
   if (!open) return null;
 
   return (
     <ModalWrapper onClose={onClose} zIndex={UI_LAYERS.modalTop}>
-      <div className={`relative w-full max-w-3xl mx-auto ${UI_LAYERS.floatingCard}`}>
+      <div
+        className={`relative w-full max-w-3xl mx-auto ${UI_LAYERS.floatingCard}`}
+      >
         <div
           className={cn(
             "animate-in fade-in zoom-in-95 duration-200 rounded-xl border p-4 sm:rounded-2xl sm:p-6",
@@ -115,7 +122,9 @@ export default function DiagnosaModal({
               onClick={onClose}
               className={cn(
                 "p-1.5 rounded-full transition-colors",
-                isDark ? "hover:bg-white/10 text-white" : "hover:bg-black/5 text-slate-600"
+                isDark
+                  ? "hover:bg-white/10 text-white"
+                  : "hover:bg-black/5 text-slate-600",
               )}
             >
               <X size={20} />
@@ -127,7 +136,7 @@ export default function DiagnosaModal({
               size={18}
               className={cn(
                 "absolute left-3 top-1/2 -translate-y-1/2 opacity-60",
-                isDark ? "text-emerald-300" : "text-emerald-700"
+                isDark ? "text-emerald-300" : "text-emerald-700",
               )}
             />
             <input
@@ -139,16 +148,20 @@ export default function DiagnosaModal({
                 "w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all",
                 isDark
                   ? "bg-black/40 border-emerald-500/30 text-white placeholder:text-white/40"
-                  : "bg-white border-emerald-500/30 text-slate-900 placeholder:text-slate-400"
+                  : "bg-white border-emerald-500/30 text-slate-900 placeholder:text-slate-400",
               )}
             />
           </div>
 
           {/* Table Header */}
-          <div className={cn(
-            "grid grid-cols-[3rem_1fr_8rem] gap-2 px-3 py-2 mb-2 rounded-lg text-[10px] font-black uppercase tracking-widest",
-            isDark ? "bg-emerald-500/20 text-emerald-300" : "bg-emerald-100 text-emerald-800"
-          )}>
+          <div
+            className={cn(
+              "grid grid-cols-[3rem_1fr_8rem] gap-2 px-3 py-2 mb-2 rounded-lg text-[10px] font-black uppercase tracking-widest",
+              isDark
+                ? "bg-emerald-500/20 text-emerald-300"
+                : "bg-emerald-100 text-emerald-800",
+            )}
+          >
             <span>No.</span>
             <span>DIAGNOSA</span>
             <span className="text-center">ICD 10</span>
@@ -157,7 +170,9 @@ export default function DiagnosaModal({
           <div className="max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
             <div className="grid grid-cols-1 gap-1.5">
               {filteredData.map((item, idx) => {
-                const originalIndex = data.findIndex((d) => d.diagnosa === item.diagnosa);
+                const originalIndex = data.findIndex(
+                  (d) => d.diagnosa === item.diagnosa,
+                );
                 return (
                   <div
                     key={`${item.diagnosa}-${idx}`}
@@ -165,28 +180,45 @@ export default function DiagnosaModal({
                       "grid grid-cols-[3rem_1fr_8rem] gap-2 items-center p-2 rounded-lg border transition-all",
                       isDark
                         ? "bg-black/20 border-white/5 hover:border-emerald-500/40"
-                        : "bg-white border-slate-100 hover:border-emerald-500/40 shadow-sm"
+                        : "bg-white border-slate-100 hover:border-emerald-500/40 shadow-sm",
                     )}
                   >
-                    <span className={cn("text-center font-mono text-xs font-bold opacity-50", isDark ? "text-emerald-100" : "text-emerald-900")}>
+                    <span
+                      className={cn(
+                        "text-center font-mono text-xs font-bold opacity-50",
+                        isDark ? "text-emerald-100" : "text-emerald-900",
+                      )}
+                    >
                       {originalIndex + 1}
                     </span>
                     <input
                       type="text"
                       value={item.diagnosa}
-                      onChange={(e) => handleUpdateField(originalIndex, "diagnosa", e.target.value)}
+                      onChange={(e) =>
+                        handleUpdateField(
+                          originalIndex,
+                          "diagnosa",
+                          e.target.value,
+                        )
+                      }
                       className={cn(
                         "px-2 py-1 text-sm font-bold rounded-md border border-transparent focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-all bg-transparent",
-                        isDark ? "text-white" : "text-slate-900"
+                        isDark ? "text-white" : "text-slate-900",
                       )}
                     />
                     <input
                       type="text"
                       value={item.icd10}
-                      onChange={(e) => handleUpdateField(originalIndex, "icd10", e.target.value)}
+                      onChange={(e) =>
+                        handleUpdateField(
+                          originalIndex,
+                          "icd10",
+                          e.target.value,
+                        )
+                      }
                       className={cn(
                         "px-2 py-1 text-center font-mono text-xs font-black rounded-md border border-transparent focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-all bg-transparent uppercase",
-                        isDark ? "text-emerald-300" : "text-emerald-700"
+                        isDark ? "text-emerald-300" : "text-emerald-700",
                       )}
                     />
                   </div>
@@ -204,18 +236,31 @@ export default function DiagnosaModal({
             <div className="flex items-center gap-2 text-xs">
               {isSaving ? (
                 <>
-                  <Loader2 size={14} className="animate-spin text-emerald-400" />
-                  <span className={isDark ? "text-emerald-400" : "text-emerald-600"}>Menyimpan otomatis...</span>
+                  <Loader2
+                    size={14}
+                    className="animate-spin text-emerald-400"
+                  />
+                  <span
+                    className={isDark ? "text-emerald-400" : "text-emerald-600"}
+                  >
+                    Menyimpan otomatis...
+                  </span>
                 </>
               ) : lastSaved ? (
                 <>
                   <CheckCircle2 size={14} className="text-emerald-400" />
                   <span className={isDark ? "text-white/60" : "text-slate-500"}>
-                    Tersimpan {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    Tersimpan{" "}
+                    {lastSaved.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </span>
                 </>
               ) : (
-                <span className={isDark ? "text-white/40" : "text-slate-400 italic"}>
+                <span
+                  className={isDark ? "text-white/40" : "text-slate-400 italic"}
+                >
                   Perubahan akan disimpan otomatis
                 </span>
               )}
@@ -226,7 +271,7 @@ export default function DiagnosaModal({
                 "px-6 py-2 rounded-lg font-bold transition-all border",
                 isDark
                   ? "bg-emerald-600/20 border-emerald-500/50 text-emerald-100 hover:bg-emerald-600/40"
-                  : "bg-emerald-50 border-emerald-500/30 text-emerald-900 hover:bg-emerald-100"
+                  : "bg-emerald-50 border-emerald-500/30 text-emerald-900 hover:bg-emerald-100",
               )}
             >
               Tutup

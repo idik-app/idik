@@ -46,13 +46,13 @@ let variantsCacheExpires = 0;
  * variant distributor_barang (LOT / ukuran / ED bila ada).
  */
 export async function GET() {
-  const user = await requireUser();
-  if (!user.ok) return user.response;
-
   const now = Date.now();
   if (variantsCache && now < variantsCacheExpires) {
     return NextResponse.json({ ok: true, items: variantsCache, cached: true });
   }
+
+  const user = await requireUser();
+  if (!user.ok) return user.response;
 
   const supabase = getServiceSupabaseAdmin();
   if (!supabase) {

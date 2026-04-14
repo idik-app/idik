@@ -34,6 +34,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 import { usePhoneDirectory } from "../hooks/usePhoneDirectory";
 
 export default function TindakanDashboardModal({
@@ -116,9 +117,11 @@ export default function TindakanDashboardModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        overlayClassName={UI_LAYERS.dialogOverlayTop}
         className={cn(
           "max-h-[85vh] w-[min(100vw-1rem,750px)] overflow-hidden border p-0",
           "border-slate-300/60 bg-white/98 backdrop-blur-xl dark:border-cyan-500/35 dark:bg-slate-950/95",
+          UI_LAYERS.dialogContentTop
         )}
       >
         <div className="flex flex-col h-full max-h-[85vh]">

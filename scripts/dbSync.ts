@@ -1,7 +1,7 @@
 -- ==========================================================
 -- IDIK-App Core Database Schema (Cathlab + Inventory)
 -- ==========================================================
--- Versi: 1.0
+-- Versi: 1.1 (Unified Audit Log)
 -- Author: JARVIS IDIK
 -- ==========================================================
 
@@ -81,14 +81,17 @@ create table if not exists public.device_usage (
   used_at timestamptz default now()
 );
 
--- ========= AUDIT LOG =========
-create table if not exists public.audit_logs (
+-- ========= AUDIT LOG (UNIFIED) =========
+-- Gabungan dari kebutuhan trigger DB dan audit internal aplikasi.
+create table if not exists public.audit_log (
   id bigserial primary key,
-  user_email text,
-  table_name text,
-  action text,
-  row_id uuid,
-  description text,
+  event_type text,      -- Misal: 'pasien', 'tindakan', 'auth'
+  action text,          -- Misal: 'CREATE', 'UPDATE', 'DELETE', 'LOGIN'
+  module text,          -- Misal: 'dashboard/pasien', 'api/auth'
+  actor text,           -- ID user atau email sistem
+  metadata jsonb default '{}'::jsonb,
+  status text default 'success',
+  ip_address text,
   created_at timestamptz default now()
 );
 
@@ -96,13 +99,18 @@ create table if not exists public.audit_logs (
 create or replace function public.log_table_change()
 returns trigger as $$
 begin
-  insert into audit_logs (user_email, table_name, action, row_id, description)
+  insert into audit_log (event_type, action, module, actor, metadata, status, created_at)
   values (
-    current_setting('request.jwt.claim.email', true),
     TG_TABLE_NAME,
     TG_OP,
-    coalesce(NEW.id, OLD.id),
-    concat('Change detected on ', TG_TABLE_NAME)
+    'DB_TRIGGER',
+    coalesce(current_setting('request.jwt.claim.email', true), 'system'),
+    jsonb_build_object(
+      'row_id', coalesce(NEW.id, OLD.id),
+      'description', concat('Change detected on ', TG_TABLE_NAME)
+    ),
+    'success',
+    now()
   );
   return null;
 end;
@@ -120,6 +128,8 @@ begin
        for each row execute function public.log_table_change();', t, t
     );
   end loop;
+exception when others then
+  -- Ignore if trigger already exists
 end;
 $$;
 
@@ -140,12 +150,15 @@ create index if not exists idx_patients_rm on patients(rm_number);
 create index if not exists idx_devices_lot on devices(lot_number);
 create index if not exists idx_device_expiry on devices(expiry_date);
 create index if not exists idx_usage_procedure on device_usage(procedure_id);
+create index if not exists idx_audit_log_created_at on audit_log(created_at desc);
+create index if not exists idx_audit_log_event_type on audit_log(event_type);
 
 -- ========= RLS (Row-Level Security) =========
 alter table public.patients enable row level security;
 alter table public.devices enable row level security;
 alter table public.device_usage enable row level security;
 alter table public.procedures enable row level security;
+alter table public.audit_log enable row level security;
 
 create policy "allow read for all authenticated" on public.patients
   for select using (auth.role() = 'authenticated');
@@ -156,5 +169,5 @@ create policy "allow read for all authenticated" on public.devices
 create policy "allow read for all authenticated" on public.distributors
   for select using (auth.role() = 'authenticated');
 
-create policy "allow read for all authenticated" on public.audit_logs
+create policy "allow read for all authenticated" on public.audit_log
   for select using (auth.role() = 'authenticated');

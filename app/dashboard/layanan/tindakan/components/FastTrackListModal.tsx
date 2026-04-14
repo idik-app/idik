@@ -136,7 +136,7 @@ export default function FastTrackListModal({
       const d = String(r.dokter ?? "").trim();
       if (!d) continue;
       const canon =
-        master.length > 0 ? canonicalDoctorStoredValue(master, d) : d;
+        master.length > 0 ? canonicalDoctorStoredValue([...master], d) : d;
       set.add(canon);
     }
     return [...set].sort((a, b) => a.localeCompare(b, "id"));
@@ -200,8 +200,8 @@ export default function FastTrackListModal({
         const rowD = String(r.dokter ?? "").trim();
         if (!master.length) return rowD === fd;
         return (
-          canonicalDoctorStoredValue(master, rowD) ===
-          canonicalDoctorStoredValue(master, fd)
+          canonicalDoctorStoredValue([...master], rowD) ===
+          canonicalDoctorStoredValue([...master], fd)
         );
       });
     }
@@ -410,7 +410,7 @@ export default function FastTrackListModal({
       // Auto-activate FT if time is filled
       const isFt =
         currentRow.is_fast_track === true ||
-        currentRow.is_fast_track === 1 ||
+        Number(currentRow.is_fast_track) === 1 ||
         String(currentRow.is_fast_track) === "true" ||
         String(currentRow.is_fast_track) === "1";
 
@@ -450,13 +450,13 @@ export default function FastTrackListModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        hideOverlay
+        overlayClassName={UI_LAYERS.dialogOverlayTop}
         className={cn(
           "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
           "h-[98vh] w-[98vw] max-w-[1400px] overflow-hidden p-0 flex flex-col sm:h-[95vh] sm:w-[96vw]",
           "border-slate-300/60 bg-slate-50 dark:border-amber-500/35 dark:bg-[#0f1115]",
           "shadow-2xl ring-1 ring-black/5 dark:ring-white/10",
-          UI_LAYERS.modalTop
+          UI_LAYERS.dialogContentTop
         )}
       >
         <div
@@ -896,7 +896,7 @@ export default function FastTrackListModal({
                           </td>
                           <td className="px-1 py-1 text-[9px] leading-tight text-slate-700 border-r border-slate-200 dark:text-slate-300 dark:border-slate-700 sm:px-2 sm:py-2 sm:text-[11px] sm:leading-snug">
                             <DatetimeLocalPicker
-                              appearance="table"
+                              appearance="drawer"
                               value={normalizeDatetimeLocalInput(
                                 String(rec.pasien_datang_igd ?? "")
                               )}
@@ -912,7 +912,7 @@ export default function FastTrackListModal({
                           </td>
                           <td className="px-1 py-1 text-[9px] leading-tight text-slate-700 border-r border-slate-200 dark:text-slate-300 dark:border-slate-700 sm:px-2 sm:py-2 sm:text-[11px] sm:leading-snug">
                             <DatetimeLocalPicker
-                              appearance="table"
+                              appearance="drawer"
                               value={normalizeDatetimeLocalInput(
                                 String(rec.door_to_balloon ?? "")
                               )}

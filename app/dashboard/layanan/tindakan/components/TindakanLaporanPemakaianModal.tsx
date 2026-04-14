@@ -475,11 +475,11 @@ export default function TindakanLaporanPemakaianModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        hideOverlay
+        overlayClassName={UI_LAYERS.dialogOverlayTop}
         className={cn(
           "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
           "h-[85vh] max-h-[85vh] w-[95vw] max-w-5xl overflow-hidden p-0 flex flex-col border-slate-300/60 bg-white dark:border-amber-500/35 dark:bg-black rounded-xl focus:outline-none",
-          UI_LAYERS.modalTop,
+          UI_LAYERS.dialogContentTop,
         )}
       >
         <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-2 sm:p-3 text-slate-900 dark:text-white overflow-hidden bg-white dark:bg-black">

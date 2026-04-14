@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNotification } from "@/app/contexts/NotificationContext";
+import { useMasterTindakan } from "@/app/hooks/useMasterData";
 import {
   MasterTindakanCombobox,
   formatMasterTindakanLabel,
@@ -27,8 +28,16 @@ export default function MasterJenisTindakanField({
 }: Props) {
   const { show } = useNotification();
   const listId = useId();
-  const [options, setOptions] = useState<MasterTindakanOption[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { masterTindakan: rawMaster, isLoading: loading } = useMasterTindakan();
+  
+  const options = useMemo(() => {
+    return rawMaster.map((r: any) => ({
+      id: String(r.id),
+      nama: String(r.nama ?? "").trim(),
+      aktif: r.aktif !== false,
+    }) as MasterTindakanOption);
+  }, [rawMaster]);
+
   const [draft, setDraft] = useState(() => norm(String(value ?? "")));
   const [saving, setSaving] = useState(false);
   const lastPersistedRef = useRef("");
@@ -38,51 +47,6 @@ export default function MasterJenisTindakanField({
     lastPersistedRef.current =
       value == null || value === "" ? "" : norm(String(value));
   }, [value, tindakanId]);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/master-tindakan", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        masterTindakan?: MasterTindakanOption[];
-        message?: string;
-      };
-      if (!res.ok || !json.ok) {
-        throw new Error(json.message || res.statusText);
-      }
-      const rows = Array.isArray(json.masterTindakan)
-        ? json.masterTindakan
-        : [];
-      const mapped = rows
-        .map((r) =>
-          r && typeof r === "object" && "id" in r && "nama" in r
-            ? {
-                id: String((r as MasterTindakanOption).id),
-                nama: String((r as MasterTindakanOption).nama ?? "").trim(),
-                aktif: (r as MasterTindakanOption).aktif !== false,
-              }
-            : null,
-        )
-        .filter(Boolean) as MasterTindakanOption[];
-      setOptions(mapped);
-    } catch (e) {
-      show({
-        type: "error",
-        message: `Gagal memuat master jenis tindakan: ${(e as Error).message}`,
-      });
-      setOptions([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [show]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   useEffect(() => {
     setDraft(norm(String(value ?? "")));

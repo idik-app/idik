@@ -426,6 +426,13 @@ function isPasienCreatedLocalToday(iso: string | null | undefined): boolean {
   );
 }
 
+import {
+  useMasterRuangan,
+  useMasterDoctors,
+  useMasterPasien,
+  useMasterVariants,
+} from "@/app/hooks/useMasterData";
+
 /*───────────────────────────────────────────────
  ⚙️ PemakaianPage – Cathlab JARVIS Mode v4.0
    Resep Alkes • Pemakaian • Depo
@@ -449,12 +456,18 @@ export default function PemakaianPage() {
   const [drawerDokter, setDrawerDokter] = useState("");
   /** `yyyy-MM-dd'T'HH:mm` untuk form drawer (kalender + jam). */
   const [drawerDateTime, setDrawerDateTime] = useState("");
-  const [pasienList, setPasienList] = useState<PasienOption[]>([]);
-  const [pasienListLoading, setPasienListLoading] = useState(false);
-  const [doctorList, setDoctorList] = useState<DoctorOption[]>([]);
-  const [doctorListLoading, setDoctorListLoading] = useState(false);
-  const [ruanganList, setRuanganList] = useState<RuanganOption[]>([]);
-  const [ruanganListLoading, setRuanganListLoading] = useState(false);
+
+  const { ruangan: ruanganList, isLoading: ruanganListLoading } = useMasterRuangan();
+  const { doctors: doctorList, isLoading: doctorListLoading } = useMasterDoctors();
+  const { pasien: rawPasien, isLoading: pasienListLoading } = useMasterPasien();
+  const { items: barangVariantList, isLoading: barangVariantLoading } = useMasterVariants();
+
+  const pasienList = useMemo(() => {
+    return (rawPasien as Record<string, unknown>[])
+      .map(mapApiPasienRow)
+      .filter((x): x is PasienOption => x != null);
+  }, [rawPasien]);
+
   /** Satu kali per buka drawer: autofill pasien (hari ini) & dokter (sesi). */
   const drawerAutofillRef = useRef({ pasien: false, dokter: false });
   /** Deep link Tindakan → Pemakaian: jangan buka drawer berulang untuk query yang sama. */
@@ -465,11 +478,7 @@ export default function PemakaianPage() {
     pasienId: string | null;
   } | null>(null);
   const openPemakaianDrawerRef = useRef<() => void>(() => {});
-  const [barangVariantList, setBarangVariantList] = useState<
-    MasterBarangPickRow[]
-  >([]);
   const barangVariantIndex = useBarangVariantIndex(barangVariantList);
-  const [barangVariantLoading, setBarangVariantLoading] = useState(false);
   const [barangPickerOpen, setBarangPickerOpen] = useState(false);
   /** Modal tambah barang: dari panel Edit order atau form Input Pemakaian. */
   const [barangPickerTarget, setBarangPickerTarget] = useState<
@@ -697,98 +706,7 @@ export default function PemakaianPage() {
     };
   }, []);
 
-  /** Master ruangan — dimuat langsung saat buka halaman agar autofill Edit order / drawer siap (sama pola prioritas dengan dokter). */
-  useEffect(() => {
-    let alive = true;
-    setRuanganListLoading(true);
-    void runDeduped("GET:/api/ruangan", async () => {
-      const r = await fetch("/api/ruangan", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      return r.json() as Promise<{
-        ok?: boolean;
-        ruangan?: RuanganOption[];
-      }>;
-    })
-      .then((j) => {
-        if (!alive) return;
-        if (j?.ok && Array.isArray(j.ruangan)) setRuanganList(j.ruangan);
-        else setRuanganList([]);
-      })
-      .catch(() => {
-        if (alive) setRuanganList([]);
-      })
-      .finally(() => {
-        if (alive) setRuanganListLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
   const isDokterSession = role === ROLE_DOKTER;
-
-  const qpPasien = searchParams.get("pasienId") || searchParams.get("rm");
-  const qpTindakanId = searchParams.get("tindakanId");
-  const hasPemakaianDeepLink =
-    Boolean(qpPasien) || Boolean(qpTindakanId?.trim());
-  const shouldLoadDoctors =
-    isDrawerOpen || detailRow != null || hasPemakaianDeepLink;
-
-  /** Master dokter + pasien + katalog variant barang (drawer & panel Edit order). */
-  useEffect(() => {
-    if (!shouldLoadDoctors) return;
-    let alive = true;
-    setDoctorListLoading(true);
-    setPasienListLoading(true);
-    setBarangVariantLoading(true);
-    void Promise.all([
-      fetch("/api/doctors", { credentials: "include", cache: "no-store" }).then(
-        (r) => r.json(),
-      ),
-      fetch("/api/pasien", { credentials: "include", cache: "no-store" }).then(
-        (r) => r.json(),
-      ),
-      runDeduped("GET:/api/master-barang/variants", async () => {
-        const r = await fetch("/api/master-barang/variants", {
-          credentials: "include",
-          cache: "no-store",
-        });
-        return r.json();
-      }),
-    ])
-      .then(([dj, pj, vj]) => {
-        if (!alive) return;
-        if (dj?.ok && Array.isArray(dj.doctors)) setDoctorList(dj.doctors);
-        else setDoctorList([]);
-        if (pj?.ok && Array.isArray(pj.data)) {
-          const rows = (pj.data as Record<string, unknown>[])
-            .map(mapApiPasienRow)
-            .filter((x): x is PasienOption => x != null);
-          setPasienList(rows);
-        } else setPasienList([]);
-        if (vj?.ok && Array.isArray(vj.items)) setBarangVariantList(vj.items);
-        else setBarangVariantList([]);
-      })
-      .catch(() => {
-        if (alive) {
-          setDoctorList([]);
-          setPasienList([]);
-          setBarangVariantList([]);
-        }
-      })
-      .finally(() => {
-        if (alive) {
-          setDoctorListLoading(false);
-          setPasienListLoading(false);
-          setBarangVariantLoading(false);
-        }
-      });
-    return () => {
-      alive = false;
-    };
-  }, [shouldLoadDoctors]);
 
   /** Akun level dokter: cocokkan username login ke master dokter (DB) — sekali per buka drawer; tidak menimpa isian user. */
   useEffect(() => {

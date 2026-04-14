@@ -2,6 +2,7 @@
 import React from "react";
 import { X, ExternalLink, CalendarDays, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 import ModalWrapper from "@/components/global/ModalWrapper";
 
 interface IndenanModalProps {

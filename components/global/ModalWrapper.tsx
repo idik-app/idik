@@ -75,7 +75,7 @@ export function ModalWrapperContent({
       style={{ zIndex }}
       className={cn(
         "fixed inset-0 overflow-y-auto overflow-x-hidden bg-black/45 backdrop-blur-[2px] sm:bg-black/60 sm:backdrop-blur-sm",
-        UI_LAYERS.dialogOverlayTop // Pastikan ModalWrapper juga punya z-index tinggi tapi di bawah AppDialog
+        UI_LAYERS.dialogOverlayTop, // Pastikan ModalWrapper juga punya z-index tinggi tapi di bawah AppDialog
       )}
     >
       <div className="flex min-h-full items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
@@ -83,10 +83,11 @@ export function ModalWrapperContent({
           onClick={(e) => e.stopPropagation()}
           className={cn(
             "relative my-auto w-full overflow-y-auto overscroll-y-contain rounded-xl border p-2.5 shadow-xl transition-all sm:rounded-2xl sm:p-6",
-            !isWide && "max-w-[min(30rem,86vw)] sm:max-w-[min(32rem,calc(100vw-1.5rem))]",
+            !isWide &&
+              "max-w-[min(30rem,86vw)] sm:max-w-[min(32rem,calc(100vw-1.5rem))]",
             isWide && "max-w-[min(95vw,90rem)]",
             "border-cyan-700/40 bg-gray-900/90 text-[hsl(var(--foreground))]",
-            className
+            className,
           )}
         >
           {title ? (

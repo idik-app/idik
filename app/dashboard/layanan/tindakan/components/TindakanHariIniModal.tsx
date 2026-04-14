@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import {
   displayNamaPasien,
@@ -89,9 +90,11 @@ export default function TindakanHariIniModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        overlayClassName={UI_LAYERS.dialogOverlayTop}
         className={cn(
           "max-h-[92vh] w-[min(100vw-1rem,96vw)] max-w-[min(96vw,85rem)] overflow-auto p-0",
           "border-slate-300/60 bg-white/98 dark:border-cyan-500/35 dark:bg-black/80",
+          UI_LAYERS.dialogContentTop
         )}
       >
         <div

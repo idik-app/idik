@@ -71,7 +71,7 @@ import {
   useMasterVariants,
   useTindakanDetail,
   usePemakaianOrders,
-} from "../hooks/useMasterData";
+} from "@/app/hooks/useMasterData";
 import { runDeduped } from "@/lib/api/runDeduped";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import {

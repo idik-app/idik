@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import {
   canonicalDoctorStoredValue,
@@ -140,9 +141,11 @@ export default function TindakanTerbanyakLabModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        overlayClassName={UI_LAYERS.dialogOverlayTop}
         className={cn(
           "max-h-[95vh] w-[min(100vw-1rem,96vw)] max-w-[min(96vw,92rem)] overflow-hidden p-0 flex flex-col",
           "border-slate-300/60 bg-white/98 backdrop-blur-xl dark:border-violet-500/35 dark:bg-black/85",
+          UI_LAYERS.dialogContentTop
         )}
       >
         <div

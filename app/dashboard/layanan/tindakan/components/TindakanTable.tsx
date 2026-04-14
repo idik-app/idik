@@ -86,7 +86,7 @@ import {
   useMasterTindakan,
   useMasterPasien,
   usePemakaianOrders,
-} from "../hooks/useMasterData";
+} from "@/app/hooks/useMasterData";
 import { runDeduped } from "@/lib/api/runDeduped";
 import { useEventBridge } from "@/contexts/EventBridgeContext";
 
@@ -104,9 +104,9 @@ const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
 const TINDAKAN_SHEET_CELL =
   "border border-amber-200/60 dark:border-amber-800/45";
 
-const ZOOM_CELL_CLASSES = "focus-within:z-[50] focus-within:relative";
+const ZOOM_CELL_CLASSES = "focus-within:z-[30] focus-within:relative";
 const ZOOM_INNER_CLASSES =
-  "focus-within:absolute focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:top-1/2 focus-within:-translate-y-1/2 focus-within:scale-[1.3] focus-within:w-[180%] focus-within:shadow-2xl focus-within:transition-all focus-within:duration-200 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:z-[60] focus-within:p-1 focus-within:rounded-md";
+  "focus-within:absolute focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:top-1/2 focus-within:-translate-y-1/2 focus-within:scale-[1.3] focus-within:w-[180%] focus-within:shadow-2xl focus-within:transition-all focus-within:duration-200 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:z-[40] focus-within:p-1 focus-within:rounded-md";
 
 function useDebouncedValue(value: string, ms: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -1155,7 +1155,6 @@ export default function TindakanTable({
   const [filterTanggalFrom, setFilterTanggalFrom] = useState("");
   const [filterTanggalTo, setFilterTanggalTo] = useState("");
   const [filterPciOnly, setFilterPciOnly] = useState(false);
-  const [filterMissingReport, setFilterMissingReport] = useState(false);
   const [fastTrackModalOpen, setFastTrackModalOpen] = useState(false);
   const [tindakanTerbanyakLabOpen, setTindakanTerbanyakLabOpen] =
     useState(false);
@@ -1510,12 +1509,6 @@ export default function TindakanTable({
         return t.includes("pci") || t.includes("ptca");
       });
     }
-    if (filterMissingReport) {
-      list = list.filter((r) => {
-        const link = String(r.pci_report_link ?? "").trim();
-        return !link || !link.includes("docs.google.com");
-      });
-    }
     const q = debouncedSearchTrim.toLowerCase();
     if (q) {
       list = list.filter((r) =>
@@ -1565,7 +1558,6 @@ export default function TindakanTable({
     filterTanggalFrom,
     filterTanggalTo,
     filterPciOnly,
-    filterMissingReport,
     pasienOptions,
     pasienLabelByRowId,
     debouncedSearchTrim,
@@ -1596,9 +1588,6 @@ export default function TindakanTable({
     if (filterPciOnly) {
       lines.push("Prosedur: PCI");
     }
-    if (filterMissingReport) {
-      lines.push("Laporan: Kosong");
-    }
     const q = String(debouncedSearchTrim ?? "").trim();
     if (q) {
       const short = q.length > 48 ? `${q.slice(0, 45)}…` : q;
@@ -1619,7 +1608,6 @@ export default function TindakanTable({
     filterTanggalFrom,
     filterTanggalTo,
     filterPciOnly,
-    filterMissingReport,
     debouncedSearchTrim,
     filterPasienId,
     filterRm,
@@ -2518,10 +2506,10 @@ export default function TindakanTable({
 
   return (
     <TableContainer>
-      <div className="relative z-10 flex h-full min-h-0 max-h-full flex-1 flex-col min-w-0 max-md:h-auto max-md:max-h-none max-md:flex-none">
+      <div className="relative flex h-full min-h-0 max-h-full flex-1 flex-col min-w-0 max-md:h-auto max-md:max-h-none max-md:flex-none">
         {/* Smart Sync HUD - Progress Bar Modern */}
         {activeSync && (
-          <div className="absolute top-0 left-0 right-0 z-[100] h-1 bg-cyan-500/10 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 z-30 h-1 bg-cyan-500/10 overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.5)] transition-all duration-500 ease-out"
               style={{ width: `${activeSync.progress}%` }}
@@ -2537,14 +2525,13 @@ export default function TindakanTable({
           onRefresh={refresh}
           onCreateDraftForPasien={createDraftForPasien}
           onSyncMasterPasien={syncMasterPasienFromTindakan}
-          onFilter={(d, rg, t, from, to, pci, isMissingReport) => {
+          onFilter={(d, rg, t, from, to, pci) => {
             setFilterDokter(d);
             setFilterRuangan(rg);
             setFilterTindakan(t ?? "");
             setFilterTanggalFrom(String(from ?? ""));
             setFilterTanggalTo(String(to ?? ""));
             setFilterPciOnly(Boolean(pci));
-            setFilterMissingReport(Boolean(isMissingReport));
           }}
           dokterOptions={dokterOptions}
           ruanganOptions={ruanganFilterOptions}
@@ -3066,7 +3053,7 @@ export default function TindakanTable({
                               >
                                 {/* CENTER LABEL — Description of Hovered Icon */}
                                 {hoveredLabel && hoveredRowKey === key && (
-                                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[110]">
+                                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[45]">
                                     <div className="bg-slate-900/95 text-white text-[14px] font-extrabold px-4 py-1 rounded-full shadow-2xl border border-white/30 whitespace-nowrap animate-in fade-in zoom-in duration-200 tracking-wide uppercase">
                                       {hoveredLabel}
                                     </div>
@@ -3077,7 +3064,7 @@ export default function TindakanTable({
                                 <div
                                   className={cn(
                                     // Bawa container lebih dekat ke icon hapus
-                                    "absolute top-1/2 right-[-10px] z-[70] h-0 w-0 -translate-y-1/2",
+                                    "absolute top-1/2 right-[-10px] z-20 h-0 w-0 -translate-y-1/2",
                                     "pointer-events-none opacity-0 group-hover/arc:pointer-events-auto group-hover/arc:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100 transition-all duration-500 ease-in-out overflow-visible",
                                   )}
                                 >
@@ -3166,7 +3153,7 @@ export default function TindakanTable({
                                           transitionDelay: `${idx * 15}ms`,
                                         }}
                                         className={cn(
-                                          "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ease-in-out scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-100 z-[71]",
+                                          "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ease-in-out scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-100 z-20",
                                           "group-hover:animate-in group-hover:fade-in group-hover:zoom-in group-hover:duration-500",
                                           "animate-out fade-out zoom-out duration-500",
                                         )}
@@ -3184,7 +3171,7 @@ export default function TindakanTable({
                                           }}
                                           className={cn(
                                             "flex h-7 w-7 items-center justify-center rounded-full border shadow-xl transition-all duration-300",
-                                            "hover:scale-[2.0] hover:z-[120]",
+                                            "hover:scale-[2.0] hover:z-30",
                                             item.color,
                                           )}
                                           title={item.label}
@@ -3200,7 +3187,7 @@ export default function TindakanTable({
                                 </div>
 
                                 {/* ACTION GROUP — Near Pasien Field */}
-                                <div className="absolute -right-8 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover/arc:opacity-100 transition-all duration-500 ease-in-out z-[80]">
+                                <div className="absolute -right-8 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover/arc:opacity-100 transition-all duration-500 ease-in-out z-20">
                                   {id && pemakaianOrderByTindakanId[id] ? (
                                     <button
                                       type="button"
@@ -3380,7 +3367,7 @@ export default function TindakanTable({
 
                                   return (
                                     <div
-                                      className="absolute -left-6 top-1/2 -translate-y-1/2 animate-pulse cursor-help z-[90]"
+                                      className="absolute -left-6 top-1/2 -translate-y-1/2 animate-pulse cursor-help z-20"
                                       title={`Pasien Fast-Track | Datang: ${ftIgd} | D2B: ${ftD2b} | Total: ${ftTotal || "-"}${isLate ? " (Melebihi Target KPI 90m)" : ""}`}
                                     >
                                       <Zap

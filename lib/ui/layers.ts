@@ -48,9 +48,9 @@ export const UI_LAYERS = {
   /** Picker melayang paling atas */
   pickerFloatingTop: "z-[10050]",
   /** Overlay dialog paling atas */
-  dialogOverlayTop: "z-[10000]",
+  dialogOverlayTop: "z-[100000]",
   /** Konten dialog paling atas */
-  dialogContentTop: "z-[10001]",
+  dialogContentTop: "z-[100001]",
   /** Overlay layar penuh */
   fullscreenOverlay: "z-[999]",
   /** Elemen layar penuh (intro/loader) */

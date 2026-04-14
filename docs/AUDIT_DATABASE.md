@@ -14,7 +14,7 @@
 | **Local DB** | IndexedDB (Dexie) | `IDIK-LocalDB` — pasien offline, log_sync |
 | **Schema resmi** | Sebagian | `app/data/schema/schema.sql` hanya pasien + tindakan; banyak tabel lain dipakai tanpa definisi di repo |
 | **Tipe TypeScript** | Tidak lengkap | `lib/database.types.ts` hanya mendefinisikan `doctor`; tabel lain pakai `[key: string]: {}` atau `any` |
-| **Naming inconsistency** | Ada | Tabel dokter: `doctor` vs `dokter`; audit: `audit_logs` vs `audit_log` |
+| **Naming inconsistency** | Selesai | Tabel dokter: `doctor`; audit: `audit_log` (singular) |
 
 ---
 
@@ -30,8 +30,7 @@ Tabel/view/function yang dipakai di aplikasi (dari `.from("...")`, `.rpc("...")`
 | **tindakan_medik** | tindakanQueries, tindakanRepository | Nama alternatif / view? — **duplikasi konsep dengan `tindakan`** |
 | **doctor** | api/supabase, api/auth/users, ModalTambahDokter, lib/database.types | Tabel dokter (nama EN) |
 | **dokter** | DokterContext (fetch, delete, insert, update) | Tabel dokter (nama ID) — **konflik dengan `doctor`** |
-| **audit_logs** | app/api/audit/log.ts | Insert audit (kolom: user_id, action, endpoint, ip, details, timestamp) |
-| **audit_log** | app/api/audit/log/route.ts | GET/POST audit (kolom: event_type, action, module, actor, metadata, ip_address, status, created_at) — **skema beda dengan audit_logs** |
+| **audit_log** | app/api/audit/log.ts, app/api/audit/log/route.ts, lib/audit/logPasien.ts | Unified audit (event_type, action, module, actor, metadata, ip_address, status, created_at) |
 | **api_keys** | apiKeys.server.ts, useAPIKeys | API keys |
 | **api_key_logs** | apiKeys.server.ts | Log penggunaan API key |
 | **system_filelog** | WatcherService, api/system/files | Log file sistem |
@@ -65,16 +64,10 @@ Tabel/view/function yang dipakai di aplikasi (dari `.from("...")`, `.rpc("...")`
 
 **Rekomendasi:** Pilih satu nama tabel di Supabase (`doctor` atau `dokter`), lalu seragamkan semua referensi. Jika tabel di DB bernama `doctor`, ubah `DokterContext.tsx` agar memakai `.from("doctor")` dan mapping kolom jika perlu.
 
-### 3.2 Audit: `audit_logs` vs `audit_log`
+### 3.2 Audit: Unified `audit_log`
 
-- **`audit_logs`** (app/api/audit/log.ts): kolom `user_id`, `action`, `endpoint`, `ip`, `details`, `timestamp`.
-- **`audit_log`** (app/api/audit/log/route.ts): kolom `event_type`, `action`, `module`, `actor`, `metadata`, `ip_address`, `status`, `created_at`.
-
-Dua skema berbeda. Satu dipakai untuk logging dari Route Handler (log.ts), satu untuk API audit admin (route.ts).
-
-**Rekomendasi:**  
-- Gabungkan ke satu tabel audit (mis. `audit_log`) dengan kolom yang mencakup kedua kebutuhan, atau  
-- Pisah jelas: satu untuk “app audit trail” (log.ts) dan satu untuk “admin audit API”, dengan nama berbeda (mis. `app_audit_log` vs `audit_log`) dan dokumentasi.
+- **`audit_log`**: Sekarang telah diseragamkan untuk semua kebutuhan logging (trigger DB dan internal aplikasi).
+- **Schema:** `id`, `event_type`, `action`, `module`, `actor`, `metadata` (jsonb), `status`, `ip_address`, `created_at`.
 
 ### 3.3 Tindakan: `tindakan` vs `tindakan_medik`
 
@@ -168,13 +161,13 @@ Tidak ada konflik dengan audit ini; pastikan sync ke Supabase hanya menulis ke t
 ## 10. Checklist Tindak Lanjut
 
 - [x] Putuskan dan seragamkan: **doctor** vs **dokter** — pakai tabel **doctor**; DokterContext diseragamkan (Mar 2025).
-- [ ] Seragamkan audit: **audit_logs** vs **audit_log** (satu skema atau dua tabel dengan nama dan tujuan jelas).
+- [x] Seragamkan audit: **audit_logs** vs **audit_log** (disatukan ke **audit_log** singular dengan schema lengkap).
 - [x] Seragamkan tindakan: **tindakan** vs **tindakan_medik** — tabel **tindakan** + view **tindakan_medik** (Mar 2025).
 - [x] Tambah definisi tabel modul ke migration Supabase: pasien, doctor, tindakan, inventaris, pemakaian, view_pasien_full (Mar 2025).
 - [ ] Generate dan pakai satu set Database types dari Supabase; perbaiki/remove import `@/types/supabase` yang tidak ada.
 - [ ] Kurangi duplikasi pembuatan client: pakai helper server/browser/admin yang sudah ada; hapus createClient(env) inline di banyak file.
-- [ ] Pastikan Storage bucket `idik_exports` dan `uploads` ada dan kebijakan aksesnya terdokumentasi.
-- [ ] Cek keberadaan `supabase/seed.sql` dan isi `schema_paths` di config.toml jika dipakai.
+- [ ] Pastikan Storage bucket `idik_exports` and `uploads` ada dan kebijakan aksesnya terdokumentasi.
+- [ ] Cek keberadaan `supabase/seed.sql` and isi `schema_paths` di config.toml jika dipakai.
 
 ---
 

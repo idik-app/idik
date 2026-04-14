@@ -178,11 +178,11 @@ export default function TambahPasienQuickModal({
             const fields = patientToFormFields(found);
             setFormData((prev) => {
               if (prev.noRM.trim() === lookupRm) {
-                const isDifferent = 
-                  prev.nama !== fields.nama || 
-                  prev.alamat !== fields.alamat || 
+                const isDifferent =
+                  prev.nama !== fields.nama ||
+                  prev.alamat !== fields.alamat ||
                   prev.noHP !== fields.noHP;
-                
+
                 if (isDifferent) {
                   return { ...fields, noRM: prev.noRM };
                 }
@@ -193,7 +193,8 @@ export default function TambahPasienQuickModal({
             setMatchedPatient((prev) => (prev ? null : prev));
           }
         } catch {
-          if (rmInputRef.current.trim() === lookupRm) setMatchedPatient((prev) => (prev ? null : prev));
+          if (rmInputRef.current.trim() === lookupRm)
+            setMatchedPatient((prev) => (prev ? null : prev));
         } finally {
           if (rmInputRef.current.trim() === lookupRm) setRmChecking(false);
         }
@@ -205,37 +206,38 @@ export default function TambahPasienQuickModal({
     };
   }, [open, formData.noRM]);
 
-  const handleChange = useCallback((
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
-    setError("");
-    const { name, value } = e.target;
-    
-    if (name === "noRM") {
-      rmInputRef.current = value;
-    }
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+      setError("");
+      const { name, value } = e.target;
 
-    setFormData((p) => {
-      const nextVal =
-        name === "jenisKelamin"
-          ? (value as "L" | "P")
-          : name === "tanggalLahir"
-            ? value
-            : name === "nama"
-              ? normalizeNamaPasienInput(value)
-              : value;
-
-      if (name === "jenisPembiayaan" && nextVal === "BPJS") {
-        return {
-          ...p,
-          jenisPembiayaan: nextVal,
-          kelasPerawatan: "Kelas 3",
-        } as Omit<Pasien, "id">;
+      if (name === "noRM") {
+        rmInputRef.current = value;
       }
 
-      return { ...p, [name]: nextVal } as Omit<Pasien, "id">;
-    });
-  }, []);
+      setFormData((p) => {
+        const nextVal =
+          name === "jenisKelamin"
+            ? (value as "L" | "P")
+            : name === "tanggalLahir"
+              ? value
+              : name === "nama"
+                ? normalizeNamaPasienInput(value)
+                : value;
+
+        if (name === "jenisPembiayaan" && nextVal === "BPJS") {
+          return {
+            ...p,
+            jenisPembiayaan: nextVal,
+            kelasPerawatan: "Kelas 3",
+          } as Omit<Pasien, "id">;
+        }
+
+        return { ...p, [name]: nextVal } as Omit<Pasien, "id">;
+      });
+    },
+    [],
+  );
 
   const handleTanggalLahirBlur = useCallback(() => {
     setFormData((p) => ({
@@ -380,15 +382,19 @@ export default function TambahPasienQuickModal({
   };
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={(v) => { if (!v) handleClose(); }} modal={true}>
+    <DialogPrimitive.Root
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) handleClose();
+      }}
+      modal={true}
+    >
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay
-          className="fixed inset-0 z-[100000] bg-black/20 backdrop-blur-sm transition-opacity animate-in fade-in duration-300"
-        />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[100000] bg-black/20 backdrop-blur-sm transition-opacity animate-in fade-in duration-300" />
         <DialogPrimitive.Content
           className={cn(
             "fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] z-[100001] outline-none",
-            "p-0 border-none bg-transparent shadow-none max-w-[min(30rem,95vw)] w-full"
+            "p-0 border-none bg-transparent shadow-none max-w-[min(30rem,95vw)] w-full",
           )}
           onPointerDownOutside={(e) => {
             if (isDirty) e.preventDefault();
@@ -414,67 +420,147 @@ export default function TambahPasienQuickModal({
               ➕ Tambah Pasien
             </DialogPrimitive.Title>
             <DialogPrimitive.Description className="sr-only">
-              Lengkapi data pasien untuk menambahkan ke master dan kasus tindakan baru.
+              Lengkapi data pasien untuk menambahkan ke master dan kasus
+              tindakan baru.
             </DialogPrimitive.Description>
 
-          {matchedPatient ? (
-            <p
-              className={cn(
-                "text-xs mb-3 rounded-lg border px-3 py-2 leading-relaxed",
-                isDark
-                  ? "text-white border-amber-400/65 bg-amber-950/60"
-                  : "text-amber-950 border-amber-400/45 bg-amber-50",
-              )}
-              role="status"
-            >
-              No. RM ini sudah ada di master pasien — formulir diisi otomatis.
-              Anda boleh melengkapi atau mengoreksi data (misalnya No. HP,
-              alamat) sebelum menyimpan; perubahan akan disimpan ke master
-              pasien. Untuk kunjungan atau jenis tindakan baru, gunakan{" "}
-              <span
+            {matchedPatient ? (
+              <p
                 className={cn(
-                  "font-medium",
-                  isDark ? "text-amber-100" : "text-amber-900",
+                  "text-xs mb-3 rounded-lg border px-3 py-2 leading-relaxed",
+                  isDark
+                    ? "text-white border-amber-400/65 bg-amber-950/60"
+                    : "text-amber-950 border-amber-400/45 bg-amber-50",
                 )}
+                role="status"
               >
-                Tambah kasus tindakan
-              </span>{" "}
-              (tidak membuat pasien ganda).
-            </p>
-          ) : null}
-
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
-            <div>
-              <InputField
-                label="No. RM"
-                name="noRM"
-                value={formData.noRM}
-                onChange={handleChange}
-                isDark={isDark}
-                autoComplete="off"
-                inputRef={noRmInputRef}
-              />
-              {rmChecking ? (
-                <p
+                No. RM ini sudah ada di master pasien — formulir diisi otomatis.
+                Anda boleh melengkapi atau mengoreksi data (misalnya No. HP,
+                alamat) sebelum menyimpan; perubahan akan disimpan ke master
+                pasien. Untuk kunjungan atau jenis tindakan baru, gunakan{" "}
+                <span
                   className={cn(
-                    "text-[10px] mt-0.5 font-mono",
-                    isDark ? "text-cyan-200/90" : "text-cyan-800/85",
+                    "font-medium",
+                    isDark ? "text-amber-100" : "text-amber-900",
                   )}
                 >
-                  Memeriksa No. RM…
-                </p>
-              ) : null}
-            </div>
-            <InputField
-              label="Nama"
-              name="nama"
-              value={formData.nama}
-              onChange={handleChange}
-              isDark={isDark}
-              autoComplete="name"
-            />
+                  Tambah kasus tindakan
+                </span>{" "}
+                (tidak membuat pasien ganda).
+              </p>
+            ) : null}
 
-            <div className="col-span-1 grid grid-cols-1 gap-2 sm:col-span-2 sm:grid-cols-3 sm:gap-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+              <div>
+                <InputField
+                  label="No. RM"
+                  name="noRM"
+                  value={formData.noRM}
+                  onChange={handleChange}
+                  isDark={isDark}
+                  autoComplete="off"
+                  inputRef={noRmInputRef}
+                />
+                {rmChecking ? (
+                  <p
+                    className={cn(
+                      "text-[10px] mt-0.5 font-mono",
+                      isDark ? "text-cyan-200/90" : "text-cyan-800/85",
+                    )}
+                  >
+                    Memeriksa No. RM…
+                  </p>
+                ) : null}
+              </div>
+              <InputField
+                label="Nama"
+                name="nama"
+                value={formData.nama}
+                onChange={handleChange}
+                isDark={isDark}
+                autoComplete="name"
+              />
+
+              <div className="col-span-1 grid grid-cols-1 gap-2 sm:col-span-2 sm:grid-cols-3 sm:gap-3">
+                <div>
+                  <label
+                    className={cn(
+                      "text-xs sm:text-sm",
+                      isDark ? "text-white" : "text-cyan-900",
+                    )}
+                  >
+                    Jenis Kelamin
+                  </label>
+                  <select
+                    name="jenisKelamin"
+                    value={formData.jenisKelamin}
+                    onChange={handleChange}
+                    className={cn(
+                      "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-sm focus:border-yellow-500 focus:outline-none sm:px-3 sm:py-2 sm:text-base",
+                      isDark
+                        ? "border-cyan-600/60 bg-slate-900 text-cyan-100 [color-scheme:dark]"
+                        : "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]",
+                    )}
+                  >
+                    <option value="L">Laki-laki</option>
+                    <option value="P">Perempuan</option>
+                  </select>
+                </div>
+
+                <InputField
+                  label="Tanggal Lahir"
+                  name="tanggalLahir"
+                  type="text"
+                  placeholder="1967-06-30 atau 30-06-1967"
+                  value={formData.tanggalLahir}
+                  onChange={handleChange}
+                  onBlur={handleTanggalLahirBlur}
+                  isDark={isDark}
+                />
+
+                <div>
+                  <label
+                    className={cn(
+                      "text-xs sm:text-sm",
+                      isDark ? "text-white" : "text-cyan-900",
+                    )}
+                  >
+                    Umur
+                  </label>
+                  <input
+                    readOnly
+                    tabIndex={-1}
+                    value={umurTeks}
+                    className={cn(
+                      "mt-1 w-full cursor-default rounded-lg border px-2.5 py-1.5 text-sm sm:px-3 sm:py-2 sm:text-base",
+                      isDark
+                        ? "border-cyan-600/30 bg-black/20 text-cyan-200"
+                        : "border-cyan-500/35 bg-slate-100 text-slate-700",
+                    )}
+                    aria-live="polite"
+                  />
+                </div>
+              </div>
+
+              <InputField
+                label="Alamat"
+                name="alamat"
+                value={formData.alamat}
+                onChange={handleChange}
+                colSpan
+                isDark={isDark}
+                autoComplete="street-address"
+              />
+              <InputField
+                label="No. HP"
+                name="noHP"
+                value={formData.noHP}
+                onChange={handleChange}
+                colSpan
+                isDark={isDark}
+                autoComplete="tel"
+              />
+
               <div>
                 <label
                   className={cn(
@@ -482,34 +568,62 @@ export default function TambahPasienQuickModal({
                     isDark ? "text-white" : "text-cyan-900",
                   )}
                 >
-                  Jenis Kelamin
+                  Jenis Pembiayaan
                 </label>
                 <select
-                  name="jenisKelamin"
-                  value={formData.jenisKelamin}
+                  name="jenisPembiayaan"
+                  value={formData.jenisPembiayaan}
                   onChange={handleChange}
                   className={cn(
                     "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-sm focus:border-yellow-500 focus:outline-none sm:px-3 sm:py-2 sm:text-base",
                     isDark
-                      ? "border-cyan-600/60 bg-slate-900 text-cyan-100 [color-scheme:dark]"
+                      ? "border-cyan-600/60 bg-black/30 text-cyan-100 [color-scheme:dark]"
                       : "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]",
                   )}
                 >
-                  <option value="L">Laki-laki</option>
-                  <option value="P">Perempuan</option>
+                  <option value="BPJS">BPJS-PBI</option>
+                  <option value="NPBI">NPBI</option>
+                  <option value="Umum">Umum</option>
+                  <option value="Asuransi">Asuransi</option>
                 </select>
+                {formData.jenisPembiayaan === "BPJS" && (
+                  <p
+                    className={cn(
+                      "mt-1.5 text-xs leading-snug",
+                      isDark ? "text-white/90" : "text-slate-600",
+                    )}
+                  >
+                    Disimpan sebagai{" "}
+                    <span className="font-medium dark:text-white">
+                      PBI Kelas 3
+                    </span>
+                    ; sama dengan baris laporan{" "}
+                    <span className="font-medium dark:text-white">PBI</span>.
+                  </p>
+                )}
+                {formData.jenisPembiayaan === "NPBI" && (
+                  <p
+                    className={cn(
+                      "mt-1.5 text-xs leading-snug",
+                      isDark ? "text-white/90" : "text-slate-600",
+                    )}
+                  >
+                    Bersama angka kelas di bawah membentuk kolom{" "}
+                    <span className="font-medium dark:text-white">
+                      Kelas pembiayaan
+                    </span>{" "}
+                    di tab Biaya (mis.{" "}
+                    <span className="font-medium dark:text-white">
+                      NPBI - 1
+                    </span>
+                    ), sama dengan laporan{" "}
+                    <span className="font-medium dark:text-white">
+                      BPJS NON PBI KLS 1–3
+                    </span>
+                    .
+                  </p>
+                )}
               </div>
-
-              <InputField
-                label="Tanggal Lahir"
-                name="tanggalLahir"
-                type="text"
-                placeholder="1967-06-30 atau 30-06-1967"
-                value={formData.tanggalLahir}
-                onChange={handleChange}
-                onBlur={handleTanggalLahirBlur}
-                isDark={isDark}
-              />
 
               <div>
                 <label
@@ -518,183 +632,78 @@ export default function TambahPasienQuickModal({
                     isDark ? "text-white" : "text-cyan-900",
                   )}
                 >
-                  Umur
+                  Kelas Perawatan
                 </label>
-                <input
-                  readOnly
-                  tabIndex={-1}
-                  value={umurTeks}
+                <select
+                  name="kelasPerawatan"
+                  value={formData.kelasPerawatan}
+                  onChange={handleChange}
                   className={cn(
-                    "mt-1 w-full cursor-default rounded-lg border px-2.5 py-1.5 text-sm sm:px-3 sm:py-2 sm:text-base",
+                    "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-sm focus:border-yellow-500 focus:outline-none sm:px-3 sm:py-2 sm:text-base",
                     isDark
-                      ? "border-cyan-600/30 bg-black/20 text-cyan-200"
-                      : "border-cyan-500/35 bg-slate-100 text-slate-700",
+                      ? "border-cyan-600/60 bg-black/30 text-cyan-100 [color-scheme:dark]"
+                      : "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]",
                   )}
-                  aria-live="polite"
-                />
+                >
+                  <option value="Kelas 1">1</option>
+                  <option value="Kelas 2">2</option>
+                  <option value="Kelas 3">3</option>
+                </select>
               </div>
-            </div>
 
-            <InputField
-              label="Alamat"
-              name="alamat"
-              value={formData.alamat}
-              onChange={handleChange}
-              colSpan
-              isDark={isDark}
-              autoComplete="street-address"
-            />
-            <InputField
-              label="No. HP"
-              name="noHP"
-              value={formData.noHP}
-              onChange={handleChange}
-              colSpan
-              isDark={isDark}
-              autoComplete="tel"
-            />
-
-            <div>
-              <label
-                className={cn(
-                  "text-xs sm:text-sm",
-                  isDark ? "text-white" : "text-cyan-900",
-                )}
-              >
-                Jenis Pembiayaan
-              </label>
-              <select
-                name="jenisPembiayaan"
-                value={formData.jenisPembiayaan}
+              <InputField
+                label="Asuransi (opsional)"
+                name="asuransi"
+                value={formData.asuransi}
                 onChange={handleChange}
-                className={cn(
-                  "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-sm focus:border-yellow-500 focus:outline-none sm:px-3 sm:py-2 sm:text-base",
-                  isDark
-                    ? "border-cyan-600/60 bg-black/30 text-cyan-100 [color-scheme:dark]"
-                    : "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]",
-                )}
-              >
-                <option value="BPJS">BPJS-PBI</option>
-                <option value="NPBI">NPBI</option>
-                <option value="Umum">Umum</option>
-                <option value="Asuransi">Asuransi</option>
-              </select>
-              {formData.jenisPembiayaan === "BPJS" && (
-                <p
-                  className={cn(
-                    "mt-1.5 text-xs leading-snug",
-                    isDark ? "text-white/90" : "text-slate-600",
-                  )}
-                >
-                  Disimpan sebagai{" "}
-                  <span className="font-medium dark:text-white">
-                    PBI Kelas 3
-                  </span>
-                  ; sama dengan baris laporan{" "}
-                  <span className="font-medium dark:text-white">PBI</span>.
-                </p>
-              )}
-              {formData.jenisPembiayaan === "NPBI" && (
-                <p
-                  className={cn(
-                    "mt-1.5 text-xs leading-snug",
-                    isDark ? "text-white/90" : "text-slate-600",
-                  )}
-                >
-                  Bersama angka kelas di bawah membentuk kolom{" "}
-                  <span className="font-medium dark:text-white">
-                    Kelas pembiayaan
-                  </span>{" "}
-                  di tab Biaya (mis.{" "}
-                  <span className="font-medium dark:text-white">NPBI - 1</span>
-                  ), sama dengan laporan{" "}
-                  <span className="font-medium dark:text-white">
-                    BPJS NON PBI KLS 1–3
-                  </span>
-                  .
-                </p>
-              )}
+                colSpan
+                isDark={isDark}
+              />
             </div>
 
-            <div>
-              <label
+            {error && (
+              <p
                 className={cn(
-                  "text-xs sm:text-sm",
-                  isDark ? "text-white" : "text-cyan-900",
-                )}
-              >
-                Kelas Perawatan
-              </label>
-              <select
-                name="kelasPerawatan"
-                value={formData.kelasPerawatan}
-                onChange={handleChange}
-                className={cn(
-                  "mt-1 w-full rounded-lg border px-2.5 py-1.5 text-sm focus:border-yellow-500 focus:outline-none sm:px-3 sm:py-2 sm:text-base",
+                  "mx-auto mt-3 max-w-full text-left text-sm whitespace-pre-line rounded-lg border px-3 py-2 sm:max-w-md",
                   isDark
-                    ? "border-cyan-600/60 bg-black/30 text-cyan-100 [color-scheme:dark]"
-                    : "border-cyan-500/45 bg-white text-slate-800 [color-scheme:light]",
+                    ? "border-red-400/70 bg-red-950/70 text-white"
+                    : "border-red-400/50 bg-red-50 text-red-900",
+                )}
+                role="alert"
+              >
+                {error}
+              </p>
+            )}
+
+            <div className="mt-4 flex w-full flex-col-reverse gap-2 sm:mt-6 sm:flex-row sm:justify-center sm:gap-4">
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={loading}
+                className={cn(
+                  "w-full shrink-0 rounded-lg border border-cyan-400/50 bg-cyan-600/60 px-4 py-2.5 shadow-[0_0_15px_rgba(0,255,255,0.5)] transition-all hover:bg-cyan-500/80 hover:shadow-[0_0_20px_rgba(0,255,255,0.8)] disabled:opacity-60 sm:w-auto sm:px-6 sm:py-2",
+                  isDark ? "text-white" : "text-black",
                 )}
               >
-                <option value="Kelas 1">1</option>
-                <option value="Kelas 2">2</option>
-                <option value="Kelas 3">3</option>
-              </select>
+                {loading ? primaryLoadingLabel : primaryLabel}
+              </button>
+              <button
+                onClick={handleClose}
+                className={cn(
+                  "w-full shrink-0 rounded-lg border bg-transparent px-4 py-2.5 transition-all sm:w-auto sm:px-6 sm:py-2",
+                  isDark
+                    ? "border-yellow-400/50 text-yellow-400 hover:bg-yellow-400/20 hover:shadow-[0_0_10px_rgba(255,215,0,0.4)]"
+                    : "border-amber-600/50 text-amber-800 hover:bg-amber-100/80",
+                )}
+              >
+                ✖ Batal
+              </button>
             </div>
-
-            <InputField
-              label="Asuransi (opsional)"
-              name="asuransi"
-              value={formData.asuransi}
-              onChange={handleChange}
-              colSpan
-              isDark={isDark}
-            />
           </div>
-
-          {error && (
-            <p
-              className={cn(
-                "mx-auto mt-3 max-w-full text-left text-sm whitespace-pre-line rounded-lg border px-3 py-2 sm:max-w-md",
-                isDark
-                  ? "border-red-400/70 bg-red-950/70 text-white"
-                  : "border-red-400/50 bg-red-50 text-red-900",
-              )}
-              role="alert"
-            >
-              {error}
-            </p>
-          )}
-
-          <div className="mt-4 flex w-full flex-col-reverse gap-2 sm:mt-6 sm:flex-row sm:justify-center sm:gap-4">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={loading}
-              className={cn(
-                "w-full shrink-0 rounded-lg border border-cyan-400/50 bg-cyan-600/60 px-4 py-2.5 shadow-[0_0_15px_rgba(0,255,255,0.5)] transition-all hover:bg-cyan-500/80 hover:shadow-[0_0_20px_rgba(0,255,255,0.8)] disabled:opacity-60 sm:w-auto sm:px-6 sm:py-2",
-                isDark ? "text-white" : "text-black",
-              )}
-            >
-              {loading ? primaryLoadingLabel : primaryLabel}
-            </button>
-            <button
-              onClick={handleClose}
-              className={cn(
-                "w-full shrink-0 rounded-lg border bg-transparent px-4 py-2.5 transition-all sm:w-auto sm:px-6 sm:py-2",
-                isDark
-                  ? "border-yellow-400/50 text-yellow-400 hover:bg-yellow-400/20 hover:shadow-[0_0_10px_rgba(255,215,0,0.4)]"
-                  : "border-amber-600/50 text-amber-800 hover:bg-amber-100/80",
-              )}
-            >
-              ✖ Batal
-            </button>
-          </div>
-        </div>
-      </DialogPrimitive.Content>
-    </DialogPrimitive.Portal>
-  </DialogPrimitive.Root>
-);
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
 }
 
 function InputField({

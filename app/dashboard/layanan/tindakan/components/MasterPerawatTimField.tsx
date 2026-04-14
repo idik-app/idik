@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useNotification } from "@/app/contexts/NotificationContext";
+import { useMasterPerawat } from "@/app/hooks/useMasterData";
 import {
   PerawatCombobox,
   formatPerawatLabel,
@@ -29,8 +30,7 @@ export default function MasterPerawatTimField({
 }: Props) {
   const { show } = useNotification();
   const listId = useId();
-  const [options, setOptions] = useState<PerawatOption[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { perawat: options, isLoading: loading } = useMasterPerawat();
   const [draft, setDraft] = useState(() => norm(String(value ?? "")));
   const [saving, setSaving] = useState(false);
   const lastPersistedRef = useRef("");
@@ -40,37 +40,6 @@ export default function MasterPerawatTimField({
     lastPersistedRef.current =
       value == null || value === "" ? "" : norm(String(value));
   }, [value, tindakanId, field]);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/master-perawat", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        perawats?: PerawatOption[];
-        message?: string;
-      };
-      if (!res.ok || !json.ok) {
-        throw new Error(json.message || res.statusText);
-      }
-      setOptions(Array.isArray(json.perawats) ? json.perawats : []);
-    } catch (e) {
-      show({
-        type: "error",
-        message: `Gagal memuat master perawat: ${(e as Error).message}`,
-      });
-      setOptions([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [show]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   useEffect(() => {
     setDraft(norm(String(value ?? "")));

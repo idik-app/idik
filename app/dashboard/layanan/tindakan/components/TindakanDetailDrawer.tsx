@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Activity,
+  Check,
   ClipboardList,
   Copy,
   History,
@@ -51,7 +52,7 @@ import { buildResumeWhatsAppText } from "../lib/buildResumeWhatsAppText";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
-import { usePasienDetail, useTindakanDetail } from "../hooks/useMasterData";
+import { usePasienDetail, useTindakanDetail } from "@/app/hooks/useMasterData";
 
 type Props = {
   open: boolean;
@@ -450,6 +451,7 @@ export default function TindakanDetailDrawer({
 
   const [modalMinWidthPx, setModalMinWidthPx] = useState<number | null>(null);
   const [waCopied, setWaCopied] = useState(false);
+  const [titleCopied, setTitleCopied] = useState(false);
 
   // SWR hooks for master data
   const { pasien: pasienMaster } = usePasienDetail(
@@ -622,6 +624,19 @@ export default function TindakanDetailDrawer({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  const fullTitleText = useMemo(() => {
+    if (!displayRecord) return "";
+    const tanggalVal = getWireframeFieldValue(
+      displayRecord as unknown as Record<string, unknown>,
+      "tanggal_tindakan",
+    );
+    const hariTanggal = formatDrawerTitleHariTanggal(tanggalVal);
+    const rmStr = String(displayRecord.no_rm ?? "").trim();
+    const namaStr = String(displayRecord.nama_pasien ?? "").trim() || "—";
+    const tinStr = String(displayRecord.tindakan ?? "").trim();
+    return `${hariTanggal} ${rmStr || "—"} ${namaStr} ${tinStr || "—"}`;
+  }, [displayRecord]);
+
   const title = useMemo(() => {
     if (!displayRecord) return "Detail tindakan";
     const tanggalVal = getWireframeFieldValue(
@@ -634,28 +649,61 @@ export default function TindakanDetailDrawer({
     const tinStr = String(displayRecord.tindakan ?? "").trim();
 
     return (
-      <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap">
-        <span className="text-white/70">{hariTanggal}</span>
-        <span className="text-white/40">-</span>
-        <span className="font-black text-yellow-400">{rmStr || "—"}</span>
-        <span className="text-white/40">-</span>
-        <span className="font-bold text-white">{namaStr}</span>
-        <span className="text-white/40">-</span>
-        <span className="font-black text-cyan-400">{tinStr || "—"}</span>
+      <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap">
+          <span className="text-white/70">{hariTanggal}</span>
+          <span className="font-black text-yellow-400">{rmStr || "—"}</span>
+          <span className="font-bold text-white">{namaStr}</span>
+          <span className="font-black text-cyan-400">{tinStr || "—"}</span>
+        </div>
+        {displayRecord && (
+          <button
+            type="button"
+            title="Salin judul"
+            onClick={async (e) => {
+              e.stopPropagation();
+              try {
+                await navigator.clipboard.writeText(fullTitleText);
+                setTitleCopied(true);
+                toast.success("Judul disalin ke clipboard", {
+                  duration: 2000,
+                  position: "top-center",
+                });
+                setTimeout(() => setTitleCopied(false), 2000);
+              } catch (err) {
+                toast.error("Gagal menyalin judul");
+              }
+            }}
+            className={cn(
+              "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-cyan-500/50 bg-cyan-500/10 text-cyan-400 transition-all duration-300 hover:bg-cyan-500/20",
+              titleCopied && "border-emerald-500/50 bg-emerald-500/20 text-emerald-400",
+            )}
+          >
+            {titleCopied ? <Check size={10} /> : <Copy size={10} />}
+          </button>
+        )}
       </div>
     );
-  }, [displayRecord]);
-
-  if (!open) return null;
+  }, [displayRecord, fullTitleText, titleCopied]);
 
   /**
-   * Portal ke body: ancestor `LayoutMain` memakai `motion.div` (transform), sehingga
+   * Portal ke body (atau fullscreen element): ancestor `LayoutMain` memakai `motion.div` (transform), sehingga
    * `fixed` di dalam tab tidak menutupi viewport penuh — BottomNav (mobile) tetap di atas
    * dan konten drawer terasa “terhalang”. Portal mengembalikan perilaku fixed ke viewport.
    */
-  const layer =
-    typeof document === "undefined" ? null : (
-      <div className={`fixed inset-0 ${UI_LAYERS.drawerPortal}`}>
+  const [mountPoint, setMountPoint] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setMountPoint(document.fullscreenElement as HTMLElement || document.body);
+    const handle = () => setMountPoint(document.fullscreenElement as HTMLElement || document.body);
+    document.addEventListener("fullscreenchange", handle);
+    return () => document.removeEventListener("fullscreenchange", handle);
+  }, []);
+
+  if (!open || !mountPoint) return null;
+
+  const layer = (
+    <div className={`fixed inset-0 ${UI_LAYERS.drawerPortal}`}>
         <button
           type="button"
           aria-label="Tutup detail tindakan"
@@ -685,14 +733,9 @@ export default function TindakanDetailDrawer({
                 "border-cyan-500/20 bg-black/40",
               )}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div
-                    id="tindakan-detail-modal-title"
-                    className="text-[13px] font-bold leading-snug sm:text-sm"
-                  >
-                    {title}
-                  </div>
+              <div className="flex items-center justify-between gap-2">
+                <div id="tindakan-detail-modal-title" className="min-w-0 flex-1 flex items-center gap-2 text-[13px] font-bold leading-snug sm:text-sm overflow-hidden">
+                  {title}
                 </div>
                 <button
                   type="button"
@@ -735,11 +778,13 @@ export default function TindakanDetailDrawer({
                           );
                           return !isBlank(val);
                         }) ||
-                        (t.id === "fast_track" &&
-                          getWireframeFieldValue(
-                            displayRecord as unknown as Record<string, unknown>,
-                            "is_fast_track",
-                          ));
+                        Boolean(
+                          t.id === "fast_track" &&
+                            getWireframeFieldValue(
+                              displayRecord as unknown as Record<string, unknown>,
+                              "is_fast_track",
+                            ),
+                        );
 
                       return (
                         <TabButton
@@ -1418,6 +1463,5 @@ export default function TindakanDetailDrawer({
       </div>
     );
 
-  if (!layer) return null;
-  return createPortal(layer, document.body);
+  return createPortal(layer, mountPoint);
 }

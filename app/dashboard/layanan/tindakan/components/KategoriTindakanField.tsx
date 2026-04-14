@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useNotification } from "@/app/contexts/NotificationContext";
+import { useMasterTindakanKategori } from "@/app/hooks/useMasterData";
 import {
   MasterKategoriTindakanCombobox,
   formatMasterKategoriLabel,
@@ -35,8 +36,7 @@ export default function KategoriTindakanField({
 }: Props) {
   const { show } = useNotification();
   const listId = useId();
-  const [items, setItems] = useState<MasterItem[]>([]);
-  const [loadingList, setLoadingList] = useState(false);
+  const { kategori: items, isLoading: loadingList, mutate: reloadItems } = useMasterTindakanKategori();
   const [draft, setDraft] = useState(() => norm(String(value ?? "")));
   const [savingRow, setSavingRow] = useState(false);
   const lastPersistedRef = useRef("");
@@ -51,36 +51,6 @@ export default function KategoriTindakanField({
     lastPersistedRef.current =
       value == null || value === "" ? "" : norm(String(value));
   }, [value, tindakanId]);
-
-  const loadItems = useCallback(async () => {
-    setLoadingList(true);
-    try {
-      const res = await fetch("/api/master-tindakan-kategori", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        items?: MasterItem[];
-        message?: string;
-      };
-      if (!res.ok || !json.ok) {
-        throw new Error(json.message || res.statusText);
-      }
-      setItems(Array.isArray(json.items) ? json.items : []);
-    } catch (e) {
-      show({
-        type: "error",
-        message: `Gagal memuat daftar kategori: ${(e as Error).message}`,
-      });
-    } finally {
-      setLoadingList(false);
-    }
-  }, [show]);
-
-  useEffect(() => {
-    void loadItems();
-  }, [loadItems]);
 
   useEffect(() => {
     setDraft(norm(String(value ?? "")));
@@ -166,7 +136,7 @@ export default function KategoriTindakanField({
         throw new Error(json.message || res.statusText);
       }
       show({ type: "success", message: "Kategori ditambahkan ke daftar." });
-      await loadItems();
+      await reloadItems();
     } catch (e) {
       show({
         type: "error",
@@ -203,7 +173,7 @@ export default function KategoriTindakanField({
       }
       show({ type: "success", message: "Nama diperbarui." });
       setEditingId(null);
-      await loadItems();
+      await reloadItems();
     } catch (e) {
       show({
         type: "error",
@@ -230,7 +200,7 @@ export default function KategoriTindakanField({
         throw new Error(json.message || res.statusText);
       }
       show({ type: "success", message: "Dihapus dari daftar." });
-      await loadItems();
+      await reloadItems();
     } catch (e) {
       show({
         type: "error",
@@ -261,7 +231,7 @@ export default function KategoriTindakanField({
       }
       setNewNama("");
       show({ type: "success", message: "Ditambahkan." });
-      await loadItems();
+      await reloadItems();
     } catch (e) {
       show({
         type: "error",
@@ -317,7 +287,7 @@ export default function KategoriTindakanField({
           type="button"
           onClick={() => {
             setManageOpen(true);
-            void loadItems();
+            void reloadItems();
           }}
           className={cn(
             "inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-semibold",

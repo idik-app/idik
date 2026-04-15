@@ -26,6 +26,7 @@ type LineIn = {
   ed?: string;
   isKonsolidasi?: boolean;
   harga?: number;
+  keterangan?: string;
 };
 
 /** POST /api/pemakaian-orders — simpan order baru (Input Pemakaian / Resep). */
@@ -148,6 +149,10 @@ export async function POST(req: Request) {
         ed:
           typeof it.ed === "string" && it.ed.trim() ? it.ed.trim() : undefined,
         isKonsolidasi: !!it.isKonsolidasi,
+        keterangan:
+          typeof it.keterangan === "string" && it.keterangan.trim()
+            ? it.keterangan.trim()
+            : undefined,
         ...(typeof it.harga === "number" &&
         Number.isFinite(it.harga) &&
         it.harga >= 0

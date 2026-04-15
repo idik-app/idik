@@ -89,7 +89,7 @@ export function useMasterTindakanKategori() {
 }
 
 export function useMasterPasien() {
-  const { data, error, isLoading, mutate } = useSWR('/api/pasien?compact=1&limit=1000', fetcher, {
+  const { data, error, isLoading, mutate } = useSWR('/api/pasien?compact=1&limit=5000&force=1', fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 600000, // 10 menit
   });

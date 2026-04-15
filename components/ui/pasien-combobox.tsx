@@ -19,6 +19,8 @@ export type PasienOption = {
   kelas_perawatan?: string | null;
   pembiayaan?: string | null;
   kelas?: string | null;
+  tgl_lahir?: string | null;
+  umur?: number | null;
 };
 
 export function formatPasienLabel(

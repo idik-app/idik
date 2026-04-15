@@ -77,11 +77,12 @@ export async function GET(request: Request) {
       "";
     const namaLookup = searchParams.get("nama")?.trim() ?? "";
     const limitRaw = Number(searchParams.get("limit") ?? "");
+    const force = searchParams.get("force") === "1";
 
     // Jika compact dan tidak ada filter spesifik, gunakan cache (default limit 1000)
     const now = Date.now();
     const effectiveLimit = limitRaw || 1000;
-    if (compact && !noRm && !namaLookup && effectiveLimit === 1000 && pasienCompactCache && now < pasienCompactCacheExpires) {
+    if (!force && compact && !noRm && !namaLookup && effectiveLimit === 1000 && pasienCompactCache && now < pasienCompactCacheExpires) {
       return NextResponse.json({ ok: true, data: pasienCompactCache, cached: true }, { status: 200 });
     }
 
@@ -155,7 +156,7 @@ export async function GET(request: Request) {
           : 0;
 
     const columns = compact
-      ? "id,nama,no_rm,jenis_kelamin,jk,created_at,jenis_pembiayaan,kelas_perawatan"
+      ? "id,nama,no_rm,jenis_kelamin,jk,created_at,jenis_pembiayaan,kelas_perawatan,tgl_lahir"
       : "*";
 
     // Gunakan chunked fetching jika limit > 1000 untuk melewati batas default PostgREST

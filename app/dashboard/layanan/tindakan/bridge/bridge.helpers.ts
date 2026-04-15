@@ -52,7 +52,7 @@ export const formatTime = (timeStr: string | null) => {
 // ------------------------------
 export const formatAge = (umur: any) => {
   if (umur === null || umur === undefined) return "-";
-  return `${umur} th`;
+  return `${umur} TH`;
 };
 
 // ------------------------------

@@ -30,6 +30,7 @@ type LineIn = {
   ed?: string;
   isKonsolidasi?: boolean;
   harga?: number;
+  keterangan?: string;
 };
 
 type NormalizedLine = {
@@ -45,6 +46,7 @@ type NormalizedLine = {
   ed?: string;
   isKonsolidasi?: boolean;
   harga?: number;
+  keterangan?: string;
 };
 
 function normalizeItems(
@@ -92,6 +94,10 @@ function normalizeItems(
         ed:
           typeof it.ed === "string" && it.ed.trim() ? it.ed.trim() : undefined,
         isKonsolidasi: !!it.isKonsolidasi,
+        keterangan:
+          typeof it.keterangan === "string" && it.keterangan.trim()
+            ? it.keterangan.trim()
+            : undefined,
         ...(typeof it.harga === "number" &&
         Number.isFinite(it.harga) &&
         it.harga >= 0

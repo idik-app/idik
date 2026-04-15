@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState, useEffect } from "react";
-import { Package, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Package, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -46,6 +46,22 @@ const DISTRIBUTOR_NON_KONSOLIDASI_KEYWORDS = [
   "SIMPASS",
 ];
 
+const KETERANGAN_OPTIONS = [
+  "Tidak ada ukuran yang lain",
+  "Kasus sulit",
+  "Permintaan User",
+];
+
+/** Membuka picker tanggal native (Chromium/Edge: klik di area teks ikut membuka kalender). */
+function openNativeDatePicker(el: HTMLInputElement) {
+  if (typeof el.showPicker !== "function") return;
+  try {
+    el.showPicker();
+  } catch {
+    /* gesture / secure context */
+  }
+}
+
 export default function TindakanLaporanPemakaianModal({
   open,
   onOpenChange,
@@ -60,6 +76,10 @@ export default function TindakanLaporanPemakaianModal({
   filterSummaryLines: readonly string[];
 }) {
   const [filterKategori, setFilterKategori] = useState<string>("");
+  const [filterTanggalFrom, setFilterTanggalFrom] = useState<string>("");
+  const [filterTanggalTo, setFilterTanggalTo] = useState<string>("");
+  const [filterDokter, setFilterDokter] = useState<string>("");
+  const [filterKeterangan, setFilterKeterangan] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -90,6 +110,15 @@ export default function TindakanLaporanPemakaianModal({
     return Array.from(set).sort();
   }, [rows]);
 
+  const doctorOptions = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      const d = (r.dokter || "").trim();
+      if (d) set.add(d);
+    });
+    return Array.from(set).sort();
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
     let result = rows.filter((r) => {
       const txt = String(r.pemakaian ?? "").trim();
@@ -114,6 +143,33 @@ export default function TindakanLaporanPemakaianModal({
       });
     }
 
+    if (filterTanggalFrom) {
+      result = result.filter((r) => {
+        const d = String(r.tanggal ?? "").slice(0, 10);
+        return d >= filterTanggalFrom;
+      });
+    }
+
+    if (filterTanggalTo) {
+      result = result.filter((r) => {
+        const d = String(r.tanggal ?? "").slice(0, 10);
+        return d <= filterTanggalTo;
+      });
+    }
+
+    if (filterDokter) {
+      result = result.filter((r) => {
+        return (r.dokter || "").trim() === filterDokter;
+      });
+    }
+
+    if (filterKeterangan) {
+      result = result.filter((r) => {
+        const txt = String(r.pemakaian ?? "").toUpperCase();
+        return txt.includes(filterKeterangan.toUpperCase());
+      });
+    }
+
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
       result = result.filter((r) => {
@@ -131,7 +187,15 @@ export default function TindakanLaporanPemakaianModal({
     }
 
     return result;
-  }, [rows, filterKategori, searchTerm]);
+  }, [
+    rows,
+    filterKategori,
+    filterTanggalFrom,
+    filterTanggalTo,
+    filterDokter,
+    filterKeterangan,
+    searchTerm,
+  ]);
 
   const paginatedRows = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -142,7 +206,14 @@ export default function TindakanLaporanPemakaianModal({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterKategori]);
+  }, [
+    searchTerm,
+    filterKategori,
+    filterTanggalFrom,
+    filterTanggalTo,
+    filterDokter,
+    filterKeterangan,
+  ]);
 
   const parsePemakaian = useCallback((txt: string) => {
     const lines = txt.split("\n");
@@ -441,28 +512,72 @@ export default function TindakanLaporanPemakaianModal({
   };
 
   const buildExportHtml = useCallback(() => {
+    const subs = [...filterSummaryLines];
+    if (filterTanggalFrom && filterTanggalTo) {
+      if (filterTanggalFrom === filterTanggalTo) {
+        subs.push(`Tanggal: ${filterTanggalFrom}`);
+      } else {
+        subs.push(`Periode: ${filterTanggalFrom} s/d ${filterTanggalTo}`);
+      }
+    } else if (filterTanggalFrom) {
+      subs.push(`Dari: ${filterTanggalFrom}`);
+    } else if (filterTanggalTo) {
+      subs.push(`Sampai: ${filterTanggalTo}`);
+    }
+    if (filterDokter) subs.push(`Dokter: ${filterDokter}`);
+    if (filterKategori) subs.push(`Kategori: ${filterKategori}`);
+    if (filterKeterangan) subs.push(`Ket.: ${filterKeterangan}`);
+    subs.push(`Total: ${filteredRows.length} baris`);
+
     return buildPemakaianAlkesReportHtml({
       rows: filteredRows,
-      subtitleLines: [
-        ...filterSummaryLines,
-        filterKategori ? `Kategori: ${filterKategori}` : "Semua Kategori",
-        `Total: ${filteredRows.length} baris`,
-      ],
+      subtitleLines: subs,
       parsePemakaian,
     });
-  }, [filteredRows, filterSummaryLines, filterKategori, parsePemakaian]);
+  }, [
+    filteredRows,
+    filterSummaryLines,
+    filterTanggalFrom,
+    filterTanggalTo,
+    filterDokter,
+    filterKategori,
+    filterKeterangan,
+    parsePemakaian,
+  ]);
 
   const buildExportWhatsApp = useCallback(() => {
+    const subs = [...filterSummaryLines];
+    if (filterTanggalFrom && filterTanggalTo) {
+      if (filterTanggalFrom === filterTanggalTo) {
+        subs.push(`Tanggal: ${filterTanggalFrom}`);
+      } else {
+        subs.push(`Periode: ${filterTanggalFrom} s/d ${filterTanggalTo}`);
+      }
+    } else if (filterTanggalFrom) {
+      subs.push(`Dari: ${filterTanggalFrom}`);
+    } else if (filterTanggalTo) {
+      subs.push(`Sampai: ${filterTanggalTo}`);
+    }
+    if (filterDokter) subs.push(`Dokter: ${filterDokter}`);
+    if (filterKategori) subs.push(`Kategori: ${filterKategori}`);
+    if (filterKeterangan) subs.push(`Ket.: ${filterKeterangan}`);
+    subs.push(`Total: ${filteredRows.length} baris`);
+
     return buildPemakaianAlkesWhatsAppText({
       rows: filteredRows,
-      subtitleLines: [
-        ...filterSummaryLines,
-        filterKategori ? `Kategori: ${filterKategori}` : "Semua Kategori",
-        `Total: ${filteredRows.length} baris`,
-      ],
+      subtitleLines: subs,
       parsePemakaian,
     });
-  }, [filteredRows, filterSummaryLines, filterKategori, parsePemakaian]);
+  }, [
+    filteredRows,
+    filterSummaryLines,
+    filterTanggalFrom,
+    filterTanggalTo,
+    filterDokter,
+    filterKategori,
+    filterKeterangan,
+    parsePemakaian,
+  ]);
 
   const onDownloadExcel = useCallback(() => {
     downloadPemakaianAlkesExcel({
@@ -506,9 +621,9 @@ export default function TindakanLaporanPemakaianModal({
             </div>
           </div>
 
-          <div className="flex shrink-0 flex-wrap items-center gap-1.5 rounded-lg border p-1.5 border-amber-200/80 bg-amber-50/50 dark:border-amber-900/50 dark:bg-black/30">
-            <div className="flex flex-1 min-w-[120px] flex-col gap-0">
-              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90">
+          <div className="flex shrink-0 flex-wrap items-end gap-2 rounded-lg border p-1.5 border-amber-200/80 bg-amber-50/50 dark:border-amber-900/50 dark:bg-black/30">
+            <div className="flex flex-col gap-0.5 w-[200px]">
+              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
                 Cari Pasien / RM / Dokter
               </span>
               <div className="relative">
@@ -521,24 +636,108 @@ export default function TindakanLaporanPemakaianModal({
                   placeholder="Cari..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full rounded-md border border-amber-300/80 bg-white pl-6 pr-1 py-0 text-[11px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-white/20 dark:bg-black dark:text-white dark:placeholder:text-white/30"
+                  className="w-full rounded-md border border-amber-300/80 bg-white pl-6 pr-1 py-0.5 text-[11px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-white/20 dark:bg-black dark:text-white dark:placeholder:text-white/30"
                 />
               </div>
             </div>
 
-            <div className="flex flex-col gap-0">
-              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90">
+            <div className="flex flex-col gap-0.5 w-[115px]">
+              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                Dari
+              </span>
+              <div className="relative group">
+                <input
+                  type="date"
+                  value={filterTanggalFrom}
+                  onClick={(e) => openNativeDatePicker(e.currentTarget)}
+                  onChange={(e) => setFilterTanggalFrom(e.target.value)}
+                  className="w-full rounded-md border border-amber-300/80 bg-white pl-1.5 pr-6 py-0.5 text-[11px] font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-white/20 dark:bg-black dark:text-white"
+                />
+                {filterTanggalFrom && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterTanggalFrom("")}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  >
+                    <X size={10} strokeWidth={2.5} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-0.5 w-[115px]">
+              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                Sampai
+              </span>
+              <div className="relative group">
+                <input
+                  type="date"
+                  value={filterTanggalTo}
+                  onClick={(e) => openNativeDatePicker(e.currentTarget)}
+                  onChange={(e) => setFilterTanggalTo(e.target.value)}
+                  className="w-full rounded-md border border-amber-300/80 bg-white pl-1.5 pr-6 py-0.5 text-[11px] font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-white/20 dark:bg-black dark:text-white"
+                />
+                {filterTanggalTo && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterTanggalTo("")}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  >
+                    <X size={10} strokeWidth={2.5} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-0.5 w-[140px]">
+              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                Dokter
+              </span>
+              <select
+                value={filterDokter}
+                onChange={(e) => setFilterDokter(e.target.value)}
+                className="w-full rounded-md border border-amber-300/80 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 dark:border-white/20 dark:bg-black dark:text-white"
+              >
+                <option value="">Semua Dokter</option>
+                {doctorOptions.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-0.5 w-[120px]">
+              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
                 Kategori
               </span>
               <select
                 value={filterKategori}
                 onChange={(e) => setFilterKategori(e.target.value)}
-                className="rounded-md border border-amber-300/80 bg-white px-1.5 py-0 text-[11px] font-semibold text-slate-900 dark:border-white/20 dark:bg-black dark:text-white"
+                className="w-full rounded-md border border-amber-300/80 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 dark:border-white/20 dark:bg-black dark:text-white"
               >
-                <option value="">Semua</option>
+                <option value="">Semua Alkes</option>
                 {kategoriOptions.map((k) => (
                   <option key={k} value={k}>
                     {k}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-0.5 w-[120px]">
+              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                Keterangan
+              </span>
+              <select
+                value={filterKeterangan}
+                onChange={(e) => setFilterKeterangan(e.target.value)}
+                className="w-full rounded-md border border-amber-300/80 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 dark:border-white/20 dark:bg-black dark:text-white"
+              >
+                <option value="">Semua Ket.</option>
+                {KETERANGAN_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
                   </option>
                 ))}
               </select>

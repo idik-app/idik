@@ -220,6 +220,8 @@ export async function GET(request: Request) {
             no_rm: noRm,
             ruangan: row.ruangan || null,
             created_at: row.created_at || row.inserted_at || row.updated_at || null,
+            umur: row.umur || null,
+            tgl_lahir: row.tgl_lahir || null,
           };
           
           // Inline enrich logic for speed

@@ -9,7 +9,17 @@ import {
   type PerawatOption,
 } from "@/components/ui/perawat-combobox";
 
-export type TimPerawatFieldKey = "asisten" | "sirkuler" | "logger";
+export type TimPerawatFieldKey =
+  | "asisten"
+  | "sirkuler"
+  | "logger"
+  | "asmed"
+  | "resume_erm"
+  | "sjp"
+  | "berkas_laporan"
+  | "consumable_kelengkapan"
+  | "billing_simrs"
+  | "pj_laporan";
 
 type Props = {
   tindakanId: string;
@@ -45,13 +55,15 @@ export default function MasterPerawatTimField({
     setDraft(norm(String(value ?? "")));
   }, [value, tindakanId, field]);
 
-  const persist = async (nextLabel: string | null) => {
+  const persist = async (nextLabel: string | null, isBlur = false) => {
     const trimmed = nextLabel == null ? "" : norm(nextLabel);
     const apiVal = trimmed.length ? trimmed : null;
     const nextKey = apiVal ?? "";
     if (nextKey === lastPersistedRef.current) return;
 
-    setSaving(true);
+    // Jika blur, jangan tampilkan status saving agar tidak mengganggu navigasi tab
+    if (!isBlur) setSaving(true);
+    
     try {
       const res = await fetch(
         `/api/tindakan/${encodeURIComponent(tindakanId)}`,
@@ -70,22 +82,28 @@ export default function MasterPerawatTimField({
         throw new Error(json.message || res.statusText);
       }
       lastPersistedRef.current = nextKey;
-      onSaved?.();
+      
+      // Berikan jeda sedikit sebelum refresh agar transisi UI/Tab selesai
+      setTimeout(() => {
+        onSaved?.();
+      }, 500);
     } catch (e) {
-      show({
-        type: "error",
-        message: `Gagal simpan: ${(e as Error).message}`,
-      });
-      setDraft(lastPersistedRef.current);
+      if (!isBlur) {
+        show({
+          type: "error",
+          message: `Gagal simpan: ${(e as Error).message}`,
+        });
+        setDraft(lastPersistedRef.current);
+      }
     } finally {
-      setSaving(false);
+      if (!isBlur) setSaving(false);
     }
   };
 
   const handleBlurCommit = (current: string) => {
     if (skipBlurCommitRef.current) return;
     const trimmed = norm(current);
-    void persist(trimmed.length ? trimmed : null);
+    void persist(trimmed.length ? trimmed : null, true); // Gunakan mode silent
   };
 
   return (

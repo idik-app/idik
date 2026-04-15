@@ -16,7 +16,8 @@ export type KlinisFieldKey =
   | "plan_medis"
   | "temuan_pembuluh"
   | "faktor_risiko"
-  | "total_kontras";
+  | "total_kontras"
+  | "operan_ranap";
 
 const DEBOUNCE_MS = 550;
 
@@ -30,6 +31,7 @@ const MULTILINE: Record<KlinisFieldKey, boolean> = {
   severity_level: false,
   pci_report_link: false,
   total_kontras: false,
+  operan_ranap: false,
 };
 
 function draftFromValue(value: unknown): string {
@@ -213,7 +215,13 @@ export default function KlinisAutosaveField({
   };
 
   const handleBlur = () => {
-    flushBlur();
+    // Jalankan persist tanpa menunggu re-render yang memblokir klik tab lain
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    void persist(draftRef.current);
+
     if (blurUnfocusTimerRef.current) clearTimeout(blurUnfocusTimerRef.current);
     blurUnfocusTimerRef.current = setTimeout(() => {
       blurUnfocusTimerRef.current = null;

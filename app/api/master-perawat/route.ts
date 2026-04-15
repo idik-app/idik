@@ -16,7 +16,12 @@ export async function GET() {
 
   const now = Date.now();
   if (perawatCache && now < perawatCacheExpires) {
-    return NextResponse.json({ ok: true, perawats: perawatCache, cached: true });
+    return NextResponse.json({
+      ok: true,
+      perawat: perawatCache,
+      perawats: perawatCache,
+      cached: true,
+    });
   }
 
   const supabase = getServiceSupabaseAdmin();
@@ -87,6 +92,7 @@ export async function GET() {
 
   return NextResponse.json({
     ok: true,
+    perawat: finalPerawats,
     perawats: finalPerawats,
   });
 }

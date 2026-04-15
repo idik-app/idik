@@ -67,7 +67,7 @@ export function useMasterPerawat() {
   });
 
   return {
-    perawat: data?.perawat || EMPTY_ARRAY,
+    perawat: data?.perawats || data?.perawat || EMPTY_ARRAY,
     isLoading,
     isError: error,
     mutate,

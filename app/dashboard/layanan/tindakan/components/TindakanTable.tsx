@@ -1058,12 +1058,14 @@ export default function TindakanTable({
   filterPasienId = "",
   filterRm = "",
   onFilteredSummaryChange,
+  isFilterCollapsed = false,
 }: {
   adapter: Adapter;
   filterPasienId?: string;
   filterRm?: string;
   /** Sinkronkan jumlah & ringkasan filter ke ringkasan header */
   onFilteredSummaryChange?: (summary: TindakanFilteredSummary) => void;
+  isFilterCollapsed?: boolean;
 }) {
   const {
     tindakanList,
@@ -2539,6 +2541,7 @@ export default function TindakanTable({
         )}
 
         <TableToolbar
+          isCollapsed={isFilterCollapsed}
           onSearch={setSearch}
           onRefresh={refresh}
           onCreateDraftForPasien={createDraftForPasien}
@@ -2577,6 +2580,10 @@ export default function TindakanTable({
           rows={rowsForPemakaianLink}
           loading={loading}
           filterSummaryLines={filterSummaryLines}
+          initialFilterTanggalFrom={filterTanggalFrom}
+          initialFilterTanggalTo={filterTanggalTo}
+          initialFilterDokter={filterDokter}
+          initialSearchTerm={search}
         />
 
         <FastTrackListModal

@@ -157,7 +157,8 @@ export async function GET(_req: Request, { params }: Params) {
 
   const { data, error } = await supabase
     .from("cathlab_pemakaian_order")
-    .select("id, mode, tanggal, pasien, no_rm, dokter, ruangan, depo, petugas_cssd, asisten_cathlab, status, status_alkes_cssd, items, catatan, template_input_barang, tindakan_id, created_at, updated_at")
+    .select("id, mode, tanggal, pasien, no_rm, dokter, ruangan, depo, status, items, catatan, template_input_barang, tindakan_id, created_at, updated_at")
+    // asisten_cathlab, petugas_cssd, status_alkes_cssd
     .eq("id", id)
     .maybeSingle();
 
@@ -272,12 +273,14 @@ export async function PATCH(req: Request, { params }: Params) {
   if (body.depo !== undefined) {
     patch.depo = String(body.depo ?? "").trim();
   }
+  /*
   if (body.petugas_cssd !== undefined) {
     patch.petugas_cssd = String(body.petugas_cssd ?? "").trim() || null;
   }
   if (body.asisten_cathlab !== undefined) {
     patch.asisten_cathlab = String(body.asisten_cathlab ?? "").trim() || null;
   }
+  */
 
   if (body.mode !== undefined) {
     const m =
@@ -313,10 +316,12 @@ export async function PATCH(req: Request, { params }: Params) {
     );
   }
 
+  /*
   if (body.status_alkes_cssd !== undefined) {
     const s = String(body.status_alkes_cssd ?? "").trim();
     patch.status_alkes_cssd = s || null;
   }
+  */
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json(

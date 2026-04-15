@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { toast } from "sonner";
 import {
   Building2,
   ClipboardList,
@@ -226,7 +227,8 @@ function resolveDistributorFromBarangInput(
 }
 
 function newDrawerLineId() {
-  return `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const sessionPrefix = Math.random().toString(36).slice(2, 6);
+  return `line-${sessionPrefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function orderTanggalToDatetimeLocal(tanggal: string): string {
@@ -262,13 +264,22 @@ function orderTanggalToDatetimeLocal(tanggal: string): string {
 function linesFromOrderItemsJson(raw: unknown): PemakaianLine[] {
   const out: PemakaianLine[] = [];
   if (!Array.isArray(raw)) return out;
+  const usedIds = new Set<string>();
+
   for (const it of raw) {
     if (!it || typeof it !== "object") continue;
     const o = it as Record<string, unknown>;
-    const lineId =
+    let lineId =
       typeof o.lineId === "string" && o.lineId.trim()
         ? o.lineId.trim()
         : newDrawerLineId();
+
+    // Pastikan ID unik dalam array state local (hindari konflik key React)
+    if (usedIds.has(lineId)) {
+      lineId = `${lineId}-dup-${Math.random().toString(36).slice(2, 6)}`;
+    }
+    usedIds.add(lineId);
+
     const barang =
       typeof o.barang === "string" ? o.barang : String(o.barang ?? "");
     if (!barang.trim()) continue;
@@ -304,12 +315,20 @@ function linesFromOrderItemsJson(raw: unknown): PemakaianLine[] {
           : typeof o.batch === "string" && o.batch.trim() !== ""
             ? o.batch.trim()
             : undefined;
-    const ukuran =
+    let ukuran =
       typeof o.ukuran === "string" && o.ukuran.trim() !== ""
         ? o.ukuran.trim()
         : o.ukuran != null && String(o.ukuran).trim() !== ""
           ? String(o.ukuran).trim()
           : undefined;
+
+    if (ukuran && /(\d+(?:\.\d+)?)\s*[xX]\s*(\d+)/.test(ukuran)) {
+      ukuran = ukuran.replace(
+        /(\d+(?:\.\d+)?)\s*[xX]\s*(\d+)/,
+        "$1 x $2",
+      );
+    }
+
     const ed =
       typeof o.ed === "string" && o.ed.trim() !== ""
         ? o.ed.trim()
@@ -320,7 +339,7 @@ function linesFromOrderItemsJson(raw: unknown): PemakaianLine[] {
             : undefined;
     const isKonsolidasi =
       o.isKonsolidasi === true || (o as any).is_konsolidasi === true;
-    const keterangan =
+    let keterangan =
       typeof o.keterangan === "string" && o.keterangan.trim() !== ""
         ? o.keterangan.trim()
         : o.keterangan != null && String(o.keterangan).trim() !== ""
@@ -328,6 +347,10 @@ function linesFromOrderItemsJson(raw: unknown): PemakaianLine[] {
           : typeof (o as any).reason === "string" && (o as any).reason.trim() !== ""
             ? (o as any).reason.trim()
             : undefined;
+
+    if (!keterangan && status === "KONSOLIDASI") {
+      keterangan = "Permintaan User";
+    }
 
     out.push({
       lineId,
@@ -371,8 +394,6 @@ function cleanFormText(s: string): string {
 function buildWhatsAppReport(
   pasien: string,
   dokter: string,
-  petugasCssd: string,
-  asistenCathlab: string,
   items: PemakaianLine[]
 ): string {
   const nItems = items.filter(it => it.tipe === 'N').map(it => it.barang.toUpperCase());
@@ -382,9 +403,7 @@ function buildWhatsAppReport(
   let msg = `*LAPORAN PEMAKAIAN ALKES CATHLAB*\n`;
   msg += `--------------------------------\n`;
   msg += `*Pasien:* ${pasien}\n`;
-  msg += `*Dokter:* ${dokter}\n`;
-  msg += `*Asisten:* ${asistenCathlab || "-"}\n`;
-  msg += `*Sterilisasi (CSSD):* ${petugasCssd || "-"}\n\n`;
+  msg += `*Dokter:* ${dokter}\n\n`;
 
   if (nItems.length > 0) {
     msg += `*BARU (NEW):*\n`;
@@ -517,11 +536,8 @@ export default function PemakaianAlkesModal({
 
   const [drawerPasien, setDrawerPasien] = useState("");
   const [drawerDokter, setDrawerDokter] = useState("");
-  const [drawerDepo, setDrawerDepo] = useState(DEFAULT_DRAWER_DEPO);
   const [drawerRuangan, setDrawerRuangan] = useState("");
   const [drawerDateTime, setDrawerDateTime] = useState("");
-  const [drawerPetugasCssd, setDrawerPetugasCssd] = useState("");
-  const [drawerAsisten, setDrawerAsisten] = useState("");
   const [drawerLines, setDrawerLines] = useState<PemakaianLine[]>([]);
   const [drawerSaving, setDrawerSaving] = useState(false);
   const [drawerFocusLineId, setDrawerFocusLineId] = useState<string | null>(
@@ -552,9 +568,6 @@ export default function PemakaianAlkesModal({
     setDrawerPasien(initialPasienLabel.trim());
     setDrawerDokter(initialDokter.trim());
     setDrawerRuangan(initialRuangan.trim());
-    setDrawerPetugasCssd("");
-    setDrawerAsisten(initialAsisten?.trim() ?? "");
-    setDrawerDepo(DEFAULT_DRAWER_DEPO);
     setDrawerDateTime(toDatetimeLocalValue(new Date()));
     setDrawerLines([
       {
@@ -615,16 +628,12 @@ export default function PemakaianAlkesModal({
         ),
       );
       setDrawerRuangan(String(first.ruangan ?? "").trim());
-      setDrawerPetugasCssd(String(first.petugas_cssd ?? "").trim());
-      setDrawerAsisten(String(first.asisten_cathlab ?? "").trim());
-      setDrawerDepo(String(first.depo ?? "").trim() || DEFAULT_DRAWER_DEPO);
       setDrawerDateTime(
         orderTanggalToDatetimeLocal(String(first.tanggal ?? "")),
       );
       const parsed = linesFromOrderItemsJson(first.items);
       if (parsed.length > 0) {
         setDrawerLines(parsed);
-        setDrawerFocusLineId(parsed[0].lineId);
       } else {
         const firstId = newDrawerLineId();
         setDrawerLines([
@@ -637,7 +646,6 @@ export default function PemakaianAlkesModal({
             tipe: "N",
           },
         ]);
-        setDrawerFocusLineId(firstId);
       }
       setEditingTemplateInputBarang(
         normalizeTemplateInputBarang(first.template_input_barang),
@@ -679,7 +687,7 @@ export default function PemakaianAlkesModal({
       return out;
     }
 
-    const enrichFromTindakanApi = async () => {
+    const enrichFromTindakanApi = async (isEditOverride?: boolean) => {
       if (!tid) return;
       try {
         const j = await runDeduped(
@@ -723,10 +731,6 @@ export default function PemakaianAlkesModal({
         const teamParts = [d.asisten, d.sirkuler, d.logger]
           .map((s) => String(s ?? "").trim())
           .filter(Boolean);
-        if (teamParts.length > 0) {
-          const teamStr = teamParts.join(", ");
-          setDrawerAsisten((prev) => (prev.trim() ? prev : teamStr));
-        }
         const pid =
           typeof d.pasien_id === "string" && d.pasien_id.trim()
             ? d.pasien_id.trim()
@@ -752,7 +756,13 @@ export default function PemakaianAlkesModal({
               (prev.length === 1 && !prev[0].barang.trim());
             if (!isEmpty) return prev;
             const presets = getPresetLinesForTindakan(tindakanName);
-            if (presets.length > 0) return presets;
+            if (presets.length > 0) {
+              // Jika ini record baru (isEditOverride false dan tidak ada existingOrderId), focus ke preset pertama
+              if (!isEditOverride && !existingOrderId) {
+                setDrawerFocusLineId(presets[0].lineId);
+              }
+              return presets;
+            }
             return prev;
           });
         }
@@ -782,7 +792,7 @@ export default function PemakaianAlkesModal({
             j?.ok && j.order && typeof j.order === "object" ? j.order : null;
           if (ord) {
             hydrateFromOrderRecord(ord);
-            await enrichFromTindakanApi();
+            await enrichFromTindakanApi(true);
             return;
           }
         } catch {
@@ -810,7 +820,7 @@ export default function PemakaianAlkesModal({
           const first = list[0];
           if (first && typeof first === "object") {
             hydrateFromOrderRecord(first as Record<string, unknown>);
-            await enrichFromTindakanApi();
+            await enrichFromTindakanApi(true);
             return;
           }
         } catch {
@@ -820,7 +830,7 @@ export default function PemakaianAlkesModal({
 
       if (seq !== bootstrapSeqRef.current) return;
       resetFormFromProps();
-      await enrichFromTindakanApi();
+      await enrichFromTindakanApi(false);
     })();
   }, [
     open,
@@ -915,22 +925,24 @@ export default function PemakaianAlkesModal({
               next,
             );
 
+        const resolvedH = row ? hargaFromPickRow(row, barangVariantList) : undefined;
+
         const h =
           patch.harga !== undefined
             ? patch.harga
-            : row
-              ? hargaFromPickRow(row, barangVariantList)
+            : resolvedH !== undefined
+              ? resolvedH
               : next.harga;
+
+        const resolvedK = row
+          ? normalizeKategoriAlkesLine(row.kategori) ||
+            normalizeKategoriAlkesLine(row.jenis)
+          : undefined;
 
         const k =
           patch.kategori !== undefined
             ? patch.kategori
-            : row
-              ? normalizeKategoriAlkesLine(row.kategori) ||
-                normalizeKategoriAlkesLine(row.jenis)
-              : next.kategori && next.kategori !== "Pilih Kategori"
-                ? next.kategori
-                : undefined;
+            : resolvedK || (next.kategori !== "Pilih Kategori" ? next.kategori : undefined);
 
         const lot =
           patch.lot !== undefined
@@ -984,14 +996,14 @@ export default function PemakaianAlkesModal({
 
         return {
           ...next,
-          harga: h,
-          kategori: k,
-          status,
-          lot,
-          ukuran,
-          ed,
-          isKonsolidasi,
-          distributor,
+          ...(h !== undefined ? { harga: h } : {}),
+          ...(k !== undefined ? { kategori: k } : {}),
+          ...(status !== undefined ? { status } : {}),
+          ...(lot !== undefined ? { lot } : {}),
+          ...(ukuran !== undefined ? { ukuran } : {}),
+          ...(ed !== undefined ? { ed } : {}),
+          ...(isKonsolidasi !== undefined ? { isKonsolidasi } : {}),
+          ...(distributor !== undefined ? { distributor } : {}),
         };
       }),
     );
@@ -1129,14 +1141,18 @@ export default function PemakaianAlkesModal({
         changed = true;
         return {
           ...line,
-          harga: nextHarga,
-          kategori: nextKategori,
-          status: nextStatus,
-          isKonsolidasi: nextIsKonsolidasi,
-          distributor: nextDistributor,
-          lot: nextLot,
-          ukuran: nextUkuran,
-          ed: nextEd,
+          ...(nextHarga !== undefined ? { harga: nextHarga } : {}),
+          ...(nextKategori !== undefined ? { kategori: nextKategori } : {}),
+          ...(nextStatus !== undefined ? { status: nextStatus } : {}),
+          ...(nextIsKonsolidasi !== undefined
+            ? { isKonsolidasi: nextIsKonsolidasi }
+            : {}),
+          ...(nextDistributor !== undefined
+            ? { distributor: nextDistributor }
+            : {}),
+          ...(nextLot !== undefined ? { lot: nextLot } : {}),
+          ...(nextUkuran !== undefined ? { ukuran: nextUkuran } : {}),
+          ...(nextEd !== undefined ? { ed: nextEd } : {}),
         };
       });
       return changed ? next : rows;
@@ -1237,25 +1253,35 @@ export default function PemakaianAlkesModal({
   }
 
   function applyBarangPick(pick: MasterBarangPickRow) {
-    const suffix = Date.now().toString(36);
+    const nextId = newDrawerLineId();
     const hPick = hargaFromPickRow(pick, barangVariantList);
     const kCat =
       normalizeKategoriAlkesLine(pick.kategori) ||
       normalizeKategoriAlkesLine(pick.jenis);
-    const nextId = `draft-new-${suffix}`;
+
+    const status = (pick as any).is_konsolidasi ? "KONSOLIDASI" : "NON KONSOLIDASI";
+    let rawUkuran = pick.ukuran?.trim() || undefined;
+    if (rawUkuran && /(\d+(?:\.\d+)?)\s*[xX]\s*(\d+)/.test(rawUkuran)) {
+      rawUkuran = rawUkuran.replace(
+        /(\d+(?:\.\d+)?)\s*[xX]\s*(\d+)/,
+        "$1 x $2",
+      );
+    }
+
     const line: PemakaianLine = {
       lineId: nextId,
       barang: pick.nama.trim(),
       ...(kCat ? { kategori: kCat } : {}),
-      status: (pick as any).is_konsolidasi ? "KONSOLIDASI" : "NON KONSOLIDASI",
+      status,
       distributor: pick.distributor_nama?.trim() || undefined,
       qtyRencana: 1,
       qtyDipakai: 1,
       tipe: "N",
       lot: pick.lot?.trim() || undefined,
-      ukuran: pick.ukuran?.trim() || undefined,
+      ukuran: rawUkuran,
       ed: pick.ed?.trim() || undefined,
       isKonsolidasi: !!(pick as any).is_konsolidasi,
+      keterangan: status === "KONSOLIDASI" ? "Permintaan User" : undefined,
       ...(hPick !== undefined ? { harga: hPick } : {}),
     };
     setDrawerLines((rows) => [...rows, line]);
@@ -1346,13 +1372,6 @@ export default function PemakaianAlkesModal({
           <span className="mr-2">:</span>
           <span className="flex-1 border-b border-gray-300 min-h-[1.2rem]">
             {drawerRuangan}
-          </span>
-        </div>
-        <div className="flex">
-          <span className="w-32 font-semibold">Depo</span>
-          <span className="mr-2">:</span>
-          <span className="flex-1 border-b border-gray-300 min-h-[1.2rem]">
-            {drawerDepo}
           </span>
         </div>
       </div>
@@ -1557,15 +1576,13 @@ export default function PemakaianAlkesModal({
     </div>
   );
 
-  async function submitDrawerPemakaian() {
+  const submitDrawerPemakaian = useCallback(async () => {
     if (drawerSaving) return;
     setDokterFieldInvalid(false);
     setRuanganFieldInvalid(false);
     const pasien = cleanFormText(drawerPasien);
     const dokterRaw = cleanFormText(drawerDokter);
     const ruanganRaw = cleanFormText(drawerRuangan);
-    const petugasCssd = cleanFormText(drawerPetugasCssd);
-    const asisten_cathlab = cleanFormText(drawerAsisten);
     const dokterResolved =
       doctorOptions.length > 0
         ? resolveDoctorFromLooseInput(doctorOptions, dokterRaw)
@@ -1573,17 +1590,12 @@ export default function PemakaianAlkesModal({
     const dokter = dokterResolved
       ? String(dokterResolved.nama_dokter).trim()
       : dokterRaw;
-    const dokterKonfirmasi = dokterResolved
-      ? formatDoctorLabel(dokterResolved)
-      : dokterRaw;
-    let depo = cleanFormText(drawerDepo);
-    if (!depo) depo = DEFAULT_DRAWER_DEPO;
+    const depo = DEFAULT_DRAWER_DEPO;
 
     const missing: string[] = [];
     if (!pasien) missing.push("Pasien");
     if (!dokterRaw) missing.push("Dokter / Operator");
     if (!ruanganRaw) missing.push("Ruangan");
-    if (!depo) missing.push("Depo");
     if (missing.length > 0) {
       setDokterFieldInvalid(!dokterRaw);
       setRuanganFieldInvalid(!ruanganRaw);
@@ -1608,10 +1620,6 @@ export default function PemakaianAlkesModal({
       });
       return;
     }
-
-    const nBarang = drawerLines.filter(
-      (l) => cleanFormText(l.barang).length > 0,
-    ).length;
 
     // --- CHECK FOR SIMILAR ITEMS (FUZZY MATCH) ---
     const newItems = drawerLines.filter((l) => {
@@ -1709,28 +1717,11 @@ export default function PemakaianAlkesModal({
 
     const ruangan = ruanganRaw;
     const isEdit = Boolean(existingOrderId?.trim());
-    const konfirmasi = isEdit
-      ? `Simpan perubahan order pemakaian?\n\n` +
-        `• Pasien: ${pasien}\n` +
-        `• Ruangan: ${ruangan}\n` +
-        `• Dokter: ${dokterKonfirmasi}\n` +
-        `• Depo: ${depo}\n` +
-        `• ${nBarang} jenis barang`
-      : `Kirim order ke Depo Farmasi?\n\n` +
-        `• Pasien: ${pasien}\n` +
-        `• Ruangan: ${ruangan}\n` +
-        `• Dokter: ${dokterKonfirmasi}\n` +
-        `• Depo: ${depo}\n` +
-        `• ${nBarang} jenis barang\n\n` +
-        `Order juga akan diteruskan ke distributor sesuai barang.\n` +
-        `Status akan diset “menunggu validasi Depo”.`;
-    const okSubmit = await appConfirm({
-      title: isEdit ? "Simpan perubahan?" : "Kirim ke Depo + Distributor?",
-      message: konfirmasi,
-      confirmLabel: isEdit ? "Simpan" : "Simpan & kirim semua",
-      cancelLabel: "Batal",
-    });
-    if (!okSubmit) return;
+    const tanggalSaved = drawerDateTime;
+    const templateInputBarangSaved = editingTemplateInputBarang;
+
+    // Tutup modal segera agar UI bersih (proses lanjut di background)
+    onClose();
 
     const itemsPayload = drawerLines
       .filter((l) => cleanFormText(l.barang).length > 0)
@@ -1755,8 +1746,8 @@ export default function PemakaianAlkesModal({
         };
       });
 
-    setDrawerSaving(true);
-    try {
+    // Jalankan penyimpanan di background
+    const savePromise = (async () => {
       // 1. Generate resume teks pemakaian
       const resumeText = buildPemakaianResumeText(itemsPayload);
 
@@ -1789,17 +1780,17 @@ export default function PemakaianAlkesModal({
             cache: "no-store",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              tanggal: drawerDateTime,
+              tanggal: tanggalSaved,
               pasien,
               ruangan,
               dokter,
               depo,
-              petugas_cssd: petugasCssd,
-              asisten_cathlab: asisten_cathlab,
               items: itemsPayload,
-              templateInputBarang: editingTemplateInputBarang,
+              templateInputBarang: templateInputBarangSaved,
               // Jika ada item REUSE, set status awal ke 'PROCESSING' jika sebelumnya null
-              status_alkes_cssd: itemsPayload.some(l => l.tipe === 'R') ? 'PROCESSING' : null,
+              status_alkes_cssd: itemsPayload.some((l) => l.tipe === "R")
+                ? "PROCESSING"
+                : null,
             }),
           },
         );
@@ -1808,23 +1799,14 @@ export default function PemakaianAlkesModal({
           message?: string;
         };
         if (!res.ok || !j?.ok) {
-          void appAlert({
-            variant: "error",
-            message:
-              typeof j?.message === "string"
-                ? j.message
-                : `Gagal menyimpan (HTTP ${res.status}).`,
-          });
-          return;
+          throw new Error(
+            typeof j?.message === "string"
+              ? j.message
+              : `Gagal menyimpan (HTTP ${res.status}).`,
+          );
         }
         onSaved?.();
-        onClose();
-        void appAlert({
-          variant: "success",
-          title: "Perubahan disimpan",
-          message: `Order ${existingOrderId} telah diperbarui.`,
-        });
-        return;
+        return `Order ${existingOrderId} telah diperbarui.`;
       }
 
       const res = await fetch("/api/pemakaian-orders", {
@@ -1834,17 +1816,17 @@ export default function PemakaianAlkesModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "PEMAKAIAN",
-          tanggal: drawerDateTime,
+          tanggal: tanggalSaved,
           pasien,
           ruangan,
           dokter,
           depo,
-          petugas_cssd: petugasCssd,
-          asisten_cathlab: asisten_cathlab,
           items: itemsPayload,
-          status_alkes_cssd: itemsPayload.some(l => l.tipe === 'R') ? 'PROCESSING' : null,
+          status_alkes_cssd: itemsPayload.some((l) => l.tipe === "R")
+            ? "PROCESSING"
+            : null,
           ...(tindakanId?.trim() ? { tindakanId: tindakanId.trim() } : {}),
-          templateInputBarang: editingTemplateInputBarang,
+          templateInputBarang: templateInputBarangSaved,
         }),
       });
       const j = (await res.json().catch(() => ({}))) as {
@@ -1853,37 +1835,78 @@ export default function PemakaianAlkesModal({
         order?: { id?: string };
       };
       if (!res.ok || !j?.ok) {
-        void appAlert({
-          variant: "error",
-          message:
-            typeof j?.message === "string"
-              ? j.message
-              : `Gagal menyimpan (HTTP ${res.status}).`,
-        });
-        return;
+        throw new Error(
+          typeof j?.message === "string"
+            ? j.message
+            : `Gagal menyimpan (HTTP ${res.status}).`,
+        );
       }
       const oid = typeof j.order?.id === "string" ? j.order.id : "";
       onSaved?.();
-      onClose();
-      void appAlert({
-        variant: "success",
-        title: "Order tersimpan",
-        message: oid
-          ? `Order ${oid} dikirim ke Depo Farmasi dan distributor terkait barang (status: menunggu validasi).`
-          : "Order dikirim ke Depo Farmasi dan distributor terkait barang (menunggu validasi).",
-      });
-    } catch (e) {
-      void appAlert({
-        variant: "error",
-        message:
-          e instanceof Error
-            ? e.message
-            : "Gagal menyimpan (jaringan atau server).",
-      });
-    } finally {
-      setDrawerSaving(false);
-    }
-  }
+      return oid
+        ? `Order ${oid} berhasil tersimpan.`
+        : "Order berhasil tersimpan.";
+    })();
+
+    toast.promise(savePromise, {
+      loading: "Menyimpan data pemakaian...",
+      success: (msg) => msg,
+      error: (err) => (err instanceof Error ? err.message : "Gagal menyimpan."),
+    });
+  }, [
+    drawerSaving,
+    drawerPasien,
+    drawerDokter,
+    drawerRuangan,
+    doctorOptions,
+    drawerLines,
+    barangVariantList,
+    barangVariantIndex,
+    existingOrderId,
+    drawerDateTime,
+    editingTemplateInputBarang,
+    onClose,
+    tindakanId,
+    onSaved,
+    appAlert,
+    appConfirm,
+  ]);
+
+  // --- KEYBOARD SHORTCUTS ---
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ESC: Tutup modal (hanya jika picker/sub-modal tidak terbuka)
+      if (e.key === "Escape") {
+        if (
+          !barangPickerOpen &&
+          !tambahProdukOpen &&
+          !masterBarangOpen &&
+          !barangScanOpen
+        ) {
+          onClose();
+        }
+        return;
+      }
+
+      // F10 atau Ctrl+Enter: Simpan & Kirim
+      if (e.key === "F10" || ((e.ctrlKey || e.metaKey) && e.key === "Enter")) {
+        e.preventDefault();
+        void submitDrawerPemakaian();
+        return;
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    open,
+    onClose,
+    barangPickerOpen,
+    tambahProdukOpen,
+    masterBarangOpen,
+    barangScanOpen,
+    submitDrawerPemakaian,
+  ]);
 
   if (!open) return null;
 
@@ -1983,28 +2006,6 @@ export default function PemakaianAlkesModal({
                     inputClassName="bg-[#0f172a] border-slate-700 text-slate-100 rounded-xl h-11"
                   />
                 </LabeledField>
-                <LabeledField
-                  label="Lokasi Ruangan"
-                  errorMessage={
-                    ruanganFieldInvalid ? "Wajib diisi." : undefined
-                  }
-                >
-                  <RuanganCombobox
-                    listboxId="tindakan-pemakaian-modal-ruangan"
-                    value={drawerRuangan}
-                    onChange={(v) => {
-                      setDrawerRuangan(v);
-                      setRuanganFieldInvalid(false);
-                    }}
-                    options={ruanganList}
-                    loading={ruanganListLoading}
-                    inputClassName={`bg-[#0f172a] border-slate-700 text-slate-100 rounded-xl h-11 ${
-                      ruanganFieldInvalid
-                        ? "border-red-500/50 ring-1 ring-red-500/20"
-                        : ""
-                    }`}
-                  />
-                </LabeledField>
               </div>
 
               <div className="space-y-4">
@@ -2041,50 +2042,31 @@ export default function PemakaianAlkesModal({
                     }`}
                   />
                 </LabeledField>
-                <LabeledField label="Depo Pengirim">
-                  <div className="relative">
-                    <select
-                      value={drawerDepo}
-                      onChange={(e) => setDrawerDepo(e.target.value)}
-                      className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 appearance-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
-                    >
-                      <option value={DEFAULT_DRAWER_DEPO}>
-                        {DEFAULT_DRAWER_DEPO}
-                      </option>
-                      <option value="Depo Farmasi Central">
-                        Depo Farmasi Central
-                      </option>
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                      <i className="fas fa-chevron-down text-[10px]"></i>
-                    </div>
-                  </div>
-                </LabeledField>
               </div>
 
               <div className="space-y-4">
-                <LabeledField label="Petugas CSSD (Sterilisasi)">
-                  <input
-                    type="text"
-                    value={drawerPetugasCssd}
-                    onChange={(e) => setDrawerPetugasCssd(e.target.value)}
-                    className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
-                    placeholder="Nama petugas CSSD..."
+                <LabeledField
+                  label="Lokasi Ruangan"
+                  errorMessage={
+                    ruanganFieldInvalid ? "Wajib diisi." : undefined
+                  }
+                >
+                  <RuanganCombobox
+                    listboxId="tindakan-pemakaian-modal-ruangan"
+                    value={drawerRuangan}
+                    onChange={(v) => {
+                      setDrawerRuangan(v);
+                      setRuanganFieldInvalid(false);
+                    }}
+                    options={ruanganList}
+                    loading={ruanganListLoading}
+                    inputClassName={`bg-[#0f172a] border-slate-700 text-slate-100 rounded-xl h-11 ${
+                      ruanganFieldInvalid
+                        ? "border-red-500/50 ring-1 ring-red-500/20"
+                        : ""
+                    }`}
                   />
                 </LabeledField>
-                <div className="grid grid-cols-1 gap-4">
-                  <LabeledField label="Asisten Cathlab">
-                    <PerawatCombobox
-                      listboxId="tindakan-pemakaian-modal-asisten"
-                      value={drawerAsisten}
-                      onChange={setDrawerAsisten}
-                      onSelectOption={(p) => setDrawerAsisten(formatPerawatLabel(p))}
-                      options={perawatList}
-                      loading={perawatListLoading}
-                      tone="default"
-                    />
-                  </LabeledField>
-                </div>
               </div>
 
               <div className="bg-emerald-950/10 border border-emerald-900/20 rounded-2xl p-4 flex flex-col justify-between">
@@ -2096,16 +2078,6 @@ export default function PemakaianAlkesModal({
                     value={drawerDateTime}
                     onChange={setDrawerDateTime}
                   />
-                </div>
-                <div className="mt-4 pt-3 border-t border-emerald-900/20">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                      Status
-                    </span>
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold border border-emerald-500/30">
-                      AKTIF
-                    </span>
-                  </div>
                 </div>
               </div>
             </div>
@@ -2220,6 +2192,35 @@ export default function PemakaianAlkesModal({
                                         barang: nama,
                                       })
                                     }
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        // Jika isLast, onPickVariant biasanya sudah menangani penambahan baris.
+                                        // Tapi jika user hanya menekan Enter tanpa memilih dari list (misal menu tertutup),
+                                        // kita bantu pindah baris di sini.
+                                        if (isLast) {
+                                          const nextId = newDrawerLineId();
+                                          setDrawerFocusLineId(nextId);
+                                          setDrawerLines((prev) => [
+                                            ...prev,
+                                            {
+                                              lineId: nextId,
+                                              barang: "",
+                                              distributor: "",
+                                              qtyRencana: 1,
+                                              qtyDipakai: 1,
+                                              tipe: "N",
+                                            },
+                                          ]);
+                                        } else {
+                                          const nextLine = drawerLines[idx + 1];
+                                          if (nextLine) {
+                                            setDrawerFocusLineId(
+                                              nextLine.lineId,
+                                            );
+                                          }
+                                        }
+                                      }
+                                    }}
                                     onPickVariant={(v: MasterBarangPickRow) => {
                                       const h = hargaFromPickRow(
                                         v,
@@ -2252,25 +2253,37 @@ export default function PemakaianAlkesModal({
                                         currentEd !== "—" &&
                                         currentEd !== "MM-YYYY";
 
+                                      const newStatus = v.is_konsolidasi
+                                        ? "KONSOLIDASI"
+                                        : "NON KONSOLIDASI";
+
+                                      let rawUkuran = (v.ukuran?.trim() && v.ukuran.trim() !== "-" && v.ukuran.trim() !== "—")
+                                        ? v.ukuran.trim()
+                                        : line.ukuran;
+
+                                      if (rawUkuran && /(\d+(?:\.\d+)?)\s*[xX]\s*(\d+)/.test(rawUkuran)) {
+                                        rawUkuran = rawUkuran.replace(
+                                          /(\d+(?:\.\d+)?)\s*[xX]\s*(\d+)/,
+                                          "$1 x $2",
+                                        );
+                                      }
+
                                       patchDrawerLine(line.lineId, {
                                         barang: v.nama.trim(),
                                         kategori: kCat || undefined,
-                                        status: v.is_konsolidasi
-                                          ? "KONSOLIDASI"
-                                          : "NON KONSOLIDASI",
+                                        status: newStatus,
                                         distributor:
                                           v.distributor_nama?.trim() ||
                                           undefined,
                                         lot: (v.lot?.trim() && v.lot.trim() !== "-" && v.lot.trim() !== "—")
                                           ? v.lot.trim()
                                           : line.lot,
-                                        ukuran: (v.ukuran?.trim() && v.ukuran.trim() !== "-" && v.ukuran.trim() !== "—")
-                                          ? v.ukuran.trim()
-                                          : line.ukuran,
+                                        ukuran: rawUkuran,
                                         ed: (v.ed?.trim() && v.ed.trim() !== "-" && v.ed.trim() !== "—" && v.ed.trim() !== "MM-YYYY")
                                           ? v.ed.trim()
                                           : line.ed,
                                         isKonsolidasi: !!v.is_konsolidasi,
+                                        keterangan: newStatus === "KONSOLIDASI" ? "Permintaan User" : line.keterangan,
                                         harga: h,
                                       });
                                       if (isLast) {
@@ -2287,6 +2300,11 @@ export default function PemakaianAlkesModal({
                                             tipe: "N",
                                           },
                                         ]);
+                                      } else {
+                                        const nextLine = drawerLines[idx + 1];
+                                        if (nextLine) {
+                                          setDrawerFocusLineId(nextLine.lineId);
+                                        }
                                       }
                                     }}
                                     options={barangVariantList}
@@ -2321,11 +2339,16 @@ export default function PemakaianAlkesModal({
                                       </select>
                                       <select
                                         value={line.status || ""}
-                                        onChange={(e) =>
-                                          patchDrawerLine(line.lineId, {
-                                            status: e.target.value || undefined,
-                                          })
-                                        }
+                                        onChange={(e) => {
+                                          const newStatus = e.target.value;
+                                          const patch: Partial<PemakaianLine> = {
+                                            status: newStatus || undefined,
+                                          };
+                                          if (newStatus === "KONSOLIDASI") {
+                                            patch.keterangan = "Permintaan User";
+                                          }
+                                          patchDrawerLine(line.lineId, patch);
+                                        }}
                                         className={cn(
                                           "text-[9px] font-bold px-1.5 py-0.5 rounded border-none focus:ring-1 cursor-pointer appearance-none",
                                           line.status === "KONSOLIDASI"
@@ -2367,11 +2390,11 @@ export default function PemakaianAlkesModal({
                                 value={line.ukuran ?? ""}
                                 onChange={(e) => {
                                   let val = e.target.value;
-                                  // Jika polanya angka.angka x angka (tanpa spasi di sekitar x)
-                                  // misal 2.0x10 -> 2.0 x 10
-                                  if (/^\d+\.\d+x\d+$/.test(val)) {
+                                  // Pastikan spasi di sekitar 'x' atau 'X'
+                                  // misal 2.0x10 atau 2.0X10 -> 2.0 x 10
+                                  if (/(\d+(?:\.\d+)?)\s*[xX]\s*(\d+)/.test(val)) {
                                     val = val.replace(
-                                      /(\d+\.\d+)x(\d+)/,
+                                      /(\d+(?:\.\d+)?)\s*[xX]\s*(\d+)/,
                                       "$1 x $2",
                                     );
                                   }
@@ -2623,8 +2646,6 @@ export default function PemakaianAlkesModal({
                   const msg = buildWhatsAppReport(
                     drawerPasien,
                     drawerDokter,
-                    drawerPetugasCssd,
-                    drawerAsisten,
                     drawerLines.filter((l) => l.barang.trim()),
                   );
                   // Gunakan nomor default atau minta input? Kita asumsikan ada grup WA.
@@ -2648,8 +2669,8 @@ export default function PemakaianAlkesModal({
                   <>
                     <i className="fas fa-save text-sm"></i>
                     {existingOrderId
-                      ? "Simpan Perubahan"
-                      : "Simpan & Kirim Data"}
+                      ? "Simpan Perubahan (F10)"
+                      : "Simpan & Kirim Data (F10)"}
                   </>
                 )}
               </button>

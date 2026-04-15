@@ -20,8 +20,8 @@ export const dynamic = "force-dynamic";
 const POSTGREST_SAFE_CHUNK = 1000;
 
 const PROJECTIONS_LIST = [
-  "id, tanggal, dokter, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, ruangan, pasien_id, created_at, inserted_at, updated_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian",
-  "id, tanggal, dokter, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian",
+  "id, tanggal, dokter, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, ruangan, pasien_id, created_at, inserted_at, updated_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap",
+  "id, tanggal, dokter, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap",
   "*",
 ];
 
@@ -103,6 +103,14 @@ function mapLegacyTindakanMedikRow(
     pasien_datang_igd: toText(row.pasien_datang_igd),
     door_to_balloon: toText(row.door_to_balloon),
     total_waktu_fast_track: toText(row.total_waktu_fast_track),
+    asmed: toText(row.asmed),
+    resume_erm: toText(row.resume_erm),
+    sjp: toText(row.sjp),
+    berkas_laporan: toText(row.berkas_laporan),
+    consumable_kelengkapan: toText(row.consumable_kelengkapan),
+    billing_simrs: toText(row.billing_simrs),
+    pj_laporan: toText(row.pj_laporan),
+    operan_ranap: toText(row.operan_ranap),
     _source_table: "tindakan_medik",
   };
 }

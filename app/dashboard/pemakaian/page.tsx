@@ -270,13 +270,22 @@ function mapCathlabOrderRow(r: Record<string, unknown>): PemakaianOrder | null {
     return null;
   const rawItems = r.items;
   const items: PemakaianLine[] = [];
+  const usedIds = new Set<string>();
+
   if (Array.isArray(rawItems)) {
     for (const it of rawItems) {
       if (!it || typeof it !== "object") continue;
       const o = it as Record<string, unknown>;
-      const lineId = typeof o.lineId === "string" ? o.lineId : "";
+      let lineId = typeof o.lineId === "string" ? o.lineId : "";
       const barang = typeof o.barang === "string" ? o.barang : "";
-      if (!lineId || !barang) continue;
+      if (!barang) continue;
+
+      if (!lineId || usedIds.has(lineId)) {
+        // Fallback generator lokal jika ID hilang atau duplikat di DB
+        lineId = `line-mapped-${Math.random().toString(36).slice(2, 10)}`;
+      }
+      usedIds.add(lineId);
+
       const hargaParsed = (() => {
         const h = o.harga;
         if (typeof h === "number" && Number.isFinite(h)) return h;
@@ -772,7 +781,8 @@ export default function PemakaianPage() {
   }, [isDrawerOpen, pasienList, pasienListLoading, searchParams]);
 
   function newDrawerLineId() {
-    return `draft-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const sessionPrefix = Math.random().toString(36).slice(2, 6);
+    return `line-${sessionPrefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
   function patchDrawerLine(lineId: string, patch: Partial<PemakaianLine>) {
@@ -1259,9 +1269,8 @@ export default function PemakaianPage() {
   }
 
   function addEmptyLineFromPicker() {
-    const suffix = Date.now().toString(36);
+    const nextId = newDrawerLineId();
     if (barangPickerTarget === "detail" && detailDraft) {
-      const nextId = `${detailDraft.id}-new-${suffix}`;
       setDetailFocusLineId(nextId);
       setDetailDraft({
         ...detailDraft,
@@ -1278,7 +1287,6 @@ export default function PemakaianPage() {
         ],
       });
     } else if (barangPickerTarget === "drawer") {
-      const nextId = `draft-new-${suffix}`;
       setDrawerFocusLineId(nextId);
       setDrawerLines((rows) => [
         ...rows,
@@ -1296,12 +1304,8 @@ export default function PemakaianPage() {
   }
 
   function applyBarangPick(pick: MasterBarangPickRow) {
-    const suffix = Date.now().toString(36);
+    const nextId = newDrawerLineId();
     const hPick = hargaFromPickRow(pick, barangVariantList);
-    const nextId =
-      barangPickerTarget === "detail" && detailDraft
-        ? `${detailDraft.id}-new-${suffix}`
-        : `draft-new-${suffix}`;
     const line: PemakaianLine = {
       lineId: nextId,
       barang: pick.nama.trim(),
@@ -2331,7 +2335,7 @@ export default function PemakaianPage() {
                                         (r) => r.lineId === line.lineId,
                                       );
                                       if (idx === d.items.length - 1) {
-                                        const nextId = `${d.id}-new-${Date.now().toString(36)}`;
+                                        const nextId = newDrawerLineId();
                                         setDetailFocusLineId(nextId);
                                         return {
                                           ...d,

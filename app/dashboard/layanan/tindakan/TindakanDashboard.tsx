@@ -1,9 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Phone } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
+import { useUI } from "@/app/contexts/UIContext";
 import { cn } from "@/lib/utils";
 import { emptyTindakanKpiStats } from "./hooks/useTindakanStats";
 import type { TindakanJoinResult } from "./bridge/mapping.types";
@@ -30,6 +32,16 @@ const TindakanDetailDrawer = dynamic(
 /** Tindakan medis — wireframe: daftar ringkas + drawer bertab + jembatan Pemakaian */
 export default function TindakanDashboard() {
   const adapter = useTindakanBridgeAdapter();
+  const { isMobile } = useUI();
+
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
+
+  // Auto-collapse on mobile on mount/resize, expand on desktop
+  useEffect(() => {
+    setIsHeaderCollapsed(isMobile);
+    setIsFilterCollapsed(isMobile);
+  }, [isMobile]);
 
   const tableRef = useRef<HTMLDivElement | null>(null);
   const themeTone = "cyan" as const;
@@ -84,6 +96,10 @@ export default function TindakanDashboard() {
               : []
           }
           dashboardLoading={Boolean(adapter.loading)}
+          isCollapsed={isHeaderCollapsed}
+          onToggleCollapse={() => setIsHeaderCollapsed((prev) => !prev)}
+          isFilterCollapsed={isFilterCollapsed}
+          onToggleFilterCollapse={() => setIsFilterCollapsed((prev) => !prev)}
           summary={
             <TindakanSummary
               stats={stats}
@@ -99,8 +115,20 @@ export default function TindakanDashboard() {
       </header>
 
       <main className="relative flex min-h-0 flex-1 flex-col gap-0 px-1 pb-1.5 pt-0 max-md:flex-none sm:px-1.5 sm:pb-2 md:px-2">
-        {/* Shortcuts Section */}
-        <PhoneShortcutsBar themeTone={themeTone} />
+        {/* Shortcuts Section — Collapsible with Header on Mobile */}
+        <AnimatePresence initial={false}>
+          {!isHeaderCollapsed && (
+            <motion.div
+              initial={isHeaderCollapsed ? { height: 0, opacity: 0 } : false}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <PhoneShortcutsBar themeTone={themeTone} />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <section
           ref={tableRef}
@@ -110,6 +138,7 @@ export default function TindakanDashboard() {
           <TindakanTable
             adapter={adapter}
             onFilteredSummaryChange={onFilteredSummaryChange}
+            isFilterCollapsed={isFilterCollapsed}
           />
         </section>
 

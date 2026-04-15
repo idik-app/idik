@@ -19,6 +19,7 @@ export type WireframeTabId =
   | "radiologi"
   | "klinis"
   | "biaya"
+  | "kelengkapan"
   | "history";
 
 export const WIREFRAME_DRAWER_TABS: {
@@ -78,6 +79,21 @@ export const WIREFRAME_DRAWER_TABS: {
     short: "Tim",
     /** `dokter`: combobox master (`MasterDokterField`), autofill nama kanonik, simpan PATCH + refresh list tanpa toast sukses. */
     fields: ["dokter", "asisten", "sirkuler", "logger"],
+  },
+  {
+    id: "kelengkapan",
+    label: "Kelengkapan",
+    short: "Klp",
+    fields: [
+      "asmed",
+      "resume_erm",
+      "sjp",
+      "berkas_laporan",
+      "consumable_kelengkapan",
+      "billing_simrs",
+      "pj_laporan",
+      "operan_ranap",
+    ],
   },
   {
     id: "radiologi",
@@ -185,6 +201,14 @@ export const FIELD_LABELS: Record<string, string> = {
   id: "ID tindakan",
   created_at: "Dibuat",
   updated_at: "Diperbarui",
+  asmed: "Asmed",
+  resume_erm: "Resume e-RM",
+  sjp: "SJP",
+  berkas_laporan: "Berkas Laporan",
+  consumable_kelengkapan: "Consumable",
+  billing_simrs: "Billing SIMRS",
+  pj_laporan: "PJ Laporan",
+  operan_ranap: "Operan dengan Ranap",
 };
 
 /** Kunci field UI → nama kolom di baris API (bila berbeda). */

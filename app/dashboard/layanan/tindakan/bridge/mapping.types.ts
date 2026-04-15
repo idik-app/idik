@@ -75,6 +75,15 @@ export interface TindakanJoinResult {
   selisih: number | null;
   resume: string | null;
 
+  asmed?: string | null;
+  resume_erm?: string | null;
+  sjp?: string | null;
+  berkas_laporan?: string | null;
+  consumable_kelengkapan?: string | null;
+  billing_simrs?: string | null;
+  pj_laporan?: string | null;
+  operan_ranap?: string | null;
+
   pemakaian: string | null; // JSON, teks, atau summary
 
   /** Metadata audit dari API/DB (opsional, tab Resume) */

@@ -62,27 +62,59 @@ function openNativeDatePicker(el: HTMLInputElement) {
   }
 }
 
+function getCurrentMonthRangeWib(): { from: string; to: string } {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+  });
+  const parts = formatter.formatToParts(now);
+  const y = parts.find((p) => p.type === "year")?.value;
+  const m = parts.find((p) => p.type === "month")?.value;
+  if (!y || !m) return { from: "", to: "" };
+  const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+  return {
+    from: `${y}-${m}-01`,
+    to: `${y}-${m}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
 export default function TindakanLaporanPemakaianModal({
   open,
   onOpenChange,
   rows,
   loading,
   filterSummaryLines,
+  initialFilterTanggalFrom,
+  initialFilterTanggalTo,
+  initialFilterDokter,
+  initialSearchTerm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   rows: readonly TindakanJoinResult[];
   loading: boolean;
   filterSummaryLines: readonly string[];
+  initialFilterTanggalFrom?: string;
+  initialFilterTanggalTo?: string;
+  initialFilterDokter?: string;
+  initialSearchTerm?: string;
 }) {
   const [filterKategori, setFilterKategori] = useState<string>("");
-  const [filterTanggalFrom, setFilterTanggalFrom] = useState<string>("");
-  const [filterTanggalTo, setFilterTanggalTo] = useState<string>("");
-  const [filterDokter, setFilterDokter] = useState<string>("");
+  const [filterTanggalFrom, setFilterTanggalFrom] = useState<string>(
+    () => initialFilterTanggalFrom || getCurrentMonthRangeWib().from,
+  );
+  const [filterTanggalTo, setFilterTanggalTo] = useState<string>(
+    () => initialFilterTanggalTo || getCurrentMonthRangeWib().to,
+  );
+  const [filterDokter, setFilterDokter] = useState<string>(
+    () => initialFilterDokter || "",
+  );
   const [filterKeterangan, setFilterKeterangan] = useState<string>("");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(() => initialSearchTerm || "");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const kategoriOptions = useMemo(() => {
     const set = new Set<string>();
@@ -120,6 +152,7 @@ export default function TindakanLaporanPemakaianModal({
   }, [rows]);
 
   const filteredRows = useMemo(() => {
+    // Filter hanya baris yang memiliki data pemakaian alkes
     let result = rows.filter((r) => {
       const txt = String(r.pemakaian ?? "").trim();
       return txt !== "";
@@ -203,6 +236,26 @@ export default function TindakanLaporanPemakaianModal({
   }, [filteredRows, currentPage]);
 
   const totalPages = Math.ceil(filteredRows.length / itemsPerPage);
+  
+  // Sinkronkan filter dengan kondisi di tabel saat modal dibuka
+  useEffect(() => {
+    if (open) {
+      const range = getCurrentMonthRangeWib();
+      // Gunakan filter dari tabel jika ada, jika tidak default ke bulan ini
+      setFilterTanggalFrom(initialFilterTanggalFrom || range.from);
+      setFilterTanggalTo(initialFilterTanggalTo || range.to);
+      setFilterKategori("");
+      setFilterDokter(initialFilterDokter || "");
+      setFilterKeterangan("");
+      setSearchTerm(initialSearchTerm || "");
+    }
+  }, [
+    open,
+    initialFilterTanggalFrom,
+    initialFilterTanggalTo,
+    initialFilterDokter,
+    initialSearchTerm,
+  ]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -213,6 +266,7 @@ export default function TindakanLaporanPemakaianModal({
     filterTanggalTo,
     filterDokter,
     filterKeterangan,
+    itemsPerPage,
   ]);
 
   const parsePemakaian = useCallback((txt: string) => {
@@ -864,21 +918,40 @@ export default function TindakanLaporanPemakaianModal({
 
           {filteredRows.length > 0 && (
             <div className="flex shrink-0 items-center justify-between rounded-lg border border-slate-200/80 bg-slate-50/50 px-2 py-1 dark:border-white/10 dark:bg-white/5">
-              <div className="text-[9px] font-medium text-slate-500 dark:text-white/60">
-                <span className="font-bold text-slate-900 dark:text-white">
-                  {Math.min(
-                    (currentPage - 1) * itemsPerPage + 1,
-                    filteredRows.length,
-                  )}
-                </span>
-                -
-                <span className="font-bold text-slate-900 dark:text-white">
-                  {Math.min(currentPage * itemsPerPage, filteredRows.length)}
-                </span>
-                /
-                <span className="font-bold text-slate-900 dark:text-white">
-                  {filteredRows.length}
-                </span>
+              <div className="flex items-center gap-2">
+                <div className="text-[9px] font-medium text-slate-500 dark:text-white/60">
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {Math.min(
+                      (currentPage - 1) * itemsPerPage + 1,
+                      filteredRows.length,
+                    )}
+                  </span>
+                  -
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {Math.min(currentPage * itemsPerPage, filteredRows.length)}
+                  </span>
+                  /
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {filteredRows.length}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 border-l pl-2 border-slate-300 dark:border-white/10">
+                  <span className="text-[9px] text-slate-500 dark:text-white/40 font-medium">
+                    Baris:
+                  </span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    className="bg-transparent text-[9px] font-bold text-slate-700 dark:text-white focus:outline-none cursor-pointer"
+                  >
+                    {[10, 25, 50, 100, 250].map((v) => (
+                      <option key={v} value={v} className="bg-white dark:bg-black">
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="flex items-center gap-1">

@@ -115,6 +115,14 @@ export function finalizeTindakanPatchForSupabase(
     "sirkuler",
     "logger",
     "pemakaian",
+    "asmed",
+    "resume_erm",
+    "sjp",
+    "berkas_laporan",
+    "consumable_kelengkapan",
+    "billing_simrs",
+    "pj_laporan",
+    "operan_ranap",
   ] as const) {
     if (sanitized[key] === undefined) continue;
     const v = sanitized[key];
@@ -190,5 +198,13 @@ export function mapTindakanRowToApiDetail(data: Record<string, unknown>) {
     air_kerma: toFiniteNumberOrNull(data.air_kerma),
     dap_dose: toFiniteNumberOrNull(data.dap_dose),
     pemakaian: toText(data.pemakaian),
+    asmed: toText(data.asmed),
+    resume_erm: toText(data.resume_erm),
+    sjp: toText(data.sjp),
+    berkas_laporan: toText(data.berkas_laporan),
+    consumable_kelengkapan: toText(data.consumable_kelengkapan),
+    billing_simrs: toText(data.billing_simrs),
+    pj_laporan: toText(data.pj_laporan),
+    operan_ranap: toText(data.operan_ranap),
   };
 }

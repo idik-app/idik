@@ -300,6 +300,7 @@ export function BarangVariantCombobox({
   onRequestAddProduct,
   autoFocus,
   inputClassName,
+  onKeyDown,
 }: {
   value: string;
   onChange: (nama: string) => void;
@@ -314,6 +315,7 @@ export function BarangVariantCombobox({
   onRequestAddProduct?: (draftQuery: string) => void;
   autoFocus?: boolean;
   inputClassName?: string;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -679,15 +681,20 @@ export function BarangVariantCombobox({
               return;
             }
             if (e.key === "Enter") {
-              if (loading || !open) return;
-              if (filtered.length === 0) return;
-              e.preventDefault();
-              const target =
-                activeIndex >= 0 ? filtered[activeIndex] : filtered[0];
-              onPickVariant(target);
-              setOpen(false);
+              if (loading) return;
+              if (open && filtered.length > 0) {
+                e.preventDefault();
+                const target =
+                  activeIndex >= 0 ? filtered[activeIndex] : filtered[0];
+                onPickVariant(target);
+                setOpen(false);
+                return;
+              }
+              // Jika menu tertutup atau tidak ada hasil, teruskan ke parent
+              onKeyDown?.(e);
               return;
             }
+            onKeyDown?.(e);
           }}
           onBlur={(e) => {
             const rt = e.relatedTarget;

@@ -55,6 +55,14 @@ const PATCHABLE_TINDAKAN_KEYS = new Set([
   "krs",
   "consumable",
   "pemakaian",
+  "asmed",
+  "resume_erm",
+  "sjp",
+  "berkas_laporan",
+  "consumable_kelengkapan",
+  "billing_simrs",
+  "pj_laporan",
+  "operan_ranap",
 ]);
 
 function sanitizeTindakanPatch(body: unknown): Record<string, unknown> {
@@ -111,7 +119,7 @@ export async function GET(_req: Request, ctx: Params) {
 
   const { data, error } = await supabase
     .from("tindakan")
-    .select("id, tanggal, dokter, ruangan, cath, tindakan, status, pasien_id, no_rm, nama, nama_pasien, asisten, sirkuler, logger, diagnosa, severity_level, pci_report_link, hasil_lab_ppm, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, fast_track_fotos, tarif_tindakan, total, krs, selisih, consumable, pemakaian")
+    .select("id, tanggal, dokter, ruangan, cath, tindakan, status, pasien_id, no_rm, nama, nama_pasien, asisten, sirkuler, logger, diagnosa, severity_level, pci_report_link, hasil_lab_ppm, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, fast_track_fotos, tarif_tindakan, total, krs, selisih, consumable, pemakaian, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap")
     .eq("id", tindakanId)
     .maybeSingle();
 

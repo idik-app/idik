@@ -217,7 +217,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     <NotificationContext.Provider value={contextValue}>
       {children}
       <div
-        className="fixed z-50 right-4 top-4 flex flex-col gap-3 max-w-sm sm:right-6 sm:top-6
+        className="fixed z-[100002] right-4 top-4 flex flex-col gap-3 max-w-sm sm:right-6 sm:top-6
                    md:right-8 md:top-8 transition-all"
       >
         {notifications.slice(-3).map((n) => (

@@ -15,7 +15,9 @@ import {
   Calendar,
   CalendarDays,
   Package,
+  Filter,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import type { Pasien } from "@/app/dashboard/pasien/types/pasien";
@@ -59,6 +61,8 @@ interface Props {
   onOpenLaporan?: () => void;
   /** Buka modal laporan pemakaian alkes. */
   onOpenLaporanPemakaian?: () => void;
+  /** Status collapse untuk menghemat ruang vertikal di HP */
+  isCollapsed?: boolean;
 }
 
 /** Interval auto-refresh saat tab terlihat (detik). */
@@ -88,6 +92,7 @@ export default function TableToolbar({
   onOpenTindakanTerbanyakLab,
   onOpenLaporan,
   onOpenLaporanPemakaian,
+  isCollapsed = false,
 }: Props) {
   const [dokter, setDokter] = useState("");
   const [ruangan, setRuangan] = useState("");
@@ -236,749 +241,763 @@ export default function TableToolbar({
   return (
     <div
       className={cn(
-        "relative flex shrink-0 flex-col gap-0.5 px-1 py-0.5 sm:px-1.5 sm:py-1 min-w-0 transition-colors duration-500",
+        "relative flex shrink-0 flex-col min-w-0 transition-colors duration-500",
         "bg-slate-50/90 dark:bg-black/35",
         /* Di atas area scroll + thead sticky (z-10) agar tidak tertutup */
         UI_LAYERS.hud,
       )}
     >
-      <div
-        className={cn(
-          "relative flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5",
-          UI_LAYERS.toolbarActionsRow,
-        )}
-      >
-        <h3
-          className={cn(
-            "font-extrabold tracking-wide inline-flex items-center gap-1.5 flex-wrap text-[11px] sm:text-xs min-w-0",
-            "text-cyan-900 dark:text-cyan-300",
-          )}
-        >
-          <Activity
-            size={14}
-            className={cn("shrink-0 text-cyan-700 dark:text-cyan-400")}
-          />
-          <span className="sr-only" aria-live="polite">
-            {isAnySyncing
-              ? isSyncingMasterPasien
-                ? "Sinkronisasi master pasien sedang berjalan di latar."
-                : "Memperbarui data di latar."
-              : ""}
-          </span>
-          {isAnySyncing ? (
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5",
-                "border-cyan-500/35 bg-white/90 dark:border-cyan-800/35 dark:bg-black/30",
-              )}
-              title={
-                isSyncingMasterPasien
-                  ? "Sinkronisasi master pasien di latar"
-                  : "Memperbarui data di latar"
-              }
-            >
-              <span
-                className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/90 shadow-[0_0_6px_rgba(52,211,153,0.5)] motion-safe:animate-pulse"
-                aria-hidden
-              />
-              <span
-                className={cn(
-                  "hidden sm:inline text-[10px] font-semibold font-mono tracking-tight",
-                  "text-cyan-700/85 dark:text-cyan-500/80",
-                )}
-              >
-                {isSyncingMasterPasien ? "Sinkron Pasien" : "Sinkron"}
-              </span>
-            </span>
-          ) : null}
-        </h3>
-        <button
-          type="button"
-          onClick={() => setAddPasienOpen(true)}
-          className={cn(
-            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-cyan/50 bg-cyan px-3 text-xs font-black shadow-lg shadow-cyan/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan",
-            "text-white dark:text-black",
-            "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
-          )}
-          title="Tambah saran pasien (tanpa pindah halaman)"
-        >
-          <Plus
-            size={16}
-            strokeWidth={3}
-            className={cn(
-              "shrink-0 motion-safe:transition-transform group-hover:scale-110",
-              "text-white dark:text-black",
-            )}
-          />
-          <span
-            className={cn("tracking-wide text-white dark:text-black uppercase")}
+      <AnimatePresence initial={false}>
+        {(!isCollapsed || typeof window === "undefined") && (
+          <motion.div
+            initial={isCollapsed ? { height: 0, opacity: 0 } : false}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden"
           >
-            Tambah Pasien
-          </span>
-        </button>
-
-        {typeof onOpenFastTrack === "function" ? (
-          <button
-            type="button"
-            onClick={() => onOpenFastTrack()}
-            className={cn(
-              "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-orange-700 bg-orange-600 px-3 text-xs font-black shadow-lg shadow-orange-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
-              "text-white",
-              "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
-            )}
-            title="Daftar Fast-Track: filter bulan, dokter, IGD, door-to-balloon, foto"
-          >
-            <Zap
-              size={16}
-              strokeWidth={3}
-              className={cn(
-                "shrink-0 motion-safe:transition-transform group-hover:scale-110",
-                "text-white",
-              )}
-            />
-            <span className={cn("tracking-wide text-white uppercase")}>
-              Fast-Track
-            </span>
-          </button>
-        ) : null}
-        {hasAnyLaporan ? (
-          <div className="relative shrink-0" ref={laporanMenuRef}>
-            <button
-              type="button"
-              id="tindakan-toolbar-laporan-trigger"
-              aria-haspopup="menu"
-              aria-expanded={laporanMenuOpen}
-              aria-controls="tindakan-toolbar-laporan-menu"
-              onClick={() => setLaporanMenuOpen((o) => !o)}
-              className={cn(
-                "group inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-700 bg-emerald-600 px-2.5 pr-2 text-xs font-black shadow-lg shadow-emerald-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
-                "text-white",
-                "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
-                laporanMenuOpen && "brightness-110",
-              )}
-              title="Laporan: pilih jenis"
-            >
-              <FileSpreadsheet
-                size={16}
-                strokeWidth={3}
-                className="shrink-0 motion-safe:transition-transform group-hover:scale-110 text-white"
-              />
-              <span className="tracking-wide text-white uppercase">
-                Laporan
-              </span>
-              <ChevronDown
-                size={14}
-                strokeWidth={3}
-                className={cn(
-                  "shrink-0 opacity-90 motion-safe:transition-transform text-white",
-                  laporanMenuOpen && "rotate-180",
-                )}
-                aria-hidden
-              />
-            </button>
-            {laporanMenuOpen ? (
+            <div className="flex flex-col gap-0.5 px-1 py-0.5 sm:px-1.5 sm:py-1">
               <div
-                id="tindakan-toolbar-laporan-menu"
-                role="menu"
-                aria-labelledby="tindakan-toolbar-laporan-trigger"
                 className={cn(
-                  "absolute left-0 top-full mt-1 min-w-[14rem] rounded-lg border py-1 shadow-lg",
-                  UI_LAYERS.popover,
-                  "border-emerald-600/40 bg-white dark:border-emerald-500/35 dark:bg-black/95",
-                  "ring-1 ring-black/5 dark:ring-white/10",
+                  "relative flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5",
+                  UI_LAYERS.toolbarActionsRow,
                 )}
               >
-                {hasLaporanLab ? (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={cn(
-                      "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
-                      "text-slate-900 hover:bg-violet-500/10 dark:text-white dark:hover:bg-violet-500/15",
-                      "focus-visible:bg-violet-500/10 focus-visible:outline-none dark:focus-visible:bg-violet-500/15",
-                    )}
-                    onClick={() => {
-                      setLaporanMenuOpen(false);
-                      onOpenTindakanTerbanyakLab?.();
-                    }}
-                  >
-                    <BarChart3
-                      size={16}
-                      strokeWidth={2.25}
-                      className="shrink-0 text-violet-600 dark:text-violet-400"
-                    />
-                    <span className="min-w-0 flex-1 font-extrabold tracking-wide">
-                      Laporan Tindakan Terbanyak
-                    </span>
-                  </button>
-                ) : null}
-                {hasLaporanLab && hasLaporanMatriks ? (
-                  <div
-                    className="mx-2 border-t border-slate-200/80 dark:border-white/15"
-                    role="separator"
+                <h3
+                  className={cn(
+                    "font-extrabold tracking-wide inline-flex items-center gap-1.5 flex-wrap text-[11px] sm:text-xs min-w-0",
+                    "text-cyan-900 dark:text-cyan-300",
+                  )}
+                >
+                  <Activity
+                    size={14}
+                    className={cn("shrink-0 text-cyan-700 dark:text-cyan-400")}
                   />
-                ) : null}
-                {hasLaporanMatriks ? (
+                  <span className="sr-only" aria-live="polite">
+                    {isAnySyncing
+                      ? isSyncingMasterPasien
+                        ? "Sinkronisasi master pasien sedang berjalan di latar."
+                        : "Memperbarui data di latar."
+                      : ""}
+                  </span>
+                  {isAnySyncing ? (
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5",
+                        "border-cyan-500/35 bg-white/90 dark:border-cyan-800/35 dark:bg-black/30",
+                      )}
+                      title={
+                        isSyncingMasterPasien
+                          ? "Sinkronisasi master pasien di latar"
+                          : "Memperbarui data di latar"
+                      }
+                    >
+                      <span
+                        className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/90 shadow-[0_0_6px_rgba(52,211,153,0.5)] motion-safe:animate-pulse"
+                        aria-hidden
+                      />
+                      <span
+                        className={cn(
+                          "hidden sm:inline text-[10px] font-semibold font-mono tracking-tight",
+                          "text-cyan-700/85 dark:text-cyan-500/80",
+                        )}
+                      >
+                        {isSyncingMasterPasien ? "Sinkron Pasien" : "Sinkron"}
+                      </span>
+                    </span>
+                  ) : null}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setAddPasienOpen(true)}
+                  className={cn(
+                    "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-cyan/50 bg-cyan px-3 text-xs font-black shadow-lg shadow-cyan/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan",
+                    "text-white dark:text-black",
+                    "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
+                  )}
+                  title="Tambah saran pasien (tanpa pindah halaman)"
+                >
+                  <Plus
+                    size={16}
+                    strokeWidth={3}
+                    className={cn(
+                      "shrink-0 motion-safe:transition-transform group-hover:scale-110",
+                      "text-white dark:text-black",
+                    )}
+                  />
+                  <span
+                    className={cn("tracking-wide text-white dark:text-black uppercase")}
+                  >
+                    Tambah Pasien
+                  </span>
+                </button>
+
+                {typeof onOpenFastTrack === "function" ? (
                   <button
                     type="button"
-                    role="menuitem"
+                    onClick={() => onOpenFastTrack()}
                     className={cn(
-                      "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
-                      "text-slate-900 hover:bg-emerald-500/10 dark:text-white dark:hover:bg-emerald-500/15",
-                      "focus-visible:bg-emerald-500/10 focus-visible:outline-none dark:focus-visible:bg-emerald-500/15",
+                      "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-orange-700 bg-orange-600 px-3 text-xs font-black shadow-lg shadow-orange-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+                      "text-white",
+                      "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
                     )}
-                    onClick={() => {
-                      setLaporanMenuOpen(false);
-                      onOpenLaporan?.();
-                    }}
+                    title="Daftar Fast-Track: filter bulan, dokter, IGD, door-to-balloon, foto"
                   >
-                    <FileSpreadsheet
+                    <Zap
                       size={16}
-                      strokeWidth={2.25}
-                      className="shrink-0 text-emerald-600 dark:text-emerald-400"
+                      strokeWidth={3}
+                      className={cn(
+                        "shrink-0 motion-safe:transition-transform group-hover:scale-110",
+                        "text-white",
+                      )}
                     />
-                    <span className="min-w-0 flex-1 font-extrabold tracking-wide">
-                      Laporan bulanan
+                    <span className={cn("tracking-wide text-white uppercase")}>
+                      Fast-Track
                     </span>
                   </button>
                 ) : null}
-                {hasLaporanPemakaian ? (
-                  <>
-                    <div
-                      className="mx-2 border-t border-slate-200/80 dark:border-white/15"
-                      role="separator"
-                    />
+                {hasAnyLaporan ? (
+                  <div className="relative shrink-0" ref={laporanMenuRef}>
                     <button
                       type="button"
-                      role="menuitem"
+                      id="tindakan-toolbar-laporan-trigger"
+                      aria-haspopup="menu"
+                      aria-expanded={laporanMenuOpen}
+                      aria-controls="tindakan-toolbar-laporan-menu"
+                      onClick={() => setLaporanMenuOpen((o) => !o)}
                       className={cn(
-                        "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
-                        "text-slate-900 hover:bg-amber-500/10 dark:text-white dark:hover:bg-amber-500/15",
-                        "focus-visible:bg-amber-500/10 focus-visible:outline-none dark:focus-visible:bg-amber-500/15",
+                        "group inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-700 bg-emerald-600 px-2.5 pr-2 text-xs font-black shadow-lg shadow-emerald-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
+                        "text-white",
+                        "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
+                        laporanMenuOpen && "brightness-110",
                       )}
-                      onClick={() => {
-                        setLaporanMenuOpen(false);
-                        onOpenLaporanPemakaian?.();
-                      }}
+                      title="Laporan: pilih jenis"
                     >
-                      <Package
+                      <FileSpreadsheet
                         size={16}
-                        strokeWidth={2.25}
-                        className="shrink-0 text-amber-600 dark:text-amber-400"
+                        strokeWidth={3}
+                        className="shrink-0 motion-safe:transition-transform group-hover:scale-110 text-white"
                       />
-                      <span className="min-w-0 flex-1 font-extrabold tracking-wide">
-                        Laporan Pemakaian Alkes
+                      <span className="tracking-wide text-white uppercase">
+                        Laporan
                       </span>
+                      <ChevronDown
+                        size={14}
+                        strokeWidth={3}
+                        className={cn(
+                          "shrink-0 opacity-90 motion-safe:transition-transform text-white",
+                          laporanMenuOpen && "rotate-180",
+                        )}
+                        aria-hidden
+                      />
                     </button>
-                  </>
+                    {laporanMenuOpen ? (
+                      <div
+                        id="tindakan-toolbar-laporan-menu"
+                        role="menu"
+                        aria-labelledby="tindakan-toolbar-laporan-trigger"
+                        className={cn(
+                          "absolute left-0 top-full mt-1 min-w-[14rem] rounded-lg border py-1 shadow-lg",
+                          UI_LAYERS.popover,
+                          "border-emerald-600/40 bg-white dark:border-emerald-500/35 dark:bg-black/95",
+                          "ring-1 ring-black/5 dark:ring-white/10",
+                        )}
+                      >
+                        {hasLaporanLab ? (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className={cn(
+                              "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
+                              "text-slate-900 hover:bg-violet-500/10 dark:text-white dark:hover:bg-violet-500/15",
+                              "focus-visible:bg-violet-500/10 focus-visible:outline-none dark:focus-visible:bg-violet-500/15",
+                            )}
+                            onClick={() => {
+                              setLaporanMenuOpen(false);
+                              onOpenTindakanTerbanyakLab?.();
+                            }}
+                          >
+                            <BarChart3
+                              size={16}
+                              strokeWidth={2.25}
+                              className="shrink-0 text-violet-600 dark:text-violet-400"
+                            />
+                            <span className="min-w-0 flex-1 font-extrabold tracking-wide">
+                              Laporan Tindakan Terbanyak
+                            </span>
+                          </button>
+                        ) : null}
+                        {hasLaporanLab && hasLaporanMatriks ? (
+                          <div
+                            className="mx-2 border-t border-slate-200/80 dark:border-white/15"
+                            role="separator"
+                          />
+                        ) : null}
+                        {hasLaporanMatriks ? (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className={cn(
+                              "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
+                              "text-slate-900 hover:bg-emerald-500/10 dark:text-white dark:hover:bg-emerald-500/15",
+                              "focus-visible:bg-emerald-500/10 focus-visible:outline-none dark:focus-visible:bg-emerald-500/15",
+                            )}
+                            onClick={() => {
+                              setLaporanMenuOpen(false);
+                              onOpenLaporan?.();
+                            }}
+                          >
+                            <FileSpreadsheet
+                              size={16}
+                              strokeWidth={2.25}
+                              className="shrink-0 text-emerald-600 dark:text-emerald-400"
+                            />
+                            <span className="min-w-0 flex-1 font-extrabold tracking-wide">
+                              Laporan bulanan
+                            </span>
+                          </button>
+                        ) : null}
+                        {hasLaporanPemakaian ? (
+                          <>
+                            <div
+                              className="mx-2 border-t border-slate-200/80 dark:border-white/15"
+                              role="separator"
+                            />
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className={cn(
+                                "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
+                                "text-slate-900 hover:bg-amber-500/10 dark:text-white dark:hover:bg-amber-500/15",
+                                "focus-visible:bg-amber-500/10 focus-visible:outline-none dark:focus-visible:bg-amber-500/15",
+                              )}
+                              onClick={() => {
+                                setLaporanMenuOpen(false);
+                                onOpenLaporanPemakaian?.();
+                              }}
+                            >
+                              <Package
+                                size={16}
+                                strokeWidth={2.25}
+                                className="shrink-0 text-amber-600 dark:text-amber-400"
+                              />
+                              <span className="min-w-0 flex-1 font-extrabold tracking-wide">
+                                Laporan Pemakaian Alkes
+                              </span>
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
                 ) : null}
+
+                <button
+                  type="button"
+                  onClick={() => setTarifOpen(true)}
+                  className={cn(
+                    "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-indigo-800 bg-indigo-700 px-3 text-xs font-black shadow-lg shadow-indigo-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
+                    "text-white",
+                    "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
+                  )}
+                  title="Lihat & Edit Tarif Tindakan (Autosave)"
+                >
+                  <Receipt
+                    size={16}
+                    strokeWidth={3}
+                    className={cn(
+                      "shrink-0 motion-safe:transition-transform group-hover:scale-110",
+                      "text-white",
+                    )}
+                  />
+                  <span className={cn("tracking-wide text-white uppercase")}>
+                    Tarif
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDiagnosaOpen(true)}
+                  className={cn(
+                    "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-teal-800 bg-teal-700 px-3 text-xs font-black shadow-lg shadow-teal-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500",
+                    "text-white",
+                    "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
+                  )}
+                  title="Lihat & Edit Daftar Diagnosa ICD 10 (Autosave)"
+                >
+                  <ClipboardList
+                    size={16}
+                    strokeWidth={3}
+                    className={cn(
+                      "shrink-0 motion-safe:transition-transform group-hover:scale-110",
+                      "text-white",
+                    )}
+                  />
+                  <span className={cn("tracking-wide text-white uppercase")}>
+                    Diagnosa
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSeverityLevelOpen(true)}
+                  className={cn(
+                    "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-rose-800 bg-rose-700 px-3 text-xs font-black shadow-lg shadow-rose-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500",
+                    "text-white",
+                    "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
+                  )}
+                  title="Lihat & Edit Severity Level Tarif (Autosave)"
+                >
+                  <BarChart2
+                    size={16}
+                    strokeWidth={3}
+                    className={cn(
+                      "shrink-0 motion-safe:transition-transform group-hover:scale-110",
+                      "text-white",
+                    )}
+                  />
+                  <span className={cn("tracking-wide text-white uppercase")}>
+                    Severity Level
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIndenanOpen(true)}
+                  className={cn(
+                    "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-blue-800 bg-blue-700 px-3 text-xs font-black shadow-lg shadow-blue-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                    "text-white",
+                    "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
+                  )}
+                  title="Lihat Jadwal Indenan Pasien (Google Sheets)"
+                >
+                  <CalendarDays
+                    size={16}
+                    strokeWidth={3}
+                    className={cn(
+                      "shrink-0 motion-safe:transition-transform group-hover:scale-110",
+                      "text-white",
+                    )}
+                  />
+                  <span className={cn("tracking-wide text-white uppercase")}>
+                    Indenan
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setJadwalCathOpen(true)}
+                  className={cn(
+                    "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-violet-800 bg-violet-700 px-3 text-xs font-black shadow-lg shadow-violet-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
+                    "text-white",
+                    "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
+                  )}
+                  title="Lihat Jadwal Tindakan Cath Lab (Google Sheets)"
+                >
+                  <Calendar
+                    size={16}
+                    strokeWidth={3}
+                    className={cn(
+                      "shrink-0 motion-safe:transition-transform group-hover:scale-110",
+                      "text-white",
+                    )}
+                  />
+                  <span className={cn("tracking-wide text-white uppercase")}>
+                    Jadwal Cath
+                  </span>
+                </button>
               </div>
-            ) : null}
-          </div>
-        ) : null}
 
-        <button
-          type="button"
-          onClick={() => setTarifOpen(true)}
-          className={cn(
-            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-indigo-800 bg-indigo-700 px-3 text-xs font-black shadow-lg shadow-indigo-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
-            "text-white",
-            "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
-          )}
-          title="Lihat & Edit Tarif Tindakan (Autosave)"
-        >
-          <Receipt
-            size={16}
-            strokeWidth={3}
-            className={cn(
-              "shrink-0 motion-safe:transition-transform group-hover:scale-110",
-              "text-white",
-            )}
-          />
-          <span className={cn("tracking-wide text-white uppercase")}>
-            Tarif
-          </span>
-        </button>
+              <div className="relative z-10 flex flex-wrap items-end gap-1.5 sm:gap-2 min-w-0">
+                <div className="relative min-w-0 w-full min-[480px]:w-auto min-[480px]:flex-1 min-[480px]:min-w-[12rem] min-[480px]:max-w-2xl group">
+                  <Search
+                    size={13}
+                    className={cn(
+                      "absolute left-2 top-1/2 -translate-y-1/2 opacity-70 pointer-events-none",
+                      "text-cyan-700 dark:text-slate-200/90",
+                    )}
+                  />
+                  <input
+                    type="text"
+                    value={searchValue}
+                    placeholder="Cari (RM, nama, JK, dokter, tindakan, ruangan…)"
+                    onChange={(e) => handleUserTyping(e.target.value)}
+                    className={cn(
+                      "w-full pl-7 pr-8 py-1 text-[13px] font-semibold leading-snug rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
+                      "bg-white border-cyan-500/40 text-slate-900 placeholder:text-slate-600 [color-scheme:light]",
+                      "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:placeholder:text-white/90 dark:[color-scheme:dark]",
+                    )}
+                  />
+                  {searchValue && (
+                    <button
+                      type="button"
+                      onClick={() => handleUserTyping("")}
+                      className={cn(
+                        "absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-md transition-colors",
+                        "text-slate-400 hover:text-cyan-600 hover:bg-cyan-50",
+                        "dark:text-slate-500 dark:hover:text-cyan-400 dark:hover:bg-cyan-950/30",
+                      )}
+                      title="Bersihkan pencarian"
+                    >
+                      <X size={14} strokeWidth={2.5} />
+                    </button>
+                  )}
+                </div>
+                {/* Filter dokter — domain tab Dokter & tim (wireframe) */}
+                <div className="relative min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem] group">
+                  <select
+                    value={dokter}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setDokter(v);
+                      onFilter(v, ruangan, tindakan, tanggalFrom, tanggalTo, isPciOnly);
+                    }}
+                    className={cn(
+                      "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
+                      "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
+                      "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:[color-scheme:dark]",
+                    )}
+                  >
+                    <option value="">Semua dokter</option>
+                    {dokterOptions.map((d, idx) => (
+                      <option key={idx} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none group-focus-within:pointer-events-auto">
+                    {dokter ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDokter("");
+                          onFilter(
+                            "",
+                            ruangan,
+                            tindakan,
+                            tanggalFrom,
+                            tanggalTo,
+                            isPciOnly,
+                          );
+                        }}
+                        className={cn(
+                          "p-0.5 rounded-md transition-colors pointer-events-auto",
+                          "text-slate-400 hover:text-red-500 hover:bg-red-50",
+                          "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
+                        )}
+                        title="Bersihkan filter dokter"
+                      >
+                        <X size={13} strokeWidth={2.5} />
+                      </button>
+                    ) : (
+                      <ChevronDown
+                        size={14}
+                        className="text-cyan-700/60 dark:text-slate-400/60"
+                      />
+                    )}
+                  </div>
+                </div>
 
-        <button
-          type="button"
-          onClick={() => setDiagnosaOpen(true)}
-          className={cn(
-            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-teal-800 bg-teal-700 px-3 text-xs font-black shadow-lg shadow-teal-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500",
-            "text-white",
-            "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
-          )}
-          title="Lihat & Edit Daftar Diagnosa ICD 10 (Autosave)"
-        >
-          <ClipboardList
-            size={16}
-            strokeWidth={3}
-            className={cn(
-              "shrink-0 motion-safe:transition-transform group-hover:scale-110",
-              "text-white",
-            )}
-          />
-          <span className={cn("tracking-wide text-white uppercase")}>
-            Diagnosa
-          </span>
-        </button>
+                {/* Filter ruangan — master lokasi */}
+                <div className="relative min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem] group">
+                  <select
+                    value={ruangan}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setRuangan(v);
+                      onFilter(dokter, v, tindakan, tanggalFrom, tanggalTo, isPciOnly);
+                    }}
+                    className={cn(
+                      "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
+                      "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
+                      "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:[color-scheme:dark]",
+                    )}
+                  >
+                    <option value="">Semua ruangan</option>
+                    {ruanganOptions.map((s, idx) => (
+                      <option key={idx} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none group-focus-within:pointer-events-auto">
+                    {ruangan ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRuangan("");
+                          onFilter(
+                            dokter,
+                            "",
+                            tindakan,
+                            tanggalFrom,
+                            tanggalTo,
+                            isPciOnly,
+                          );
+                        }}
+                        className={cn(
+                          "p-0.5 rounded-md transition-colors pointer-events-auto",
+                          "text-slate-400 hover:text-red-500 hover:bg-red-50",
+                          "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
+                        )}
+                        title="Bersihkan filter ruangan"
+                      >
+                        <X size={13} strokeWidth={2.5} />
+                      </button>
+                    ) : (
+                      <ChevronDown
+                        size={14}
+                        className="text-cyan-700/60 dark:text-slate-400/60"
+                      />
+                    )}
+                  </div>
+                </div>
 
-        <button
-          type="button"
-          onClick={() => setSeverityLevelOpen(true)}
-          className={cn(
-            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-rose-800 bg-rose-700 px-3 text-xs font-black shadow-lg shadow-rose-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500",
-            "text-white",
-            "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
-          )}
-          title="Lihat & Edit Severity Level Tarif (Autosave)"
-        >
-          <BarChart2
-            size={16}
-            strokeWidth={3}
-            className={cn(
-              "shrink-0 motion-safe:transition-transform group-hover:scale-110",
-              "text-white",
-            )}
-          />
-          <span className={cn("tracking-wide text-white uppercase")}>
-            Severity Level
-          </span>
-        </button>
+                {/* Filter tindakan — master tindakan */}
+                <div className="relative min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem] group">
+                  <select
+                    value={tindakan}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setTindakan(v);
+                      onFilter(dokter, ruangan, v, tanggalFrom, tanggalTo, isPciOnly);
+                    }}
+                    className={cn(
+                      "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
+                      "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
+                      "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:[color-scheme:dark]",
+                    )}
+                  >
+                    <option value="">Semua tindakan</option>
+                    {tindakanOptions.map((t, idx) => (
+                      <option key={idx} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none group-focus-within:pointer-events-auto">
+                    {tindakan ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTindakan("");
+                          onFilter(
+                            dokter,
+                            ruangan,
+                            "",
+                            tanggalFrom,
+                            tanggalTo,
+                            isPciOnly,
+                          );
+                        }}
+                        className={cn(
+                          "p-0.5 rounded-md transition-colors pointer-events-auto",
+                          "text-slate-400 hover:text-red-500 hover:bg-red-50",
+                          "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
+                        )}
+                        title="Bersihkan filter tindakan"
+                      >
+                        <X size={13} strokeWidth={2.5} />
+                      </button>
+                    ) : (
+                      <ChevronDown
+                        size={14}
+                        className="text-cyan-700/60 dark:text-slate-400/60"
+                      />
+                    )}
+                  </div>
+                </div>
 
-        <button
-          type="button"
-          onClick={() => setIndenanOpen(true)}
-          className={cn(
-            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-blue-800 bg-blue-700 px-3 text-xs font-black shadow-lg shadow-blue-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-            "text-white",
-            "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
-          )}
-          title="Lihat Jadwal Indenan Pasien (Google Sheets)"
-        >
-          <CalendarDays
-            size={16}
-            strokeWidth={3}
-            className={cn(
-              "shrink-0 motion-safe:transition-transform group-hover:scale-110",
-              "text-white",
-            )}
-          />
-          <span className={cn("tracking-wide text-white uppercase")}>
-            Indenan
-          </span>
-        </button>
+                {/* 📅 Filter tanggal (range) & Shortcuts */}
+                <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                  {/* Shortcuts Filter Tanggal */}
+                  <div className="flex items-center gap-1 mr-1">
+                    <button
+                      type="button"
+                      onClick={() => setShortcutDate("today")}
+                      className={cn(
+                        "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
+                        "border-cyan-500/40 bg-cyan-100/90 text-cyan-950 hover:bg-cyan-200/90",
+                        "dark:border-cyan-500/30 dark:bg-cyan-950/40 dark:text-cyan-200 dark:hover:bg-cyan-900/40",
+                      )}
+                      title="Filter tindakan hari ini"
+                    >
+                      Hari Ini
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShortcutDate("yesterday")}
+                      className={cn(
+                        "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
+                        "border-amber-500/40 bg-amber-100/90 text-amber-950 hover:bg-amber-200/90",
+                        "dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/40",
+                      )}
+                      title="Filter tindakan kemarin"
+                    >
+                      Kemarin
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShortcutDate("thisWeek")}
+                      className={cn(
+                        "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
+                        "border-emerald-500/40 bg-emerald-100/90 text-emerald-950 hover:bg-emerald-200/90",
+                        "dark:border-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40",
+                      )}
+                      title="Filter tindakan minggu ini (dari Senin)"
+                    >
+                      Minggu Ini
+                    </button>
+                  </div>
 
-        <button
-          type="button"
-          onClick={() => setJadwalCathOpen(true)}
-          className={cn(
-            "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-violet-800 bg-violet-700 px-3 text-xs font-black shadow-lg shadow-violet-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
-            "text-white",
-            "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
-          )}
-          title="Lihat Jadwal Tindakan Cath Lab (Google Sheets)"
-        >
-          <Calendar
-            size={16}
-            strokeWidth={3}
-            className={cn(
-              "shrink-0 motion-safe:transition-transform group-hover:scale-110",
-              "text-white",
-            )}
-          />
-          <span className={cn("tracking-wide text-white uppercase")}>
-            Jadwal Cath
-          </span>
-        </button>
-      </div>
+                  <div className="relative group">
+                    <input
+                      type="date"
+                      value={tanggalFrom}
+                      min="1900-01-01"
+                      onClick={(e) => openNativeDatePicker(e.currentTarget)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setTanggalFrom(v);
+                        onFilter(dokter, ruangan, tindakan, v, tanggalTo, isPciOnly);
+                      }}
+                      className={cn(
+                        "cursor-pointer text-[13px] font-semibold pl-2 pr-8 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
+                        "[color-scheme:light] bg-white border-cyan-500/40 text-slate-900",
+                        "dark:[color-scheme:dark] dark:bg-black dark:border-white/20 dark:text-slate-100",
+                      )}
+                      title="Tanggal dari"
+                      aria-label="Tanggal dari"
+                    />
+                    {tanggalFrom && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTanggalFrom("");
+                          onFilter(dokter, ruangan, tindakan, "", tanggalTo, isPciOnly);
+                        }}
+                        className={cn(
+                          "absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md transition-colors",
+                          "text-slate-400 hover:text-red-500 hover:bg-red-50",
+                          "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
+                        )}
+                        title="Bersihkan tanggal dari"
+                      >
+                        <X size={13} strokeWidth={2.5} />
+                      </button>
+                    )}
+                  </div>
+                  <span
+                    className={cn(
+                      "text-xs font-mono",
+                      "text-cyan-700/80 dark:text-cyan-600/80",
+                    )}
+                  >
+                    —
+                  </span>
+                  <div className="relative group">
+                    <input
+                      type="date"
+                      value={tanggalTo}
+                      min="1900-01-01"
+                      onClick={(e) => openNativeDatePicker(e.currentTarget)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setTanggalTo(v);
+                        onFilter(dokter, ruangan, tindakan, tanggalFrom, v, isPciOnly);
+                      }}
+                      className={cn(
+                        "cursor-pointer text-[13px] font-semibold pl-2 pr-8 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
+                        "[color-scheme:light] bg-white border-cyan-500/40 text-slate-900",
+                        "dark:[color-scheme:dark] dark:bg-black dark:border-white/20 dark:text-slate-100",
+                      )}
+                      title="Tanggal sampai"
+                      aria-label="Tanggal sampai"
+                    />
+                    {tanggalTo && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTanggalTo("");
+                          onFilter(
+                            dokter,
+                            ruangan,
+                            tindakan,
+                            tanggalFrom,
+                            "",
+                            isPciOnly,
+                          );
+                        }}
+                        className={cn(
+                          "absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md transition-colors",
+                          "text-slate-400 hover:text-red-500 hover:bg-red-50",
+                          "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
+                        )}
+                        title="Bersihkan tanggal sampai"
+                      >
+                        <X size={13} strokeWidth={2.5} />
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-      <div className="relative z-10 flex flex-wrap items-end gap-1.5 sm:gap-2 min-w-0">
-        <div className="relative min-w-0 w-full min-[480px]:w-auto min-[480px]:flex-1 min-[480px]:min-w-[12rem] min-[480px]:max-w-2xl group">
-          <Search
-            size={13}
-            className={cn(
-              "absolute left-2 top-1/2 -translate-y-1/2 opacity-70 pointer-events-none",
-              "text-cyan-700 dark:text-slate-200/90",
-            )}
-          />
-          <input
-            type="text"
-            value={searchValue}
-            placeholder="Cari (RM, nama, JK, dokter, tindakan, ruangan…)"
-            onChange={(e) => handleUserTyping(e.target.value)}
-            className={cn(
-              "w-full pl-7 pr-8 py-1 text-[13px] font-semibold leading-snug rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
-              "bg-white border-cyan-500/40 text-slate-900 placeholder:text-slate-600 [color-scheme:light]",
-              "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:placeholder:text-white/90 dark:[color-scheme:dark]",
-            )}
-          />
-          {searchValue && (
-            <button
-              type="button"
-              onClick={() => handleUserTyping("")}
-              className={cn(
-                "absolute right-1.5 top-1/2 -translate-y-1/2 p-1 rounded-md transition-colors",
-                "text-slate-400 hover:text-cyan-600 hover:bg-cyan-50",
-                "dark:text-slate-500 dark:hover:text-cyan-400 dark:hover:bg-cyan-950/30",
-              )}
-              title="Bersihkan pencarian"
-            >
-              <X size={14} strokeWidth={2.5} />
-            </button>
-          )}
-        </div>
-        {/* Filter dokter — domain tab Dokter & tim (wireframe) */}
-        <div className="relative min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem] group">
-          <select
-            value={dokter}
-            onChange={(e) => {
-              const v = e.target.value;
-              setDokter(v);
-              onFilter(v, ruangan, tindakan, tanggalFrom, tanggalTo, isPciOnly);
-            }}
-            className={cn(
-              "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
-              "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
-              "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:[color-scheme:dark]",
-            )}
-          >
-            <option value="">Semua dokter</option>
-            {dokterOptions.map((d, idx) => (
-              <option key={idx} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-          <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none group-focus-within:pointer-events-auto">
-            {dokter ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setDokter("");
-                  onFilter(
-                    "",
-                    ruangan,
-                    tindakan,
-                    tanggalFrom,
-                    tanggalTo,
-                    isPciOnly,
-                  );
-                }}
-                className={cn(
-                  "p-0.5 rounded-md transition-colors pointer-events-auto",
-                  "text-slate-400 hover:text-red-500 hover:bg-red-50",
-                  "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
+                <div className="flex items-center gap-1 pl-1.5 border-l border-slate-300/40 dark:border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !isPciOnly;
+                      setIsPciOnly(next);
+                      onFilter(dokter, ruangan, tindakan, tanggalFrom, tanggalTo, next);
+                    }}
+                    className={cn(
+                      "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
+                      isPciOnly
+                        ? "border-cyan-600 bg-cyan-600 text-white shadow-[0_0_10px_rgba(8,145,178,0.3)] dark:border-cyan-400 dark:bg-cyan-500"
+                        : "border-cyan-500/40 bg-cyan-50/50 text-cyan-800 hover:bg-cyan-100 dark:border-cyan-500/30 dark:bg-cyan-950/20 dark:text-cyan-400 dark:hover:bg-cyan-900/30",
+                    )}
+                    title="Filter gabungan tindakan PCI (PPCI, PTCA, dsb.)"
+                  >
+                    PCI
+                  </button>
+                </div>
+
+                {/* 🔄 Reset All Filters */}
+                {(searchValue ||
+                  dokter ||
+                  ruangan ||
+                  tindakan ||
+                  tanggalFrom ||
+                  tanggalTo ||
+                  isPciOnly) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchValue("");
+                      onSearch("");
+                      setDokter("");
+                      setRuangan("");
+                      setTindakan("");
+                      setTanggalFrom("");
+                      setTanggalTo("");
+                      setIsPciOnly(false);
+                      onFilter("", "", "", "", "", false);
+                    }}
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all",
+                      "text-red-600 bg-red-50 hover:bg-red-100 border border-red-200",
+                      "dark:text-red-400 dark:bg-red-950/20 dark:hover:bg-red-950/40 dark:border-red-900/50",
+                    )}
+                    title="Bersihkan semua filter"
+                  >
+                    <X size={12} strokeWidth={3} />
+                    <span>Reset</span>
+                  </button>
                 )}
-                title="Bersihkan filter dokter"
-              >
-                <X size={13} strokeWidth={2.5} />
-              </button>
-            ) : (
-              <ChevronDown
-                size={14}
-                className="text-cyan-700/60 dark:text-slate-400/60"
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Filter ruangan — master lokasi */}
-        <div className="relative min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem] group">
-          <select
-            value={ruangan}
-            onChange={(e) => {
-              const v = e.target.value;
-              setRuangan(v);
-              onFilter(dokter, v, tindakan, tanggalFrom, tanggalTo, isPciOnly);
-            }}
-            className={cn(
-              "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
-              "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
-              "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:[color-scheme:dark]",
-            )}
-          >
-            <option value="">Semua ruangan</option>
-            {ruanganOptions.map((s, idx) => (
-              <option key={idx} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none group-focus-within:pointer-events-auto">
-            {ruangan ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setRuangan("");
-                  onFilter(
-                    dokter,
-                    "",
-                    tindakan,
-                    tanggalFrom,
-                    tanggalTo,
-                    isPciOnly,
-                  );
-                }}
-                className={cn(
-                  "p-0.5 rounded-md transition-colors pointer-events-auto",
-                  "text-slate-400 hover:text-red-500 hover:bg-red-50",
-                  "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
-                )}
-                title="Bersihkan filter ruangan"
-              >
-                <X size={13} strokeWidth={2.5} />
-              </button>
-            ) : (
-              <ChevronDown
-                size={14}
-                className="text-cyan-700/60 dark:text-slate-400/60"
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Filter tindakan — master tindakan */}
-        <div className="relative min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem] group">
-          <select
-            value={tindakan}
-            onChange={(e) => {
-              const v = e.target.value;
-              setTindakan(v);
-              onFilter(dokter, ruangan, v, tanggalFrom, tanggalTo, isPciOnly);
-            }}
-            className={cn(
-              "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
-              "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
-              "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:[color-scheme:dark]",
-            )}
-          >
-            <option value="">Semua tindakan</option>
-            {tindakanOptions.map((t, idx) => (
-              <option key={idx} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-          <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none group-focus-within:pointer-events-auto">
-            {tindakan ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setTindakan("");
-                  onFilter(
-                    dokter,
-                    ruangan,
-                    "",
-                    tanggalFrom,
-                    tanggalTo,
-                    isPciOnly,
-                  );
-                }}
-                className={cn(
-                  "p-0.5 rounded-md transition-colors pointer-events-auto",
-                  "text-slate-400 hover:text-red-500 hover:bg-red-50",
-                  "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
-                )}
-                title="Bersihkan filter tindakan"
-              >
-                <X size={13} strokeWidth={2.5} />
-              </button>
-            ) : (
-              <ChevronDown
-                size={14}
-                className="text-cyan-700/60 dark:text-slate-400/60"
-              />
-            )}
-          </div>
-        </div>
-
-        {/* 📅 Filter tanggal (range) & Shortcuts */}
-        <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-          {/* Shortcuts Filter Tanggal */}
-          <div className="flex items-center gap-1 mr-1">
-            <button
-              type="button"
-              onClick={() => setShortcutDate("today")}
-              className={cn(
-                "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
-                "border-cyan-500/40 bg-cyan-100/90 text-cyan-950 hover:bg-cyan-200/90",
-                "dark:border-cyan-500/30 dark:bg-cyan-950/40 dark:text-cyan-200 dark:hover:bg-cyan-900/40",
-              )}
-              title="Filter tindakan hari ini"
-            >
-              Hari Ini
-            </button>
-            <button
-              type="button"
-              onClick={() => setShortcutDate("yesterday")}
-              className={cn(
-                "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
-                "border-amber-500/40 bg-amber-100/90 text-amber-950 hover:bg-amber-200/90",
-                "dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/40",
-              )}
-              title="Filter tindakan kemarin"
-            >
-              Kemarin
-            </button>
-            <button
-              type="button"
-              onClick={() => setShortcutDate("thisWeek")}
-              className={cn(
-                "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
-                "border-emerald-500/40 bg-emerald-100/90 text-emerald-950 hover:bg-emerald-200/90",
-                "dark:border-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/40",
-              )}
-              title="Filter tindakan minggu ini (dari Senin)"
-            >
-              Minggu Ini
-            </button>
-          </div>
-
-          <div className="relative group">
-            <input
-              type="date"
-              value={tanggalFrom}
-              min="1900-01-01"
-              onClick={(e) => openNativeDatePicker(e.currentTarget)}
-              onChange={(e) => {
-                const v = e.target.value;
-                setTanggalFrom(v);
-                onFilter(dokter, ruangan, tindakan, v, tanggalTo, isPciOnly);
-              }}
-              className={cn(
-                "cursor-pointer text-[13px] font-semibold pl-2 pr-8 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
-                "[color-scheme:light] bg-white border-cyan-500/40 text-slate-900",
-                "dark:[color-scheme:dark] dark:bg-black dark:border-white/20 dark:text-slate-100",
-              )}
-              title="Tanggal dari"
-              aria-label="Tanggal dari"
-            />
-            {tanggalFrom && (
-              <button
-                type="button"
-                onClick={() => {
-                  setTanggalFrom("");
-                  onFilter(dokter, ruangan, tindakan, "", tanggalTo, isPciOnly);
-                }}
-                className={cn(
-                  "absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md transition-colors",
-                  "text-slate-400 hover:text-red-500 hover:bg-red-50",
-                  "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
-                )}
-                title="Bersihkan tanggal dari"
-              >
-                <X size={13} strokeWidth={2.5} />
-              </button>
-            )}
-          </div>
-          <span
-            className={cn(
-              "text-xs font-mono",
-              "text-cyan-700/80 dark:text-cyan-600/80",
-            )}
-          >
-            —
-          </span>
-          <div className="relative group">
-            <input
-              type="date"
-              value={tanggalTo}
-              min="1900-01-01"
-              onClick={(e) => openNativeDatePicker(e.currentTarget)}
-              onChange={(e) => {
-                const v = e.target.value;
-                setTanggalTo(v);
-                onFilter(dokter, ruangan, tindakan, tanggalFrom, v, isPciOnly);
-              }}
-              className={cn(
-                "cursor-pointer text-[13px] font-semibold pl-2 pr-8 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
-                "[color-scheme:light] bg-white border-cyan-500/40 text-slate-900",
-                "dark:[color-scheme:dark] dark:bg-black dark:border-white/20 dark:text-slate-100",
-              )}
-              title="Tanggal sampai"
-              aria-label="Tanggal sampai"
-            />
-            {tanggalTo && (
-              <button
-                type="button"
-                onClick={() => {
-                  setTanggalTo("");
-                  onFilter(
-                    dokter,
-                    ruangan,
-                    tindakan,
-                    tanggalFrom,
-                    "",
-                    isPciOnly,
-                  );
-                }}
-                className={cn(
-                  "absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md transition-colors",
-                  "text-slate-400 hover:text-red-500 hover:bg-red-50",
-                  "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
-                )}
-                title="Bersihkan tanggal sampai"
-              >
-                <X size={13} strokeWidth={2.5} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1 pl-1.5 border-l border-slate-300/40 dark:border-white/10">
-          <button
-            type="button"
-            onClick={() => {
-              const next = !isPciOnly;
-              setIsPciOnly(next);
-              onFilter(dokter, ruangan, tindakan, tanggalFrom, tanggalTo, next);
-            }}
-            className={cn(
-              "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
-              isPciOnly
-                ? "border-cyan-600 bg-cyan-600 text-white shadow-[0_0_10px_rgba(8,145,178,0.3)] dark:border-cyan-400 dark:bg-cyan-500"
-                : "border-cyan-500/40 bg-cyan-50/50 text-cyan-800 hover:bg-cyan-100 dark:border-cyan-500/30 dark:bg-cyan-950/20 dark:text-cyan-400 dark:hover:bg-cyan-900/30",
-            )}
-            title="Filter gabungan tindakan PCI (PPCI, PTCA, dsb.)"
-          >
-            PCI
-          </button>
-        </div>
-
-        {/* 🔄 Reset All Filters */}
-        {(searchValue ||
-          dokter ||
-          ruangan ||
-          tindakan ||
-          tanggalFrom ||
-          tanggalTo ||
-          isPciOnly) && (
-          <button
-            type="button"
-            onClick={() => {
-              setSearchValue("");
-              onSearch("");
-              setDokter("");
-              setRuangan("");
-              setTindakan("");
-              setTanggalFrom("");
-              setTanggalTo("");
-              setIsPciOnly(false);
-              onFilter("", "", "", "", "", false);
-            }}
-            className={cn(
-              "flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all",
-              "text-red-600 bg-red-50 hover:bg-red-100 border border-red-200",
-              "dark:text-red-400 dark:bg-red-950/20 dark:hover:bg-red-950/40 dark:border-red-900/50",
-            )}
-            title="Bersihkan semua filter"
-          >
-            <X size={12} strokeWidth={3} />
-            <span>Reset</span>
-          </button>
+              </div>
+            </div>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
 
       <TambahPasienQuickModal
         open={addPasienOpen}

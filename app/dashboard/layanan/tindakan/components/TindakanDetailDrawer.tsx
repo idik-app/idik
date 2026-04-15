@@ -101,7 +101,7 @@ const RADIOLOGI_AUTOSAVE_FIELDS: RadiologiFieldKey[] = [
   "waktu",
 ];
 
-const KLINIS_AUTOSAVE_FIELDS: KlinisFieldKey[] = [
+const KLINIS_AUTOSAVE_FIELDS: (KlinisFieldKey | string)[] = [
   "diagnosa",
   "severity_level",
   "hasil_lab_ppm",
@@ -111,6 +111,7 @@ const KLINIS_AUTOSAVE_FIELDS: KlinisFieldKey[] = [
   "temuan_pembuluh",
   "faktor_risiko",
   "total_kontras",
+  "operan_ranap",
 ];
 
 const BIAYA_AUTOSAVE_KEYS = new Set([
@@ -318,6 +319,7 @@ const TAB_ICONS: Record<WireframeTabId, LucideIcon> = {
   radiologi: Activity,
   klinis: ClipboardList,
   biaya: Wallet,
+  kelengkapan: Check,
   history: History,
 };
 
@@ -1270,10 +1272,17 @@ export default function TindakanDetailDrawer({
                                   key === "cath" &&
                                   Boolean(tindakanId);
                                 const isTimPerawatEditable =
-                                  def.id === "tim" &&
+                                  (def.id === "tim" || def.id === "kelengkapan") &&
                                   (key === "asisten" ||
                                     key === "sirkuler" ||
-                                    key === "logger") &&
+                                    key === "logger" ||
+                                    key === "asmed" ||
+                                    key === "resume_erm" ||
+                                    key === "sjp" ||
+                                    key === "berkas_laporan" ||
+                                    key === "consumable_kelengkapan" ||
+                                    key === "billing_simrs" ||
+                                    key === "pj_laporan") &&
                                   Boolean(tindakanId);
                                 const isDokterEditable =
                                   def.id === "tim" &&

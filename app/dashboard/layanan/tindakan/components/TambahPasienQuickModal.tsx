@@ -95,6 +95,29 @@ async function fetchPasienByNoRm(rm: string): Promise<Pasien | null> {
   return json.data;
 }
 
+/** Fetch dari API SIMRS eksternal (via server proxy untuk menghindari CORS) */
+async function fetchPasienSimrs(rm: string): Promise<any | null> {
+  try {
+    const res = await fetch(
+      `/api/pasien/simrs?noRm=${encodeURIComponent(rm)}`,
+    );
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || `HTTP ${res.status}`);
+    }
+    const json = (await res.json()) as {
+      ok?: boolean;
+      status?: string;
+      data?: any;
+    };
+    if (json?.ok && json?.status === "Ok" && json.data) return json.data;
+  } catch (e) {
+    console.warn("SIMRS Fetch Error:", e);
+    throw e;
+  }
+  return null;
+}
+
 export default function TambahPasienQuickModal({
   open,
   onClose,
@@ -110,6 +133,7 @@ export default function TambahPasienQuickModal({
 
   const [formData, setFormData] = useState<Omit<Pasien, "id">>(initialForm);
   const [matchedPatient, setMatchedPatient] = useState<Pasien | null>(null);
+  const [simrsMatched, setSimrsMatched] = useState(false);
   const [rmChecking, setRmChecking] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -124,6 +148,7 @@ export default function TambahPasienQuickModal({
     if (open && !lastOpenRef.current) {
       setFormData(initialForm());
       setMatchedPatient(null);
+      setSimrsMatched(false);
       setError("");
       setRmChecking(false);
       setLoading(false);
@@ -152,9 +177,14 @@ export default function TambahPasienQuickModal({
     }
 
     const rmTyped = formData.noRM.trim();
-    if (rmTyped.length < RM_LOOKUP_MIN_LEN) {
-      setMatchedPatient((prev) => (prev ? null : prev));
-      setRmChecking((prev) => (prev ? false : prev));
+    
+    // Log untuk debug di console browser (F12)
+    console.log("RM Typed:", rmTyped, "Length:", rmTyped.length);
+
+    if (rmTyped.length < 1) { // Turunkan ke 1 agar lebih responsif
+      setMatchedPatient(null);
+      setSimrsMatched(false);
+      setRmChecking(false);
       return;
     }
 
@@ -162,44 +192,78 @@ export default function TambahPasienQuickModal({
 
     setRmChecking(true);
     debounceRef.current = setTimeout(() => {
-      const lookupRm = rmInputRef.current.trim();
-      if (lookupRm.length < RM_LOOKUP_MIN_LEN) {
-        setMatchedPatient(null);
+      const lookupRm = formData.noRM.trim();
+      if (!lookupRm) {
         setRmChecking(false);
         return;
       }
 
+      console.log("%c🔍 SIMRS/Lokal Lookup Start:", "color: cyan; font-weight: bold", lookupRm);
+
       void (async () => {
         try {
+          // 1. Cek Lokal
           const found = await fetchPasienByNoRm(lookupRm);
-          if (rmInputRef.current.trim() !== lookupRm) return;
+          
+          // Pastikan modal masih terbuka dan RM masih sama
+          if (!open) return;
+
           if (found && rmEquivalent(found.noRM, lookupRm)) {
+            console.log("%c✅ Found Local:", "color: green", found.nama);
             setMatchedPatient(found);
+            setSimrsMatched(false);
             const fields = patientToFormFields(found);
             setFormData((prev) => {
+              // Hanya update jika RM masih sama untuk menghindari race condition
               if (prev.noRM.trim() === lookupRm) {
-                const isDifferent =
-                  prev.nama !== fields.nama ||
-                  prev.alamat !== fields.alamat ||
-                  prev.noHP !== fields.noHP;
-
-                if (isDifferent) {
-                  return { ...fields, noRM: prev.noRM };
-                }
+                return { ...fields, noRM: prev.noRM };
               }
               return prev;
             });
           } else {
-            setMatchedPatient((prev) => (prev ? null : prev));
+            // 2. Cek SIMRS
+            console.log("%c📡 Checking SIMRS...", "color: orange");
+            try {
+              const simrs = await fetchPasienSimrs(lookupRm);
+              if (!open) return;
+
+              if (simrs && (rmEquivalent(simrs.norm, lookupRm) || rmEquivalent(simrs.norm_asli, lookupRm))) {
+                console.log("%c✅ Found SIMRS:", "color: lime", simrs.nama);
+                setMatchedPatient(null);
+                setSimrsMatched(true);
+                const alamatFull = [simrs.alamat, simrs.kota].filter(Boolean).join(", ");
+
+                setFormData((prev) => {
+                  if (prev.noRM.trim() === lookupRm) {
+                    return {
+                      ...prev,
+                      nama: normalizeNamaPasienInput(simrs.nama || ""),
+                      jenisKelamin: String(simrs.jenkel).toUpperCase().startsWith("P") ? "P" : "L",
+                      tanggalLahir: formatTanggalLahirFromDb(simrs.tgl_lhr || ""),
+                      alamat: alamatFull || prev.alamat,
+                    };
+                  }
+                  return prev;
+                });
+              } else {
+                console.log("%c❌ Not found in SIMRS", "color: red");
+                setMatchedPatient(null);
+                setSimrsMatched(false);
+              }
+            } catch (simrsErr: any) {
+              console.error("SIMRS Lookup Error:", simrsErr);
+              if (formData.noRM.trim() === lookupRm) {
+                setError(`SIMRS: ${simrsErr.message}`);
+              }
+            }
           }
-        } catch {
-          if (rmInputRef.current.trim() === lookupRm)
-            setMatchedPatient((prev) => (prev ? null : prev));
+        } catch (err: any) {
+          console.error("Lookup Error:", err);
         } finally {
-          if (rmInputRef.current.trim() === lookupRm) setRmChecking(false);
+          setRmChecking(false);
         }
       })();
-    }, RM_LOOKUP_DEBOUNCE_MS);
+    }, 450);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -444,11 +508,27 @@ export default function TambahPasienQuickModal({
                     isDark ? "text-amber-100" : "text-amber-900",
                   )}
                 >
-                  Tambah kasus tindakan
-                </span>{" "}
-                (tidak membuat pasien ganda).
-              </p>
-            ) : null}
+                Tambah kasus tindakan
+              </span>{" "}
+              (tidak membuat pasien ganda).
+            </p>
+          ) : null}
+
+          {simrsMatched ? (
+            <p
+              className={cn(
+                "text-[11px] mb-3 rounded-lg border px-3 py-2 leading-relaxed sm:text-xs",
+                isDark
+                  ? "text-white border-cyan-400/65 bg-cyan-950/60"
+                  : "text-cyan-950 border-cyan-400/45 bg-cyan-50",
+              )}
+              role="status"
+            >
+              Data ditemukan di <span className="font-bold">SIMRS</span> —
+              formulir diisi otomatis. Silakan lengkapi data (misal No. HP)
+              sebelum menyimpan ke master pasien lokal.
+            </p>
+          ) : null}
 
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
               <div>
@@ -461,16 +541,17 @@ export default function TambahPasienQuickModal({
                   autoComplete="off"
                   inputRef={noRmInputRef}
                 />
-                {rmChecking ? (
+                {rmChecking && (
                   <p
                     className={cn(
-                      "text-[10px] mt-0.5 font-mono",
-                      isDark ? "text-cyan-200/90" : "text-cyan-800/85",
+                      "text-[10px] mt-1 flex items-center gap-1 font-bold animate-pulse",
+                      isDark ? "text-cyan-300" : "text-cyan-700",
                     )}
                   >
-                    Memeriksa No. RM…
+                    <span className="h-2 w-2 rounded-full bg-cyan-500 shadow-[0_0_8px_cyan]"></span>
+                    🔍 CEK SIMRS & LOKAL...
                   </p>
-                ) : null}
+                )}
               </div>
               <InputField
                 label="Nama"

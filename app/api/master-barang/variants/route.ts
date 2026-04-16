@@ -24,6 +24,7 @@ type DbRow = {
   distributor_id: string;
   is_active: boolean | null;
   harga_jual: number | null;
+  kategori: string | null;
 };
 
 function pickHarga(
@@ -93,7 +94,7 @@ export async function GET() {
       ? supabase
           .from("distributor_barang")
           .select(
-            "id, master_barang_id, lot, ukuran, ed, barcode, distributor_id, is_active, harga_jual"
+            "id, master_barang_id, lot, ukuran, ed, barcode, distributor_id, is_active, harga_jual, kategori"
           )
           .in("master_barang_id", masterIds)
       : Promise.resolve({ data: [], error: null }),
@@ -189,7 +190,7 @@ export async function GET() {
         kode: m.kode ?? "",
         nama: m.nama ?? "",
         jenis: m.jenis ?? "",
-        kategori: m.kategori ?? null,
+        kategori: db.kategori?.trim() || m.kategori || null,
         barcode: db.barcode?.trim() || m.barcode || null,
         satuan: m.satuan ?? null,
         distributor_id: did,

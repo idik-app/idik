@@ -221,6 +221,15 @@ export async function POST(req: Request) {
       { status: 400 },
     );
 
+  // 1-PINTU: Ambil status is_konsolidasi dari master_distributor (Admin Control)
+  const { data: distProfile } = await supabase
+    .from("master_distributor")
+    .select("is_konsolidasi")
+    .eq("id", distributorId)
+    .maybeSingle();
+
+  const centralizedIsKonsolidasi = distProfile?.is_konsolidasi ?? false;
+
   const catalog = parseDistributorBarangExtra(
     body as Record<string, unknown>,
     false,
@@ -356,6 +365,7 @@ export async function POST(req: Request) {
     is_active: isActive,
     updated_at: new Date().toISOString(),
     ...catalog.value,
+    is_konsolidasi: centralizedIsKonsolidasi, // OVERRIDE: Sesuai profil distributor (Admin Control)
   };
 
   const { data, error } = await supabase

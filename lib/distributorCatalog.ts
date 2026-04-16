@@ -58,8 +58,13 @@ export function kategoriAlkesFromVariantPickRow(v: {
 }): string | undefined {
   const fromKategori = normalizeKategoriAlkesLine(v.kategori);
   if (fromKategori) return fromKategori;
+
   const fromJenis = normalizeKategoriAlkesLine(v.jenis ?? "");
   if (fromJenis) return fromJenis;
+
+  // Infer dari nama (misal GENOSS -> STENT)
+  if (inferStentAlkesFromNamaBarang(v.nama)) return "STENT";
+
   return undefined;
 }
 

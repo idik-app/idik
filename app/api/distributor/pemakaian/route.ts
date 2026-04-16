@@ -223,25 +223,87 @@ export async function GET(req: Request) {
     for (const r of (res.data ?? [])) invById.set(String(r.id), r);
   }
 
-  const enrichedPemakaian = pemRows.map(row => {
-    const inv = invById.get(String(row.inventaris_id));
-    return { ...row, inventaris: inv };
-  }).filter(row => {
-    const inv = row.inventaris;
-    if (!inv) return false;
-    const loc = (inv.lokasi ?? "").toLowerCase();
-    if (loc && !loc.includes("cathlab")) return false; // Filter Cathlab
-    if (adminShowAll) return true;
-    const distId = String(inv.distributor_id || "");
-    const mbDistId = masterBarangDistId(inv);
-    return distId === String(scope) || mbDistId === String(scope) || (inv.master_barang_id && catalogMasterIds.has(String(inv.master_barang_id)));
-  }).map(row => ({
-    id: row.id, created_at: row.created_at, jumlah: row.jumlah, tanggal: row.tanggal, keterangan: row.keterangan,
-    inventaris: { nama: row.inventaris.nama || "-", satuan: row.inventaris.satuan || null },
-    distributor_nama: null, order_id: null, pasien: null, dokter: null, no_rm: null, status_order: null, catatan: null, lot: null, ukuran: null, ed: null
-  }));
+  // 3. Fetch synchronized tindakan data for pemakaian rows
+  const pemTids = [
+    ...new Set(
+      pemRows.map((r) => String(r.tindakan_id ?? "").trim()).filter(Boolean),
+    ),
+  ];
+  const pemTindakanById = new Map<
+    string,
+    { dokter: string; ruangan: string; nama_pasien: string; no_rm: string }
+  >();
+  if (pemTids.length > 0) {
+    const tChunks = [];
+    for (let i = 0; i < pemTids.length; i += 200)
+      tChunks.push(pemTids.slice(i, i + 200));
+    const tResults = await Promise.all(
+      tChunks.map((slice) =>
+        supabase
+          .from("tindakan")
+          .select("id, dokter, ruangan, nama_pasien, no_rm")
+          .in("id", slice),
+      ),
+    );
+    for (const res of tResults) {
+      for (const r of res.data ?? []) {
+        pemTindakanById.set(String(r.id), {
+          dokter: String(r.dokter ?? "").trim(),
+          ruangan: String(r.ruangan ?? "").trim(),
+          nama_pasien: String(r.nama_pasien ?? "").trim(),
+          no_rm: String(r.no_rm ?? "").trim(),
+        });
+      }
+    }
+  }
 
-  // 3. Ambil data order realtime (jika bukan adminShowAll)
+  const enrichedPemakaian = pemRows
+    .map((row) => {
+      const inv = invById.get(String(row.inventaris_id));
+      return { ...row, inventaris: inv };
+    })
+    .filter((row) => {
+      const inv = row.inventaris;
+      if (!inv) return false;
+      const loc = (inv.lokasi ?? "").toLowerCase();
+      if (loc && !loc.includes("cathlab")) return false; // Filter Cathlab
+      if (adminShowAll) return true;
+      const distId = String(inv.distributor_id || "");
+      const mbDistId = masterBarangDistId(inv);
+      return (
+        distId === String(scope) ||
+        mbDistId === String(scope) ||
+        (inv.master_barang_id && catalogMasterIds.has(String(inv.master_barang_id)))
+      );
+    })
+    .map((row) => {
+      const tid = String(row.tindakan_id ?? "").trim();
+      const synced = tid ? pemTindakanById.get(tid) : null;
+      return {
+        id: row.id,
+        created_at: row.created_at,
+        jumlah: row.jumlah,
+        tanggal: row.tanggal,
+        keterangan: row.keterangan,
+        inventaris: {
+          nama: row.inventaris.nama || "-",
+          satuan: row.inventaris.satuan || null,
+        },
+        distributor_nama: null,
+        order_id: null,
+        pasien: synced?.nama_pasien || null,
+        dokter: synced?.dokter || null,
+        ruangan: synced?.ruangan || null,
+        no_rm: synced?.no_rm || null,
+        status_order: null,
+        catatan: null,
+        lot: null,
+        ukuran: null,
+        ed: null,
+      };
+    });
+
+  // 4. Ambil data order realtime (jika bukan adminShowAll)
   let fromOrders: any[] = [];
   if (!adminShowAll && scope) {
     const stripPt = (s: string) => normKey(s).replace(/^pt\.?\s*/u, "").toUpperCase().trim();
@@ -252,28 +314,110 @@ export async function GET(req: Request) {
       if (n) tenantBarangNames.add(n);
     });
 
-    const { data: orderRows } = await supabase.from("cathlab_pemakaian_order").select("id, tanggal, pasien, dokter, status, items, catatan, created_at, no_rm").in("status", ["DIAJUKAN", "MENUNGGU_VALIDASI", "TERVERIFIKASI", "SELESAI"]).order("created_at", { ascending: false }).limit(focusOrderIds.length > 0 ? 100 : 8000);
+    const { data: orderRows } = await supabase
+      .from("cathlab_pemakaian_order")
+      .select(
+        "id, tanggal, pasien, dokter, status, items, catatan, created_at, no_rm, tindakan_id, ruangan",
+      )
+      .in("status", [
+        "DIAJUKAN",
+        "MENUNGGU_VALIDASI",
+        "TERVERIFIKASI",
+        "SELESAI",
+      ])
+      .order("created_at", { ascending: false })
+      .limit(focusOrderIds.length > 0 ? 100 : 8000);
 
-    for (const orow of (orderRows ?? [])) {
-      const dateKey = orderTanggalDateKey(orow.tanggal) || orderTanggalDateKey(orow.created_at);
+    // Fetch synchronized tindakan data if tindakan_id exists
+    const tids = [
+      ...new Set(
+        (orderRows ?? [])
+          .map((r) => String(r.tindakan_id ?? "").trim())
+          .filter(Boolean),
+      ),
+    ];
+    const tindakanById = new Map<
+      string,
+      { dokter: string; ruangan: string; nama_pasien: string; no_rm: string }
+    >();
+    if (tids.length > 0) {
+      const tChunks = [];
+      for (let i = 0; i < tids.length; i += 200)
+        tChunks.push(tids.slice(i, i + 200));
+      const tResults = await Promise.all(
+        tChunks.map((slice) =>
+          supabase
+            .from("tindakan")
+            .select("id, dokter, ruangan, nama_pasien, no_rm")
+            .in("id", slice),
+        ),
+      );
+      for (const res of tResults) {
+        for (const r of res.data ?? []) {
+          tindakanById.set(String(r.id), {
+            dokter: String(r.dokter ?? "").trim(),
+            ruangan: String(r.ruangan ?? "").trim(),
+            nama_pasien: String(r.nama_pasien ?? "").trim(),
+            no_rm: String(r.no_rm ?? "").trim(),
+          });
+        }
+      }
+    }
+
+    for (const orow of orderRows ?? []) {
+      const dateKey =
+        orderTanggalDateKey(orow.tanggal) ||
+        orderTanggalDateKey(orow.created_at);
       if (focusOrderIds.length === 0) {
         if (from && dateKey && dateKey < from) continue;
         if (to && dateKey && dateKey > to) continue;
       }
+
+      // Sync with latest tindakan data if available
+      const tid = String(orow.tindakan_id ?? "").trim();
+      const synced = tid ? tindakanById.get(tid) : null;
+      const finalPasien = synced?.nama_pasien || orow.pasien;
+      const finalDokter = synced?.dokter || orow.dokter;
+      const finalRuangan = synced?.ruangan || orow.ruangan;
+      const finalNoRm = synced?.no_rm || orow.no_rm;
+
       const items = parseOrderItemsJson(orow.items);
       items.forEach((line, idx) => {
         const qty = lineQtyForPemakaianReport(line, orow.status);
         if (qty <= 0) return;
         const rawDist = String(line.distributor || "").trim();
-        if (rawDist && namaPtStr && !distributorLineMatchesTenant(rawDist, namaPtStr)) return;
-        if (!rawDist && !barangMatchesTenantSet(normKey(String(line.barang || "")), tenantBarangNames)) return;
+        if (
+          rawDist &&
+          namaPtStr &&
+          !distributorLineMatchesTenant(rawDist, namaPtStr)
+        )
+          return;
+        if (
+          !rawDist &&
+          !barangMatchesTenantSet(
+            normKey(String(line.barang || "")),
+            tenantBarangNames,
+          )
+        )
+          return;
 
         const cleanDist = rawDist ? `PT. ${stripPt(rawDist)}` : null;
         fromOrders.push({
-          id: `${orow.id}__${line.lineId || idx}`, created_at: orow.created_at, jumlah: qty, tanggal: dateKey || orow.tanggal?.slice(0, 10),
-          inventaris: { nama: String(line.barang || "-"), satuan: null }, distributor_nama: cleanDist || namaPtStr || null,
-          order_id: orow.id, pasien: orow.pasien, dokter: orow.dokter, no_rm: orow.no_rm, status_order: orow.status,
-          lot: strFromLine(line, "lot", "LOT"), ukuran: strFromLine(line, "ukuran", "Ukuran"), ed: strFromLine(line, "ed", "ED")
+          id: `${orow.id}__${line.lineId || idx}`,
+          created_at: orow.created_at,
+          jumlah: qty,
+          tanggal: dateKey || orow.tanggal?.slice(0, 10),
+          inventaris: { nama: String(line.barang || "-"), satuan: null },
+          distributor_nama: cleanDist || namaPtStr || null,
+          order_id: orow.id,
+          pasien: finalPasien,
+          dokter: finalDokter,
+          ruangan: finalRuangan,
+          no_rm: finalNoRm,
+          status_order: orow.status,
+          lot: strFromLine(line, "lot", "LOT"),
+          ukuran: strFromLine(line, "ukuran", "Ukuran"),
+          ed: strFromLine(line, "ed", "ED"),
         });
       });
     }

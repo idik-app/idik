@@ -30,36 +30,35 @@ export function DialogContent({
 }) {
   return (
     <DialogPrimitive.Portal>
-      <AnimatePresence>
-        {!hideOverlay && (
-          <DialogPrimitive.Overlay
-            key="jarvis-dialog-overlay"
-            asChild
-            forceMount
-          >
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.7 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className={`fixed inset-0 ${UI_LAYERS.overlay} bg-black/75 ${
-                overlayClassName ?? ""
-              }`}
-            />
-          </DialogPrimitive.Overlay>
-        )}
-
-        <DialogPrimitive.Content
-          key="jarvis-dialog-content"
-          {...props}
+      {!hideOverlay && (
+        <DialogPrimitive.Overlay
           className={cn(
-            "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg",
-            className,
+            "fixed inset-0 bg-black/80",
+            UI_LAYERS.dialogOverlayTop,
+            overlayClassName,
           )}
-        >
-          {children}
-        </DialogPrimitive.Content>
-      </AnimatePresence>
+          style={{ zIndex: 99999 }}
+        />
+      )}
+
+      <DialogPrimitive.Content
+        {...props}
+        className={cn(
+          "fixed left-[50%] top-[50%] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-0 border border-cyan-800/40 bg-slate-950 p-0 shadow-2xl focus:outline-none",
+          UI_LAYERS.dialogContentTop,
+          className,
+        )}
+        style={{ zIndex: 100001 }}
+        onPointerDownOutside={(e) => {
+          // Hanya tutup jika klik benar-benar di luar (overlay), 
+          // bukan karena bubbling dari dalam konten.
+          if (e.target instanceof Element && e.target.closest('[data-radix-collection-item]')) {
+             e.preventDefault();
+          }
+        }}
+      >
+        <div className="relative h-full w-full p-6">{children}</div>
+      </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );
 }

@@ -21,21 +21,26 @@ export async function GET(req: Request) {
   }
 
   const selectCols =
-    "id, kode, nama, kategori, satuan, jenis, is_active, barcode";
+    "id, kode, nama, kategori, satuan, jenis, is_active, barcode, distributor_barang(id, distributor_id)";
 
   /** Lookup tepat untuk hasil scan (barcode kemasan di master_barang). */
   if (barcode) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("master_barang")
       .select(selectCols)
       .eq("is_active", true)
-      .eq("barcode", barcode)
-      .limit(5);
+      .eq("barcode", barcode);
+
+    if (id.distributorId) {
+      query = query.eq("distributor_barang.distributor_id", id.distributorId);
+    }
+
+    const { data, error } = await query.limit(5);
 
     if (error) {
       return NextResponse.json(
         { ok: false, message: error.message },
-        { status: 500 }
+        { status: 500 },
       );
     }
     return NextResponse.json({ ok: true, data: data ?? [] }, { status: 200 });
@@ -51,6 +56,10 @@ export async function GET(req: Request) {
     .eq("is_active", true)
     .order("nama", { ascending: true })
     .limit(textSearchLimit);
+
+  if (id.distributorId) {
+    query = query.eq("distributor_barang.distributor_id", id.distributorId);
+  }
 
   if (safeQ) {
     const esc = safeQ

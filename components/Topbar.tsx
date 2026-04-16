@@ -12,6 +12,9 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { ToolbarNotificationBell } from "@/app/dashboard/pasien/components/toolbar/ToolbarNotificationBell";
 import { useNotificationBell } from "@/app/contexts/NotificationContext";
 import { useJarvisVoice } from "@/app/hooks/useJarvisVoice";
+import { useAI } from "@/contexts/AIContext";
+
+import JarvisIcon from "@/components/JarvisIcon";
 
 const LOGOUT_REDIRECT_PATH = "/";
 const JARVIS_LOGOUT_KEY = "jarvis_logout";
@@ -63,16 +66,22 @@ export default function Topbar({
   const [sweepTrigger, setSweepTrigger] = useState(0);
   const [loggingOut, setLoggingOut] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const { mode: aiMode } = useAI();
+  const [localStatus, setLocalStatus] = useState<
+    "idle" | "learning" | "diagnosing" | "repairing" | "success" | "error"
+  >("idle");
 
   /* 🔄 Sync Events Listener & Voice */
   useEffect(() => {
     if (!mounted) return;
     const onStart = () => {
       setIsSyncing(true);
+      setLocalStatus("diagnosing");
       speak("Starting data synchronization. All systems operational.");
     };
     const onEnd = () => {
       setIsSyncing(false);
+      setLocalStatus("success");
       speak("Synchronization complete. Records are up to date.");
     };
     window.addEventListener("extraction:start", onStart);
@@ -82,6 +91,18 @@ export default function Topbar({
       window.removeEventListener("extraction:end", onEnd);
     };
   }, [mounted, speak]);
+
+  /* ⏳ Auto-reset local status to allow aiMode to take over */
+  useEffect(() => {
+    if (
+      localStatus === "success" ||
+      localStatus === "error" ||
+      localStatus === "learning"
+    ) {
+      const timer = setTimeout(() => setLocalStatus("idle"), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [localStatus]);
 
   const hasNotifications = bellAlerts.length > 0;
   const prevNotifCountRef = useRef(bellAlerts.length);
@@ -94,6 +115,7 @@ export default function Topbar({
     }
     // Hanya bicara jika jumlah notifikasi bertambah
     if (bellAlerts.length > prevNotifCountRef.current) {
+      setLocalStatus("learning");
       speak("New alerts detected, Sir.");
     }
     prevNotifCountRef.current = bellAlerts.length;
@@ -175,9 +197,11 @@ export default function Topbar({
         }),
       });
       if (!res.ok) {
+        setLocalStatus("error");
         console.warn("⚠️ Audit logout gagal:", await res.text());
       }
     } catch (err) {
+      setLocalStatus("error");
       console.warn("⚠️ Gagal mencatat audit logout:", err);
       setLoggingOut(false);
       return;
@@ -215,6 +239,13 @@ export default function Topbar({
     else setCollapsed((p) => !p);
     triggerSweep();
     navigator.vibrate?.(25);
+
+    // 🤖 Summon Jarvis to Topbar
+    window.dispatchEvent(
+      new CustomEvent("jarvis:visit", {
+        detail: { x: 40, y: 40, label: "COMMAND RECEIVED" },
+      })
+    );
   };
 
   /* 🎨 Theme Style — mode siang pakai header terang; malam ikut themeMode (gold-cyan / dll.) */
@@ -295,100 +326,13 @@ export default function Topbar({
             </motion.div>
           )}
 
-          <motion.svg
-            viewBox="0 0 100 100"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className={`w-7 h-7 md:w-8 md:h-8 relative z-10 transition-all duration-500 ${
-              isSyncing ? "opacity-20 scale-90 blur-[1px]" : "opacity-100"
-            }`}
-          >
-            <defs>
-              <linearGradient id="jarvisGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor={hasNotifications ? "#f59e0b" : (lightMode ? "#0891b2" : "#22d3ee")} />
-                <stop offset="100%" stopColor={hasNotifications ? "#d97706" : (lightMode ? "#0e7490" : "#0891b2")} />
-              </linearGradient>
-              <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="2" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-              </filter>
-            </defs>
-            
-            {/* Outer Ring */}
-            <circle 
-              cx="50" cy="50" r="48" 
-              stroke={hasNotifications ? "#f59e0b" : (lightMode ? "#0891b2" : "#22d3ee")} 
-              strokeWidth="1" 
-              strokeDasharray="4 4"
-              className={`opacity-20 ${isSyncing ? "animate-[spin_2s_linear_infinite]" : "group-hover:animate-[spin_20s_linear_infinite]"}`}
-            />
-            
-            {/* Iron Man / JARVIS Mask */}
-            <g 
-              className={`transition-transform duration-500 ${!isSyncing && "group-hover:scale-105"}`} 
-              style={{ transformOrigin: 'center' }}
-            >
-              {/* Main Face Plate */}
-              <motion.path
-                d="M50 10 
-                   C35 10, 22 18, 20 35 
-                   L18 55 
-                   C18 75, 30 85, 35 88 
-                   L50 95 
-                   L65 88 
-                   C70 85, 82 75, 82 55 
-                   L80 35 
-                   C78 18, 65 10, 50 10 Z"
-                fill="url(#jarvisGradient)"
-                fillOpacity={lightMode ? "0.1" : "0.15"}
-                stroke="url(#jarvisGradient)"
-                strokeWidth="2.5"
-                strokeLinejoin="round"
-                filter={lightMode ? "" : "url(#glow)"}
-                animate={hasNotifications ? {
-                  strokeWidth: [2.5, 4, 2.5],
-                  filter: ["blur(0px)", "blur(2px)", "blur(0px)"]
-                } : {}}
-                transition={{ repeat: Infinity, duration: 2 }}
-                className="group-hover:stroke-amber-400 transition-colors duration-500"
-              />
-              
-              {/* Internal Mechanical Lines */}
-              <path 
-                d="M30 40 L35 45 M65 45 L70 40 M40 80 L50 85 L60 80" 
-                stroke="currentColor" 
-                strokeWidth="1" 
-                className={hasNotifications ? "text-amber-500/40" : (lightMode ? "text-cyan-600/40" : "text-cyan-400/40")}
-              />
-
-              {/* Eye Slits (Glowing) */}
-              <motion.path
-                d="M32 48 L44 52 L44 55 L32 52 Z M56 52 L68 48 L68 52 L56 55 Z"
-                fill={hasNotifications ? "#f59e0b" : (lightMode ? "#0891b2" : "#22d3ee")}
-                animate={{
-                  // Neural Heartbeat (Systole & Diastole pulse)
-                  opacity: hasNotifications ? [0.6, 1, 0.6] : [0.4, 1, 0.7, 1, 0.4],
-                  scale: hasNotifications ? [1, 1.1, 1] : [1, 1.05, 1, 1.03, 1],
-                }}
-                transition={{ 
-                  repeat: Infinity, 
-                  duration: hasNotifications ? 0.8 : 2.8, 
-                  times: hasNotifications ? [0, 0.5, 1] : [0, 0.12, 0.25, 0.4, 1],
-                  ease: "easeInOut"
-                }}
-                className="group-hover:fill-amber-400 transition-colors duration-500"
-              />
-              
-              {/* Forehead Detail */}
-              <path 
-                d="M45 25 L50 30 L55 25" 
-                stroke="url(#jarvisGradient)" 
-                strokeWidth="1.5" 
-                fill="none"
-                className="group-hover:stroke-amber-400 transition-colors duration-500"
-              />
-            </g>
-          </motion.svg>
+          <JarvisIcon
+            className="w-7 h-7 md:w-8 md:h-8"
+            isSyncing={isSyncing}
+            hasNotifications={hasNotifications}
+            lightMode={lightMode}
+            status={localStatus !== "idle" ? localStatus : aiMode}
+          />
           
           {/* Subtle Status Dot */}
           <div className={`absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full z-20 ${

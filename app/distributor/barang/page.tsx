@@ -15,12 +15,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
-  Info,
   Loader2,
   Printer,
   ScanLine,
   SearchCheck,
   Trash2,
+  Lock,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,7 @@ import {
   parseDistributorHargaForSubmit,
   parseDistributorKemasanBarcodeTemplate,
   normalizeDistributorLotAutoValue,
+  normalizeDistributorUkuranSpacing,
   normalizeDistributorUdiBarcodeKey,
   suggestSupraflexLotFromBarcode,
   suggestGenossLotFromBarcode,
@@ -241,6 +242,7 @@ function DistributorBarangPageContent() {
   const [modalOpen, setModalOpen] = useState(false);
 
   const [editing, setEditing] = useState<Row | null>(null);
+  const [formDistributorId, setFormDistributorId] = useState("");
   const [formKodeDistributor, setFormKodeDistributor] = useState("");
   const [formKategoriAlkes, setFormKategoriAlkes] = useState("");
   const [formLot, setFormLot] = useState("");
@@ -259,13 +261,20 @@ function DistributorBarangPageContent() {
   const [formNamaMasterBaru, setFormNamaMasterBaru] = useState("");
   const [formKodeMasterBaru, setFormKodeMasterBaru] = useState("");
 
-  type NamaMasterSuggestRow = { id: string; nama: string; kode: string };
+  type NamaMasterSuggestRow = {
+    id: string;
+    nama: string;
+    kode: string;
+    isInKatalog: boolean;
+  };
   const [namaMasterSuggest, setNamaMasterSuggest] = useState<
     NamaMasterSuggestRow[]
   >([]);
   const [namaSuggestOpen, setNamaSuggestOpen] = useState(false);
   const [namaSuggestLoading, setNamaSuggestLoading] = useState(false);
   const [namaSuggestIndex, setNamaSuggestIndex] = useState(-1);
+  const [rsOnlyItems, setRsOnlyItems] = useState<any[]>([]);
+  const [searchingRsOnly, setSearchingRsOnly] = useState(false);
   const namaSuggestAbortRef = useRef<AbortController | null>(null);
   const namaSuggestBlurTimerRef = useRef<number | null>(null);
 
@@ -337,6 +346,7 @@ function DistributorBarangPageContent() {
             nama?: string;
             kode?: string;
             jenis?: string;
+            distributor_barang?: any[];
           }[];
           const alkes = rows.filter(
             (r) => String(r.jenis ?? "").toUpperCase() === "ALKES",
@@ -353,6 +363,7 @@ function DistributorBarangPageContent() {
               id: String(r.id ?? ""),
               nama,
               kode: String(r.kode ?? "").trim(),
+              isInKatalog: (r.distributor_barang?.length ?? 0) > 0,
             });
             if (mapped.length >= 10) break;
           }
@@ -642,7 +653,8 @@ function DistributorBarangPageContent() {
       )}`;
       const all = await runDeduped(dedupeKey, async () => {
         const params = new URLSearchParams();
-        if (distributorIdParam) params.set("distributor_id", distributorIdParam);
+        if (distributorIdParam)
+          params.set("distributor_id", distributorIdParam);
         const paramsWithBust = new URLSearchParams(params);
         paramsWithBust.set("_", String(Date.now()));
         const res = await fetch(
@@ -726,7 +738,25 @@ function DistributorBarangPageContent() {
 
   useEffect(() => {
     setPage(1);
-  }, [q, filterKategori]);
+    if (q.trim().length > 1) {
+      const ac = new AbortController();
+      setSearchingRsOnly(true);
+      fetch(`/api/distributor/produk/catalog?q=${encodeURIComponent(q)}`, {
+        signal: ac.signal,
+        cache: "no-store",
+      })
+        .then((r) => r.json())
+        .then((j) => {
+          if (j.ok) setRsOnlyItems(j.data ?? []);
+          else setRsOnlyItems([]);
+        })
+        .catch(() => setRsOnlyItems([]))
+        .finally(() => setSearchingRsOnly(false));
+      return () => ac.abort();
+    } else {
+      setRsOnlyItems([]);
+    }
+  }, [q, filteredRows.length]);
 
   useEffect(() => {
     setPage((p) => Math.min(p, totalPages));
@@ -784,9 +814,9 @@ function DistributorBarangPageContent() {
       seedLotFromFilter?: string;
       seedNama?: string;
     }) => {
-      if (adminView && !distributorIdParam) return;
       setEditing(null);
       setProdukModalError(null);
+      setFormDistributorId(distributorIdParam || "");
       setFormKodeDistributor("");
       setFormKategoriAlkes("");
       setFormLot("");
@@ -816,12 +846,7 @@ function DistributorBarangPageContent() {
       setFormKodeMasterBaru("");
       setModalOpen(true);
     },
-    [
-      adminView,
-      distributorIdParam,
-      distributors,
-      userDistributorIsKonsolidasi,
-    ],
+    [adminView, distributorIdParam, distributors, userDistributorIsKonsolidasi],
   );
 
   useEffect(() => {
@@ -1062,6 +1087,9 @@ function DistributorBarangPageContent() {
           ukuran: formUkuran.trim() || null,
           ed: edParsed.value,
         };
+        if (adminView) {
+          patchBody.nama_master = selectedMasterLabel.trim();
+        }
         if (stokCathlab !== undefined) {
           patchBody.stok_cathlab = stokCathlab;
         }
@@ -1100,7 +1128,12 @@ function DistributorBarangPageContent() {
           payload.kode_master_baru = formKodeMasterBaru.trim();
         /** Modul Cathlab distributor: master baru selalu ALKES. */
         payload.jenis_master = "ALKES";
-        if (distributorIdParam) payload.distributor_id = distributorIdParam;
+        const finalDistId = formDistributorId || distributorIdParam;
+        if (!finalDistId) {
+          setProdukModalError("Pilih Distributor terlebih dahulu.");
+          return;
+        }
+        payload.distributor_id = finalDistId;
         const stokRawAdd = formStokCathlabTarget
           .trim()
           .replace(/\s/g, "")
@@ -1145,7 +1178,6 @@ function DistributorBarangPageContent() {
       formLotInputRef,
       formUkuranInputRef,
       formEdInputRef,
-      formHargaInputRef,
       formStokCathlabInputRef,
     ];
     const addHead: RefObject<HTMLInputElement | null>[] = [
@@ -1222,7 +1254,9 @@ function DistributorBarangPageContent() {
       String(Math.max(0, Math.round(Number(r.stok_cathlab ?? 0)))),
     );
     setFormIsActive(Boolean(r.is_active));
-    setFormKonsolidasi(Boolean(r.is_konsolidasi ?? userDistributorIsKonsolidasi));
+    setFormKonsolidasi(
+      Boolean(r.is_konsolidasi ?? userDistributorIsKonsolidasi),
+    );
     const namaEdit = r.master_barang?.nama ?? "";
     if (inferStentAlkesFromNamaBarang(namaEdit)) {
       if (!(r.kategori ?? "").trim()) {
@@ -1322,6 +1356,25 @@ function DistributorBarangPageContent() {
                   title="Fokus cepat: /"
                   className="min-w-[12rem] flex-1 bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
                 />
+                {!loading && q.trim().length > 0 && filteredRows.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const qt = q.trim();
+                      openTambahProdukModal(
+                        looksLikeBarcodeSearchToken(qt)
+                          ? { seedBarcodeFromFilter: qt }
+                          : {
+                              seedLotFromFilter: qt,
+                            },
+                      );
+                    }}
+                    title="Buka form tambah produk dengan info dari filter"
+                    className="shrink-0 px-3 py-1.5 rounded-md text-[12px] bg-emerald-500/25 border border-emerald-400/55 hover:bg-emerald-500/35 text-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed animate-in fade-in zoom-in duration-200"
+                  >
+                    Tambah Barang
+                  </button>
+                )}
                 <select
                   value={filterKategori}
                   onChange={(e) => setFilterKategori(e.target.value)}
@@ -1403,207 +1456,214 @@ function DistributorBarangPageContent() {
                     </td>
                   </tr>
                 ) : filteredRows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={tableColSpan}
-                      className="px-3 py-8 text-center"
-                    >
-                      <div className="flex flex-col items-center gap-4 max-w-lg mx-auto">
-                        {!loading &&
-                        q.trim().length > 0 &&
-                        looksLikeLotOrBarcodeSearchToken(q) ? (
-                          <div className="w-full rounded-xl border border-cyan-600/45 bg-gradient-to-br from-cyan-950/55 via-slate-950/90 to-slate-950/95 px-4 py-3.5 text-left shadow-[0_0_28px_rgba(34,211,238,0.07)]">
-                            <div className="flex gap-3">
-                              <Info className="h-5 w-5 shrink-0 text-cyan-400/95 mt-0.5" />
-                              <div className="min-w-0 space-y-2">
-                                <p className="text-[13px] font-semibold text-cyan-100/95">
-                                  {allRows.length === 0
-                                    ? "Belum ada produk di daftar ini"
-                                    : "Tidak ada baris yang cocok dengan pencarian"}
-                                </p>
-                                <p className="text-[11px] leading-relaxed text-cyan-300/82">
-                                  Pencarian memakai{" "}
-                                  <span className="text-cyan-200/90">
-                                    nama, kode, kategori, barcode, LOT, ukuran,
-                                    ED
-                                  </span>
-                                  . Nomor yang Anda masukkan tidak cocok dengan
-                                  baris yang tampil — misalnya mapping
-                                  distributor belum dibuat, filter PT (admin),
-                                  atau kode mengarah ke entri lain.
-                                </p>
-                                <p className="text-[10px] text-cyan-500/75 font-mono break-all border border-cyan-800/40 rounded-md px-2 py-1.5 bg-slate-950/60">
-                                  « {q.trim()} »
-                                </p>
-                                <div className="flex flex-wrap gap-2 pt-0.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const qt = q.trim();
-                                      openTambahProdukModal(
-                                        looksLikeBarcodeSearchToken(qt)
-                                          ? { seedBarcodeFromFilter: qt }
-                                          : {
-                                              seedLotFromFilter: qt,
-                                            },
-                                      );
-                                    }}
-                                    disabled={adminView && !distributorIdParam}
-                                    title="Buka form tambah produk"
-                                    className="px-3 py-1.5 rounded-md text-[12px] bg-emerald-500/25 border border-emerald-400/55 hover:bg-emerald-500/35 text-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    Tambah produk
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setQ("");
-                                      setPage(1);
-                                    }}
-                                    className="px-3 py-1.5 rounded-md text-[12px] border border-slate-600/80 text-cyan-200/90 hover:bg-slate-800/80"
-                                  >
-                                    Kosongkan pencarian
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-cyan-300/60 text-[12px]">
-                            Tidak ada data (sesuai filter).
+                  <>
+                    <tr>
+                      <td
+                        colSpan={tableColSpan}
+                        className="px-3 py-8 text-center text-cyan-300/60"
+                      >
+                        {allRows.length === 0
+                          ? "Belum ada produk di daftar ini."
+                          : "Tidak ada baris yang cocok dengan pencarian di Katalog PT."}
+                        {adminView && !distributorIdParam && (
+                          <p className="mt-2 text-[10px] text-amber-200/75">
+                            Pilih distributor (PT) di header untuk menambah
+                            produk atau klik Tambah Barang di kanan filter.
                           </p>
                         )}
-                        {!(
-                          !loading &&
-                          q.trim().length > 0 &&
-                          looksLikeLotOrBarcodeSearchToken(q)
-                        ) ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const qt = q.trim();
-                              openTambahProdukModal(
-                                looksLikeBarcodeSearchToken(qt)
-                                  ? { seedBarcodeFromFilter: qt }
-                                  : looksLikeLotOrBarcodeSearchToken(qt)
-                                    ? { seedLotFromFilter: qt }
-                                    : undefined,
-                              );
-                            }}
-                            disabled={adminView && !distributorIdParam}
-                            title="Tambah produk (Alt+N)"
-                            className="px-3 py-1.5 rounded-md text-[12px] bg-emerald-500/20 border border-emerald-400/50 hover:bg-emerald-500/30 text-cyan-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Tambah produk
-                          </button>
-                        ) : null}
-                        {adminView && !distributorIdParam ? (
-                          <p className="text-[10px] text-amber-200/75">
-                            Pilih distributor (PT) di header untuk menambah
-                            produk.
-                          </p>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedRows.map((r) => (
-                    <tr
-                      key={r.id}
-                      title="Klik baris untuk mengedit"
-                      className="group hover:bg-cyan-900/10 cursor-pointer"
-                      onClick={() => openEditRow(r)}
-                    >
-                      {showAdminAllDistributors ? (
-                        <Td className="align-top text-[11px] text-cyan-200/90 max-w-[14rem]">
-                          {(() => {
-                            const raw = r.distributor_nama_pt?.trim();
-                            if (!raw) return "—";
-                            return `PT. ${raw.toUpperCase().replace(/^PT\.?\s*/u, "").replace(/\s+/g, " ").trim()}`;
-                          })()}
-                        </Td>
-                      ) : null}
-                      <Td>{r.master_barang?.nama ?? "-"}</Td>
-                      <Td className="align-top text-[11px] font-mono text-cyan-100/95">
-                        <span
-                          className="block max-w-[12rem] break-all leading-snug"
-                          title={r.master_barang?.kode ?? ""}
-                        >
-                          {r.master_barang?.kode ?? "-"}
-                        </span>
-                      </Td>
-                      <Td className="font-mono text-[11px]">
-                        {r.barcode ?? "—"}
-                      </Td>
-                      <Td>{r.kategori ?? "—"}</Td>
-                      <Td className="font-mono text-[11px]">{r.lot ?? "—"}</Td>
-                      <Td>{r.ukuran ?? "—"}</Td>
-                      <Td className="whitespace-nowrap text-[11px] font-mono">
-                        {formatDistributorEdDisplay(r.ed)}
-                      </Td>
-                      <Td className="text-right tabular-nums">
-                        {r.stok_cathlab ?? 0}
-                      </Td>
-                      <Td className="text-right tabular-nums whitespace-nowrap">
-                        {formatDistributorHargaDisplay(r.harga_jual)}
-                      </Td>
-                      <Td
-                        className="sticky right-0 z-10 min-w-[19rem] whitespace-nowrap bg-slate-950 text-center align-middle group-hover:bg-slate-900"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="flex flex-wrap justify-center gap-1.5">
-                          <button
-                            type="button"
-                            className="shrink-0 px-2 py-1 rounded-md text-[11px] border border-amber-600/80 bg-amber-950/50 text-amber-100 hover:bg-amber-900/40"
-                            disabled={adminView && !distributorIdParam}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setKeluarkanQty("1");
-                              setKeluarkanTarget(r);
-                            }}
-                          >
-                            Keluarkan
-                          </button>
-                          <Link
-                            href={(() => {
-                              const d =
-                                r.distributor_id?.trim() ||
-                                distributorIdParam.trim();
-                              const base = "/distributor/riwayat";
-                              const q = new URLSearchParams();
-                              if (d) q.set("distributor_id", d);
-                              q.set("master_barang_id", r.master_barang_id);
-                              return `${base}?${q.toString()}`;
-                            })()}
-                            className="shrink-0 inline-flex items-center px-2 py-1 rounded-md text-[11px] border border-[#D4AF37]/50 bg-amber-950/30 text-amber-100/95 hover:bg-amber-900/35"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Jejak
-                          </Link>
-                          <button
-                            type="button"
-                            className="shrink-0 px-2 py-1 rounded-md text-[11px] border border-cyan-500/70 bg-slate-900/90 text-cyan-100 hover:bg-slate-800"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditRow(r);
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            className="shrink-0 px-2 py-1 rounded-md text-[11px] border border-red-500/65 bg-red-950/45 text-red-100/95 hover:bg-red-950/65"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setHapusTarget(r);
-                            }}
-                          >
-                            Hapus
-                          </button>
-                        </div>
-                      </Td>
+                      </td>
                     </tr>
-                  ))
+                    {rsOnlyItems.length > 0 && (
+                      <>
+                        <tr className="bg-slate-900/40">
+                          <td
+                            colSpan={tableColSpan}
+                            className="px-3 py-2 text-[11px] font-semibold text-cyan-400 border-t border-cyan-900/40"
+                          >
+                            Mungkin ini yang Anda cari? (Ditemukan di Master RS
+                            tapi belum dipetakan ke PT)
+                          </td>
+                        </tr>
+                        {rsOnlyItems.slice(0, 5).map((rs) => (
+                          <tr
+                            key={rs.id}
+                            className="bg-slate-900/20 hover:bg-slate-900/40 cursor-pointer"
+                            onClick={() =>
+                              openTambahProdukModal({ seedNama: rs.nama })
+                            }
+                          >
+                            {showAdminAllDistributors && <Td className="text-gray-500">—</Td>}
+                            <Td className="text-cyan-100/90 font-medium">
+                              {rs.nama}
+                              <span className="ml-2 px-1 rounded bg-cyan-500/10 text-cyan-400 text-[9px] border border-cyan-500/20">
+                                RS Only
+                              </span>
+                            </Td>
+                            <Td className="text-gray-500 font-mono text-[10px]">
+                              {rs.kode}
+                            </Td>
+                            <Td className="text-gray-500">—</Td>
+                            <Td className="text-gray-500">—</Td>
+                            <Td className="text-gray-500">—</Td>
+                            <Td className="text-gray-500">—</Td>
+                            <Td className="text-gray-500">—</Td>
+                            <Td className="text-gray-500 text-right">—</Td>
+                            <Td className="text-gray-500 text-right">—</Td>
+                            <Td className="text-center py-1">
+                              <button
+                                type="button"
+                                className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 text-[10px] border border-emerald-500/30 hover:bg-emerald-500/30"
+                              >
+                                Klaim ke PT
+                              </button>
+                            </Td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {paginatedRows.map((r) => (
+                      <tr
+                        key={r.id}
+                        title="Klik baris untuk mengedit"
+                        className="group hover:bg-cyan-900/10 cursor-pointer"
+                        onClick={() => openEditRow(r)}
+                      >
+                        {showAdminAllDistributors ? (
+                          <Td className="align-top text-[11px] text-cyan-200/90 max-w-[14rem]">
+                            {(() => {
+                              const raw = r.distributor_nama_pt?.trim();
+                              if (!raw) return "—";
+                              return `PT. ${raw
+                                .toUpperCase()
+                                .replace(/^PT\.?\s*/u, "")
+                                .replace(/\s+/g, " ")
+                                .trim()}`;
+                            })()}
+                          </Td>
+                        ) : null}
+                        <Td>{r.master_barang?.nama ?? "-"}</Td>
+                        <Td className="align-top text-[11px] font-mono text-cyan-100/95">
+                          <span
+                            className="block max-w-[12rem] break-all leading-snug"
+                            title={r.master_barang?.kode ?? ""}
+                          >
+                            {r.master_barang?.kode ?? "-"}
+                          </span>
+                        </Td>
+                        <Td className="font-mono text-[11px]">
+                          {r.barcode ?? "—"}
+                        </Td>
+                        <Td>{r.kategori ?? "—"}</Td>
+                        <Td className="font-mono text-[11px]">{r.lot ?? "—"}</Td>
+                        <Td>{r.ukuran ?? "—"}</Td>
+                        <Td className="whitespace-nowrap text-[11px] font-mono">
+                          {formatDistributorEdDisplay(r.ed)}
+                        </Td>
+                        <Td className="text-right tabular-nums">
+                          {r.stok_cathlab ?? 0}
+                        </Td>
+                        <Td className="text-right tabular-nums whitespace-nowrap">
+                          {formatDistributorHargaDisplay(r.harga_jual)}
+                        </Td>
+                        <Td
+                          className="sticky right-0 z-10 min-w-[19rem] whitespace-nowrap bg-slate-950 text-center align-middle group-hover:bg-slate-900"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex flex-wrap justify-center gap-1.5">
+                            <button
+                              type="button"
+                              className="shrink-0 px-2 py-1 rounded-md text-[11px] border border-amber-600/80 bg-amber-950/50 text-amber-100 hover:bg-amber-900/40"
+                              disabled={adminView && !distributorIdParam}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setKeluarkanQty("1");
+                                setKeluarkanTarget(r);
+                              }}
+                            >
+                              Keluarkan
+                            </button>
+                            <Link
+                              href={(() => {
+                                const d =
+                                  r.distributor_id?.trim() ||
+                                  distributorIdParam.trim();
+                                const base = "/distributor/riwayat";
+                                const q = new URLSearchParams();
+                                if (d) q.set("distributor_id", d);
+                                q.set("master_barang_id", r.master_barang_id);
+                                return `${base}?${q.toString()}`;
+                              })()}
+                              className="shrink-0 inline-flex items-center px-2 py-1 rounded-md text-[11px] border border-[#D4AF37]/50 bg-amber-950/30 text-amber-100/95 hover:bg-amber-900/35"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              Jejak
+                            </Link>
+                            <button
+                              type="button"
+                              className="shrink-0 px-2 py-1 rounded-md text-[11px] border border-cyan-500/70 bg-slate-900/90 text-cyan-100 hover:bg-slate-800"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditRow(r);
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="shrink-0 px-2 py-1 rounded-md text-[11px] border border-red-500/65 bg-red-950/45 text-red-100/95 hover:bg-red-950/65"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setHapusTarget(r);
+                              }}
+                            >
+                              Hapus
+                            </button>
+                          </div>
+                        </Td>
+                      </tr>
+                    ))}
+                    {rsOnlyItems.filter(rs => !allRows.some(ar => ar.master_barang_id === rs.id)).length > 0 && (
+                      <>
+                        <tr className="bg-slate-900/40 text-cyan-400 font-semibold text-[11px]">
+                          <td colSpan={tableColSpan} className="px-3 py-2 border-y border-cyan-900/40">
+                            Ditemukan di Master RS (Belum ada di Katalog PT Anda)
+                          </td>
+                        </tr>
+                        {rsOnlyItems
+                          .filter(rs => !allRows.some(ar => ar.master_barang_id === rs.id))
+                          .slice(0, 5)
+                          .map((rs) => (
+                            <tr
+                              key={rs.id}
+                              className="bg-slate-900/10 hover:bg-slate-900/30 cursor-pointer group"
+                              onClick={() => openTambahProdukModal({ seedNama: rs.nama })}
+                            >
+                              {showAdminAllDistributors && <Td className="text-gray-500">—</Td>}
+                              <Td className="text-cyan-100/70 font-medium">
+                                {rs.nama}
+                                <span className="ml-2 px-1 rounded bg-cyan-500/10 text-cyan-400 text-[9px] border border-cyan-500/20 font-bold uppercase">RS Only</span>
+                              </Td>
+                              <Td className="text-gray-600 font-mono text-[10px]">{rs.kode}</Td>
+                              <Td className="text-gray-600">—</Td>
+                              <Td className="text-gray-600">—</Td>
+                              <Td className="text-gray-600">—</Td>
+                              <Td className="text-gray-600">—</Td>
+                              <Td className="text-gray-600">—</Td>
+                              <Td className="text-gray-600 text-right">—</Td>
+                              <Td className="text-gray-600 text-right">—</Td>
+                              <Td className="text-center py-1 bg-slate-950/50 group-hover:bg-slate-900/50">
+                                <button type="button" className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 text-[10px] border border-emerald-500/30 hover:bg-emerald-500/30">
+                                  Klaim ke PT
+                                </button>
+                              </Td>
+                            </tr>
+                          ))}
+                      </>
+                    )}
+                  </>
                 )}
               </tbody>
             </table>
@@ -1974,9 +2034,17 @@ function DistributorBarangPageContent() {
                   <div className="space-y-3">
                     <Labeled label="Nama barang">
                       <input
-                        readOnly
+                        readOnly={!adminView}
                         value={selectedMasterLabel}
-                        className="w-full bg-slate-900/50 border border-cyan-800/70 rounded-md px-2 py-1.5 text-cyan-100 cursor-default"
+                        onChange={(e) =>
+                          setSelectedMasterLabel(e.target.value.toUpperCase())
+                        }
+                        className={
+                          "w-full rounded-md px-2 py-1.5 text-cyan-100 " +
+                          (adminView
+                            ? "bg-slate-950/70 border border-cyan-800/70 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                            : "bg-slate-900/50 border border-cyan-800/70 cursor-default")
+                        }
                       />
                     </Labeled>
                     <div className="text-[11px] text-cyan-300/80">
@@ -1986,19 +2054,40 @@ function DistributorBarangPageContent() {
                       </span>
                     </div>
                     <Labeled label="Barcode kemasan">
-                      <input
-                        ref={barcodeModalInputRef}
-                        value={barcodeInput}
-                        onChange={(e) => setBarcodeInput(e.target.value)}
-                        onKeyDown={onModalEnterAdvanceField}
-                        placeholder="Scan / ketik barcode atau QR…"
-                        autoComplete="off"
-                        className="w-full bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          ref={barcodeModalInputRef}
+                          value={barcodeInput}
+                          onChange={(e) => setBarcodeInput(e.target.value)}
+                          onKeyDown={onModalEnterAdvanceField}
+                          placeholder="Scan / ketik barcode atau QR…"
+                          autoComplete="off"
+                          className="flex-1 bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 text-[12px] font-mono focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                        />
+                        <button
+                          type="button"
+                          className="px-2.5 py-1.5 rounded-md text-[11px] bg-slate-800/80 border border-slate-600 hover:bg-slate-800 inline-flex items-center gap-1 shrink-0"
+                          onClick={() => {
+                            setBarcodeHint(null);
+                            if (
+                              typeof window !== "undefined" &&
+                              !("BarcodeDetector" in window)
+                            ) {
+                              setBarcodeHint(
+                                "Gunakan Chrome/Edge untuk scan kamera.",
+                              );
+                              return;
+                            }
+                            setCameraScanOpen(true);
+                          }}
+                          disabled={loadingModal}
+                          title="Buka Kamera"
+                        >
+                          <ScanLine className="w-3.5 h-3.5" />
+                          Kamera
+                        </button>
+                      </div>
                     </Labeled>
-                    <div className="text-[11px] font-medium text-cyan-200/90 pt-1 border-t border-slate-800/70">
-                      Produk distributor
-                    </div>
                   </div>
                 ) : (
                   <>
@@ -2009,6 +2098,26 @@ function DistributorBarangPageContent() {
                       sudah ada, koordinasikan dengan administrator RS.
                     </p>
                     <div className="space-y-3">
+                      {adminView && !distributorIdParam && (
+                        <div className="grid grid-cols-1 gap-3">
+                          <Labeled label="Pilih Distributor (PT)">
+                            <select
+                              value={formDistributorId}
+                              onChange={(e) =>
+                                setFormDistributorId(e.target.value)
+                              }
+                              className="w-full bg-slate-950/70 border border-amber-500/50 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                            >
+                              <option value="">— Pilih Distributor —</option>
+                              {distributors.map((d) => (
+                                <option key={d.id} value={d.id}>
+                                  {d.nama_pt}
+                                </option>
+                              ))}
+                            </select>
+                          </Labeled>
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 gap-3">
                         <Labeled label="Nama barang">
                           <div className="relative">
@@ -2138,9 +2247,20 @@ function DistributorBarangPageContent() {
                                       }, 0);
                                     }}
                                   >
-                                    <span className="font-medium">
-                                      {row.nama}
-                                    </span>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="font-medium truncate">
+                                        {row.nama}
+                                      </span>
+                                      {row.isInKatalog ? (
+                                        <span className="shrink-0 px-1 rounded bg-emerald-500/20 text-emerald-400 text-[9px] font-bold border border-emerald-500/30">
+                                          PT
+                                        </span>
+                                      ) : (
+                                        <span className="shrink-0 px-1 rounded bg-cyan-500/20 text-cyan-400 text-[9px] font-bold border border-cyan-500/30">
+                                          RS
+                                        </span>
+                                      )}
+                                    </div>
                                     <span className="block font-mono text-[10px] text-cyan-400/85">
                                       {row.kode || "—"}
                                     </span>
@@ -2245,34 +2365,29 @@ function DistributorBarangPageContent() {
                         ) : null}
                       </Labeled>
                     </div>
-
-                    <div className="text-[11px] font-medium text-cyan-200/90 pt-1 border-t border-slate-800/70">
-                      Produk distributor
-                    </div>
                   </>
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Labeled label="Konsolidasi">
-                    <select
-                      disabled={!adminView}
-                      value={formKonsolidasi ? "1" : "0"}
-                      onChange={(e) => setFormKonsolidasi(e.target.value === "1")}
-                      onKeyDown={onModalEnterAdvanceField}
-                      className={[
-                        "w-full bg-slate-900/50 border border-cyan-800/50 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400",
-                        !adminView ? "opacity-70 cursor-not-allowed" : "",
-                      ].join(" ")}
-                    >
-                      <option value="0">Non Konsolidasi</option>
-                      <option value="1">Konsolidasi</option>
-                    </select>
-                    <p className="mt-1 text-[10px] text-cyan-500/60">
-                      {adminView
-                        ? "Admin dapat mengubah status konsolidasi produk ini."
-                        : "Otomatis sesuai profil distributor Anda"}
-                    </p>
-                  </Labeled>
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[11px] font-semibold text-cyan-200">
+                      Status Konsolidasi
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {formKonsolidasi ? (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-bold border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]">
+                          <div className="w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+                          Konsolidasi
+                        </div>
+                      ) : (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-500/20 text-slate-300 text-[11px] font-bold border border-slate-500/30">
+                          <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                          Non Konsolidasi
+                        </div>
+                      )}
+                      <Lock className="w-3 h-3 text-cyan-500/50" />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2331,7 +2446,11 @@ function DistributorBarangPageContent() {
                     <input
                       ref={formUkuranInputRef}
                       value={formUkuran}
-                      onChange={(e) => setFormUkuran(e.target.value)}
+                      onChange={(e) =>
+                        setFormUkuran(
+                          normalizeDistributorUkuranSpacing(e.target.value),
+                        )
+                      }
                       onKeyDown={onModalEnterAdvanceField}
                       className="w-full bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400"
                       placeholder="mis. 3.0 mm"
@@ -2357,27 +2476,6 @@ function DistributorBarangPageContent() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Labeled label="Harga Distributor">
-                    <input
-                      ref={formHargaInputRef}
-                      value={formHargaJual}
-                      onChange={(e) =>
-                        setFormHargaJual(
-                          formatDistributorHargaInputValue(e.target.value),
-                        )
-                      }
-                      onKeyDown={onModalEnterAdvanceField}
-                      inputMode="numeric"
-                      autoComplete="off"
-                      className="w-full bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400 tabular-nums placeholder:text-slate-600"
-                      placeholder="6.000.000"
-                      disabled={false}
-                    />
-                    <span className="text-[10px] text-cyan-500/80 font-normal">
-                      Otomatis pemisah ribuan (titik). Boleh tempel angka atau
-                      teks dengan Rp.
-                    </span>
-                  </Labeled>
                   <Labeled label="stok (Cathlab)">
                     <input
                       ref={formStokCathlabInputRef}
@@ -2393,27 +2491,8 @@ function DistributorBarangPageContent() {
                       className="w-full bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-400 tabular-nums"
                       disabled={false}
                     />
-                    <span className="text-[10px] text-cyan-500/80 font-normal">
-                      {editing
-                        ? "Jumlah stok agregat yang diinginkan (sama dengan kolom tabel). Ubah angka lalu Simpan — sistem menyesuaikan inventaris."
-                        : "Opsional. Isi jumlah stok awal Cathlab; kosongkan jika mulai dari 0."}
-                    </span>
                   </Labeled>
                 </div>
-
-                <p className="text-[10px] text-cyan-500/85 leading-relaxed border-t border-slate-800/60 pt-3 mt-1">
-                  Kolom{" "}
-                  <strong className="text-cyan-300/90">Stok Cathlab</strong> di
-                  tabel dihitung dari{" "}
-                  <strong className="text-cyan-200/90">inventaris</strong>{" "}
-                  (agregat). Field{" "}
-                  <strong className="text-cyan-200/90">Ganti stok</strong> di
-                  atas menyamakan total dengan fisik; retur terstruktur lewat{" "}
-                  <strong className="text-amber-200/90">
-                    Aksi → Keluarkan
-                  </strong>{" "}
-                  dan <strong className="text-cyan-200/90">Panel retur</strong>.
-                </p>
               </div>
 
               <div className="px-4 py-3 border-t border-slate-800/80 flex justify-end gap-2 shrink-0">
@@ -2446,7 +2525,7 @@ function DistributorBarangPageContent() {
           </p>
           <video
             ref={videoRef}
-            className="w-full max-w-md rounded-lg border border-emerald-700/60 bg-black aspect-video object-cover"
+            className="w-full max-w-[280px] rounded-2xl border-2 border-emerald-500/50 bg-black aspect-[3/4] object-cover shadow-[0_0_30px_rgba(16,185,129,0.3)]"
             playsInline
             muted
           />

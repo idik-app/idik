@@ -44,6 +44,11 @@ const GlobalLogoutOverlay = dynamic(
   { ssr: false },
 );
 
+const JarvisFloatingAgent = dynamic(
+  () => import("@/components/JarvisFloatingAgent"),
+  { ssr: false },
+);
+
 export default function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Defer heavy app boot (Supabase, registry) from initial bundle.
@@ -78,6 +83,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
                     <TabProvider>
                       <AIProvider>
                         {children}
+                        <JarvisFloatingAgent />
                         <GlobalLogoutOverlay />
                         <UpdateBanner />
                       </AIProvider>

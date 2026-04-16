@@ -717,17 +717,13 @@ export default function PemakaianAlkesModal({
         );
         if (seq !== bootstrapSeqRef.current || !j?.ok || !j.data) return;
         const d = j.data;
-        setDrawerDokter((prev) =>
-          prev.trim()
-            ? prev
-            : canonicalDoctorDisplayValue(
-                doctorOptionsRef.current,
-                String(d.dokter ?? "").trim(),
-              ),
+        setDrawerDokter(
+          canonicalDoctorDisplayValue(
+            doctorOptionsRef.current,
+            String(d.dokter ?? "").trim(),
+          ),
         );
-        setDrawerRuangan((prev) =>
-          prev.trim() ? prev : String(d.ruangan ?? "").trim(),
-        );
+        setDrawerRuangan(String(d.ruangan ?? "").trim());
         const teamParts = [d.asisten, d.sirkuler, d.logger]
           .map((s) => String(s ?? "").trim())
           .filter(Boolean);
@@ -934,10 +930,7 @@ export default function PemakaianAlkesModal({
               ? resolvedH
               : next.harga;
 
-        const resolvedK = row
-          ? normalizeKategoriAlkesLine(row.kategori) ||
-            normalizeKategoriAlkesLine(row.jenis)
-          : undefined;
+        const resolvedK = row ? kategoriAlkesFromVariantPickRow(row) : undefined;
 
         const k =
           patch.kategori !== undefined
@@ -1048,10 +1041,7 @@ export default function PemakaianAlkesModal({
             );
 
         const h = row ? hargaFromPickRow(row, barangVariantList) : undefined;
-        const k = row
-          ? normalizeKategoriAlkesLine(row.kategori) ||
-            normalizeKategoriAlkesLine(row.jenis)
-          : undefined;
+        const k = row ? kategoriAlkesFromVariantPickRow(row) : undefined;
 
         const currentHarga =
           line.harga != null && Number.isFinite(line.harga) ? line.harga : null;
@@ -1255,9 +1245,7 @@ export default function PemakaianAlkesModal({
   function applyBarangPick(pick: MasterBarangPickRow) {
     const nextId = newDrawerLineId();
     const hPick = hargaFromPickRow(pick, barangVariantList);
-    const kCat =
-      normalizeKategoriAlkesLine(pick.kategori) ||
-      normalizeKategoriAlkesLine(pick.jenis);
+    const kCat = kategoriAlkesFromVariantPickRow(pick);
 
     const status = (pick as any).is_konsolidasi ? "KONSOLIDASI" : "NON KONSOLIDASI";
     let rawUkuran = pick.ukuran?.trim() || undefined;
@@ -2226,11 +2214,7 @@ export default function PemakaianAlkesModal({
                                         v,
                                         barangVariantList,
                                       );
-                                      const kCat =
-                                        normalizeKategoriAlkesLine(
-                                          v.kategori,
-                                        ) ||
-                                        normalizeKategoriAlkesLine(v.jenis);
+                                      const kCat = kategoriAlkesFromVariantPickRow(v);
 
                                       // JANGAN menimpa LOT, Ukuran, ED jika sudah ada nilainya di baris (line)
                                       const currentLot = String(

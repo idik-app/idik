@@ -35,6 +35,7 @@ type PemakaianRow = {
   order_id?: string | null;
   pasien?: string | null;
   dokter?: string | null;
+  ruangan?: string | null;
   no_rm?: string | null;
   status_order?: string | null;
   catatan?: string | null;
@@ -189,6 +190,10 @@ function tableDokter(row: PemakaianRow): string {
   return d || "—";
 }
 
+function tableRuangan(row: PemakaianRow): string {
+  return row.ruangan?.trim() || "—";
+}
+
 /** Kunci penggabungan: tanggal + pasien (RM & nama) + PT — beda PT tetap baris terpisah. */
 function mergeGroupKey(row: PemakaianRow): string {
   const tgl = String(row.tanggal ?? "").trim();
@@ -246,6 +251,17 @@ function tableDokterGroup(rows: PemakaianRow[]): string {
   for (const r of rows) {
     const d = tableDokter(r);
     if (d && d !== "—") set.add(d);
+  }
+  if (set.size === 0) return "—";
+  if (set.size === 1) return [...set][0]!;
+  return [...set].join(" · ");
+}
+
+function tableRuanganGroup(rows: PemakaianRow[]): string {
+  const set = new Set<string>();
+  for (const r of rows) {
+    const v = tableRuangan(r);
+    if (v && v !== "—") set.add(v);
   }
   if (set.size === 0) return "—";
   if (set.size === 1) return [...set][0]!;
@@ -320,10 +336,12 @@ function buildShareBodyGroup(rows: PemakaianRow[], infoLink?: string): string {
   const headParts = rowKParts(head);
   const pasienLine = formatPasienDetailLine(head, headParts);
   const dokters = detailDokterLine(rows);
+  const ruangan = tableRuanganGroup(rows);
   const lines: string[] = [];
   lines.push(`Tanggal: ${formatReceiptDateGroup(rows)}`);
   lines.push(`ID Order: ${displayOrderIdsGroup(rows, " | ")}`);
   if (pasienLine) lines.push(`Pasien: ${pasienLine}`);
+  if (ruangan && ruangan !== "—") lines.push(`Ruangan: ${ruangan}`);
   if (dokters) lines.push(`Dokter: ${dokters.replace(/\s*·\s*/g, " | ")}`);
   const pt = head.distributor_nama?.trim();
   if (pt) lines.push(`PT / Distributor: ${pt}`);
@@ -383,10 +401,13 @@ function buildShareBody(
 ): string {
   const pasienLine = formatPasienDetailLine(row, parts);
   const dokterFinal = row.dokter?.trim() || parts.dokter;
+  const ruanganFinal = row.ruangan?.trim();
   const lines: string[] = [];
   lines.push(`Tanggal: ${formatReceiptDate(row)}`);
   lines.push(`ID Order: ${displayOrderId(row, parts)}`);
   if (pasienLine) lines.push(`Pasien: ${pasienLine}`);
+  if (ruanganFinal && ruanganFinal !== "—")
+    lines.push(`Ruangan: ${ruanganFinal}`);
   if (dokterFinal) lines.push(`Dokter: ${dokterFinal}`);
   const pt = row.distributor_nama?.trim();
   if (pt) lines.push(`PT / Distributor: ${pt}`);
@@ -456,12 +477,18 @@ function buildWhatsAppBodyFromGroup(
       lines.push(pasienLine);
     }
     const d = r.dokter?.trim() || p.dokter?.trim();
-    if (d) {
+      if (d) {
+        lines.push("");
+        lines.push("Dokter");
+        lines.push(d);
+      }
+      const r_val = row.ruangan?.trim();
+      if (r_val && r_val !== "—") {
+        lines.push("");
+        lines.push("Ruangan");
+        lines.push(r_val);
+      }
       lines.push("");
-      lines.push("Dokter");
-      lines.push(d);
-    }
-    lines.push("");
     lines.push("Barang dipakai");
     appendWaPemakaianLines(lines, r, 1);
     lines.push("");
@@ -473,6 +500,7 @@ function buildWhatsAppBodyFromGroup(
   const headParts = rowKParts(head);
   const pasienLine = formatPasienDetailLine(head, headParts);
   const dokters = waDokterText(rows);
+  const ruangan = tableRuanganGroup(rows);
   const lines: string[] = [];
   lines.push("Tanggal");
   lines.push(formatReceiptDateGroup(rows));
@@ -485,6 +513,11 @@ function buildWhatsAppBodyFromGroup(
     lines.push("");
     lines.push("Dokter");
     lines.push(dokters);
+  }
+  if (ruangan && ruangan !== "—") {
+    lines.push("");
+    lines.push("Ruangan");
+    lines.push(ruangan);
   }
   lines.push("");
   lines.push("Barang dipakai");
@@ -523,6 +556,7 @@ function rowMatchesSearch(r: PemakaianRow, q: string): boolean {
     r.order_id ?? "",
     r.pasien ?? "",
     r.dokter ?? "",
+    r.ruangan ?? "",
     r.no_rm ?? "",
     r.status_order ?? "",
     r.catatan ?? "",
@@ -547,6 +581,7 @@ function buildRowSearchText(r: PemakaianRow): string {
     r.order_id ?? "",
     r.pasien ?? "",
     r.dokter ?? "",
+    r.ruangan ?? "",
     r.no_rm ?? "",
     r.status_order ?? "",
     r.catatan ?? "",
@@ -779,6 +814,11 @@ function DistributorPemakaianPageContent() {
     [detailGroup],
   );
 
+  const detailRuanganMerged = useMemo(
+    () => (detailGroup?.length ? tableRuanganGroup(detailGroup) : null),
+    [detailGroup],
+  );
+
   const focusOrderSet = useMemo(
     () => parseFocusOrderSet(focusOrderParam),
     [focusOrderParam],
@@ -874,6 +914,9 @@ function DistributorPemakaianPageContent() {
     const dMerged = focusedDataGroup
       ? detailDokterLine(focusedDataGroup)
       : null;
+    const rMerged = focusedDataGroup
+      ? tableRuanganGroup(focusedDataGroup)
+      : null;
 
     return (
       <div className="space-y-6">
@@ -915,6 +958,12 @@ function DistributorPemakaianPageContent() {
                       Pasien
                     </p>
                     <p className="text-cyan-50 text-base">{pLine || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-cyan-500/70 mb-1">
+                      Ruangan
+                    </p>
+                    <p className="text-cyan-50 text-base">{rMerged || "—"}</p>
                   </div>
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-cyan-500/70 mb-1">
@@ -1204,7 +1253,7 @@ function DistributorPemakaianPageContent() {
           if (!open) setDetailGroup(null);
         }}
       >
-        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto border-cyan-600/40 bg-slate-950/95 text-cyan-100">
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto border-cyan-600/40 bg-slate-950 text-cyan-100">
           {detailGroup && detailHead ? (
             <>
               <DialogHeader>
@@ -1232,6 +1281,14 @@ function DistributorPemakaianPageContent() {
                       👤
                     </span>
                     {detailPasienLine}
+                  </p>
+                ) : null}
+                {detailRuanganMerged && detailRuanganMerged !== "—" ? (
+                  <p className="text-cyan-50">
+                    <span className="mr-1.5" aria-hidden>
+                      📍
+                    </span>
+                    {detailRuanganMerged}
                   </p>
                 ) : null}
                 {detailDokterMerged ? (
@@ -1326,7 +1383,7 @@ function DistributorPemakaianPageContent() {
           if (!open) setSharePreview(null);
         }}
       >
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-cyan-600/40 bg-slate-950/95 text-cyan-100">
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto border-cyan-600/40 bg-slate-950 text-cyan-100">
           {sharePreview ? (
             <>
               <DialogHeader>

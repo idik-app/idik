@@ -254,7 +254,7 @@ export default function TableToolbar({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="overflow-hidden"
+            className={cn(isCollapsed ? "overflow-hidden" : "overflow-visible")}
           >
             <div className="flex flex-col gap-0.5 px-1 py-0.5 sm:px-1.5 sm:py-1">
               <div
@@ -608,7 +608,12 @@ export default function TableToolbar({
                 </button>
               </div>
 
-              <div className="relative z-10 flex flex-wrap items-end gap-1.5 sm:gap-2 min-w-0">
+              <div
+                className={cn(
+                  "relative flex flex-wrap items-end gap-1.5 sm:gap-2 min-w-0",
+                  UI_LAYERS.toolbarFilterRow,
+                )}
+              >
                 <div className="relative min-w-0 w-full min-[480px]:w-auto min-[480px]:flex-1 min-[480px]:min-w-[12rem] min-[480px]:max-w-2xl group">
                   <Search
                     size={13}

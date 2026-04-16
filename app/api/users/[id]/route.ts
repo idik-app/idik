@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/guards";
 import { logAudit } from "@/app/api/audit/log";
-import { mapAppUserRow, ROLES_REQUIRE_DISTRIBUTOR } from "@/lib/api/app-user-distributor";
+import { mapAppUserRow, ROLES_REQUIRE_DISTRIBUTOR, syncDistributorKonsolidasi } from "@/lib/api/app-user-distributor";
 
 const ROLE_OPTIONS = [
   "pasien",
@@ -130,29 +130,57 @@ export async function PATCH(
     } else if (needsDist) {
       const namaPt =
         typeof distributor_nama_pt === "string" ? distributor_nama_pt.trim() : "";
+      const did =
+        typeof distributor_id === "string" && distributor_id.trim()
+          ? distributor_id.trim()
+          : null;
+
       if (namaPt) {
-        const { data: inserted, error: insErr } = await supabase
-          .from("master_distributor")
-          .insert({
-            nama_pt: namaPt,
-            is_active: true,
-            is_konsolidasi: distributor_is_konsolidasi ?? false,
-          })
-          .select("id")
-          .single();
-        if (insErr) {
-          return NextResponse.json(
-            { ok: false, message: insErr.message || "Gagal membuat distributor" },
-            { status: 400 }
-          );
+        if (did) {
+          // Update existing distributor name & status
+          const { error: updErr } = await supabase
+            .from("master_distributor")
+            .update({
+              nama_pt: namaPt,
+              is_konsolidasi: distributor_is_konsolidasi ?? false,
+            })
+            .eq("id", did);
+          if (updErr) {
+            return NextResponse.json(
+              { ok: false, message: updErr.message || "Gagal update nama distributor" },
+              { status: 400 }
+            );
+          }
+          // Juga sinkronkan ke barang
+          if (distributor_is_konsolidasi !== undefined) {
+            await syncDistributorKonsolidasi(supabase, did, !!distributor_is_konsolidasi);
+          }
+          updatePayload.distributor_id = did;
+        } else {
+          // Create new distributor
+          const { data: inserted, error: insErr } = await supabase
+            .from("master_distributor")
+            .insert({
+              nama_pt: namaPt,
+              is_active: true,
+              is_konsolidasi: distributor_is_konsolidasi ?? false,
+            })
+            .select("id")
+            .single();
+          if (insErr) {
+            return NextResponse.json(
+              { ok: false, message: insErr.message || "Gagal membuat distributor" },
+              { status: 400 }
+            );
+          }
+          if (!inserted?.id) {
+            return NextResponse.json(
+              { ok: false, message: "Gagal membuat distributor" },
+              { status: 400 }
+            );
+          }
+          updatePayload.distributor_id = inserted.id;
         }
-        if (!inserted?.id) {
-          return NextResponse.json(
-            { ok: false, message: "Gagal membuat distributor" },
-            { status: 400 }
-          );
-        }
-        updatePayload.distributor_id = inserted.id;
       } else if (distributor_id !== undefined) {
         if (distributor_id === null || distributor_id === "") {
           return NextResponse.json(
@@ -163,10 +191,11 @@ export async function PATCH(
         updatePayload.distributor_id = String(distributor_id).trim();
 
         if (distributor_is_konsolidasi !== undefined) {
-          await supabase
-            .from("master_distributor")
-            .update({ is_konsolidasi: !!distributor_is_konsolidasi })
-            .eq("id", updatePayload.distributor_id);
+          await syncDistributorKonsolidasi(
+            supabase,
+            updatePayload.distributor_id,
+            !!distributor_is_konsolidasi
+          );
         }
       }
     }

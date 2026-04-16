@@ -44,14 +44,34 @@ export async function resolveDistributorIdForCreate(
   if (did) {
     // Jika memilih yang sudah ada, update status konsolidasinya jika dikirim
     if (distributor_is_konsolidasi !== undefined) {
-      await supabase
-        .from("master_distributor")
-        .update({ is_konsolidasi: !!distributor_is_konsolidasi })
-        .eq("id", did);
+      await syncDistributorKonsolidasi(supabase, did, !!distributor_is_konsolidasi);
     }
     return { ok: true, distributorId: did };
   }
   return { ok: false, message: "distributor wajib untuk role ini" };
+}
+
+/** 
+ * Sinkronkan status konsolidasi di master_distributor dan seluruh barangnya di distributor_barang.
+ */
+export async function syncDistributorKonsolidasi(
+  supabase: SupabaseClient,
+  distributorId: string,
+  isKonsolidasi: boolean
+) {
+  // 1. Update master_distributor
+  const { error: mdErr } = await supabase
+    .from("master_distributor")
+    .update({ is_konsolidasi: isKonsolidasi })
+    .eq("id", distributorId);
+  if (mdErr) console.error("[syncDistributorKonsolidasi] master_distributor update error", mdErr);
+
+  // 2. Update seluruh distributor_barang
+  const { error: dbErr } = await supabase
+    .from("distributor_barang")
+    .update({ is_konsolidasi: isKonsolidasi })
+    .eq("distributor_id", distributorId);
+  if (dbErr) console.error("[syncDistributorKonsolidasi] distributor_barang update error", dbErr);
 }
 
 export function mapAppUserRow(row: Record<string, unknown>) {

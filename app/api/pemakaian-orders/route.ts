@@ -174,8 +174,9 @@ export async function POST(req: Request) {
 
   const id = newOrderId();
 
-  // --- AUTO-CREATE MASTER BARANG & DISTRIBUTOR ---
-  // Kita proses pendaftaran barang baru ke Master jika belum ada.
+  // --- AUTO-CREATE MASTER BARANG & DISTRIBUTOR & ALLOCATE STOCK ---
+  // Kita proses pendaftaran barang baru ke Master jika belum ada,
+  // dan otomatis kurangi stok FIFO jika mode PEMAKAIAN.
   try {
     const { data: allMasters } = await supabase
       .from("master_barang")
@@ -219,7 +220,7 @@ export async function POST(req: Request) {
             .from("master_distributor")
             .insert({
               nama_pt: namaDist,
-              is_konsolidasi: item.status === "KONSOLIDASI",
+              is_konsolidasi: item.isKonsolidasi,
             })
             .select("id")
             .single();
@@ -252,10 +253,44 @@ export async function POST(req: Request) {
           });
         }
       }
+
+      // 4. OTOMATIS KURANGI STOK (FIFO)
+      // Hanya jika mode PEMAKAIAN, tipe NORMAL (N), dan qtyDipakai > 0.
+      if (
+        mode === "PEMAKAIAN" &&
+        item.tipe === "N" &&
+        item.qtyDipakai > 0 &&
+        masterId
+      ) {
+        const { error: allocErr } = await supabase.rpc(
+          "allocate_pemakaian_fifo",
+          {
+            p_master_barang_id: masterId,
+            p_jumlah: item.qtyDipakai,
+            p_lokasi: "Cathlab",
+            p_tindakan_id: tindakanId,
+            p_keterangan: `Otomatis dari order ${id} (${pasien})`,
+            p_tanggal: tanggal.slice(0, 10),
+            p_order_id: id,
+          },
+        );
+
+        if (allocErr) {
+          console.error("[AllocateFIFO] Gagal untuk", namaBarang, ":", allocErr);
+          return NextResponse.json(
+            {
+              ok: false,
+              message: `Stok tidak cukup untuk "${namaBarang}". ${allocErr.message}`,
+            },
+            { status: 400 },
+          );
+        }
+      }
     }
   } catch (e) {
-    console.error("[AutoCreateMaster] Gagal:", e);
-    // Kita biarkan lanjut simpan order meskipun auto-create master gagal
+    console.error("[AutoCreateAndAllocate] Gagal:", e);
+    // Kita biarkan lanjut simpan order meskipun auto-create/allocate gagal di level catch blok
+    // Tapi jika rpc di atas return error, dia sudah stop lewat return NextResponse.
   }
 
   const row = {

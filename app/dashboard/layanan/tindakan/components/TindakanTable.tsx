@@ -29,6 +29,7 @@ import {
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { useAppDialog } from "@/contexts/AppDialogContext";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 import { extractDataFromText } from "@/lib/tindakan/reportExtractor";
 import {
   PasienCombobox,
@@ -81,15 +82,11 @@ import {
 } from "../lib/displayTindakanRow";
 import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
 import { hitungUsia } from "@/app/dashboard/pasien/utils/formatUsia";
-import {
-  useMasterDoctors,
-  useMasterRuangan,
-  useMasterTindakan,
-  useMasterPasien,
-  usePemakaianOrders,
-} from "@/app/hooks/useMasterData";
+import { useMasterDoctors, useMasterRuangan, useMasterTindakan, useMasterPasien, usePemakaianOrders } from "@/app/hooks/useMasterData";
 import { runDeduped } from "@/lib/api/runDeduped";
 import { useEventBridge } from "@/contexts/EventBridgeContext";
+import { useTheme } from "@/contexts/ThemeContext";
+import JarvisIcon from "@/components/JarvisIcon";
 
 type Adapter = ReturnType<typeof useTindakanBridgeAdapter>;
 
@@ -105,9 +102,9 @@ const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
 const TINDAKAN_SHEET_CELL =
   "border border-amber-200/60 dark:border-amber-800/45";
 
-const ZOOM_CELL_CLASSES = "focus-within:z-[30] focus-within:relative";
+const ZOOM_CELL_CLASSES = `focus-within:${UI_LAYERS.tableZoomedCell} focus-within:relative`;
 const ZOOM_INNER_CLASSES =
-  "focus-within:absolute focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:top-1/2 focus-within:-translate-y-1/2 focus-within:scale-[1.3] focus-within:w-[180%] focus-within:shadow-2xl focus-within:transition-all focus-within:duration-200 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:z-[40] focus-within:p-1 focus-within:rounded-md";
+  `focus-within:absolute focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:top-1/2 focus-within:-translate-y-1/2 focus-within:scale-[1.3] focus-within:w-[180%] focus-within:shadow-2xl focus-within:transition-all focus-within:duration-200 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:${UI_LAYERS.popover} focus-within:p-1 focus-within:rounded-md`;
 
 function useDebouncedValue(value: string, ms: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -1078,6 +1075,8 @@ export default function TindakanTable({
     error,
     isSyncing,
   } = adapter;
+  const { theme } = useTheme();
+  const lightMode = theme === "light";
   const { show: notify } = useNotification();
   const { confirm: appConfirm } = useAppDialog();
 
@@ -2633,12 +2632,23 @@ export default function TindakanTable({
         {loading ? (
           <div
             className={cn(
-              "flex min-h-0 flex-1 items-center justify-center py-6 text-sm font-semibold",
+              "flex flex-col min-h-0 flex-1 items-center justify-center py-12 gap-5",
               "max-md:flex-none",
               "text-cyan-950 dark:text-cyan-300",
             )}
           >
-            Memuat tindakan…
+            <div className="relative">
+              <JarvisIcon size={80} lightMode={lightMode} />
+              <div className="absolute inset-0 bg-cyan-400/10 blur-xl rounded-full animate-pulse" />
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <span className="animate-pulse tracking-[0.2em] uppercase text-[11px] font-black opacity-90">
+                Synchronizing Systems
+              </span>
+              <span className="text-[10px] font-mono opacity-50 uppercase tracking-wider">
+                Accessing Cathlab Database...
+              </span>
+            </div>
           </div>
         ) : (
           <>
@@ -2649,7 +2659,7 @@ export default function TindakanTable({
               )}
             >
               <table className="w-full min-w-[1200px] text-sm font-semibold border-collapse border border-amber-200/65 dark:border-amber-800/50">
-                <thead className="sticky top-0 z-10">
+                <thead className={cn("sticky top-0", UI_LAYERS.tableHeader)}>
                   <tr
                     className={cn(
                       // Header tabel: gradient agar terlihat lebih elegan.
@@ -2769,8 +2779,9 @@ export default function TindakanTable({
                           "text-cyan-950/90 dark:text-cyan-500/70",
                         )}
                       >
-                        <div className="flex flex-col items-center gap-3">
-                          <span>{emptyMessage}</span>
+                        <div className="flex flex-col items-center gap-4 py-8">
+                          <JarvisIcon size={64} lightMode={lightMode} className="opacity-30" />
+                          <span className="tracking-wide opacity-80">{emptyMessage}</span>
                           {Boolean(filterPasienId.trim() || filterRm.trim()) ? (
                             <button
                               type="button"
@@ -3087,7 +3098,12 @@ export default function TindakanTable({
                               >
                                 {/* CENTER LABEL — Description of Hovered Icon */}
                                 {hoveredLabel && hoveredRowKey === key && (
-                                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[45]">
+                                  <div
+                                    className={cn(
+                                      "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none",
+                                      UI_LAYERS.tableHoveredLabel,
+                                    )}
+                                  >
                                     <div className="bg-slate-900/95 text-white text-[14px] font-extrabold px-4 py-1 rounded-full shadow-2xl border border-white/30 whitespace-nowrap animate-in fade-in zoom-in duration-200 tracking-wide uppercase">
                                       {hoveredLabel}
                                     </div>

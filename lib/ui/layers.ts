@@ -6,33 +6,41 @@ export const UI_LAYERS = {
   /** Elemen dasar di bawah konten utama */
   base: "z-[1]",
   /** Sidebar dan navigasi utama */
-  sidebar: "z-[40]",
+  sidebar: "z-[60]",
   /** Baris aksi toolbar (tombol + submenu) harus di atas baris filter di bawahnya */
   toolbarActionsRow: "z-20",
-  /** Head-up display / status bar kecil */
-  hud: "z-30",
+  /** Baris filter di bawah aksi toolbar */
+  toolbarFilterRow: "z-10",
+  /** Head-up display / status bar kecil (misal: toolbar tabel) */
+  hud: "z-[48]",
+  /** Sticky table header */
+  tableHeader: "z-10",
+  /** Zoomed table cell (focus-within) */
+  tableZoomedCell: "z-[30]",
+  /** Hovered label inside table cell */
+  tableHoveredLabel: "z-[45]",
   /** Backdrop untuk detail drawer */
   detailBackdrop: "z-[45]",
   /** Overlay standar (modal backdrop) */
-  overlay: "z-40",
+  overlay: "z-[100]",
   /** Modal standar */
-  modal: "z-50",
+  modal: "z-[110]",
   /** Modal dengan prioritas lebih tinggi */
-  modalHigh: "z-[55]",
+  modalHigh: "z-[115]",
   /** Modal paling atas */
-  modalTop: "z-[60]",
+  modalTop: "z-[120]",
   /** Floating Action Button (FAB) */
-  fab: "z-[100]",
+  fab: "z-[90]",
   /** Form modal khusus (mis. DokterModalForm) */
-  modalForm: "z-[120]",
+  modalForm: "z-[140]",
   /** Konten di dalam modal form */
-  modalFormContent: "z-[130]",
+  modalFormContent: "z-[150]",
   /** Dialog konfirmasi sistem */
   confirmDialog: "z-[200]",
   /** Manager modal global */
   modalManager: "z-[220]",
   /** Kartu melayang (popover/tooltip besar) */
-  floatingCard: "z-[310]",
+  floatingCard: "z-[85]",
   /** Topbar aplikasi */
   topbar: "z-[350]",
   /** Panel pengaturan (HoloSettings) */
@@ -55,4 +63,6 @@ export const UI_LAYERS = {
   fullscreenOverlay: "z-[999]",
   /** Elemen layar penuh (intro/loader) */
   fullscreen: "z-[9999]",
+  /** Jarvis Assistant Agent */
+  jarvisAgent: "z-[100100]",
 } as const;

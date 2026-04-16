@@ -1,0 +1,303 @@
+"use client";
+
+import { useEffect, useState, useCallback, useRef } from "react";
+import { motion, useAnimation, AnimatePresence } from "framer-motion";
+import { useAI } from "@/app/contexts/AIContext";
+import JarvisAgent from "./JarvisAgent";
+import { useUI } from "@/contexts/UIContext";
+import { UI_LAYERS } from "@/lib/ui/layers";
+import { cn } from "@/lib/utils";
+import Portal from "./Portal";
+import { useRouter, usePathname } from "next/navigation";
+import { 
+  House, 
+  Users, 
+  Stethoscope, 
+  Activity, 
+  Box, 
+  Database,
+  X 
+} from "lucide-react";
+
+interface TargetPosition {
+  x: number;
+  y: number;
+  label?: string;
+}
+
+const MENU_ITEMS = [
+  { id: "dashboard", label: "Dashboard", icon: <House size={20} />, href: "/dashboard", color: "#22d3ee" },
+  { id: "pasien", label: "Pasien", icon: <Users size={20} />, href: "/dashboard/pasien", color: "#a855f7" },
+  { id: "dokter", label: "Dokter", icon: <Stethoscope size={20} />, href: "/dashboard/dokter", color: "#eab308" },
+  { id: "tindakan", label: "Tindakan", icon: <Activity size={20} />, href: "/dashboard/layanan/tindakan", color: "#10b981" },
+  { id: "inventaris", label: "Inventaris", icon: <Box size={20} />, href: "/dashboard/inventaris", color: "#f43f5e" },
+  { id: "database", label: "Database", icon: <Database size={20} />, href: "/system/database", color: "#6366f1" },
+];
+
+export default function JarvisFloatingAgent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { mode: aiMode } = useAI();
+  const { themeMode } = useUI();
+  const controls = useAnimation();
+  const [target, setTarget] = useState<TargetPosition | null>(null);
+  const [isVisible, setIsVisible] = useState(true);
+  const [isPatrolling, setIsPatrolling] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isInteracting, setIsInteracting] = useState(false);
+  const isMounted = useRef(true);
+
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // --- Exclude certain routes ---
+  const isExcludedRoute = 
+    pathname?.startsWith("/distributor") || 
+    pathname?.startsWith("/depo") || 
+    pathname?.startsWith("/cssd");
+
+  // --- Initial Position (Force Center for Visibility) ---
+  useEffect(() => {
+    // Set to center of screen on mount after a short delay
+    const timer = setTimeout(() => {
+      const centerX = window.innerWidth / 2 - 100;
+      const centerY = window.innerHeight / 2 - 150;
+      controls.set({ x: centerX, y: centerY, opacity: 1, scale: 1 });
+      console.log("🤖 Jarvis Agent Positioned at Center:", centerX, centerY);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [controls]);
+
+  // --- Force Always Visible for Debugging ---
+  useEffect(() => {
+    setIsVisible(true);
+  }, [aiMode]);
+
+  // --- Stop movement when menu opens or mouse is interacting ---
+  useEffect(() => {
+    if (isOpen || isInteracting) {
+      controls.stop();
+    }
+  }, [isOpen, isInteracting, controls]);
+
+  const startPatrol = useCallback(async () => {
+    if (isPatrolling || isOpen || isInteracting) return;
+    setIsPatrolling(true);
+
+    // Initial wait to let user see Jarvis at center
+    await new Promise((r) => setTimeout(r, 6000));
+
+    while (true) {
+      if (!isMounted.current || target || isOpen || isInteracting) {
+        setIsPatrolling(false); // Stop patrolling state
+        return; // Exit the loop entirely
+      }
+
+      const nextX = Math.random() * (window.innerWidth - 250) + 125;
+      const nextY = Math.random() * (window.innerHeight - 350) + 175;
+      
+      console.log("🚀 Jarvis Patrolling to:", nextX, nextY);
+
+      if (isMounted.current) {
+        await controls.start({
+          x: nextX,
+          y: nextY,
+          transition: { 
+            duration: 12 + Math.random() * 8, 
+            ease: "linear" 
+          },
+        });
+      }
+
+      // Pause briefly at points
+      if (isMounted.current) {
+        await new Promise(r => setTimeout(r, 3000 + Math.random() * 4000));
+      }
+    }
+  }, [controls, isPatrolling, target, isOpen]);
+
+  // --- Move to Target ---
+  const moveToTarget = useCallback(async (newTarget: TargetPosition) => {
+    setTarget(newTarget);
+    setIsVisible(true);
+    
+    await controls.start({
+      x: newTarget.x - 100, // Center the agent (width/2)
+      y: newTarget.y - 150, // Hover above the point
+      opacity: 1,
+      scale: 1,
+      transition: { duration: 1.5, ease: "easeInOut" }
+    });
+
+    // Stay for 5 seconds
+    setTimeout(() => setTarget(null), 5000);
+  }, [controls]);
+
+  // --- Listen for Visit Requests ---
+  useEffect(() => {
+    const handleVisit = (e: any) => {
+      if (e.detail) {
+        moveToTarget(e.detail as TargetPosition);
+      }
+    };
+
+    window.addEventListener("jarvis:visit", handleVisit);
+    return () => window.removeEventListener("jarvis:visit", handleVisit);
+  }, [moveToTarget]);
+
+  // --- Start Patrolling if Visible and no target ---
+  useEffect(() => {
+    if (isVisible && !target && !isPatrolling && !isOpen && !isInteracting) {
+      startPatrol();
+    }
+  }, [isVisible, target, startPatrol, isPatrolling, isOpen, isInteracting]);
+
+  if (!isVisible || isExcludedRoute) return null;
+
+  const RADIUS = 110;
+
+  return (
+    <Portal>
+      {/* Background Overlay when menu is open */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          pointerEvents: isOpen ? "auto" : "none",
+          zIndex: 999998,
+        }}
+        onClick={() => setIsOpen(false)}
+      >
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+          )}
+        </AnimatePresence>
+      </div>
+
+      <motion.div
+        drag={!isOpen}
+        dragMomentum={false}
+        initial={{ x: -300, y: -300, opacity: 0 }}
+        animate={controls}
+        whileDrag={{ scale: 1.1, cursor: "grabbing" }}
+        onMouseEnter={() => setIsInteracting(true)}
+        onMouseLeave={() => setIsInteracting(false)}
+        style={{
+          position: "fixed",
+          left: 0,
+          top: 0,
+          zIndex: 999999, // Super layer
+          pointerEvents: "auto",
+        }}
+        className="group flex items-center justify-center"
+      >
+        <AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.5 }}
+            className="relative flex items-center justify-center"
+          >
+            {/* --- ORBITAL MENU --- */}
+            <AnimatePresence>
+              {isOpen && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  {/* Holographic Backdrop Circle */}
+                  <motion.div
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1.3, opacity: 0.2 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    className="absolute w-[260px] h-[260px] rounded-full border border-cyan-400 border-dashed animate-spin-slow"
+                  />
+
+                  {MENU_ITEMS.map((item, index) => {
+                    const angle = (index / MENU_ITEMS.length) * 2 * Math.PI - Math.PI / 2;
+                    const x = Math.cos(angle) * RADIUS;
+                    const y = Math.sin(angle) * RADIUS;
+
+                    return (
+                      <motion.button
+                        key={item.id}
+                        initial={{ x: 0, y: 0, scale: 0, opacity: 0, rotate: -180 }}
+                        animate={{ x, y, scale: 1, opacity: 1, rotate: 0 }}
+                        exit={{ x: 0, y: 0, scale: 0, opacity: 0, rotate: 180 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 260,
+                          damping: 20,
+                          delay: index * 0.05,
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(item.href);
+                          setIsOpen(false);
+                        }}
+                        className="absolute w-12 h-12 rounded-xl flex items-center justify-center text-white border border-white/20 hover:border-white/50 transition-colors shadow-lg group/item"
+                        style={{ backgroundColor: `${item.color}22` }}
+                      >
+                        <div
+                          className="absolute inset-0 rounded-xl opacity-0 group-hover/item:opacity-100 transition-opacity blur-md"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <div className="relative z-10" style={{ color: item.color }}>
+                          {item.icon}
+                        </div>
+
+                        {/* Hover Tooltip */}
+                        <div className="absolute -bottom-6 opacity-0 group-hover/item:opacity-100 transition-opacity whitespace-nowrap text-[10px] font-bold text-white uppercase tracking-tighter bg-black/60 px-2 py-0.5 rounded-sm border border-white/10">
+                          {item.label}
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              )}
+            </AnimatePresence>
+
+            <div
+              className="cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen(!isOpen);
+              }}
+            >
+              <JarvisAgent
+                size={isOpen ? 60 : 40}
+                status={target ? "diagnosing" : aiMode}
+                lightMode={themeMode === "light"}
+                isOpen={isOpen}
+              />
+            </div>
+
+            {/* Label Indicator (Hidden when open) */}
+            {target?.label && !isOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md border border-cyan-400/50 px-3 py-1 rounded text-[10px] text-cyan-300 font-bold tracking-widest uppercase shadow-[0_0_10px_rgba(34,211,238,0.3)]"
+              >
+                {target.label}
+              </motion.div>
+            )}
+
+            {/* Floating Glow Aura */}
+            {!isOpen && (
+              <div className="absolute inset-0 bg-cyan-500/10 blur-3xl rounded-full -z-10 animate-pulse" />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </motion.div>
+    </Portal>
+  );
+}

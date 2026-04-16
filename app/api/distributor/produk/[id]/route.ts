@@ -73,8 +73,20 @@ export async function PATCH(
     }
   }
 
+  const distributorId = String(existing.distributor_id);
+
+  // 1-PINTU: Ambil status is_konsolidasi dari master_distributor (Admin Control)
+  const { data: distProfile } = await supabase
+    .from("master_distributor")
+    .select("is_konsolidasi")
+    .eq("id", distributorId)
+    .maybeSingle();
+
+  const centralizedIsKonsolidasi = distProfile?.is_konsolidasi ?? false;
+
   const payload: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
+    is_konsolidasi: centralizedIsKonsolidasi, // OVERRIDE: Sesuai profil distributor (Admin Control)
   };
   if (body?.kode_distributor !== undefined)
     payload.kode_distributor = body.kode_distributor
@@ -87,8 +99,6 @@ export async function PATCH(
     payload.min_stok = body.min_stok === null ? null : Number(body.min_stok);
   if (body?.is_active !== undefined)
     payload.is_active = Boolean(body.is_active);
-  if (body?.is_konsolidasi !== undefined)
-    payload.is_konsolidasi = Boolean(body.is_konsolidasi);
 
   const catalog = parseDistributorBarangExtra(
     body as Record<string, unknown>,
@@ -151,6 +161,20 @@ export async function PATCH(
       { ok: false, message: error.message },
       { status: 500 },
     );
+
+  // Jika admin mengedit nama master
+  if (idAuth.isAdminView && body?.nama_master !== undefined) {
+    const newName = String(body.nama_master).trim();
+    if (newName) {
+      const { error: mbErr } = await supabase
+        .from("master_barang")
+        .update({ nama: newName })
+        .eq("id", existing.master_barang_id);
+      if (mbErr) {
+        console.error("[PATCH /api/distributor/produk/[id]] mb update err:", mbErr);
+      }
+    }
+  }
 
   const updatedKeys = Object.keys(payload).filter((k) => k !== "updated_at");
   void insertDistributorEvent(supabase, {

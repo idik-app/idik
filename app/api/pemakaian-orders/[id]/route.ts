@@ -216,7 +216,7 @@ export async function PATCH(req: Request, { params }: Params) {
 
   const { data: existing, error: fetchErr } = await supabase
     .from("cathlab_pemakaian_order")
-    .select("id, status, items")
+    .select("id, status, items, mode, tanggal, pasien")
     .eq("id", id)
     .maybeSingle();
 
@@ -330,6 +330,51 @@ export async function PATCH(req: Request, { params }: Params) {
     );
   }
 
+  // --- AUTO-REALLOCATE STOCK ---
+  // Jika items atau status berubah, kita hitung ulang stok FIFO.
+  const isPemakaian = (body.mode || existing.mode) === "PEMAKAIAN";
+  if (isPemakaian && (body.items !== undefined || body.status !== undefined)) {
+    try {
+      // 1. Kembalikan stok lama (reverse)
+      await supabase.rpc("reverse_pemakaian_order_allocations", {
+        p_order_id: id,
+      });
+
+      // 2. Alokasikan stok baru (kecuali jika status baru adalah DRAFT)
+      const newStatus = (patch.status as string) || (existing.status as string);
+      if (newStatus !== "DRAFT") {
+        const itemsToAllocate = (patch.items as NormalizedLine[]) || (existing.items as NormalizedLine[]);
+        
+        // Ambil data master untuk lookup ID
+        const { data: allMasters } = await supabase.from("master_barang").select("id, nama");
+        
+        for (const item of itemsToAllocate) {
+          if (item.tipe === "N" && item.qtyDipakai > 0) {
+            const masterId = allMasters?.find(
+              (m) => m.nama.toLowerCase() === item.barang.toLowerCase()
+            )?.id;
+
+            if (masterId) {
+              const { error: allocErr } = await supabase.rpc("allocate_pemakaian_fifo", {
+                p_master_barang_id: masterId,
+                p_jumlah: item.qtyDipakai,
+                p_lokasi: "Cathlab",
+                p_order_id: id,
+                p_tanggal: (patch.tanggal as string || existing.tanggal as string || "").slice(0, 10) || undefined,
+                p_keterangan: `Update dari order ${id} (${body.pasien || existing.pasien})`,
+              });
+              if (allocErr) {
+                return NextResponse.json({ ok: false, message: `Stok tidak cukup untuk "${item.barang}". ${allocErr.message}` }, { status: 400 });
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("[PatchOrder] Gagal re-allocate stock:", e);
+    }
+  }
+
   const { data: updated, error: upErr } = await supabase
     .from("cathlab_pemakaian_order")
     .update(patch)
@@ -371,6 +416,15 @@ export async function DELETE(_req: Request, { params }: Params) {
       },
       { status: 503 },
     );
+  }
+
+  // REVERSE ALLOCATIONS before deleting the order
+  try {
+    await supabase.rpc("reverse_pemakaian_order_allocations", {
+      p_order_id: id,
+    });
+  } catch (e) {
+    console.warn("[DeleteOrder] Gagal reverse allocations (mungkin sudah kosong):", e);
   }
 
   const { data, error } = await supabase

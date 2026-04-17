@@ -25,6 +25,8 @@ export type TindakanFilteredSummary = {
   tindakanBreakdown?: string[];
   /** Rincian dokter untuk KPI total dokter (hari ini). */
   dokterBreakdown?: string[];
+  /** Rincian dokter untuk KPI PPCI (minggu ini). */
+  ppciDokterBreakdown?: string[];
   /** Mode perhitungan KPI aktif. */
   kpiMode?: "default" | "filter";
   /** Label mode KPI untuk ditampilkan ke user. */
@@ -45,6 +47,8 @@ type SummaryProps = {
   onTodayKpiClick?: () => void;
   /** Saat klik KPI "Fast-Track" (variant header). */
   onFastTrackKpiClick?: () => void;
+  /** Saat klik KPI "PPCI Minggu Ini". */
+  onWeeklyPpciKpiClick?: () => void;
 };
 
 type SummaryItem = {
@@ -88,6 +92,14 @@ function pickItemStyle(
       tone: "from-sky-50/95 to-white border-sky-300/50 dark:from-black dark:to-black dark:border-sky-800/35",
       iconWrap:
         "border-sky-400/45 bg-sky-100/90 text-sky-900 dark:border-sky-700/50 dark:bg-black dark:text-sky-200/90",
+    };
+  }
+  if (key.includes("ppci")) {
+    return {
+      icon: Activity,
+      tone: "from-amber-50/95 to-white border-amber-300/50 dark:from-black dark:to-black dark:border-amber-800/40",
+      iconWrap:
+        "border-amber-400/45 bg-amber-100/90 text-amber-900 dark:border-amber-700/50 dark:bg-black dark:text-amber-200/90",
     };
   }
   if (key.includes("dokter")) {
@@ -134,8 +146,9 @@ function sortStatEntries(entries: [string, number][]): [string, number][] {
     if (k.includes("hari")) return 1;
     if (k.includes("tindakan")) return 2;
     if (k.includes("dokter")) return 3;
-    if (k.includes("laporan") || k.includes("terpetakan")) return 4;
-    return 5;
+    if (k.includes("ppci")) return 4;
+    if (k.includes("laporan") || k.includes("terpetakan")) return 5;
+    return 6;
   };
   return [...entries].sort(([a], [b]) => {
     const d = rank(a) - rank(b);
@@ -168,6 +181,7 @@ export default function TindakanSummary({
   filtered,
   onTodayKpiClick,
   onFastTrackKpiClick,
+  onWeeklyPpciKpiClick,
 }: SummaryProps) {
   const header = variant === "header";
   const entries = sortStatEntries(Object.entries(stats || {}));
@@ -175,11 +189,13 @@ export default function TindakanSummary({
     label,
     value: Number(rawValue || 0),
     filterLines:
-      label === "Total tindakan"
-        ? filtered?.tindakanBreakdown ?? []
-        : label === "Total dokter"
-          ? filtered?.dokterBreakdown ?? []
-          : undefined,
+      label.toLowerCase().includes("ppci")
+        ? filtered?.ppciDokterBreakdown ?? []
+        : label === "Total tindakan"
+          ? filtered?.tindakanBreakdown ?? []
+          : label === "Total dokter"
+            ? filtered?.dokterBreakdown ?? []
+            : undefined,
     ...pickItemStyle(label, themeTone),
   }));
   const gender = filtered?.gender;
@@ -322,17 +338,28 @@ export default function TindakanSummary({
               Boolean(onFastTrackKpiClick) &&
               header &&
               item.label.toLowerCase().includes("fast-track");
+            const clickablePpciWeeklyCard =
+              Boolean(onWeeklyPpciKpiClick) &&
+              header &&
+              item.label.toLowerCase().includes("ppci");
 
-            const isClickable = clickableTodayCard || clickableFastTrackCard;
+            const isClickable =
+              clickableTodayCard ||
+              clickableFastTrackCard ||
+              clickablePpciWeeklyCard;
 
             const sideBreakdown =
-              item.label === "Total tindakan" || item.label === "Total dokter"
+              item.label === "Total tindakan" ||
+              item.label === "Total dokter" ||
+              item.label.toLowerCase().includes("ppci")
                 ? item.filterLines ?? []
                 : [];
             const sideBorderClass =
-              item.label === "Total dokter"
-                ? "border-indigo-300/60 dark:border-indigo-700/45"
-                : "border-rose-300/60 dark:border-rose-700/45";
+              item.label.toLowerCase().includes("ppci")
+                ? "border-amber-300/60 dark:border-amber-700/45"
+                : item.label === "Total dokter"
+                  ? "border-indigo-300/60 dark:border-indigo-700/45"
+                  : "border-rose-300/60 dark:border-rose-700/45";
             const cardEl = (
               <div
                 key={item.label}
@@ -350,6 +377,7 @@ export default function TindakanSummary({
                 onClick={() => {
                   if (clickableTodayCard) onTodayKpiClick?.();
                   if (clickableFastTrackCard) onFastTrackKpiClick?.();
+                  if (clickablePpciWeeklyCard) onWeeklyPpciKpiClick?.();
                 }}
                 onKeyDown={(e) => {
                   if (!isClickable) return;
@@ -357,6 +385,7 @@ export default function TindakanSummary({
                     e.preventDefault();
                     if (clickableTodayCard) onTodayKpiClick?.();
                     if (clickableFastTrackCard) onFastTrackKpiClick?.();
+                    if (clickablePpciWeeklyCard) onWeeklyPpciKpiClick?.();
                   }
                 }}
               >
@@ -384,10 +413,10 @@ export default function TindakanSummary({
                     {item.label}
                   </p>
                   {sideBreakdown.length ? (
-                    <div className="mt-0.5 flex items-start gap-2">
+                    <div className="mt-0.5 flex flex-col gap-0.5">
                       <p
                         className={cn(
-                          "font-extrabold tabular-nums shrink-0",
+                          "font-extrabold tabular-nums",
                           header
                             ? "text-sm sm:text-base"
                             : "text-base sm:text-lg",
@@ -399,7 +428,7 @@ export default function TindakanSummary({
                       </p>
                       <div
                         className={cn(
-                          "min-w-0 space-y-0.5 border-l pl-2 font-medium leading-snug",
+                          "min-w-0 space-y-0.5 border-t mt-0.5 pt-1 font-medium leading-snug",
                           header ? "text-[8px]" : "text-[10px]",
                           sideBorderClass,
                           accentText || "text-slate-700/90",
@@ -407,11 +436,59 @@ export default function TindakanSummary({
                         )}
                         title={sideBreakdown.join("\n")}
                       >
-                        {sideBreakdown.map((line) => (
-                          <p key={`${item.label}-${line}`} className="truncate">
-                            {line}
-                          </p>
-                        ))}
+                        {sideBreakdown.map((line) => {
+                          const match = line.match(/^(\d+)\.\s+(.*)$/);
+                          if (match) {
+                            const [, count, text] = match;
+                            return (
+                              <p
+                                key={`${item.label}-${line}`}
+                                className="flex items-baseline gap-1 truncate"
+                              >
+                                <span
+                                  className={cn(
+                                    "font-black tabular-nums",
+                                    header ? "text-[11px]" : "text-[13px]",
+                                    item.label.toLowerCase().includes("ppci")
+                                      ? Number(count) > 5
+                                        ? "text-red-600 dark:text-red-400 drop-shadow-[0_0_5px_rgba(220,38,38,0.3)]"
+                                        : Number(count) === 5
+                                          ? "text-amber-600 dark:text-amber-400"
+                                          : "text-slate-900 dark:text-white"
+                                      : "text-slate-900 dark:text-white",
+                                  )}
+                                >
+                                  {count}
+                                </span>
+                                {item.label.toLowerCase().includes("ppci") &&
+                                  Number(count) >= 5 && (
+                                    <span
+                                      className={cn(
+                                        "ml-1 font-bold uppercase leading-none",
+                                        header ? "text-[7px]" : "text-[8px]",
+                                        Number(count) > 5
+                                          ? "text-red-600 dark:text-red-400 animate-pulse"
+                                          : "text-amber-600 dark:text-amber-400",
+                                      )}
+                                    >
+                                      {Number(count) > 5 ? "!! OVER" : "! LIMIT"}
+                                    </span>
+                                  )}
+                                <span className="truncate opacity-80">
+                                  . {text}
+                                </span>
+                              </p>
+                            );
+                          }
+                          return (
+                            <p
+                              key={`${item.label}-${line}`}
+                              className="truncate"
+                            >
+                              {line}
+                            </p>
+                          );
+                        })}
                       </div>
                     </div>
                   ) : (

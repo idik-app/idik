@@ -1,3 +1,6 @@
+import { formatPasienLabel, type PasienOption } from "@/components/ui/pasien-combobox";
+import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
+
 /**
  * Normalisasi tampilan baris tindakan — beberapa baris DB punya RM/nama kosong
  * atau nama kolom bervariasi.
@@ -112,6 +115,144 @@ export function formatJenisKelaminDisplay(
   if (jk === "L") return "Laki-laki";
   if (jk === "P") return "Perempuan";
   return "—";
+}
+
+/** Master data mapping helpers */
+
+export function normalizeDigitsOnly(v: unknown): string {
+  return String(v ?? "").replace(/\D/g, "");
+}
+
+export function mapApiPasienRow(r: Record<string, unknown>): PasienOption | null {
+  const rawId = r.id;
+  if (rawId == null || rawId === "") return null;
+  const id = String(rawId);
+  const nama = typeof r.nama === "string" ? r.nama : String(r.nama ?? "");
+  const rmStr = pickFirstString(r, [...RM_FIELD_KEYS]);
+  const no_rm = rmStr === "" ? null : rmStr;
+  const ca = r.created_at;
+  const created_at =
+    typeof ca === "string"
+      ? ca
+      : ca instanceof Date
+        ? ca.toISOString()
+        : ca != null
+          ? String(ca)
+          : null;
+  /** Selaras `mapFromSupabase` (pasien): null di DB → fallback "L", supaya daftar tindakan = drawer detail. */
+  const jk = normalizeJenisKelamin(r.jenis_kelamin ?? r.jk ?? "L");
+  const jenis_pembiayaan =
+    typeof r.jenis_pembiayaan === "string"
+      ? r.jenis_pembiayaan
+      : r.jenis_pembiayaan != null
+        ? String(r.jenis_pembiayaan)
+        : null;
+  const kelas_perawatan =
+    typeof r.kelas_perawatan === "string"
+      ? r.kelas_perawatan
+      : r.kelas_perawatan != null
+        ? String(r.kelas_perawatan)
+        : null;
+  const legacyPem = typeof r.pembiayaan === "string" ? r.pembiayaan : null;
+  const legacyKelas = typeof r.kelas === "string" ? r.kelas : null;
+  const tgl_lahir =
+    typeof r.tgl_lahir === "string"
+      ? r.tgl_lahir
+      : r.tanggal_lahir != null
+        ? String(r.tanggal_lahir)
+        : null;
+  const umur =
+    typeof r.umur === "number"
+      ? r.umur
+      : typeof r.usia === "number"
+        ? r.usia
+        : null;
+
+  return {
+    id,
+    nama,
+    no_rm,
+    created_at,
+    tgl_lahir,
+    umur,
+    ...(jk ? { jenis_kelamin: jk } : {}),
+    ...(jenis_pembiayaan != null && jenis_pembiayaan !== ""
+      ? { jenis_pembiayaan }
+      : {}),
+    ...(kelas_perawatan != null && kelas_perawatan !== ""
+      ? { kelas_perawatan }
+      : {}),
+    ...(legacyPem != null && legacyPem !== "" ? { pembiayaan: legacyPem } : {}),
+    ...(legacyKelas != null && legacyKelas !== ""
+      ? { kelas: legacyKelas }
+      : {}),
+  };
+}
+
+export function buildPasienLabelFromRow(raw: Record<string, unknown>): string {
+  const namaFull = pickFirstString(raw, ["nama_pasien", "nama", "pasien_nama"]);
+  const rmCol = pickFirstString(raw, [...RM_FIELD_KEYS]);
+  const { baseNama, rmDalamKurung } = splitNamaDanRmDalamKurung(namaFull);
+  const nama = (baseNama || namaFull).trim();
+  const rm = rmCol || rmDalamKurung;
+  if (nama || rm) return formatPasienLabel({ nama, no_rm: rm || null });
+  return "";
+}
+
+export function resolvePasienFromLabel(
+  options: PasienOption[],
+  label: string,
+): PasienOption | null {
+  const t = label.trim();
+  if (!t) return null;
+  for (const p of options) {
+    if (formatPasienLabel(p) === t) return p;
+  }
+  return null;
+}
+
+export function resolvePasienFromRow(
+  options: PasienOption[],
+  raw: Record<string, unknown>,
+): PasienOption | null {
+  const pid = String(raw.pasien_id ?? "").trim();
+  if (pid) {
+    const hit = options.find((p) => String(p.id) === pid);
+    if (hit) return hit;
+  }
+  const label = buildPasienLabelFromRow(raw);
+  if (label) {
+    const byLabel = resolvePasienFromLabel(options, label);
+    if (byLabel) return byLabel;
+  }
+  const namaFull = pickFirstString(raw, ["nama_pasien", "nama", "pasien_nama"]);
+  const { baseNama, rmDalamKurung } = splitNamaDanRmDalamKurung(namaFull);
+  const namaForMatch = normalizeNamaPasien((baseNama || namaFull).trim());
+  const rowRmDigits =
+    normalizeDigitsOnly(pickFirstString(raw, [...RM_FIELD_KEYS])) ||
+    normalizeDigitsOnly(rmDalamKurung);
+  if (namaForMatch) {
+    const hits = options.filter(
+      (p) => normalizeNamaPasien(p.nama ?? "") === namaForMatch,
+    );
+    if (hits.length === 1) return hits[0]!;
+    if (hits.length > 1 && rowRmDigits.length >= 3) {
+      const byRm = hits.filter(
+        (p) => normalizeDigitsOnly(p.no_rm ?? "") === rowRmDigits,
+      );
+      if (byRm.length === 1) return byRm[0]!;
+    }
+  }
+
+  // Fallback penting untuk data legacy: jika `pasien_id` belum tersimpan konsisten
+  // atau nama di tindakan sudah berubah casing/format, tetap coba resolve via RM.
+  if (rowRmDigits.length >= 3) {
+    const byRm = options.filter(
+      (p) => normalizeDigitsOnly(p.no_rm ?? "") === rowRmDigits,
+    );
+    if (byRm.length === 1) return byRm[0]!;
+  }
+  return null;
 }
 
 /**

@@ -64,14 +64,14 @@ async function generateInventarisMd() {
       const { data: invData } = await supabase
         .from('inventaris')
         .select('stok')
-        .eq('master_barang_id', item.master_barang_id)
+        .eq('master_barang_id', (item as any).master_barang_id)
         .eq('distributor_id', dist.id)
         .eq('lokasi', 'Cathlab')
         .single();
 
       const stok = invData?.stok ?? 0;
       const status = item.is_konsolidasi ? 'Konsolidasi' : 'Non-Konsolidasi';
-      const namaBarang = item.master_barang ? item.master_barang.nama : '-';
+      const namaBarang = item.master_barang ? (item.master_barang as any).nama : '-';
 
       markdown += `| **${namaBarang}** | ${item.kategori || '-'} | ${item.lot || '-'} | ${item.ukuran || '-'} | ${item.ed || '-'} | ${status} | ${stok} |\n`;
     }

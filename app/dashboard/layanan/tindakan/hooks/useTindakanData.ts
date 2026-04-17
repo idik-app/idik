@@ -1,19 +1,33 @@
 "use client";
 
 import useSWR from "swr";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
-export function useTindakanData() {
+export function useTindakanData(params?: {
+  from?: string;
+  to?: string;
+  search?: string;
+}) {
+  const query = useMemo(() => {
+    const p = new URLSearchParams();
+    // Default limit tetap besar untuk mendukung fitur pencarian lokal di dalam hasil server
+    p.set("limit", "10000");
+    if (params?.from) p.set("from", params.from);
+    if (params?.to) p.set("to", params.to);
+    if (params?.search) p.set("search", params.search);
+    return p.toString();
+  }, [params?.from, params?.to, params?.search]);
+
   const { data, error, isLoading, isValidating, mutate } = useSWR(
-    "/api/tindakan?limit=10000",
+    `/api/tindakan?${query}`,
     fetcher,
     {
       revalidateOnFocus: false,
       dedupingInterval: 30000, // 30 detik
-    }
+    },
   );
 
   const [tindakanList, setTindakanList] = useState<any[]>([]);

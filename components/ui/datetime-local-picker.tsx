@@ -343,7 +343,8 @@ export function DatetimeLocalPicker({
         <div
           ref={portalRef}
           className={cn(
-            "absolute left-0 right-0 top-full z-[60] mt-1 sm:right-auto sm:min-w-[min(100%,18rem)]",
+            "absolute left-0 right-0 top-full mt-1 sm:right-auto sm:min-w-[min(100%,18rem)]",
+            UI_LAYERS.popover,
             panelClass,
           )}
           role="dialog"

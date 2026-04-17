@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 export type DoctorOption = {
   id: string;
@@ -43,7 +44,9 @@ function resolveDoctorExactMatch(
   }
   const tl = t.toLowerCase();
   for (const d of options) {
-    const n = String(d.nama_dokter ?? "").trim().toLowerCase();
+    const n = String(d.nama_dokter ?? "")
+      .trim()
+      .toLowerCase();
     if (n === tl) return d;
   }
   return null;
@@ -196,9 +199,7 @@ export function DoctorCombobox({
     const q = normalize(value);
     if (!q) return options;
     return options.filter((d) => {
-      const hay = normalize(
-        `${d.nama_dokter} ${d.spesialis ?? ""}`
-      );
+      const hay = normalize(`${d.nama_dokter} ${d.spesialis ?? ""}`);
       return hay.includes(q);
     });
   }, [options, value]);
@@ -206,10 +207,7 @@ export function DoctorCombobox({
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (
-        wrapRef.current &&
-        !wrapRef.current.contains(e.target as Node)
-      ) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
@@ -261,7 +259,10 @@ export function DoctorCombobox({
           onMouseDown={() => {
             skipBlurRef.current = true;
           }}
-          className="absolute left-0 right-0 top-full z-[60] mt-1 max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl"
+          className={cn(
+            "absolute left-0 right-0 top-full mt-1 max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl",
+            UI_LAYERS.popover,
+          )}
         >
           {filtered.map((d) => {
             const label = formatDoctorLabel(d);
@@ -298,7 +299,12 @@ export function DoctorCombobox({
         </ul>
       ) : null}
       {open && !loading && options.length === 0 ? (
-        <p className="absolute left-0 right-0 top-full z-[60] mt-1 rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/85">
+        <p
+          className={cn(
+            "absolute left-0 right-0 top-full mt-1 rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/85",
+            UI_LAYERS.popover,
+          )}
+        >
           Belum ada dokter di master. Tambah lewat menu Dokter.
         </p>
       ) : null}

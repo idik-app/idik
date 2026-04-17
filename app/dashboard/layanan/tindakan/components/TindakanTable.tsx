@@ -59,6 +59,7 @@ import { useTindakanBridgeAdapter } from "../bridge/useTindakanBridgeAdapter";
 import TableContainer from "../components/TableContainer";
 import TableToolbar from "../components/TableToolbar";
 import FastTrackListModal from "../components/FastTrackListModal";
+import TindakanWeeklyPpciModal from "../components/TindakanWeeklyPpciModal";
 import TindakanTerbanyakLabModal from "../components/TindakanTerbanyakLabModal";
 import TindakanLaporanModal from "../components/TindakanLaporanModal";
 import TindakanLaporanPemakaianModal from "../components/TindakanLaporanPemakaianModal";
@@ -67,6 +68,8 @@ import PemakaianAlkesModal from "./PemakaianAlkesModal";
 import { computeTindakanStatsFromRows } from "../hooks/useTindakanStats";
 import type { TindakanFilteredSummary } from "./TindakanSummary";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
+import KeteranganField from "./KeteranganField";
+import RsPerujukField from "./RsPerujukField";
 import {
   displayNamaPasien,
   displayRm,
@@ -79,10 +82,21 @@ import {
   RM_FIELD_KEYS,
   rowMatchesPasienAktifFilter,
   splitNamaDanRmDalamKurung,
+  buildPasienLabelFromRow,
+  mapApiPasienRow,
+  normalizeDigitsOnly,
+  resolvePasienFromLabel,
+  resolvePasienFromRow,
 } from "../lib/displayTindakanRow";
 import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
 import { hitungUsia } from "@/app/dashboard/pasien/utils/formatUsia";
-import { useMasterDoctors, useMasterRuangan, useMasterTindakan, useMasterPasien, usePemakaianOrders } from "@/app/hooks/useMasterData";
+import {
+  useMasterDoctors,
+  useMasterRuangan,
+  useMasterTindakan,
+  useMasterPasien,
+  usePemakaianOrders,
+} from "@/app/hooks/useMasterData";
 import { runDeduped } from "@/lib/api/runDeduped";
 import { useEventBridge } from "@/contexts/EventBridgeContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -103,8 +117,7 @@ const TINDAKAN_SHEET_CELL =
   "border border-amber-200/60 dark:border-amber-800/45";
 
 const ZOOM_CELL_CLASSES = `focus-within:${UI_LAYERS.tableZoomedCell} focus-within:relative`;
-const ZOOM_INNER_CLASSES =
-  `focus-within:absolute focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:top-1/2 focus-within:-translate-y-1/2 focus-within:scale-[1.3] focus-within:w-[180%] focus-within:shadow-2xl focus-within:transition-all focus-within:duration-200 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:${UI_LAYERS.popover} focus-within:p-1 focus-within:rounded-md`;
+const ZOOM_INNER_CLASSES = `focus-within:absolute focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:top-1/2 focus-within:-translate-y-1/2 focus-within:scale-[1.3] focus-within:w-[180%] focus-within:shadow-2xl focus-within:transition-all focus-within:duration-200 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:${UI_LAYERS.popover} focus-within:p-1 focus-within:rounded-md`;
 
 function useDebouncedValue(value: string, ms: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -116,10 +129,6 @@ function useDebouncedValue(value: string, ms: number): string {
 }
 
 /** Cocokkan RM meski format beda (angka saja vs teks). */
-function normalizeDigitsOnly(v: unknown): string {
-  return String(v ?? "").replace(/\D/g, "");
-}
-
 function extractErrorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (err && typeof err === "object") {
@@ -242,81 +251,6 @@ function rowMatchesPasienDeepFallback(
   return false;
 }
 
-function mapApiPasienRow(r: Record<string, unknown>): PasienOption | null {
-  const rawId = r.id;
-  if (rawId == null || rawId === "") return null;
-  const id = String(rawId);
-  const nama = typeof r.nama === "string" ? r.nama : String(r.nama ?? "");
-  const rmStr = pickFirstString(r, [...RM_FIELD_KEYS]);
-  const no_rm = rmStr === "" ? null : rmStr;
-  const ca = r.created_at;
-  const created_at =
-    typeof ca === "string"
-      ? ca
-      : ca instanceof Date
-        ? ca.toISOString()
-        : ca != null
-          ? String(ca)
-          : null;
-  /** Selaras `mapFromSupabase` (pasien): null di DB → fallback "L", supaya daftar tindakan = drawer detail. */
-  const jk = normalizeJenisKelamin(r.jenis_kelamin ?? r.jk ?? "L");
-  const jenis_pembiayaan =
-    typeof r.jenis_pembiayaan === "string"
-      ? r.jenis_pembiayaan
-      : r.jenis_pembiayaan != null
-        ? String(r.jenis_pembiayaan)
-        : null;
-  const kelas_perawatan =
-    typeof r.kelas_perawatan === "string"
-      ? r.kelas_perawatan
-      : r.kelas_perawatan != null
-        ? String(r.kelas_perawatan)
-        : null;
-  const legacyPem = typeof r.pembiayaan === "string" ? r.pembiayaan : null;
-  const legacyKelas = typeof r.kelas === "string" ? r.kelas : null;
-  const tgl_lahir =
-    typeof r.tgl_lahir === "string"
-      ? r.tgl_lahir
-      : r.tanggal_lahir != null
-        ? String(r.tanggal_lahir)
-        : null;
-  const umur =
-    typeof r.umur === "number"
-      ? r.umur
-      : typeof r.usia === "number"
-        ? r.usia
-        : null;
-  return {
-    id,
-    nama,
-    no_rm,
-    created_at,
-    tgl_lahir,
-    umur,
-    ...(jk ? { jenis_kelamin: jk } : {}),
-    ...(jenis_pembiayaan != null && jenis_pembiayaan !== ""
-      ? { jenis_pembiayaan }
-      : {}),
-    ...(kelas_perawatan != null && kelas_perawatan !== ""
-      ? { kelas_perawatan }
-      : {}),
-    ...(legacyPem != null && legacyPem !== "" ? { pembiayaan: legacyPem } : {}),
-    ...(legacyKelas != null && legacyKelas !== ""
-      ? { kelas: legacyKelas }
-      : {}),
-  };
-}
-
-function buildPasienLabelFromRow(raw: Record<string, unknown>): string {
-  const namaFull = pickFirstString(raw, ["nama_pasien", "nama", "pasien_nama"]);
-  const rmCol = pickFirstString(raw, [...RM_FIELD_KEYS]);
-  const { baseNama, rmDalamKurung } = splitNamaDanRmDalamKurung(namaFull);
-  const nama = (baseNama || namaFull).trim();
-  const rm = rmCol || rmDalamKurung;
-  if (nama || rm) return formatPasienLabel({ nama, no_rm: rm || null });
-  return "";
-}
-
 /** yyyy-mm-dd dari teks tanggal baris / order (dukung ISO & 28-Mar-2024). */
 const CAL_MONTH: Record<string, string> = {
   jan: "01",
@@ -378,6 +312,27 @@ function todayWibYmd(): string {
     month: "2-digit",
     day: "2-digit",
   }).format(new Date());
+}
+
+/** Senin minggu ini (WIB). */
+function startOfWeekWibYmd(): string {
+  const d = new Date();
+  // Pindah ke timezone Jakarta
+  const jkt = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+  const day = jkt.getDay(); // 0 (Sun) - 6 (Sat)
+  const diff = jkt.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  jkt.setDate(diff);
+  return new Intl.DateTimeFormat("en-CA").format(jkt);
+}
+
+/** Minggu minggu ini (WIB). */
+function endOfWeekWibYmd(): string {
+  const d = new Date();
+  const jkt = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+  const day = jkt.getDay();
+  const diff = jkt.getDate() - day + (day === 0 ? 0 : 7); // Sunday
+  jkt.setDate(diff);
+  return new Intl.DateTimeFormat("en-CA").format(jkt);
 }
 
 function resolveShownRmForRow(
@@ -655,62 +610,6 @@ function orderPasienMatchesTindakanRowLabel(
   return true;
 }
 
-function resolvePasienFromLabel(
-  options: PasienOption[],
-  label: string,
-): PasienOption | null {
-  const t = label.trim();
-  if (!t) return null;
-  for (const p of options) {
-    if (formatPasienLabel(p) === t) return p;
-  }
-  return null;
-}
-
-function resolvePasienFromRow(
-  options: PasienOption[],
-  raw: Record<string, unknown>,
-): PasienOption | null {
-  const pid = String(raw.pasien_id ?? "").trim();
-  if (pid) {
-    const hit = options.find((p) => String(p.id) === pid);
-    if (hit) return hit;
-  }
-  const label = buildPasienLabelFromRow(raw);
-  if (label) {
-    const byLabel = resolvePasienFromLabel(options, label);
-    if (byLabel) return byLabel;
-  }
-  const namaFull = pickFirstString(raw, ["nama_pasien", "nama", "pasien_nama"]);
-  const { baseNama, rmDalamKurung } = splitNamaDanRmDalamKurung(namaFull);
-  const namaForMatch = normalizeNamaPasien((baseNama || namaFull).trim());
-  const rowRmDigits =
-    normalizeDigitsOnly(pickFirstString(raw, [...RM_FIELD_KEYS])) ||
-    normalizeDigitsOnly(rmDalamKurung);
-  if (namaForMatch) {
-    const hits = options.filter(
-      (p) => normalizeNamaPasien(p.nama ?? "") === namaForMatch,
-    );
-    if (hits.length === 1) return hits[0]!;
-    if (hits.length > 1 && rowRmDigits.length >= 3) {
-      const byRm = hits.filter(
-        (p) => normalizeDigitsOnly(p.no_rm ?? "") === rowRmDigits,
-      );
-      if (byRm.length === 1) return byRm[0]!;
-    }
-  }
-
-  // Fallback penting untuk data legacy: jika `pasien_id` belum tersimpan konsisten
-  // atau nama di tindakan sudah berubah casing/format, tetap coba resolve via RM.
-  if (rowRmDigits.length >= 3) {
-    const byRm = options.filter(
-      (p) => normalizeDigitsOnly(p.no_rm ?? "") === rowRmDigits,
-    );
-    if (byRm.length === 1) return byRm[0]!;
-  }
-  return null;
-}
-
 function extractRmFromLabel(label: string): string {
   const t = label.trim();
   if (!t) return "";
@@ -847,6 +746,60 @@ function EditableTimeCell({
     if (!ok) setDraft(cur);
     else setDraft(formatted);
   }, [draft, value, onCommit, saving]);
+
+  return (
+    <input
+      type="text"
+      disabled={saving}
+      value={draft}
+      placeholder={placeholder}
+      onChange={(e) => setDraft(e.target.value)}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+      onBlur={() => void commit()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          void commit();
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setDraft(value.trim());
+        }
+      }}
+      className={cn(
+        "w-full rounded border px-2 py-1 text-xs font-semibold focus:outline-none text-center",
+        "border-cyan-400/55 bg-white text-slate-800 dark:border-cyan-700/50 dark:bg-black/40 dark:text-slate-100",
+      )}
+    />
+  );
+}
+
+function EditableTextCell({
+  value,
+  onCommit,
+  placeholder = "...",
+}: {
+  value: string;
+  onCommit: (next: string) => Promise<boolean>;
+  placeholder?: string;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!saving) setDraft(value);
+  }, [value, saving]);
+
+  const commit = useCallback(async () => {
+    if (saving) return;
+    const next = draft.trim();
+    if (next === value.trim()) return;
+    setSaving(true);
+    const ok = await onCommit(next);
+    if (!ok) setDraft(value.trim());
+    setSaving(false);
+  }, [draft, onCommit, saving, value]);
 
   return (
     <input
@@ -1168,10 +1121,20 @@ export default function TindakanTable({
   const [filterDokter, setFilterDokter] = useState("");
   const [filterRuangan, setFilterRuangan] = useState("");
   const [filterTindakan, setFilterTindakan] = useState("");
-  const [filterTanggalFrom, setFilterTanggalFrom] = useState("");
+  const [filterTanggalFrom, setFilterTanggalFrom] = useState(() => {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Jakarta",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    return formatter.format(now).substring(0, 8) + "01";
+  });
   const [filterTanggalTo, setFilterTanggalTo] = useState("");
   const [filterPciOnly, setFilterPciOnly] = useState(false);
   const [fastTrackModalOpen, setFastTrackModalOpen] = useState(false);
+  const [ppciWeeklyModalOpen, setPpciWeeklyModalOpen] = useState(false);
   const [tindakanTerbanyakLabOpen, setTindakanTerbanyakLabOpen] =
     useState(false);
   const [laporanModalOpen, setLaporanModalOpen] = useState(false);
@@ -1664,6 +1627,24 @@ export default function TindakanTable({
     });
   }, [filteredRecords]);
 
+  /** KPI PPCI diminta mengikuti tanggal minggu ini (Senin-Minggu WIB). */
+  const weeklyPpciRowsForKpi = useMemo(() => {
+    const start = startOfWeekWibYmd();
+    const end = endOfWeekWibYmd();
+    return filteredRecords.filter((rec) => {
+      const t = String(rec.tindakan ?? "").trim().toLowerCase();
+      if (!t.includes("ppci")) return false;
+
+      // RS Rujukan pribadi tidak dihitung dalam kuota mingguan
+      const rs = String(rec.rs_perujuk ?? "").trim().toLowerCase();
+      const ket = String(rec.keterangan ?? "").trim().toLowerCase();
+      if (rs.includes("pribadi") || ket.includes("pribadi")) return false;
+
+      const key = extractCalendarDateKey(String(rec.tanggal ?? "").trim());
+      return key >= start && key <= end;
+    });
+  }, [filteredRecords]);
+
   const {
     tindakanBreakdownToday,
     dokterBreakdownToday,
@@ -1673,6 +1654,8 @@ export default function TindakanTable({
     linkedCount,
     tindakanBreakdownFiltered,
     dokterBreakdownFiltered,
+    ppciDokterBreakdownWeekly,
+    totalPpciWeekly,
   } = useMemo(() => {
     const tTodayMap = new Map<string, number>();
     const dTodayMap = new Map<string, { count: number; display: string }>();
@@ -1681,17 +1664,21 @@ export default function TindakanTable({
 
     const tFilteredMap = new Map<string, number>();
     const dFilteredMap = new Map<string, { count: number; display: string }>();
+
+    const dPpciWeeklyMap = new Map<string, { count: number; display: string }>();
+
     let laki = 0;
     let perempuan = 0;
     let linked = 0;
 
     const todaySet = new Set(todayRowsForKpi);
-    const genderSourceSet = new Set(
-      hasTanggalFilter ? filteredRecords : todayRowsForKpi,
-    );
+    const ppciWeeklySet = new Set(weeklyPpciRowsForKpi);
+    // KPI Gender, Tindakan, dan Dokter diminta selalu menampilkan data "Hari Ini" (WIB).
+    const genderSourceSet = new Set(todayRowsForKpi);
 
     for (const rec of filteredRecords) {
       const isToday = todaySet.has(rec);
+      const isPpciWeekly = ppciWeeklySet.has(rec);
       const isGenderSource = genderSourceSet.has(rec);
 
       const t = String(rec.tindakan ?? "").trim();
@@ -1733,6 +1720,21 @@ export default function TindakanTable({
         }
       }
 
+      // Stats PPCI Weekly
+      if (isPpciWeekly) {
+        if (dr && dr !== "—") {
+          const k = master.length ? canonicalDoctorStoredValue(master, dr) : dr;
+          if (k) {
+            const disp = master.length
+              ? canonicalDoctorDisplayValue(master, k) || k
+              : dr;
+            const prev = dPpciWeeklyMap.get(k);
+            if (prev) dPpciWeeklyMap.set(k, { ...prev, count: prev.count + 1 });
+            else dPpciWeeklyMap.set(k, { count: 1, display: disp });
+          }
+        }
+      }
+
       // Gender
       if (isGenderSource) {
         const raw = rec as unknown as Record<string, unknown>;
@@ -1761,16 +1763,20 @@ export default function TindakanTable({
     return {
       tindakanBreakdownToday: fmt(tTodayMap),
       dokterBreakdownToday: fmtD(dTodayMap),
-      totalTindakanToday: todayRowsForKpi.length,
+      // KPI "Total tindakan" di dashboard menunjukkan jumlah jenis tindakan unik.
+      totalTindakanToday: tTodayMap.size,
       totalDokterToday: dTodaySet.size,
       filteredRowGender: { laki, perempuan },
       linkedCount: linked,
       tindakanBreakdownFiltered: fmt(tFilteredMap),
       dokterBreakdownFiltered: fmtD(dFilteredMap),
+      ppciDokterBreakdownWeekly: fmtD(dPpciWeeklyMap),
+      totalPpciWeekly: weeklyPpciRowsForKpi.length,
     };
   }, [
     filteredRecords,
     todayRowsForKpi,
+    weeklyPpciRowsForKpi,
     hasTanggalFilter,
     doctorOptionsMaster,
     pasienOptions,
@@ -1779,12 +1785,14 @@ export default function TindakanTable({
   const filteredRowStatsTodayAdjusted = useMemo(
     () => ({
       ...filteredRowStatsFixedTotalPasien,
+      "PPCI Minggu Ini": totalPpciWeekly,
       "Total tindakan": totalTindakanToday,
       "Total dokter": totalDokterToday,
       "Laporan Terpetakan": linkedCount,
     }),
     [
       filteredRowStatsFixedTotalPasien,
+      totalPpciWeekly,
       totalTindakanToday,
       totalDokterToday,
       linkedCount,
@@ -1794,11 +1802,21 @@ export default function TindakanTable({
   const filteredRowStatsTanggalAdjusted = useMemo(() => {
     const next: Record<string, number> = {
       ...filteredRowStatsFixedTotalPasien,
+      // KPI tertentu diminta selalu menampilkan data "Hari Ini" atau "Minggu Ini" (WIB).
+      "PPCI Minggu Ini": totalPpciWeekly,
+      "Total tindakan": totalTindakanToday,
+      "Total dokter": totalDokterToday,
       "Laporan Terpetakan": linkedCount,
     };
     delete next["Pasien hari ini"];
     return next;
-  }, [filteredRowStatsFixedTotalPasien, linkedCount]);
+  }, [
+    filteredRowStatsFixedTotalPasien,
+    totalPpciWeekly,
+    totalTindakanToday,
+    totalDokterToday,
+    linkedCount,
+  ]);
 
   const kpiStats = useMemo(
     () =>
@@ -1813,14 +1831,15 @@ export default function TindakanTable({
   );
 
   const kpiTindakanBreakdown = useMemo(
-    () =>
-      hasTanggalFilter ? tindakanBreakdownFiltered : tindakanBreakdownToday,
-    [hasTanggalFilter, tindakanBreakdownFiltered, tindakanBreakdownToday],
+    // KPI rincian tindakan diminta selalu menampilkan data "Hari Ini" (WIB).
+    () => tindakanBreakdownToday,
+    [tindakanBreakdownToday],
   );
 
   const kpiDokterBreakdown = useMemo(
-    () => (hasTanggalFilter ? dokterBreakdownFiltered : dokterBreakdownToday),
-    [hasTanggalFilter, dokterBreakdownFiltered, dokterBreakdownToday],
+    // KPI rincian dokter diminta selalu menampilkan data "Hari Ini" (WIB).
+    () => dokterBreakdownToday,
+    [dokterBreakdownToday],
   );
 
   const kpiModeLabel = useMemo(() => {
@@ -1840,6 +1859,7 @@ export default function TindakanTable({
       gender: filteredRowGender,
       tindakanBreakdown: kpiTindakanBreakdown,
       dokterBreakdown: kpiDokterBreakdown,
+      ppciDokterBreakdown: ppciDokterBreakdownWeekly,
       kpiMode: hasTanggalFilter ? "filter" : "default",
       kpiModeLabel,
       allRows: filteredRecords,
@@ -1854,6 +1874,7 @@ export default function TindakanTable({
       gender: summary.gender,
       tindakanBreakdown: summary.tindakanBreakdown,
       dokterBreakdown: summary.dokterBreakdown,
+      ppciDokterBreakdown: summary.ppciDokterBreakdown,
       kpiMode: summary.kpiMode,
       kpiModeLabel: summary.kpiModeLabel,
       // Lightweight markers for allRows change
@@ -1872,6 +1893,7 @@ export default function TindakanTable({
     filteredRowGender,
     kpiTindakanBreakdown,
     kpiDokterBreakdown,
+    ppciDokterBreakdownWeekly,
     hasTanggalFilter,
     kpiModeLabel,
     onFilteredSummaryChange,
@@ -2541,7 +2563,11 @@ export default function TindakanTable({
 
         <TableToolbar
           isCollapsed={isFilterCollapsed}
-          onSearch={setSearch}
+          onSearch={(val) => {
+            setSearch(val);
+            // Trigger server-side search for better performance on large datasets
+            adapter.setServerFilters((prev) => ({ ...prev, search: val }));
+          }}
           onRefresh={refresh}
           onCreateDraftForPasien={createDraftForPasien}
           onSyncMasterPasien={syncMasterPasienFromTindakan}
@@ -2549,9 +2575,18 @@ export default function TindakanTable({
             setFilterDokter(d);
             setFilterRuangan(rg);
             setFilterTindakan(t ?? "");
-            setFilterTanggalFrom(String(from ?? ""));
-            setFilterTanggalTo(String(to ?? ""));
+            const f = String(from ?? "");
+            const tx = String(to ?? "");
+            setFilterTanggalFrom(f);
+            setFilterTanggalTo(tx);
             setFilterPciOnly(Boolean(pci));
+
+            // Sync ke server via adapter
+            adapter.setServerFilters((prev) => ({
+              ...prev,
+              from: f || undefined,
+              to: tx || undefined,
+            }));
           }}
           dokterOptions={dokterOptions}
           ruanganOptions={ruanganFilterOptions}
@@ -2706,11 +2741,20 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem] text-left",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
                       Nama pasien
+                    </th>
+                    <th
+                      className={cn(
+                        TINDAKAN_SHEET_CELL,
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[12rem]",
+                        "text-cyan-950 dark:text-slate-100",
+                      )}
+                    >
+                      RS Perujuk / Ket
                     </th>
                     <th
                       className={cn(
@@ -2751,7 +2795,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem] text-left",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
@@ -2772,7 +2816,7 @@ export default function TindakanTable({
                   {pagedRecords.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={11}
+                        colSpan={12}
                         className={cn(
                           TINDAKAN_SHEET_CELL,
                           "px-4 py-10 text-center font-semibold",
@@ -2780,8 +2824,14 @@ export default function TindakanTable({
                         )}
                       >
                         <div className="flex flex-col items-center gap-4 py-8">
-                          <JarvisIcon size={64} lightMode={lightMode} className="opacity-30" />
-                          <span className="tracking-wide opacity-80">{emptyMessage}</span>
+                          <JarvisIcon
+                            size={64}
+                            lightMode={lightMode}
+                            className="opacity-30"
+                          />
+                          <span className="tracking-wide opacity-80">
+                            {emptyMessage}
+                          </span>
                           {Boolean(filterPasienId.trim() || filterRm.trim()) ? (
                             <button
                               type="button"
@@ -2854,7 +2904,7 @@ export default function TindakanTable({
                             role={id ? "button" : undefined}
                             tabIndex={id ? 0 : undefined}
                             className={cn(
-                              "group transition-colors duration-150",
+                              "group transition-colors duration-150 focus-within:relative focus-within:z-[80]",
                               isDuplicateRm
                                 ? "bg-amber-100/75 dark:bg-amber-950/35"
                                 : "",
@@ -3081,7 +3131,7 @@ export default function TindakanTable({
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 ZOOM_CELL_CLASSES,
-                                "relative px-2 sm:px-2.5 py-1 max-w-[18rem] text-center align-middle",
+                                "relative px-2 sm:px-2.5 py-1 max-w-[18rem] text-left align-middle",
                                 "text-amber-800 dark:text-white",
                               )}
                             >
@@ -3487,6 +3537,39 @@ export default function TindakanTable({
                               </div>
                             </td>
                             <td
+                              data-no-row-click="true"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                              className={cn(
+                                TINDAKAN_SHEET_CELL,
+                                ZOOM_CELL_CLASSES,
+                                "px-2 py-1 min-w-[12rem] text-center align-middle",
+                                "text-amber-800 dark:text-slate-100",
+                              )}
+                            >
+                              <div
+                                className={cn(
+                                  "mx-auto flex w-full items-center justify-center gap-2",
+                                  ZOOM_INNER_CLASSES,
+                                )}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <RsPerujukField
+                                    tindakanId={id}
+                                    value={rec.rs_perujuk}
+                                    onSaved={refresh}
+                                  />
+                                </div>
+                                <div className="shrink-0">
+                                  <KeteranganField
+                                    tindakanId={id}
+                                    value={rec.keterangan}
+                                    onSaved={refresh}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+                            <td
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle tabular-nums",
@@ -3710,7 +3793,7 @@ export default function TindakanTable({
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 ZOOM_CELL_CLASSES,
-                                "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
+                                "px-2 sm:px-2.5 py-1 max-w-[14rem] text-left align-middle",
                                 "text-amber-800 dark:text-amber-300",
                               )}
                             >

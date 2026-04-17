@@ -8,6 +8,8 @@ import {
   displayRm,
   formatJenisKelaminDisplay,
   resolveJenisKelaminFromRow,
+  resolvePasienFromRow,
+  type PasienOption,
 } from "./displayTindakanRow";
 import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
 import { parseFastTrackFotosUrls } from "./fastTrackFotos";
@@ -398,13 +400,17 @@ export function buildTindakanHariIniReportHtml(opts: {
   tanggalIso: string;
   tanggalLabel: string;
   rows: readonly TindakanJoinResult[];
+  pasienOptions?: PasienOption[];
 }): string {
   const bodyRows = opts.rows
     .map((rec, i) => {
       const raw = rec as unknown as Record<string, unknown>;
-      const jk = resolveJenisKelaminFromRow(raw, null);
+      const p = opts.pasienOptions ? resolvePasienFromRow(opts.pasienOptions, raw) : null;
+      const jk = resolveJenisKelaminFromRow(raw, p);
       const dokter = String(rec.dokter ?? "").trim() || "—";
       const tindakan = String(rec.tindakan ?? "").trim() || "—";
+      const rs_perujuk = String(rec.rs_perujuk ?? "").trim() || "—";
+      const keterangan = String(rec.keterangan ?? "").trim() || "—";
       const ruangan = String(rec.ruangan ?? "").trim() || "—";
       return `<tr>
   <td class="num">${i + 1}</td>
@@ -413,6 +419,8 @@ export function buildTindakanHariIniReportHtml(opts: {
   <td class="num">${escapeHtml(displayRm(raw))}</td>
   <td>${escapeHtml(normalizeNamaPasien(displayNamaPasien(raw)))}</td>
   <td class="num">${escapeHtml(formatJenisKelaminDisplay(jk))}</td>
+  <td>${escapeHtml(rs_perujuk)}</td>
+  <td>${escapeHtml(keterangan)}</td>
   <td>${escapeHtml(dokter)}</td>
   <td>${escapeHtml(tindakan)}</td>
   <td>${escapeHtml(ruangan)}</td>
@@ -422,10 +430,10 @@ export function buildTindakanHariIniReportHtml(opts: {
 
   const table = `<table>
 <thead><tr>
-  <th>No</th><th>Tanggal</th><th>Time out</th><th>RM</th><th>Nama</th><th>JK</th><th>Dokter</th><th>Tindakan</th><th>Ruangan</th>
+  <th>No</th><th>Tanggal</th><th>Time out</th><th>RM</th><th>Nama</th><th>JK</th><th>RS Perujuk</th><th>Keterangan</th><th>Dokter</th><th>Tindakan</th><th>Ruangan</th>
 </tr></thead>
 <tbody>
-${bodyRows || `<tr><td colspan="9" class="num">Tidak ada data.</td></tr>`}
+${bodyRows || `<tr><td colspan="10" class="num">Tidak ada data.</td></tr>`}
 </tbody>
 </table>`;
 
@@ -767,6 +775,8 @@ export function downloadAnalisisGabunganExcel(
       RM: displayRm(raw),
       Nama: normalizeNamaPasien(displayNamaPasien(raw)),
       Tindakan: r.tindakan || "—",
+      "RS Perujuk": r.rs_perujuk || "—",
+      Keterangan: r.keterangan || "—",
       Kategori: r.kategori || "—",
       Dokter: r.dokter || "—",
       Diagnosa: r.diagnosa || "—",

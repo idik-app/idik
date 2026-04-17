@@ -534,8 +534,7 @@ export function BarangVariantCombobox({
         className={cn(
           "rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 shadow-xl pointer-events-auto",
           variant === "table" ? UI_LAYERS.pickerFloating : UI_LAYERS.popover,
-          variant === "default" &&
-            "absolute left-0 right-0 top-full z-[60] mt-1",
+          variant === "default" && "absolute left-0 right-0 top-full mt-1",
         )}
         style={
           variant === "table" && menuPos
@@ -563,8 +562,7 @@ export function BarangVariantCombobox({
         role="listbox"
         className={cn(
           listCls,
-          variant === "default" &&
-            "absolute left-0 right-0 top-full z-[60] mt-1",
+          variant === "default" && "absolute left-0 right-0 top-full mt-1",
         )}
         style={
           variant === "table" && menuPos
@@ -598,7 +596,7 @@ export function BarangVariantCombobox({
       className={cn(
         "rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] pointer-events-auto",
         variant === "table" ? UI_LAYERS.pickerFloating : UI_LAYERS.popover,
-        variant === "default" && "absolute left-0 right-0 top-full mt-1 z-[60]",
+        variant === "default" && "absolute left-0 right-0 top-full mt-1",
       )}
       style={
         variant === "table" && menuPos

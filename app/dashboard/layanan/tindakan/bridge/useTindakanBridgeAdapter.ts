@@ -28,6 +28,28 @@ function findTindakanRow(list: unknown[], id: string) {
 
 export function useTindakanBridgeAdapter() {
   // --------------------------------------------------------------------
+  // SERVER FILTERS (Date Range)
+  // Default: Awal bulan ini (WIB)
+  // --------------------------------------------------------------------
+  const [serverFilters, setServerFilters] = useState<{
+    from?: string;
+    to?: string;
+    search?: string;
+  }>(() => {
+    const now = new Date();
+    // Gunakan Intl untuk memastikan zona waktu Asia/Jakarta
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Jakarta",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const today = formatter.format(now);
+    const startOfMonth = today.substring(0, 8) + "01";
+    return { from: startOfMonth };
+  });
+
+  // --------------------------------------------------------------------
   // BRIDGE SYSTEM
   // --------------------------------------------------------------------
   const bridge = useTindakanEventBridge();
@@ -44,7 +66,7 @@ export function useTindakanBridgeAdapter() {
     reload,
     removeLocalById,
     isSyncing = false,
-  } = useTindakanData();
+  } = useTindakanData(serverFilters);
 
   const { createOne, updateOne, deleteOne } = useTindakanCrud();
 
@@ -186,5 +208,9 @@ export function useTindakanBridgeAdapter() {
     detailInitialTab,
     closeDetailDrawer,
     selectedRecord,
+
+    // Server-side filtering
+    serverFilters,
+    setServerFilters,
   };
 }

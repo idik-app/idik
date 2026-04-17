@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 export type PerawatOption = {
   id: string;
@@ -144,8 +145,9 @@ export function PerawatCombobox({
           id={listboxId}
           role="listbox"
           className={cn(
-            "absolute left-0 right-0 top-full z-[60] mt-1 max-h-48 overflow-auto rounded-lg",
+            "absolute left-0 right-0 top-full mt-1 max-h-48 overflow-auto rounded-lg",
             listSurface,
+            UI_LAYERS.popover,
           )}
         >
           {filtered.map((p) => {
@@ -217,12 +219,13 @@ export function PerawatCombobox({
       {open && !loading && options.length === 0 ? (
         <p
           className={cn(
-            "absolute left-0 right-0 top-full z-[60] mt-1 rounded-lg px-2 py-2 text-[10px]",
+            "absolute left-0 right-0 top-full mt-1 rounded-lg px-2 py-2 text-[10px]",
             tone === "drawer"
               ? drawerLight
                 ? "border border-cyan-400/55 bg-white text-slate-600"
                 : "border border-cyan-900/50 bg-[#070d14] text-cyan-200/60"
               : "border border-white/15 bg-[#0a1628] text-white/55",
+            UI_LAYERS.popover,
           )}
         >
           Belum ada pilihan di master. Gunakan form Tambah ke master perawat di

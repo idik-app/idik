@@ -97,7 +97,17 @@ export default function TableToolbar({
   const [dokter, setDokter] = useState("");
   const [ruangan, setRuangan] = useState("");
   const [tindakan, setTindakan] = useState("");
-  const [tanggalFrom, setTanggalFrom] = useState("");
+  const [tanggalFrom, setTanggalFrom] = useState(() => {
+    // Default: Awal bulan ini (WIB)
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Jakarta",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    return formatter.format(now).substring(0, 8) + "01";
+  });
   const [tanggalTo, setTanggalTo] = useState("");
   const [isPciOnly, setIsPciOnly] = useState(false);
   const [searchValue, setSearchValue] = useState("");
@@ -982,10 +992,18 @@ export default function TableToolbar({
                       setDokter("");
                       setRuangan("");
                       setTindakan("");
-                      setTanggalFrom("");
+                      const now = new Date();
+                      const formatter = new Intl.DateTimeFormat("en-CA", {
+                        timeZone: "Asia/Jakarta",
+                        year: "numeric",
+                        month: "2-digit",
+                        day: "2-digit",
+                      });
+                      const defFrom = formatter.format(now).substring(0, 8) + "01";
+                      setTanggalFrom(defFrom);
                       setTanggalTo("");
                       setIsPciOnly(false);
-                      onFilter("", "", "", "", "", false);
+                      onFilter("", "", "", defFrom, "", false);
                     }}
                     className={cn(
                       "flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all",

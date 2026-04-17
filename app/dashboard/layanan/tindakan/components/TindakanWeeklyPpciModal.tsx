@@ -31,36 +31,46 @@ import KeteranganField from "./KeteranganField";
 import { useMasterPasien } from "@/app/hooks/useMasterData";
 import { type PasienOption } from "@/components/ui/pasien-combobox";
 
-function todayWibYmd(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+/** Senin minggu ini (WIB). */
+function startOfWeekWibYmd(): string {
+  const d = new Date();
+  const jkt = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+  const day = jkt.getDay(); // 0 (Sun) - 6 (Sat)
+  const diff = jkt.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  jkt.setDate(diff);
+  return new Intl.DateTimeFormat("en-CA").format(jkt);
 }
 
-function tanggalKey(raw: unknown): string {
+/** Minggu minggu ini (WIB). */
+function endOfWeekWibYmd(): string {
+  const d = new Date();
+  const jkt = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+  const day = jkt.getDay();
+  const diff = jkt.getDate() - day + (day === 0 ? 0 : 7); // Sunday
+  jkt.setDate(diff);
+  return new Intl.DateTimeFormat("en-CA").format(jkt);
+}
+
+function extractCalendarDateKey(raw: unknown): string {
   if (raw == null || raw === "") return "";
   return String(raw).slice(0, 10);
 }
 
-export default function TindakanHariIniModal({
+export default function TindakanWeeklyPpciModal({
   open,
   onOpenChange,
   rows,
   loading,
-  themeTone,
   onRecordPatch,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   rows: readonly TindakanJoinResult[];
   loading: boolean;
-  themeTone: "cyan" | "emerald";
   onRecordPatch?: () => void;
 }) {
-  const today = todayWibYmd();
+  const start = startOfWeekWibYmd();
+  const end = endOfWeekWibYmd();
 
   const { pasien: pasienRaw } = useMasterPasien();
   const pasienOptions = useMemo(() => {
@@ -69,58 +79,68 @@ export default function TindakanHariIniModal({
       .filter(Boolean) as PasienOption[];
   }, [pasienRaw]);
 
-  const todayRows = useMemo(
-    () => rows.filter((r) => tanggalKey(r.tanggal) === today),
-    [rows, today],
-  );
+  const ppciRows = useMemo(() => {
+    return rows.filter((rec) => {
+      const t = String(rec.tindakan ?? "").trim().toLowerCase();
+      if (!t.includes("ppci")) return false;
 
-  const tanggalLabel = useMemo(() => {
-    return new Intl.DateTimeFormat("id-ID", {
-      timeZone: "Asia/Jakarta",
-      dateStyle: "long",
-    }).format(new Date(`${today}T12:00:00+07:00`));
-  }, [today]);
+      // RS Rujukan pribadi tidak dihitung dalam kuota mingguan
+      const rs = String(rec.rs_perujuk ?? "").trim().toLowerCase();
+      const ket = String(rec.keterangan ?? "").trim().toLowerCase();
+      if (rs.includes("pribadi") || ket.includes("pribadi")) return false;
 
-  const { summary, breakdown } = useMemo(() => {
-    const total = todayRows.length;
-    const roomMap = new Map<string, number>();
-    const actionMap = new Map<string, number>();
-    
-    todayRows.forEach((r) => {
-      const rm = String(r.ruangan ?? "Belum diisi").trim();
-      const ac = String(r.tindakan ?? "Belum diisi").trim();
-      roomMap.set(rm, (roomMap.get(rm) ?? 0) + 1);
-      actionMap.set(ac, (actionMap.get(ac) ?? 0) + 1);
+      const key = extractCalendarDateKey(String(rec.tanggal ?? "").trim());
+      return key >= start && key <= end;
     });
+  }, [rows, start, end]);
 
-    return {
-      summary: { total },
-      breakdown: {
-        rooms: Array.from(roomMap.entries()).sort((a, b) => b[1] - a[1]),
-        actions: Array.from(actionMap.entries()).sort((a, b) => b[1] - a[1]),
-      },
-    };
-  }, [todayRows]);
+  const rangeLabel = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat("id-ID", {
+      timeZone: "Asia/Jakarta",
+      dateStyle: "medium",
+    });
+    const s = fmt.format(new Date(`${start}T12:00:00+07:00`));
+    const e = fmt.format(new Date(`${end}T12:00:00+07:00`));
+    return `${s} – ${e}`;
+  }, [start, end]);
 
   const buildExportHtml = useCallback(
     () =>
       buildTindakanHariIniReportHtml({
-        tanggalIso: today,
-        tanggalLabel,
-        rows: todayRows,
+        tanggalIso: `${start}_${end}`,
+        tanggalLabel: `PPCI Minggu Ini (${rangeLabel})`,
+        rows: ppciRows,
         pasienOptions,
       }),
-    [today, tanggalLabel, todayRows, pasienOptions],
+    [start, end, rangeLabel, ppciRows, pasienOptions],
   );
 
   const buildExportWhatsApp = useCallback(
-    () => buildTindakanHariIniWhatsAppText(tanggalLabel, todayRows),
-    [tanggalLabel, todayRows],
+    () => buildTindakanHariIniWhatsAppText(`PPCI Minggu Ini (${rangeLabel})`, ppciRows),
+    [rangeLabel, ppciRows],
   );
 
+  const { ppciSummary, doctorStats } = useMemo(() => {
+    const total = ppciRows.length;
+    const statsMap = new Map<string, number>();
+    ppciRows.forEach((r) => {
+      const dr = String(r.dokter ?? "Belum diisi").trim();
+      statsMap.set(dr, (statsMap.get(dr) ?? 0) + 1);
+    });
+
+    const sortedStats = Array.from(statsMap.entries()).sort(
+      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+    );
+
+    return {
+      ppciSummary: { total },
+      doctorStats: sortedStats,
+    };
+  }, [ppciRows]);
+
   const exportFileBase = useMemo(
-    () => `laporan-tindakan-hari-ini-${today}`,
-    [today],
+    () => `laporan-ppci-minggu-ini-${start}-to-${end}`,
+    [start, end],
   );
 
   return (
@@ -142,58 +162,62 @@ export default function TindakanHariIniModal({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <DialogHeader className="space-y-1 sm:pr-2">
               <DialogTitle className="text-left font-bold tracking-wide">
-                Tindakan hari ini
+                PPCI Minggu Ini
               </DialogTitle>
               <p
                 className={cn(
-                  "text-[12px] font-semibold",
-                  "text-slate-600 dark:text-white/85",
+                  "text-[12px] font-semibold text-amber-600 dark:text-amber-400",
                 )}
               >
-                {tanggalLabel}
+                {rangeLabel}
               </p>
             </DialogHeader>
 
-            {/* KPI Summary */}
-            {!loading && todayRows.length > 0 && (
-              <div className="flex flex-1 flex-col gap-2 px-3 py-2 border-l-2 border-cyan-500/30 bg-cyan-500/5 rounded-r-lg mx-2 sm:mx-4">
+            {!loading && ppciRows.length > 0 && (
+              <div className="flex flex-1 flex-col gap-2 px-3 py-2 border-l-2 border-amber-500/30 bg-amber-500/5 rounded-r-lg mx-2 sm:mx-4">
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
                   <div className="flex flex-col border-r border-slate-200 dark:border-white/10 pr-6">
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-white/40">Total Hari Ini</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 dark:text-white/40">Total PPCI</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-3xl font-black tabular-nums text-cyan-600 dark:text-cyan-400 leading-none">
-                        {summary.total}
+                      <span className="text-3xl font-black tabular-nums text-amber-600 dark:text-amber-400 leading-none">
+                        {ppciSummary.total}
                       </span>
-                      <span className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-tighter">Pasien</span>
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-tighter">Kasus</span>
                     </div>
                   </div>
                   
-                  <div className="flex-1 flex flex-wrap gap-x-8 gap-y-2 items-center">
-                    {/* Room Breakdown */}
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[8px] font-bold uppercase tracking-widest opacity-50">Berdasarkan Ruangan</span>
-                      <div className="flex gap-4">
-                        {breakdown.rooms.slice(0, 3).map(([room, count]) => (
-                          <div key={room} className="flex items-baseline gap-1.5">
-                            <span className="text-[11px] font-black tabular-nums text-cyan-700 dark:text-cyan-300">{count}</span>
-                            <span className="text-[10px] font-bold opacity-70 tracking-tight">{room}</span>
+                  <div className="flex-1 flex flex-wrap gap-x-5 gap-y-2 items-center">
+                    {doctorStats.map(([dr, count]) => {
+                      const drName = dr.split(",")[0].replace("dr. ", "").replace("dr ", "");
+                      return (
+                        <div key={dr} className="flex flex-col min-w-[100px] max-w-[140px]">
+                          <div className="flex justify-between items-end mb-0.5">
+                            <span className="text-[10px] font-bold truncate opacity-80 dark:text-white/70 tracking-tight" title={dr}>
+                              {drName}
+                            </span>
+                            <span className={cn(
+                              "text-[11px] font-black tabular-nums leading-none ml-1",
+                              count >= 5 ? "text-amber-600 dark:text-amber-400" : "text-cyan-600 dark:text-cyan-400"
+                            )}>
+                              {count}
+                            </span>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Action Breakdown */}
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[8px] font-bold uppercase tracking-widest opacity-50">Tindakan Terbanyak</span>
-                      <div className="flex gap-4">
-                        {breakdown.actions.slice(0, 3).map(([action, count]) => (
-                          <div key={action} className="flex items-baseline gap-1.5">
-                            <span className="text-[11px] font-black tabular-nums text-emerald-600 dark:text-emerald-400">{count}</span>
-                            <span className="text-[10px] font-bold opacity-70 tracking-tight">{action}</span>
+                          {/* Progress Bar / Mini Chart */}
+                          <div className="h-1.5 w-full bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden relative">
+                            <div 
+                              className={cn(
+                                "h-full transition-all duration-700 ease-out rounded-full",
+                                count > 5 ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" : 
+                                count === 5 ? "bg-amber-500" : "bg-cyan-500"
+                              )}
+                              style={{ width: `${Math.min(100, (count / 5) * 100)}%` }}
+                            />
+                            {/* Mark for 5 limit */}
+                            <div className="absolute right-0 top-0 bottom-0 w-[1px] bg-white/20 dark:bg-black/20" />
                           </div>
-                        ))}
-                      </div>
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -202,7 +226,7 @@ export default function TindakanHariIniModal({
             <ReportExportActionBar
               className="shrink-0 sm:pt-0.5"
               disabled={loading}
-              empty={!loading && todayRows.length === 0}
+              empty={!loading && ppciRows.length === 0}
               fileNameBase={exportFileBase}
               buildHtml={buildExportHtml}
               buildWhatsAppText={buildExportWhatsApp}
@@ -218,14 +242,14 @@ export default function TindakanHariIniModal({
             >
               Memuat data…
             </div>
-          ) : todayRows.length === 0 ? (
+          ) : ppciRows.length === 0 ? (
             <div
               className={cn(
                 "rounded-xl border px-4 py-10 text-center text-sm font-semibold",
                 "border-slate-200 bg-slate-50 text-slate-700 dark:border-cyan-800/40 dark:bg-black/25 dark:text-white/90",
               )}
             >
-              Tidak ada tindakan pada tanggal hari ini.
+              Tidak ada tindakan PPCI pada minggu ini.
             </div>
           ) : (
             <div className="overflow-auto">
@@ -233,7 +257,6 @@ export default function TindakanHariIniModal({
                 <thead className="sticky top-0 z-10">
                   <tr
                     className={cn(
-                      // Header tabel: gradient + backdrop blur agar terlihat lebih elegan.
                       "border-b text-center shadow-[0_12px_30px_rgba(245,158,11,0.16)]",
                       "border-amber-200/70 bg-gradient-to-b from-amber-400/85 via-amber-200/65 to-amber-100/40 dark:border-amber-400/55 dark:bg-gradient-to-b dark:from-amber-300/30 dark:via-amber-200/20 dark:to-amber-200/10",
                     )}
@@ -241,11 +264,8 @@ export default function TindakanHariIniModal({
                     <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-slate-900 dark:text-white w-10">
                       No
                     </th>
-                    <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-slate-900 dark:text-white">
-                      Tanggal
-                    </th>
                     <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-slate-900 dark:text-white w-24">
-                      Time out
+                      Tanggal
                     </th>
                     <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-slate-900 dark:text-white w-24">
                       RM
@@ -257,7 +277,7 @@ export default function TindakanHariIniModal({
                       RS Perujuk / Ket
                     </th>
                     <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-slate-900 dark:text-white w-24">
-                      Jenis kelamin
+                      JK
                     </th>
                     <th className="px-2 py-1.5 text-[11px] uppercase tracking-wider text-slate-900 dark:text-white min-w-[180px]">
                       Dokter
@@ -271,12 +291,10 @@ export default function TindakanHariIniModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {todayRows.map((rec, i) => {
+                  {ppciRows.map((rec, i) => {
                     const raw = rec as unknown as Record<string, unknown>;
                     const p = resolvePasienFromRow(pasienOptions, raw);
                     const jk = resolveJenisKelaminFromRow(raw, p);
-                    const dokter = String(rec.dokter ?? "").trim() || "—";
-                    const tindakan = String(rec.tindakan ?? "").trim() || "—";
                     const ruangan = String(rec.ruangan ?? "").trim() || "—";
                     return (
                       <tr
@@ -291,9 +309,6 @@ export default function TindakanHariIniModal({
                         </td>
                         <td className="px-2 py-1.5 text-center font-mono text-[12px] text-slate-800 dark:text-white/90">
                           {String(rec.tanggal ?? "").slice(0, 10) || "—"}
-                        </td>
-                        <td className="px-2 py-1.5 text-center font-mono text-[12px] text-slate-800 dark:text-white/90">
-                          {String(rec.fast_track_time_out ?? "").trim() || "—"}
                         </td>
                         <td className="px-2 py-1.5 text-center font-mono text-[12px] text-slate-800 dark:text-white/90">
                           {displayRm(raw)}

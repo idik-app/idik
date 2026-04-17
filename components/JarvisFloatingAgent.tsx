@@ -5,6 +5,7 @@ import { motion, useAnimation, AnimatePresence } from "framer-motion";
 import { useAI } from "@/app/contexts/AIContext";
 import JarvisAgent from "./JarvisAgent";
 import { useUI } from "@/contexts/UIContext";
+import { useSession } from "@/contexts/SessionContext";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import { cn } from "@/lib/utils";
 import Portal from "./Portal";
@@ -39,6 +40,7 @@ export default function JarvisFloatingAgent() {
   const pathname = usePathname();
   const { mode: aiMode } = useAI();
   const { themeMode } = useUI();
+  const { username, role } = useSession();
   const controls = useAnimation();
   const [target, setTarget] = useState<TargetPosition | null>(null);
   const [isVisible, setIsVisible] = useState(true);
@@ -46,6 +48,8 @@ export default function JarvisFloatingAgent() {
   const [isOpen, setIsOpen] = useState(false);
   const [isInteracting, setIsInteracting] = useState(false);
   const isMounted = useRef(true);
+
+  const isLoggedIn = username !== "unknown" && role !== "guest";
 
   useEffect(() => {
     isMounted.current = true;
@@ -56,6 +60,7 @@ export default function JarvisFloatingAgent() {
 
   // --- Exclude certain routes ---
   const isExcludedRoute = 
+    pathname === "/" ||
     pathname?.startsWith("/distributor") || 
     pathname?.startsWith("/depo") || 
     pathname?.startsWith("/cssd");
@@ -269,6 +274,15 @@ export default function JarvisFloatingAgent() {
               className="cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation();
+                if (!isLoggedIn) {
+                  // Optional: beri feedback visual jika user belum login
+                  window.dispatchEvent(
+                    new CustomEvent("jarvis:visit", {
+                      detail: { x: e.clientX, y: e.clientY, label: "SECURE ACCESS REQUIRED" },
+                    })
+                  );
+                  return;
+                }
                 setIsOpen(!isOpen);
               }}
             >

@@ -123,6 +123,8 @@ export function finalizeTindakanPatchForSupabase(
     "billing_simrs",
     "pj_laporan",
     "operan_ranap",
+    "rs_perujuk",
+    "keterangan",
   ] as const) {
     if (sanitized[key] === undefined) continue;
     const v = sanitized[key];
@@ -206,5 +208,7 @@ export function mapTindakanRowToApiDetail(data: Record<string, unknown>) {
     billing_simrs: toText(data.billing_simrs),
     pj_laporan: toText(data.pj_laporan),
     operan_ranap: toText(data.operan_ranap),
+    rs_perujuk: toText(data.rs_perujuk),
+    keterangan: toText(data.keterangan),
   };
 }

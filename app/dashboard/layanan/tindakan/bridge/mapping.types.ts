@@ -58,6 +58,8 @@ export interface TindakanJoinResult {
   asisten: string | null;
   sirkuler: string | null;
   logger: string | null;
+  rs_perujuk?: string | null;
+  keterangan?: string | null;
 
   status: string | null;
   kelas: string | null;

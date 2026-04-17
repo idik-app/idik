@@ -12,6 +12,7 @@ import type { TindakanJoinResult } from "./bridge/mapping.types";
 import { useTindakanBridgeAdapter } from "./bridge/useTindakanBridgeAdapter";
 import TindakanHeader from "./components/TindakanHeader";
 import TindakanHariIniModal from "./components/TindakanHariIniModal";
+import TindakanWeeklyPpciModal from "./components/TindakanWeeklyPpciModal";
 import TindakanDashboardModal from "./components/TindakanDashboardModal";
 import PhoneShortcutsBar from "./components/PhoneShortcutsBar";
 import TindakanRoleAccessModal, {
@@ -46,6 +47,7 @@ export default function TindakanDashboard() {
   const tableRef = useRef<HTMLDivElement | null>(null);
   const themeTone = "cyan" as const;
   const [todayModalOpen, setTodayModalOpen] = useState(false);
+  const [weeklyPpciModalOpen, setWeeklyPpciModalOpen] = useState(false);
   const [fastTrackModalOpen, setFastTrackModalOpen] = useState(false);
   const [roleAccessOpen, setRoleAccessOpen] = useState(false);
   const [phoneDirectoryOpen, setPhoneDirectoryOpen] = useState(false);
@@ -109,6 +111,7 @@ export default function TindakanDashboard() {
               filtered={filteredSummary}
               onTodayKpiClick={() => setTodayModalOpen(true)}
               onFastTrackKpiClick={() => setFastTrackModalOpen(true)}
+              onWeeklyPpciKpiClick={() => setWeeklyPpciModalOpen(true)}
             />
           }
         />
@@ -184,9 +187,10 @@ export default function TindakanDashboard() {
         open={todayModalOpen}
         onOpenChange={setTodayModalOpen}
         rows={
-          Array.isArray(adapter.tindakanList)
+          (filteredSummary?.allRows as TindakanJoinResult[]) ??
+          (Array.isArray(adapter.tindakanList)
             ? (adapter.tindakanList as TindakanJoinResult[])
-            : []
+            : [])
         }
         loading={Boolean(adapter.loading)}
         themeTone={themeTone}
@@ -197,12 +201,26 @@ export default function TindakanDashboard() {
         open={fastTrackModalOpen}
         onOpenChange={setFastTrackModalOpen}
         rows={
-          Array.isArray(adapter.tindakanList)
+          (filteredSummary?.allRows as TindakanJoinResult[]) ??
+          (Array.isArray(adapter.tindakanList)
             ? (adapter.tindakanList as TindakanJoinResult[])
-            : []
+            : [])
         }
         loading={Boolean(adapter.loading)}
         doctorOptionsMaster={[]} // Will be loaded inside if needed or pass from context
+        onRecordPatch={adapter.refresh}
+      />
+
+      <TindakanWeeklyPpciModal
+        open={weeklyPpciModalOpen}
+        onOpenChange={setWeeklyPpciModalOpen}
+        rows={
+          (filteredSummary?.allRows as TindakanJoinResult[]) ??
+          (Array.isArray(adapter.tindakanList)
+            ? (adapter.tindakanList as TindakanJoinResult[])
+            : [])
+        }
+        loading={Boolean(adapter.loading)}
         onRecordPatch={adapter.refresh}
       />
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 export type MasterTindakanOption = {
   id: string;
@@ -99,9 +100,7 @@ export function MasterTindakanCombobox({
     const resolved =
       resolveMasterTindakanAutofill(trimmed, options) ??
       resolveMasterTindakanAutofill(trimmed, filtered);
-    const finalLabel = resolved
-      ? formatMasterTindakanLabel(resolved)
-      : trimmed;
+    const finalLabel = resolved ? formatMasterTindakanLabel(resolved) : trimmed;
     if (finalLabel !== value) {
       onChange(finalLabel);
       if (resolved) onSelectOption?.(resolved);
@@ -222,7 +221,10 @@ export function MasterTindakanCombobox({
           onMouseDown={() => {
             skipBlurRef.current = true;
           }}
-          className="absolute left-0 right-0 top-full z-[60] mt-1 max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl"
+          className={cn(
+            "absolute left-0 right-0 top-full mt-1 max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl",
+            UI_LAYERS.popover,
+          )}
         >
           {filtered.map((r, i) => {
             const label = formatMasterTindakanLabel(r);
@@ -259,7 +261,12 @@ export function MasterTindakanCombobox({
         </ul>
       ) : null}
       {open && !loading && options.length === 0 ? (
-        <p className="absolute left-0 right-0 top-full z-[60] mt-1 rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/85">
+        <p
+          className={cn(
+            "absolute left-0 right-0 top-full mt-1 rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/85",
+            UI_LAYERS.popover,
+          )}
+        >
           Belum ada jenis tindakan di master. Kelola lewat menu{" "}
           <span className="text-[#E8C547]/90">Master jenis tindakan</span>.
         </p>

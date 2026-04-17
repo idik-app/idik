@@ -61,9 +61,11 @@ const PATCHABLE_TINDAKAN_KEYS = new Set([
   "berkas_laporan",
   "consumable_kelengkapan",
   "billing_simrs",
-  "pj_laporan",
-  "operan_ranap",
-]);
+      "pj_laporan",
+      "operan_ranap",
+      "rs_perujuk",
+      "keterangan",
+    ]);
 
 function sanitizeTindakanPatch(body: unknown): Record<string, unknown> {
   if (!body || typeof body !== "object" || Array.isArray(body)) {

@@ -7,33 +7,6 @@ import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import { X, Search, CheckCircle2, Loader2 } from "lucide-react";
 
-const LOCAL_STORAGE_KEY = "idik_tarif_tindakan";
-
-interface TarifItem {
-  kode: string;
-  nama: string;
-  harga: number;
-}
-
-const INITIAL_TARIF: TarifItem[] = [
-  { kode: "", nama: "ANGIOPLASTY", harga: 8625000 },
-  { kode: "", nama: "PTCA", harga: 10637500 },
-  { kode: "", nama: "DCA", harga: 3737500 },
-  { kode: "", nama: "TPM", harga: 4600000 },
-  { kode: "", nama: "PPM", harga: 10350000 },
-  { kode: "", nama: "VENOGRAPHY", harga: 5000000 },
-  { kode: "", nama: "ARTERIOGRAFI", harga: 5000000 },
-  { kode: "", nama: "EVLA", harga: 5000000 },
-  { kode: "", nama: "FFR", harga: 4600000 },
-  { kode: "", nama: "EP STUDY", harga: 9200000 },
-  { kode: "", nama: "ABLASI", harga: 24334000 },
-  { kode: "", nama: "DSA", harga: 11960000 },
-  { kode: "", nama: "PERIKARDIOSINTESIS", harga: 5000000 },
-  { kode: "", nama: "IABP", harga: 8625000 },
-  { kode: "", nama: "IVUS", harga: 4600000 },
-  { kode: "", nama: "DXRL", harga: 5000000 },
-];
-
 export default function TarifModal({
   open,
   onClose,
@@ -43,46 +16,67 @@ export default function TarifModal({
 }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const [tarif, setTarif] = useState<TarifItem[]>([]);
+  const [tarif, setTarif] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (stored) {
-      try {
-        setTarif(JSON.parse(stored));
-      } catch {
-        setTarif(INITIAL_TARIF);
+  const fetchTarif = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/master-tarif-tindakan");
+      const data = await res.json();
+      if (data.ok) {
+        setTarif(data.tarif);
       }
-    } else {
-      setTarif(INITIAL_TARIF);
+    } catch (err) {
+      console.error("Failed to fetch tarif", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      fetchTarif();
     }
   }, [open]);
 
-  const handleUpdateField = (
+  const handleUpdateField = async (
     index: number,
-    field: keyof TarifItem,
-    value: string,
+    field: string,
+    value: any,
   ) => {
-    const newTarif = [...tarif];
-    if (field === "harga") {
-      const numericValue = parseInt(value.replace(/\D/g, "")) || 0;
-      newTarif[index] = { ...newTarif[index], harga: numericValue };
-    } else {
-      newTarif[index] = { ...newTarif[index], [field]: value };
+    const item = tarif[index];
+    let newValue = value;
+    
+    if (field === "tarif_rupiah") {
+      newValue = parseInt(String(value).replace(/\D/g, "")) || 0;
     }
+
+    const updatedItem = { ...item, [field]: newValue };
+    const newTarif = [...tarif];
+    newTarif[index] = updatedItem;
     setTarif(newTarif);
 
-    // Autosave silent
+    // Save to DB
     setIsSaving(true);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newTarif));
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/master-tarif-tindakan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedItem),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setLastSaved(new Date());
+      }
+    } catch (err) {
+      console.error("Failed to save tarif", err);
+    } finally {
       setIsSaving(false);
-      setLastSaved(new Date());
-    }, 500);
+    }
   };
 
   const filteredTarif = tarif.filter(
@@ -123,17 +117,22 @@ export default function TarifModal({
             >
               📋 Daftar Tarif Tindakan
             </h3>
-            <button
-              onClick={onClose}
-              className={cn(
-                "p-1.5 rounded-full transition-colors",
-                isDark
-                  ? "hover:bg-white/10 text-white"
-                  : "hover:bg-black/5 text-slate-600",
+            <div className="flex items-center gap-2">
+              {isLoading && (
+                <Loader2 size={18} className="animate-spin text-cyan-500" />
               )}
-            >
-              <X size={20} />
-            </button>
+              <button
+                onClick={onClose}
+                className={cn(
+                  "p-1.5 rounded-full transition-colors",
+                  isDark
+                    ? "hover:bg-white/10 text-white"
+                    : "hover:bg-black/5 text-slate-600",
+                )}
+              >
+                <X size={20} />
+              </button>
+            </div>
           </div>
 
           <div className="mb-4 relative">
@@ -160,13 +159,11 @@ export default function TarifModal({
 
           <div className="max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
             <div className="grid grid-cols-1 gap-2">
-              {filteredTarif.map((item, idx) => {
-                const originalIndex = tarif.findIndex(
-                  (t) => t.nama === item.nama,
-                );
+              {filteredTarif.map((item) => {
+                const originalIndex = tarif.findIndex((t) => t.id === item.id);
                 return (
                   <div
-                    key={item.nama}
+                    key={item.id}
                     className={cn(
                       "flex items-center justify-between p-3 rounded-lg border transition-all",
                       isDark
@@ -209,11 +206,13 @@ export default function TarifModal({
                         </span>
                         <input
                           type="text"
-                          value={item.harga.toLocaleString("id-ID")}
+                          value={Number(item.tarif_rupiah || 0).toLocaleString(
+                            "id-ID",
+                          )}
                           onChange={(e) =>
                             handleUpdateField(
                               originalIndex,
-                              "harga",
+                              "tarif_rupiah",
                               e.target.value,
                             )
                           }
@@ -229,7 +228,7 @@ export default function TarifModal({
                   </div>
                 );
               })}
-              {filteredTarif.length === 0 && (
+              {!isLoading && filteredTarif.length === 0 && (
                 <div className="text-center py-8 opacity-50 italic">
                   Tindakan tidak ditemukan
                 </div>

@@ -6,29 +6,29 @@ export const UI_LAYERS = {
   /** Elemen dasar di bawah konten utama */
   base: "z-[1]",
   /** Sidebar dan navigasi utama */
-  sidebar: "z-[60]",
+  sidebar: "z-[100]",
   /** Baris aksi toolbar (tombol + submenu) harus di atas baris filter di bawahnya */
-  toolbarActionsRow: "z-20",
+  toolbarActionsRow: "z-[70]",
   /** Baris filter di bawah aksi toolbar */
-  toolbarFilterRow: "z-10",
+  toolbarFilterRow: "z-[65]",
   /** Head-up display / status bar kecil (misal: toolbar tabel) */
-  hud: "z-[48]",
+  hud: "z-[72]",
   /** Sticky table header */
-  tableHeader: "z-10",
+  tableHeader: "z-[60]",
   /** Zoomed table cell (focus-within) */
-  tableZoomedCell: "z-[30]",
+  tableZoomedCell: "z-[80]",
   /** Hovered label inside table cell */
   tableHoveredLabel: "z-[45]",
   /** Backdrop untuk detail drawer */
   detailBackdrop: "z-[45]",
   /** Overlay standar (modal backdrop) */
-  overlay: "z-[100]",
+  overlay: "z-[110]",
   /** Modal standar */
-  modal: "z-[110]",
+  modal: "z-[120]",
   /** Modal dengan prioritas lebih tinggi */
-  modalHigh: "z-[115]",
+  modalHigh: "z-[125]",
   /** Modal paling atas */
-  modalTop: "z-[120]",
+  modalTop: "z-[130]",
   /** Floating Action Button (FAB) */
   fab: "z-[90]",
   /** Form modal khusus (mis. DokterModalForm) */
@@ -48,11 +48,11 @@ export const UI_LAYERS = {
   /** Dialog konfirmasi tingkat tinggi */
   confirmDialogHigh: "z-[600]",
   /** Popover standar */
-  popover: "z-[80]",
+  popover: "z-[85]",
   /** Portal untuk drawer */
   drawerPortal: "z-[5000]",
   /** Picker melayang (date/time) */
-  pickerFloating: "z-[5000]",
+  pickerFloating: "z-[5010]",
   /** Picker melayang paling atas */
   pickerFloatingTop: "z-[10050]",
   /** Overlay dialog paling atas */

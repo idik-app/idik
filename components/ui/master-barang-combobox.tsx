@@ -115,7 +115,8 @@ export function MasterBarangCombobox({
       : "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40";
 
   const listCls = cn(
-    `max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl ${UI_LAYERS.popover}`,
+    "max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl",
+    UI_LAYERS.popover,
     variant === "table" ? "text-[10px]" : "text-[11px]"
   );
 
@@ -149,26 +150,23 @@ export function MasterBarangCombobox({
 
   const listInner =
     open && !loading && filtered.length > 0 ? (
-      <ul
-        ref={variant === "table" ? listRef : undefined}
-        id={listboxId}
-        role="listbox"
-        className={cn(
-          listCls,
-          variant === "default" &&
-            "absolute left-0 right-0 top-full z-[60] mt-1"
-        )}
-        style={
-          variant === "table" && menuPos
-            ? {
-                position: "fixed",
-                top: menuPos.top,
-                left: menuPos.left,
-                width: menuPos.width,
-              }
-            : undefined
-        }
-      >
+        <ul
+          ref={variant === "table" ? listRef : undefined}
+          id={listboxId}
+          role="listbox"
+          className={cn(listCls, variant === "default" && "absolute left-0 right-0 top-full mt-1")}
+          style={
+            variant === "table" && menuPos
+              ? {
+                  position: "fixed",
+                  top: menuPos.top,
+                  left: menuPos.left,
+                  width: menuPos.width,
+                  zIndex: 100, // Explicit for portal if needed, but UI_LAYERS should handle it if passed via className
+                }
+              : undefined
+          }
+        >
         {renderListItems()}
       </ul>
     ) : null;
@@ -213,9 +211,9 @@ export function MasterBarangCombobox({
         const el = (
           <p
             className={cn(
-              `rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/55 ${UI_LAYERS.popover}`,
-              variant === "default" &&
-                "absolute left-0 right-0 top-full mt-1 z-[60]"
+              "rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/55",
+              UI_LAYERS.popover,
+              variant === "default" && "absolute left-0 right-0 top-full mt-1",
             )}
             style={
               variant === "table" && menuPos
@@ -224,6 +222,7 @@ export function MasterBarangCombobox({
                     top: menuPos.top,
                     left: menuPos.left,
                     width: menuPos.width,
+                    zIndex: 100,
                   }
                 : undefined
             }

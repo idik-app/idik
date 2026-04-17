@@ -40,6 +40,7 @@ export const WIREFRAME_DRAWER_TABS: {
       "umur",
       "alamat",
       "no_telp",
+      "rs_perujuk",
     ],
   },
   {
@@ -161,6 +162,7 @@ export const FIELD_LABELS: Record<string, string> = {
   umur: "Umur",
   alamat: "Alamat",
   no_telp: "No. telp",
+  rs_perujuk: "RS Perujuk",
   pasien_datang_igd: "Waktu pasien tiba di IGD",
   door_to_balloon: "Waktu door-to-balloon (cathlab)",
   total_waktu_fast_track: "Total waktu",

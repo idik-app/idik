@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 /** Baris dari GET /api/ruangan (master `public.ruangan`). */
 export type RuanganOption = {
@@ -15,7 +16,9 @@ export type RuanganOption = {
 };
 
 /** Nilai yang disimpan di form / order: nama ruangan (boleh juga diketik manual). */
-export function formatRuanganLabel(r: Pick<RuanganOption, "nama" | "kode">): string {
+export function formatRuanganLabel(
+  r: Pick<RuanganOption, "nama" | "kode">,
+): string {
   const nama = (r.nama ?? "").trim();
   const kode = (r.kode ?? "").trim();
   if (nama && kode) return `${nama} (${kode})`;
@@ -68,10 +71,7 @@ export function RuanganCombobox({
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (
-        wrapRef.current &&
-        !wrapRef.current.contains(e.target as Node)
-      ) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
@@ -122,7 +122,10 @@ export function RuanganCombobox({
           onMouseDown={() => {
             skipBlurRef.current = true;
           }}
-          className="absolute left-0 right-0 top-full z-[60] mt-1 max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl"
+          className={cn(
+            "absolute left-0 right-0 top-full mt-1 max-h-48 overflow-auto rounded-lg border border-white/15 bg-[#0a1628] py-1 shadow-xl",
+            UI_LAYERS.popover,
+          )}
         >
           {filtered.map((r) => {
             const label = formatRuanganLabel(r);
@@ -149,7 +152,9 @@ export function RuanganCombobox({
                     ) : null}
                   </span>
                   {sub ? (
-                    <span className="block text-[10px] text-white/50">{sub}</span>
+                    <span className="block text-[10px] text-white/50">
+                      {sub}
+                    </span>
                   ) : null}
                 </button>
               </li>
@@ -158,7 +163,12 @@ export function RuanganCombobox({
         </ul>
       ) : null}
       {open && !loading && options.length === 0 ? (
-        <p className="absolute left-0 right-0 top-full z-[60] mt-1 rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/85">
+        <p
+          className={cn(
+            "absolute left-0 right-0 top-full mt-1 rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] text-white/85",
+            UI_LAYERS.popover,
+          )}
+        >
           Belum ada ruangan di master. Tambah lewat menu{" "}
           <span className="text-[#E8C547]/90">Ruangan</span>.
         </p>

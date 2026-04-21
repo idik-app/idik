@@ -26,6 +26,7 @@ import {
   Tags,
   Building2,
   PackageOpen,
+  Package,
   RefreshCcw,
 } from "lucide-react";
 
@@ -211,6 +212,16 @@ export const menuConfig = [
         noHrefForRoles: ["perawat", "admin", "administrator", "superadmin"],
         priority: 1,
         module: "FarmasiMasterData",
+        hologram: "edge",
+      },
+      {
+        id: "master-barang",
+        label: "Master barang",
+        icon: <Package size={18} />,
+        href: "/dashboard/farmasi/master-barang",
+        noHrefForRoles: ["perawat", "admin", "administrator", "superadmin"],
+        priority: 1,
+        module: "FarmasiMasterBarang",
         hologram: "edge",
       },
       {

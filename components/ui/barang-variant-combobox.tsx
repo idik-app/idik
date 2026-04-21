@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  isValidElement,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -8,11 +9,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { createPortal, flushSync } from "react-dom";
+import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Loader2, PackagePlus, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { UI_LAYERS } from "@/lib/ui/layers";
+import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
 
 /** Satu baris pilihan: master + optional variant distributor_barang (sama dengan modal Cari & tambah). */
 export type MasterBarangPickRow = {
@@ -213,9 +215,19 @@ export function resolvePickRowFromIndexedOptions(
   index: BarangVariantIndex,
   optionsFallback: MasterBarangPickRow[],
   line?: BlurResolveLine,
+  opts?: { allowFuzzy?: boolean },
 ): MasterBarangPickRow | undefined {
   const q = label.trim().toLowerCase();
   if (!q) return undefined;
+  /** Jangan resolusi "tegas" untuk 1 huruf — sering kode/LOT singkat memicu onPickVariant + baris baru saat masih mengetik. */
+  const looksLikeNumericBarcode = /^\d{8,}$/.test(q);
+  if (
+    opts?.allowFuzzy === false &&
+    q.length < 2 &&
+    !looksLikeNumericBarcode
+  ) {
+    return undefined;
+  }
 
   const byBarcode = index.barcodeMap.get(q);
   if (byBarcode) return byBarcode;
@@ -241,19 +253,29 @@ export function resolvePickRowFromIndexedOptions(
     return narrowed.length === 1 ? narrowed[0] : undefined;
   }
 
-  return undefined;
+  // Lookup persis via index tidak cocok (mis. nama diketik parsial): lanjut ke resolver
+  // lengkap — termasuk cocokkan LOT di kolom baris & fallback fuzzy seperti filter dropdown.
+  return resolvePickRowFromBarangInput(label, optionsFallback, line, opts);
 }
 
 /**
- * Cocokkan teks kolom Barang ke satu baris master (barcode / kode / LOT / nama persis).
+ * Cocokkan teks kolom Barang ke satu baris master (barcode / kode / LOT / nama persis),
+ * lalu LOT yang diketik di kolom baris (bukan hanya di kolom nama), dan akhirnya
+ * pola yang sama seperti filter dropdown (`rowMatchesBarangQuery`) + penyempitan varian.
  */
 export function resolvePickRowFromBarangInput(
   label: string,
   options: MasterBarangPickRow[],
   line?: BlurResolveLine,
+  opts?: { allowFuzzy?: boolean },
 ): MasterBarangPickRow | undefined {
+  const allowFuzzy = opts?.allowFuzzy ?? true;
   const q = label.trim().toLowerCase();
   if (!q) return undefined;
+  const looksLikeNumericBarcode = /^\d{8,}$/.test(q);
+  if (!allowFuzzy && q.length < 2 && !looksLikeNumericBarcode) {
+    return undefined;
+  }
   const L = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
 
   const byBarcode = options.find((v) => L(v.barcode) === q);
@@ -283,10 +305,53 @@ export function resolvePickRowFromBarangInput(
     return narrowed.length === 1 ? narrowed[0] : undefined;
   }
 
+  // LOT diisi di kolom terpisah: teks kolom Barang tidak sama dengan LOT master.
+  const lineLotQ = line?.lot != null ? L(line.lot) : "";
+  if (lineLotQ) {
+    const byLineLot = options.filter((v) => {
+      const raw = (v.lot ?? "").trim();
+      return raw.length > 0 && L(v.lot) === lineLotQ;
+    });
+    if (byLineLot.length === 1) return byLineLot[0];
+    if (byLineLot.length > 1) {
+      const narrowed = narrowPickRowsByLine(byLineLot, line);
+      return narrowed.length === 1 ? narrowed[0] : undefined;
+    }
+  }
+
+  if (!allowFuzzy) return undefined;
+
+  // Sama seperti daftar dropdown: substring / token / alnum — lalu sempitkan dengan LOT/ED/uk/distributor.
+  const fuzzyMatches = options.filter((v) => rowMatchesBarangQuery(v, label));
+  if (fuzzyMatches.length === 1) return fuzzyMatches[0];
+  if (fuzzyMatches.length > 1) {
+    const narrowed = narrowPickRowsByLine(fuzzyMatches, line);
+    return narrowed.length === 1 ? narrowed[0] : undefined;
+  }
+
   return undefined;
 }
 
 type MenuPos = { top: number; left: number; width: number };
+
+/** Gabungkan span LOT/Uk/ED/distributor dengan " — " kecuali sebelum distributor (block). */
+function joinVariantMetaParts(
+  parts: Array<ReactNode | false | null | undefined>,
+): ReactNode[] {
+  const nodes = parts.filter(Boolean) as ReactNode[];
+  if (nodes.length === 0) return [];
+  const out: ReactNode[] = [nodes[0]];
+  for (let i = 1; i < nodes.length; i++) {
+    const curr = nodes[i];
+    const cls = isValidElement(curr)
+      ? (curr.props as { className?: unknown }).className
+      : undefined;
+    const block = typeof cls === "string" && cls.includes("block");
+    if (!block) out.push(" — ");
+    out.push(curr);
+  }
+  return out;
+}
 
 export function BarangVariantCombobox({
   value,
@@ -328,9 +393,11 @@ export function BarangVariantCombobox({
   valueRef.current = value;
 
   useEffect(() => {
-    if (autoFocus) {
+    if (!autoFocus) return;
+    // Hindari focus sinkron di dalam effect: bisa memicu onFocus → setState saat React masih commit.
+    queueMicrotask(() => {
       inputRef.current?.focus();
-    }
+    });
   }, [autoFocus]);
 
   const [menuPos, setMenuPos] = useState<MenuPos | null>(null);
@@ -359,17 +426,15 @@ export function BarangVariantCombobox({
     });
   }, []);
 
-  /** Di modal/stacking tinggi: posisi harus ada di frame yang sama agar portal terlihat. */
+  /** Di modal/stacking tinggi: posisi portal; jangan pakai flushSync (bisa dipicu dari focus di useEffect). */
   const syncMenuPositionImmediate = useCallback(() => {
     const el = inputRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    flushSync(() => {
-      setMenuPos({
-        top: r.bottom + 4,
-        left: r.left,
-        width: Math.max(r.width, 450),
-      });
+    setMenuPos({
+      top: r.bottom + 4,
+      left: r.left,
+      width: Math.max(r.width, 450),
     });
   }, []);
 
@@ -424,10 +489,11 @@ export function BarangVariantCombobox({
     inputClassName,
   );
 
+  /** `table` di-portal ke body; pakai layer tertinggi agar tidak tertutup kartu/blur/tabel di bawahnya. */
   const listCls = cn(
     "max-h-64 overflow-auto rounded-lg border border-slate-700 bg-[#0a1628] py-1 shadow-2xl pointer-events-auto",
     variant === "table" ? "text-[12px] p-1.5" : "text-[11px]",
-    variant === "table" ? UI_LAYERS.pickerFloating : UI_LAYERS.popover,
+    variant === "table" ? UI_LAYERS.barangAutocompletePortal : UI_LAYERS.popover,
   );
 
   const renderListItems = () => (
@@ -474,7 +540,7 @@ export function BarangVariantCombobox({
                     : "text-[9px] text-teal-200/90",
                 )}
               >
-                {[
+                {joinVariantMetaParts([
                   v.lot && (
                     <span key="lot">
                       <span className="opacity-70 font-normal">LOT:</span>{" "}
@@ -506,15 +572,7 @@ export function BarangVariantCombobox({
                       Distributor: {v.distributor_nama}
                     </span>
                   ),
-                ]
-                  .filter(Boolean)
-                  .reduce((prev, curr, i) => {
-                    if (i === 0) return [curr];
-                    // Don't add separator before distributor which is a block
-                    if ((curr as any).props?.className?.includes("block"))
-                      return [...(prev as any), curr];
-                    return [...(prev as any), " — ", curr];
-                  }, [])}
+                ])}
               </span>
             )}
           </button>
@@ -527,13 +585,21 @@ export function BarangVariantCombobox({
 
   const tableListReady = variant !== "table" || menuPos != null;
 
+  /**
+   * Master barang bisa masih loading sementara opsi sudah berisi katalog komponen / riwayat.
+   * Jangan blokir dropdown autocomplete hanya karena `loading` — blokir hanya jika benar-benar belum ada opsi.
+   */
+  const blockingLoad = loading && options.length === 0;
+
   const loadingEl =
-    open && loading && tableListReady ? (
+    open && blockingLoad && tableListReady ? (
       <div
         ref={variant === "table" ? loadingPanelRef : undefined}
         className={cn(
           "rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 shadow-xl pointer-events-auto",
-          variant === "table" ? UI_LAYERS.pickerFloating : UI_LAYERS.popover,
+          variant === "table"
+            ? UI_LAYERS.barangAutocompletePortal
+            : UI_LAYERS.popover,
           variant === "default" && "absolute left-0 right-0 top-full mt-1",
         )}
         style={
@@ -543,6 +609,7 @@ export function BarangVariantCombobox({
                 top: menuPos.top,
                 left: menuPos.left,
                 width: menuPos.width,
+                zIndex: Z_INDEX_VALUES.barangAutocompletePortal,
               }
             : undefined
         }
@@ -555,7 +622,7 @@ export function BarangVariantCombobox({
     ) : null;
 
   const listInner =
-    open && !loading && filtered.length > 0 && tableListReady ? (
+    open && !blockingLoad && filtered.length > 0 && tableListReady ? (
       <ul
         ref={variant === "table" ? listRef : undefined}
         id={listboxId}
@@ -571,6 +638,7 @@ export function BarangVariantCombobox({
                 top: menuPos.top,
                 left: menuPos.left,
                 width: menuPos.width,
+                zIndex: Z_INDEX_VALUES.barangAutocompletePortal,
               }
             : undefined
         }
@@ -580,10 +648,10 @@ export function BarangVariantCombobox({
     ) : null;
 
   const emptyMsg =
-    open && !loading && options.length === 0
+    open && !blockingLoad && options.length === 0
       ? "Belum ada data master / mapping distributor."
       : open &&
-          !loading &&
+          !blockingLoad &&
           options.length > 0 &&
           filtered.length === 0 &&
           qActive
@@ -595,7 +663,9 @@ export function BarangVariantCombobox({
       ref={emptyPanelRef}
       className={cn(
         "rounded-lg border border-white/15 bg-[#0a1628] px-2 py-2 text-[10px] pointer-events-auto",
-        variant === "table" ? UI_LAYERS.pickerFloating : UI_LAYERS.popover,
+        variant === "table"
+          ? UI_LAYERS.barangAutocompletePortal
+          : UI_LAYERS.popover,
         variant === "default" && "absolute left-0 right-0 top-full mt-1",
       )}
       style={
@@ -605,6 +675,7 @@ export function BarangVariantCombobox({
               top: menuPos.top,
               left: menuPos.left,
               width: menuPos.width,
+              zIndex: Z_INDEX_VALUES.barangAutocompletePortal,
             }
           : undefined
       }
@@ -649,14 +720,8 @@ export function BarangVariantCombobox({
             if (variant === "table") {
               syncMenuPositionImmediate();
             }
-            // Autofill kolom varian (sama seperti onBlur) begitu teks persis cocok barcode/kode/LOT/nama.
-            if (loading || options.length === 0) return;
-            const picked = resolvePickRowFromBarangInput(
-              next,
-              options,
-              blurResolveLine,
-            );
-            if (picked) onPickVariant(picked);
+            // Jangan panggil onPickVariant dari onChange — satu huruf/kode pendek yang cocok tegas
+            // langsung menambah baris baru. Pilih item: klik daftar, Enter saat menu terbuka, atau blur.
           }}
           onKeyDown={(e) => {
             if (e.key === "ArrowDown") {
@@ -679,7 +744,7 @@ export function BarangVariantCombobox({
               return;
             }
             if (e.key === "Enter") {
-              if (loading) return;
+              if (blockingLoad) return;
               if (open && filtered.length > 0) {
                 e.preventDefault();
                 const target =
@@ -708,11 +773,12 @@ export function BarangVariantCombobox({
             blurCloseTimerRef.current = setTimeout(() => {
               blurCloseTimerRef.current = null;
               setOpen(false);
-              if (loading || options.length === 0) return;
+              if (options.length === 0) return;
               const picked = resolvePickRowFromBarangInput(
                 valueRef.current,
                 options,
                 blurResolveLine,
+                { allowFuzzy: false },
               );
               if (picked) onPickVariant(picked);
             }, 200);
@@ -728,7 +794,7 @@ export function BarangVariantCombobox({
           }}
           autoComplete="off"
           placeholder={
-            loading
+            blockingLoad
               ? "Memuat katalog…"
               : "Nama, kode, barcode, LOT, ukuran, ED, distributor…"
           }
@@ -738,7 +804,7 @@ export function BarangVariantCombobox({
           aria-controls={listboxId}
           autoFocus={autoFocus}
         />
-        {loading ? (
+        {blockingLoad ? (
           <Loader2
             className={cn(
               "pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 animate-spin text-[#E8C547]/80",
@@ -779,7 +845,7 @@ export function BarangVariantCombobox({
         ? createPortal(loadingEl, document.body)
         : loadingEl}
       {(() => {
-        if (!open || loading || !emptyMsg) return null;
+        if (!open || !emptyMsg) return null;
         if (variant === "table" && !menuPos) return null;
         if (variant === "table" && typeof document !== "undefined") {
           return createPortal(emptyEl, document.body);

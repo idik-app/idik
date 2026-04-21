@@ -15,6 +15,7 @@ import {
   ClipboardList,
   FileText,
   History,
+  Info,
   MapPin,
   Plus,
   SquarePen,
@@ -66,6 +67,12 @@ import TindakanLaporanPemakaianModal from "../components/TindakanLaporanPemakaia
 import TablePagination from "../components/TablePagination";
 import PemakaianAlkesModal from "./PemakaianAlkesModal";
 import { computeTindakanStatsFromRows } from "../hooks/useTindakanStats";
+import {
+  TINDAKAN_TABLE_COL as TCol,
+  TINDAKAN_TABLE_COL_COUNT,
+  useTindakanTableCellSelection,
+  type TindakanCellRect,
+} from "../hooks/useTindakanTableCellSelection";
 import type { TindakanFilteredSummary } from "./TindakanSummary";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import KeteranganField from "./KeteranganField";
@@ -101,6 +108,7 @@ import { runDeduped } from "@/lib/api/runDeduped";
 import { useEventBridge } from "@/contexts/EventBridgeContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import JarvisIcon from "@/components/JarvisIcon";
+import { TINDAKAN_SHEET_CELL } from "../lib/tindakanSheetClasses";
 
 type Adapter = ReturnType<typeof useTindakanBridgeAdapter>;
 
@@ -112,12 +120,12 @@ const TINDAKAN_TABLE_INPUT_TEXT =
 const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
   "text-amber-800 placeholder:text-amber-700/55 dark:text-white dark:placeholder:text-white/90";
 
-/** Sel tabel: grid jelas seperti spreadsheet (border-collapse di `<table>`). */
-const TINDAKAN_SHEET_CELL =
-  "border border-amber-200/60 dark:border-amber-800/45";
-
 const ZOOM_CELL_CLASSES = `focus-within:${UI_LAYERS.tableZoomedCell} focus-within:relative`;
 const ZOOM_INNER_CLASSES = `focus-within:absolute focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:top-1/2 focus-within:-translate-y-1/2 focus-within:scale-[1.3] focus-within:w-[180%] focus-within:shadow-2xl focus-within:transition-all focus-within:duration-200 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:${UI_LAYERS.popover} focus-within:p-1 focus-within:rounded-md`;
+
+/** Highlight sel terpilih (seleksi blok seperti spreadsheet) */
+const TINDAKAN_CELL_SELECTION_CLASS =
+  "ring-2 ring-inset ring-cyan-500/55 bg-cyan-400/12 dark:bg-cyan-400/10";
 
 function useDebouncedValue(value: string, ms: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -141,6 +149,47 @@ function extractErrorMessage(err: unknown): string {
     if (typeof hint === "string" && hint.trim()) return hint;
   }
   return "Terjadi kesalahan yang tidak diketahui.";
+}
+
+/**
+ * Klik di luar field (area kosong baris) setelah edit memicu blur + click pada `<tr>`,
+ * sehingga drawer ikut terbuka. Pada fase mousedown, fokus sering masih di field —
+ * kita tandai baris ini untuk mengabaikan satu klik "buka detail".
+ */
+function shouldSuppressRowOpenAfterFieldInteraction(
+  row: HTMLElement,
+  downTarget: EventTarget | null,
+): boolean {
+  if (!(downTarget instanceof Element)) return false;
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement) || !row.contains(active)) return false;
+  const skipSelector =
+    'input,select,textarea,button,a,[data-no-row-click="true"],[role="combobox"],[role="listbox"],[role="option"],[contenteditable="true"]';
+  if (downTarget.closest(skipSelector)) return false;
+  if (active.contains(downTarget)) return false;
+  return true;
+}
+
+/** Space/Enter pada `<tr role="button">` tidak boleh mengalahkan ketikan di input/combobox. */
+function isKeyboardEventFromRowInteractiveTarget(
+  target: EventTarget | null,
+): boolean {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest(
+      'input,select,textarea,button,a,[data-no-row-click="true"],[role="combobox"],[role="listbox"],[role="option"],[contenteditable="true"]',
+    ),
+  );
+}
+
+/** Akar field untuk pelacakan drag-seleksi teks (mousedown → mouseup di luar field, masih di baris). */
+function resolveTindakanFieldRootFromPointerTarget(
+  target: EventTarget | null,
+): Element | null {
+  if (!(target instanceof Element)) return null;
+  const narrow = target.closest("input,select,textarea,[contenteditable]");
+  if (narrow) return narrow;
+  return target.closest('[data-no-row-click="true"]');
 }
 
 /** Kolom teks yang dipakai pencarian — hindari JSON.stringify seluruh baris. */
@@ -280,18 +329,6 @@ function extractCalendarDateKey(raw: string): string | null {
     if (mon) return `${year}-${mon}-${day}`;
   }
   return null;
-}
-
-function formatKpiModeDateLabel(raw: string): string {
-  const iso = extractCalendarDateKey(raw);
-  if (!iso) return "…";
-  const dt = new Date(`${iso}T00:00:00+07:00`);
-  if (Number.isNaN(dt.getTime())) return iso;
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(dt);
 }
 
 /** Tampilan tanggal seperti 10-09-2021 (dari ISO atau teks baris). */
@@ -1106,7 +1143,58 @@ export default function TindakanTable({
   /** Cegah sync ganda (auto + manual) dalam waktu bersamaan. */
   const { emit } = useEventBridge();
   const syncInFlightRef = useRef(false);
+  const suppressRowDetailClickIdRef = useRef<string | null>(null);
+  const suppressRowDetailClickTimerRef = useRef<number | null>(null);
+  const rowPointerFieldOriginRef = useRef<{
+    rowId: string;
+    fieldRoot: Element;
+  } | null>(null);
   const [isSyncingMasterPasien, setIsSyncingMasterPasien] = useState(false);
+
+  const scheduleSuppressDetailClickForRow = useCallback((rowId: string) => {
+    suppressRowDetailClickIdRef.current = rowId;
+    if (suppressRowDetailClickTimerRef.current != null) {
+      window.clearTimeout(suppressRowDetailClickTimerRef.current);
+    }
+    suppressRowDetailClickTimerRef.current = window.setTimeout(() => {
+      suppressRowDetailClickIdRef.current = null;
+      suppressRowDetailClickTimerRef.current = null;
+    }, 450);
+  }, []);
+
+  /** Blok seleksi teks: mousedown di field → mouseup di kolom lain / area kosong baris yang sama. */
+  useEffect(() => {
+    const onPointerDown = (e: MouseEvent) => {
+      rowPointerFieldOriginRef.current = null;
+      const fieldRoot = resolveTindakanFieldRootFromPointerTarget(e.target);
+      if (!fieldRoot) return;
+      const tr = fieldRoot.closest("tr[data-tindakan-row-id]");
+      if (!tr) return;
+      const rowId = tr.getAttribute("data-tindakan-row-id");
+      if (!rowId) return;
+      rowPointerFieldOriginRef.current = { rowId, fieldRoot };
+    };
+
+    const onPointerUp = (e: MouseEvent) => {
+      const orig = rowPointerFieldOriginRef.current;
+      rowPointerFieldOriginRef.current = null;
+      if (!orig) return;
+      const up = e.target;
+      if (!(up instanceof Element)) return;
+      if (orig.fieldRoot.contains(up)) return;
+      const trField = orig.fieldRoot.closest("tr[data-tindakan-row-id]");
+      const trUp = up.closest("tr[data-tindakan-row-id]");
+      if (!trField || trUp !== trField) return;
+      scheduleSuppressDetailClickForRow(orig.rowId);
+    };
+
+    document.addEventListener("mousedown", onPointerDown, true);
+    document.addEventListener("mouseup", onPointerUp, true);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown, true);
+      document.removeEventListener("mouseup", onPointerUp, true);
+    };
+  }, [scheduleSuppressDetailClickForRow]);
 
   const [search, setSearch] = useState("");
   const debouncedSearchTrim = useDebouncedValue(search.trim(), 280);
@@ -1152,6 +1240,12 @@ export default function TindakanTable({
   >({});
   const [pemakaianModalRow, setPemakaianModalRow] =
     useState<TindakanJoinResult | null>(null);
+  /**
+   * Setelah simpan order pemakaian, SWR `pemakaianOrdersRaw` bisa tertunda —
+   * override ini memetakan `tindakanId → orderId` agar kolom Aksi langsung "Edit pemakaian".
+   */
+  const [pemakaianOrderIdOverrideByTindakan, setPemakaianOrderIdOverrideByTindakan] =
+    useState<Record<string, string>>({});
 
   const [pasienLabelByRowId, setPasienLabelByRowId] = useState<
     Record<string, string>
@@ -1368,8 +1462,38 @@ export default function TindakanTable({
       pool = pool.filter((_: any, i: number) => i !== idx);
     }
 
+    for (const [tid, oid] of Object.entries(pemakaianOrderIdOverrideByTindakan)) {
+      if (tid && oid) next[tid] = oid;
+    }
+
     return next;
-  }, [pemakaianOrdersRaw, rowsForPemakaianLink, pasienLabelByRowId]);
+  }, [
+    pemakaianOrdersRaw,
+    rowsForPemakaianLink,
+    pasienLabelByRowId,
+    pemakaianOrderIdOverrideByTindakan,
+  ]);
+
+  useEffect(() => {
+    setPemakaianOrderIdOverrideByTindakan((prev) => {
+      if (Object.keys(prev).length === 0) return prev;
+      const orders = pemakaianOrdersRaw;
+      let next: Record<string, string> | null = null;
+      for (const tid of Object.keys(prev)) {
+        const wantOid = prev[tid];
+        const found = orders.some((o: any) => {
+          const t = String(o?.tindakan_id ?? "").trim();
+          const oid = String(o?.id ?? "").trim();
+          return t === tid && oid === wantOid;
+        });
+        if (found) {
+          if (!next) next = { ...prev };
+          delete next[tid];
+        }
+      }
+      return next ?? prev;
+    });
+  }, [pemakaianOrdersRaw]);
 
   const pemakaianModalInitial = useMemo(() => {
     if (!pemakaianModalRow) return null;
@@ -1842,13 +1966,6 @@ export default function TindakanTable({
     [dokterBreakdownToday],
   );
 
-  const kpiModeLabel = useMemo(() => {
-    if (!hasTanggalFilter) return "Hari ini (default)";
-    const from = String(filterTanggalFrom ?? "").trim();
-    const to = String(filterTanggalTo ?? "").trim();
-    return `Mengikuti filter (${formatKpiModeDateLabel(from)} - ${formatKpiModeDateLabel(to)})`;
-  }, [hasTanggalFilter, filterTanggalFrom, filterTanggalTo]);
-
   const lastSentSummaryRef = useRef<string>("");
 
   useEffect(() => {
@@ -1860,8 +1977,6 @@ export default function TindakanTable({
       tindakanBreakdown: kpiTindakanBreakdown,
       dokterBreakdown: kpiDokterBreakdown,
       ppciDokterBreakdown: ppciDokterBreakdownWeekly,
-      kpiMode: hasTanggalFilter ? "filter" : "default",
-      kpiModeLabel,
       allRows: filteredRecords,
     };
 
@@ -1875,8 +1990,6 @@ export default function TindakanTable({
       tindakanBreakdown: summary.tindakanBreakdown,
       dokterBreakdown: summary.dokterBreakdown,
       ppciDokterBreakdown: summary.ppciDokterBreakdown,
-      kpiMode: summary.kpiMode,
-      kpiModeLabel: summary.kpiModeLabel,
       // Lightweight markers for allRows change
       allRowsLength: summary.allRows?.length ?? 0,
       allRowsFirstId: summary.allRows?.[0]?.id,
@@ -1895,7 +2008,6 @@ export default function TindakanTable({
     kpiDokterBreakdown,
     ppciDokterBreakdownWeekly,
     hasTanggalFilter,
-    kpiModeLabel,
     onFilteredSummaryChange,
   ]);
 
@@ -1925,6 +2037,18 @@ export default function TindakanTable({
     const start = (page - 1) * perPage;
     return filteredRecords.slice(start, start + perPage);
   }, [filteredRecords, page, perPage]);
+
+  const tindakanDataTableRef = useRef<HTMLTableElement>(null);
+  const tindakanPasteMatrixRef = useRef<
+    ((matrix: string[][], anchor: TindakanCellRect) => void | Promise<void>) | null
+  >(null);
+  const cellSelection = useTindakanTableCellSelection(pagedRecords.length, {
+    tableRef: tindakanDataTableRef,
+    onPasteMatrixRef: tindakanPasteMatrixRef,
+  });
+  useEffect(() => {
+    cellSelection.clearSelection();
+  }, [page, perPage, pagedRecords.length, cellSelection.clearSelection]);
 
   const rmDuplicateCountInFiltered = useMemo(() => {
     const m = new Map<string, number>();
@@ -2000,7 +2124,7 @@ export default function TindakanTable({
         String(p.nama ?? "").trim() ||
         (rmResolved ? `Pasien ${rmResolved}` : "Pasien");
       const payload: Record<string, unknown> = {
-        tanggal: new Date().toISOString().slice(0, 10),
+        tanggal: todayWibYmd(),
         pasien_id: pasienId || null,
         no_rm: rmResolved || null,
         nama: namaResolved,
@@ -2043,7 +2167,7 @@ export default function TindakanTable({
     const rmResolved = rm.trim();
     const namaResolved = rmResolved ? `Pasien ${rmResolved}` : "Pasien";
     const payload: Record<string, unknown> = {
-      tanggal: new Date().toISOString().slice(0, 10),
+      tanggal: todayWibYmd(),
       pasien_id: pasienId || null,
       no_rm: rmResolved || null,
       nama: namaResolved,
@@ -2287,6 +2411,85 @@ export default function TindakanTable({
     },
     [patchRowField, mutateMasterTindakan],
   );
+
+  const handleTindakanPasteMatrix = useCallback(
+    async (matrix: string[][], anchor: TindakanCellRect) => {
+      const r0 = anchor.r1;
+      const c0 = anchor.c1;
+      let updated = 0;
+
+      for (let dr = 0; dr < matrix.length; dr++) {
+        const row = matrix[dr];
+        if (!row) continue;
+        const pr = r0 + dr;
+        if (pr < 0 || pr >= pagedRecords.length) continue;
+
+        const rec = pagedRecords[pr];
+        const id = String(rec.id ?? "").trim();
+        if (!id) continue;
+
+        const stateKey = id || `row-${page}-${pr}`;
+
+        for (let dc = 0; dc < row.length; dc++) {
+          const pc = c0 + dc;
+          if (pc < 0 || pc >= TINDAKAN_TABLE_COL_COUNT) continue;
+          const v = String(row[dc] ?? "").trim();
+          if (!v) continue;
+
+          let ok = false;
+          if (pc === TCol.TANGGAL) {
+            const iso =
+              extractCalendarDateKey(v) ??
+              (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+            if (!iso) continue;
+            ok = await patchRowField(id, { tanggal: iso });
+          } else if (pc === TCol.TIME_OUT) {
+            ok = await patchRowField(id, { fast_track_time_out: v });
+          } else if (pc === TCol.NAMA_PASIEN) {
+            ok = await patchRowField(id, { nama_pasien: v });
+            if (ok) {
+              setPasienLabelByRowId((p) => ({ ...p, [stateKey]: v }));
+            }
+          } else if (pc === TCol.DOKTER) {
+            ok = await patchRowField(id, { dokter: v });
+            if (ok) {
+              setDoctorLabelByRowId((p) => ({ ...p, [stateKey]: v }));
+            }
+          } else if (pc === TCol.TINDAKAN) {
+            ok = await commitTindakanForRow(id, v);
+          } else if (pc === TCol.RUANGAN) {
+            ok = await commitRuanganForRow(id, v);
+          } else {
+            continue;
+          }
+
+          if (ok) updated += 1;
+        }
+      }
+
+      if (updated > 0) {
+        notify({
+          type: "success",
+          message: `Tempel: ${updated} pembaruan disimpan.`,
+          duration: 2400,
+        });
+        await refresh();
+      }
+    },
+    [
+      pagedRecords,
+      page,
+      patchRowField,
+      commitTindakanForRow,
+      commitRuanganForRow,
+      notify,
+      refresh,
+      setPasienLabelByRowId,
+      setDoctorLabelByRowId,
+    ],
+  );
+
+  tindakanPasteMatrixRef.current = handleTindakanPasteMatrix;
 
   const syncMasterPasienFromTindakanCore = useCallback(
     async (opts?: { source?: "auto" | "manual"; silent?: boolean }) => {
@@ -2596,7 +2799,10 @@ export default function TindakanTable({
           onOpenFastTrack={() => setFastTrackModalOpen(true)}
           onOpenTindakanTerbanyakLab={() => setTindakanTerbanyakLabOpen(true)}
           onOpenLaporan={() => setLaporanModalOpen(true)}
-          onOpenLaporanPemakaian={() => setLaporanPemakaianModalOpen(true)}
+          onOpenLaporanPemakaian={() => {
+            setLaporanPemakaianModalOpen(true);
+            void refresh();
+          }}
         />
 
         <TindakanLaporanModal
@@ -2612,7 +2818,7 @@ export default function TindakanTable({
           open={laporanPemakaianModalOpen}
           onOpenChange={setLaporanPemakaianModalOpen}
           rows={rowsForPemakaianLink}
-          loading={loading}
+          loading={loading || isSyncing}
           filterSummaryLines={filterSummaryLines}
           initialFilterTanggalFrom={filterTanggalFrom}
           initialFilterTanggalTo={filterTanggalTo}
@@ -2693,7 +2899,52 @@ export default function TindakanTable({
                 "bg-white/85 dark:bg-black/20",
               )}
             >
-              <table className="w-full min-w-[1200px] text-sm font-semibold border-collapse border border-amber-200/65 dark:border-amber-800/50">
+              <div
+                className={cn(
+                  "flex items-start gap-2 border-b border-amber-200/50 px-3 py-2 text-[11px] leading-snug",
+                  "bg-amber-50/95 dark:bg-amber-950/40 text-cyan-950/90 dark:text-slate-200/95",
+                )}
+              >
+                <Info
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-600 dark:text-cyan-400"
+                  aria-hidden
+                />
+                <p>
+                  <span className="font-bold text-cyan-900 dark:text-cyan-200/95">
+                    Seleksi seperti spreadsheet:
+                  </span>{" "}
+                  klik-seret pada area sel (bukan di dalam input).{" "}
+                  <kbd className="rounded border border-amber-300/60 bg-white/80 px-1 font-mono dark:border-amber-800/50 dark:bg-black/30">
+                    Shift
+                  </kbd>{" "}
+                  + klik perluas blok;{" "}
+                  <kbd className="rounded border border-amber-300/60 bg-white/80 px-1 font-mono dark:border-amber-800/50 dark:bg-black/30">
+                    Ctrl
+                  </kbd>{" "}
+                  + seret blok kedua; panah pindah/ perluas;{" "}
+                  <kbd className="rounded border border-amber-300/60 bg-white/80 px-1 font-mono dark:border-amber-800/50 dark:bg-black/30">
+                    Esc
+                  </kbd>{" "}
+                  hapus seleksi.{" "}
+                  <kbd className="rounded border border-amber-300/60 bg-white/80 px-1 font-mono dark:border-amber-800/50 dark:bg-black/30">
+                    Ctrl+C
+                  </kbd>{" "}
+                  /{" "}
+                  <kbd className="rounded border border-amber-300/60 bg-white/80 px-1 font-mono dark:border-amber-800/50 dark:bg-black/30">
+                    Cmd+C
+                  </kbd>{" "}
+                  salin TSV;{" "}
+                  <kbd className="rounded border border-amber-300/60 bg-white/80 px-1 font-mono dark:border-amber-800/50 dark:bg-black/30">
+                    Ctrl+V
+                  </kbd>{" "}
+                  tempel ke Tanggal, Time out, Nama, Dokter, Tindakan, Ruangan
+                  (mulai dari pojok kiri atas seleksi).
+                </p>
+              </div>
+              <table
+                ref={tindakanDataTableRef}
+                className="w-full min-w-[1200px] text-sm font-semibold border-collapse border border-amber-200/65 dark:border-amber-800/50"
+              >
                 <thead className={cn("sticky top-0", UI_LAYERS.tableHeader)}>
                   <tr
                     className={cn(
@@ -2882,8 +3133,36 @@ export default function TindakanTable({
                       return (
                         <Fragment key={key}>
                           <tr
+                            data-tindakan-row-id={id || undefined}
+                            onMouseDownCapture={(e) => {
+                              if (!id) return;
+                              const tr = e.currentTarget;
+                              if (
+                                !shouldSuppressRowOpenAfterFieldInteraction(
+                                  tr,
+                                  e.target,
+                                )
+                              ) {
+                                return;
+                              }
+                              scheduleSuppressDetailClickForRow(id);
+                            }}
                             onClick={(e) => {
                               if (!id) return;
+                              if (cellSelection.consumeRowClickIfSelectionDrag()) {
+                                e.preventDefault();
+                                return;
+                              }
+                              if (suppressRowDetailClickTimerRef.current != null) {
+                                window.clearTimeout(
+                                  suppressRowDetailClickTimerRef.current,
+                                );
+                                suppressRowDetailClickTimerRef.current = null;
+                              }
+                              if (suppressRowDetailClickIdRef.current === id) {
+                                suppressRowDetailClickIdRef.current = null;
+                                return;
+                              }
                               const target = e.target as HTMLElement | null;
                               if (
                                 target?.closest(
@@ -2895,11 +3174,13 @@ export default function TindakanTable({
                               openDetail(id);
                             }}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                if (!id) return;
-                                openDetail(id);
+                              if (e.key !== "Enter" && e.key !== " ") return;
+                              if (isKeyboardEventFromRowInteractiveTarget(e.target)) {
+                                return;
                               }
+                              e.preventDefault();
+                              if (!id) return;
+                              openDetail(id);
                             }}
                             role={id ? "button" : undefined}
                             tabIndex={id ? 0 : undefined}
@@ -2916,16 +3197,20 @@ export default function TindakanTable({
                             )}
                           >
                             <td
+                              {...cellSelection.getTdProps(i, TCol.NO)}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 "relative px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center tabular-nums",
                                 "text-cyan-800 dark:text-slate-100",
+                                cellSelection.isCellSelected(i, TCol.NO) &&
+                                  TINDAKAN_CELL_SELECTION_CLASS,
                               )}
                             >
                               {/* Row Expand Toggle */}
                               <button
                                 type="button"
                                 data-no-row-click="true"
+                                data-no-spreadsheet-select
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setRowExpandedByKey((p) => ({
@@ -2997,6 +3282,7 @@ export default function TindakanTable({
                               {rowNo}
                             </td>
                             <td
+                              {...cellSelection.getTdProps(i, TCol.TANGGAL)}
                               data-no-row-click="true"
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
@@ -3005,6 +3291,8 @@ export default function TindakanTable({
                                 ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle",
                                 "text-amber-800 dark:text-slate-100",
+                                cellSelection.isCellSelected(i, TCol.TANGGAL) &&
+                                  TINDAKAN_CELL_SELECTION_CLASS,
                               )}
                             >
                               <div
@@ -3022,6 +3310,7 @@ export default function TindakanTable({
                               </div>
                             </td>
                             <td
+                              {...cellSelection.getTdProps(i, TCol.TIME_OUT)}
                               data-no-row-click="true"
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
@@ -3030,6 +3319,8 @@ export default function TindakanTable({
                                 ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle tabular-nums",
                                 "text-slate-800 dark:text-slate-100",
+                                cellSelection.isCellSelected(i, TCol.TIME_OUT) &&
+                                  TINDAKAN_CELL_SELECTION_CLASS,
                               )}
                               title="Dari tab Fast-Track (Time out)"
                             >
@@ -3050,10 +3341,13 @@ export default function TindakanTable({
                               </div>
                             </td>
                             <td
+                              {...cellSelection.getTdProps(i, TCol.RM)}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 font-mono text-[11px] text-center align-middle cursor-pointer hover:bg-cyan-50/50 dark:hover:bg-cyan-950/30 transition-colors",
                                 "text-amber-800 dark:text-slate-100",
+                                cellSelection.isCellSelected(i, TCol.RM) &&
+                                  TINDAKAN_CELL_SELECTION_CLASS,
                               )}
                             >
                               {(() => {
@@ -3125,6 +3419,7 @@ export default function TindakanTable({
                               })()}
                             </td>
                             <td
+                              {...cellSelection.getTdProps(i, TCol.NAMA_PASIEN)}
                               data-no-row-click="true"
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
@@ -3133,6 +3428,10 @@ export default function TindakanTable({
                                 ZOOM_CELL_CLASSES,
                                 "relative px-2 sm:px-2.5 py-1 max-w-[18rem] text-left align-middle",
                                 "text-amber-800 dark:text-white",
+                                cellSelection.isCellSelected(
+                                  i,
+                                  TCol.NAMA_PASIEN,
+                                ) && TINDAKAN_CELL_SELECTION_CLASS,
                               )}
                             >
                               <div
@@ -3537,30 +3836,35 @@ export default function TindakanTable({
                               </div>
                             </td>
                             <td
+                              {...cellSelection.getTdProps(i, TCol.RS_KET)}
                               data-no-row-click="true"
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
-                                ZOOM_CELL_CLASSES,
-                                "px-2 py-1 min-w-[12rem] text-center align-middle",
+                                /* Tanpa ZOOM_*: dua ikon + field sempit; zoom absolute sering memicu klik ke kolom lain / baris. */
+                                "relative isolate z-[1] px-2 py-1 min-w-[12rem] text-center align-middle",
                                 "text-amber-800 dark:text-slate-100",
+                                cellSelection.isCellSelected(i, TCol.RS_KET) &&
+                                  TINDAKAN_CELL_SELECTION_CLASS,
                               )}
                             >
                               <div
-                                className={cn(
-                                  "mx-auto flex w-full items-center justify-center gap-2",
-                                  ZOOM_INNER_CLASSES,
-                                )}
+                                data-no-row-click="true"
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                className="mx-auto flex w-full max-w-full items-center justify-center gap-3"
+                                role="group"
+                                aria-label="RS Perujuk dan Keterangan"
                               >
-                                <div className="flex-1 min-w-0">
+                                <div className="min-w-0 flex-1 flex justify-center">
                                   <RsPerujukField
                                     tindakanId={id}
                                     value={rec.rs_perujuk}
                                     onSaved={refresh}
                                   />
                                 </div>
-                                <div className="shrink-0">
+                                <div className="flex shrink-0 justify-center">
                                   <KeteranganField
                                     tindakanId={id}
                                     value={rec.keterangan}
@@ -3570,10 +3874,13 @@ export default function TindakanTable({
                               </div>
                             </td>
                             <td
+                              {...cellSelection.getTdProps(i, TCol.UMUR)}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle tabular-nums",
                                 "text-slate-800 dark:text-slate-100",
+                                cellSelection.isCellSelected(i, TCol.UMUR) &&
+                                  TINDAKAN_CELL_SELECTION_CLASS,
                               )}
                             >
                               {(() => {
@@ -3616,10 +3923,15 @@ export default function TindakanTable({
                               })()}
                             </td>
                             <td
+                              {...cellSelection.getTdProps(i, TCol.JENIS_KELAMIN)}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 text-[11px] text-center align-middle whitespace-nowrap",
                                 "text-slate-800 dark:text-slate-100",
+                                cellSelection.isCellSelected(
+                                  i,
+                                  TCol.JENIS_KELAMIN,
+                                ) && TINDAKAN_CELL_SELECTION_CLASS,
                               )}
                             >
                               {formatJenisKelaminDisplay(
@@ -3630,6 +3942,7 @@ export default function TindakanTable({
                               )}
                             </td>
                             <td
+                              {...cellSelection.getTdProps(i, TCol.DOKTER)}
                               data-no-row-click="true"
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
@@ -3638,6 +3951,8 @@ export default function TindakanTable({
                                 ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
                                 "text-amber-800 dark:text-slate-100",
+                                cellSelection.isCellSelected(i, TCol.DOKTER) &&
+                                  TINDAKAN_CELL_SELECTION_CLASS,
                               )}
                             >
                               <div
@@ -3741,6 +4056,7 @@ export default function TindakanTable({
                               </div>
                             </td>
                             <td
+                              {...cellSelection.getTdProps(i, TCol.TINDAKAN)}
                               data-no-row-click="true"
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
@@ -3749,6 +4065,8 @@ export default function TindakanTable({
                                 ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
                                 "text-amber-800 dark:text-white",
+                                cellSelection.isCellSelected(i, TCol.TINDAKAN) &&
+                                  TINDAKAN_CELL_SELECTION_CLASS,
                               )}
                             >
                               <div
@@ -3787,6 +4105,7 @@ export default function TindakanTable({
                               </div>
                             </td>
                             <td
+                              {...cellSelection.getTdProps(i, TCol.RUANGAN)}
                               data-no-row-click="true"
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
@@ -3795,6 +4114,8 @@ export default function TindakanTable({
                                 ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-left align-middle",
                                 "text-amber-800 dark:text-amber-300",
+                                cellSelection.isCellSelected(i, TCol.RUANGAN) &&
+                                  TINDAKAN_CELL_SELECTION_CLASS,
                               )}
                             >
                               <div
@@ -3833,9 +4154,12 @@ export default function TindakanTable({
                               </div>
                             </td>
                             <td
+                              {...cellSelection.getTdProps(i, TCol.AKSI)}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 align-middle text-center",
+                                cellSelection.isCellSelected(i, TCol.AKSI) &&
+                                  TINDAKAN_CELL_SELECTION_CLASS,
                               )}
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => e.stopPropagation()}
@@ -4555,7 +4879,13 @@ export default function TindakanTable({
           }
           open
           onClose={() => setPemakaianModalRow(null)}
-          onSaved={() => {
+          onSaved={(info) => {
+            if (info?.tindakanId && info.orderId) {
+              setPemakaianOrderIdOverrideByTindakan((p) => ({
+                ...p,
+                [info.tindakanId]: info.orderId,
+              }));
+            }
             void mutateOrders();
             void refresh();
           }}

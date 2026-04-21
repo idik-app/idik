@@ -216,12 +216,18 @@ export async function PATCH(req: Request, ctx: Params) {
 
   for (let i = 0; i < 16; i += 1) {
     if (Object.keys(attemptPatch).length === 0) {
+      const lastMsg = String(lastError?.message ?? "");
+      const missing = extractMissingColumnFromSchemaCacheError(lastMsg);
+      const hint =
+        missing && isMissingRelationOrTableError(lastError)
+          ? ` Kolom "${missing}" belum ada di database atau cache skema belum segar — jalankan migrasi (mis. \`npx supabase db push\`) atau tunggu ±1 menit lalu coba lagi.`
+          : "";
       return NextResponse.json(
         {
           ok: false,
           message:
-            lastError?.message ||
-            "Tidak ada kolom yang bisa diperbarui untuk skema tindakan ini.",
+            (lastMsg || "Tidak ada kolom yang bisa diperbarui untuk skema tindakan ini.") +
+            hint,
         },
         { status: 500 },
       );

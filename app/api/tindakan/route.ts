@@ -118,9 +118,6 @@ function mapLegacyTindakanMedikRow(
 /** Cache working projection to avoid re-testing on every request */
 let workingProjectionCache: string | null = null;
 
-/** Cache result for 15 seconds for default view to prevent server hammer */
-let tindakanListCache: { data: any[]; expires: number; key: string } | null = null;
-
 /** Daftar tindakan untuk dashboard (server-side service role, tahan RLS). */
 export async function GET(request: Request) {
   try {
@@ -133,18 +130,6 @@ export async function GET(request: Request) {
     const dateFrom = searchParams.get("from")?.trim();
     const dateTo = searchParams.get("to")?.trim();
     const search = searchParams.get("search")?.trim();
-
-    // Key untuk cache (hanya cache view default tanpa filter berat)
-    const cacheKey = `${limit}|${dateFrom ?? ""}|${dateTo ?? ""}|${search ?? ""}`;
-    const now = Date.now();
-    
-    // Default view (limit 10000, no filters) gets a longer cache (30s)
-    const isDefaultView = limit === 10000 && !dateFrom && !dateTo && !search;
-    const cacheTTL = isDefaultView ? 30 * 1000 : 15 * 1000;
-
-    if (tindakanListCache && now < tindakanListCache.expires && tindakanListCache.key === cacheKey) {
-      return NextResponse.json({ ok: true, data: tindakanListCache.data, cached: true }, { status: 200 });
-    }
 
     const { requireRole } = await import("@/lib/auth/guards");
     const auth = await requireRole(["perawat", "admin", "administrator", "superadmin"]);
@@ -277,13 +262,6 @@ export async function GET(request: Request) {
     }
 
     const finalData = data ?? [];
-
-    // Cache results
-    tindakanListCache = {
-      data: finalData,
-      expires: Date.now() + cacheTTL,
-      key: cacheKey
-    };
 
     return NextResponse.json({ ok: true, data: finalData }, { status: 200 });
   } catch (err) {

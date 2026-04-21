@@ -1,6 +1,10 @@
 "use client";
 
 import type { TemplateChecklistRow } from "@/app/dashboard/pemakaian/data/templateInputBarangRows";
+import {
+  mergeKomponenKatalogLists,
+  type KomponenKatalogBaris,
+} from "@/lib/pemakaian/templateInputBarang";
 
 const idrFmt = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -60,6 +64,7 @@ export type ConsumableAngiografiOrderPayload = {
   templateInputBarang?: {
     obatAlkes: Record<string, string>;
     komponen: Record<string, string>;
+    komponenKatalog?: KomponenKatalogBaris[];
   };
   /** Definisi baris template saat cetak (urutan & label). */
   templateRowsObatAlkes?: TemplateChecklistRow[];
@@ -95,10 +100,13 @@ function listTitleForMode(mode: "RESEP" | "PEMAKAIAN"): string {
 export function ConsumableAngiografiPrintTemplate({
   order,
   mode = "PEMAKAIAN",
+  /** Katalog komponen global (Master Barang Farmasi); digabung dengan isi order bila ada. */
+  komponenKatalogGlobal,
 }: {
   order: ConsumableAngiografiOrderPayload;
   /** Sama dengan mode tampilan halaman (RESEP / PEMAKAIAN) */
   mode?: "RESEP" | "PEMAKAIAN";
+  komponenKatalogGlobal?: KomponenKatalogBaris[];
 }) {
   const printedAt = new Date().toLocaleString("id-ID", {
     dateStyle: "long",
@@ -112,6 +120,10 @@ export function ConsumableAngiografiPrintTemplate({
   const komRows = order.templateRowsKomponen ?? [];
   const obatVal = order.templateInputBarang?.obatAlkes ?? {};
   const komVal = order.templateInputBarang?.komponen ?? {};
+  const komKatalog = mergeKomponenKatalogLists(
+    komponenKatalogGlobal,
+    order.templateInputBarang?.komponenKatalog,
+  );
   const obatFilled = obatRows.filter((r) =>
     isTemplateRowFilled(obatVal[r.id], r.slots),
   );
@@ -387,6 +399,53 @@ export function ConsumableAngiografiPrintTemplate({
         </>
       ) : null}
 
+      {komKatalog.length > 0 ? (
+        <>
+          <h2 className="mt-5 text-base font-bold text-black dark:text-white print:text-black print:break-inside-avoid">
+            Komponen cathlab (katalog — tambahan)
+          </h2>
+          <p className="text-gray-700 mt-1 dark:text-white print:text-black">
+            {komKatalog.length} item.
+          </p>
+          <table className="mt-2 w-full border-collapse border border-gray-400">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="border border-gray-400 px-1.5 py-1 text-center font-semibold w-[28px]">
+                  No
+                </th>
+                <th className="border border-gray-400 px-1.5 py-1 text-left font-semibold">
+                  Distributor
+                </th>
+                <th className="border border-gray-400 px-1.5 py-1 text-left font-semibold w-[72px]">
+                  Kategori
+                </th>
+                <th className="border border-gray-400 px-1.5 py-1 text-left font-semibold">
+                  Nama barang
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {komKatalog.map((row, i) => (
+                <tr key={row.id}>
+                  <td className="border border-gray-400 px-1.5 py-0.5 text-center tabular-nums">
+                    {i + 1}
+                  </td>
+                  <td className="border border-gray-400 px-1.5 py-0.5">
+                    {row.distributorNama?.trim() || "—"}
+                  </td>
+                  <td className="border border-gray-400 px-1.5 py-0.5">
+                    {row.kategori?.trim() || "—"}
+                  </td>
+                  <td className="border border-gray-400 px-1.5 py-0.5">
+                    {row.namaBarang}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      ) : null}
+
       {order.catatan?.trim() ? (
         <p className="mt-3 text-[10px] text-black dark:text-white print:text-black">
           <span className="font-semibold">Catatan ke Depo / farmasi:</span>{" "}
@@ -396,7 +455,8 @@ export function ConsumableAngiografiPrintTemplate({
 
       <p className="mt-3 text-gray-700 dark:text-white print:text-black">
         IDIK-App · {printedAt} · Struk terisi: {strukFilled.length} · Obat/Alkes
-        terisi: {obatFilled.length} · Komponen terisi: {komFilled.length}
+        terisi: {obatFilled.length} · Komponen terisi: {komFilled.length} ·
+        Komponen katalog: {komKatalog.length}
       </p>
 
       <div className="mt-8 grid grid-cols-2 gap-10 print:mt-10">

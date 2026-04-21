@@ -5,6 +5,8 @@ export const DISTRIBUTOR_PRODUK_KATEGORI = [
   "WIRE",
   "GUIDING",
   "KATETER",
+  /** Obat / non-alkes konsinyasi: tidak memakai aturan LOT/ED/ukuran seperti alat. */
+  "OBAT",
 ] as const;
 
 export type DistributorProdukKategori =

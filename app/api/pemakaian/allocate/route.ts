@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth/guards";
 import { insertDistributorEvent } from "@/lib/distributorEventLog";
+import { tindakanIdTextParamForAllocateFifo } from "@/lib/pemakaian/tindakanIdForAllocateRpc";
+import { normalizeMasterBarangUuid } from "@/lib/pemakaian/masterBarangUuidForFifo";
+import { fifoAllocationUserMessage } from "@/lib/pemakaian/fifoAllocationUserMessage";
+import { rpcAllocatePemakaianFifo } from "@/lib/pemakaian/allocateFifoRpc";
 
 type ResolveMasterBarangInput = {
   master_barang_id?: string;
@@ -37,7 +41,6 @@ export async function POST(req: Request) {
   }
 
   const tanggalRaw = body?.tanggal ? String(body.tanggal) : null;
-  const tindakanId = body?.tindakan_id ? String(body.tindakan_id) : null;
   const keterangan = body?.keterangan ? String(body.keterangan) : null;
   const lokasi = body?.lokasi ? String(body.lokasi) : "Cathlab";
 
@@ -80,26 +83,41 @@ export async function POST(req: Request) {
     }
   }
 
+  const masterUuid = normalizeMasterBarangUuid(masterBarangId);
+  if (!masterUuid) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message:
+          "master_barang_id harus berupa UUID valid (bukan angka atau teks pendek).",
+      },
+      { status: 400 },
+    );
+  }
+  masterBarangId = masterUuid;
+
   let tanggal = undefined as string | undefined;
   if (tanggalRaw) {
     const d = new Date(tanggalRaw);
     if (!Number.isNaN(d.getTime())) tanggal = d.toISOString().slice(0, 10);
   }
 
-  const { data, error } = await supabase.rpc("allocate_pemakaian_fifo", {
+  const { data, error } = await rpcAllocatePemakaianFifo(supabase, {
     p_master_barang_id: masterBarangId,
     p_jumlah: jumlah,
     p_lokasi: lokasi,
-    p_tindakan_id: tindakanId,
+    p_tindakan_id_text: tindakanIdTextParamForAllocateFifo(body?.tindakan_id),
     p_keterangan: keterangan,
-    // Supabase RPC akan memakai default fungsi jika parameter tidak dikirim.
     p_tanggal: tanggal ?? undefined,
   });
 
   if (error) {
     return NextResponse.json(
-      { ok: false, message: error.message },
-      { status: 400 }
+      {
+        ok: false,
+        message: fifoAllocationUserMessage("Barang Cathlab", error.message),
+      },
+      { status: 400 },
     );
   }
 
@@ -119,7 +137,7 @@ export async function POST(req: Request) {
         jumlah,
         lokasi,
         tanggal: tanggal ?? null,
-        tindakan_id: tindakanId,
+        tindakan_id: body?.tindakan_id ?? null,
         keterangan,
         rows: data ?? [],
       },

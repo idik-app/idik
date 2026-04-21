@@ -148,7 +148,7 @@ export interface DistributorBarangRow {
   is_active: boolean | null;
   /** Barcode kemasan di level mapping distributor */
   barcode: string | null;
-  /** Tipe alkes: STENT, BALLON, WIRE, GUIDING, KATETER */
+  /** Tipe alkes: STENT, BALLON, WIRE, GUIDING, KATETER, OBAT */
   kategori: string | null;
   lot: string | null;
   ukuran: string | null;
@@ -284,6 +284,23 @@ export interface Database {
         Update: Partial<
           Omit<CathlabKoronarAnnotationRow, "id" | "created_by" | "created_at">
         >;
+      };
+      farmasi_komponen_katalog_global: {
+        Row: {
+          id: number;
+          rows: Json;
+          updated_at: string;
+        };
+        Insert: {
+          id?: number;
+          rows?: Json;
+          updated_at?: string;
+        };
+        Update: Partial<{
+          id: number;
+          rows: Json;
+          updated_at: string;
+        }>;
       };
     };
     Views: {

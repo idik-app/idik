@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
+import { tanggalBarisKeYmdWib } from "./tanggalBarisWib";
 import {
   displayNamaPasien,
   displayRm,
@@ -269,7 +270,7 @@ export function downloadPemakaianAlkesExcel(opts: {
     const parsed = opts.parsePemakaian(String(rec.pemakaian ?? ""));
     return {
       No: i + 1,
-      Tanggal: String(rec.tanggal ?? "").slice(0, 10) || "—",
+      Tanggal: tanggalBarisKeYmdWib(rec.tanggal) || "—",
       RM: displayRm(raw),
       Nama: normalizeNamaPasien(displayNamaPasien(raw)),
       Dokter: rec.dokter || "—",
@@ -322,7 +323,7 @@ export function buildPemakaianAlkesReportHtml(opts: {
 
       return `<tr>
         <td class="num">${i + 1}</td>
-        <td class="num">${String(rec.tanggal ?? "").slice(0, 10) || "—"}</td>
+        <td class="num">${tanggalBarisKeYmdWib(rec.tanggal) || "—"}</td>
         <td><strong>${escapeHtml(nama)}</strong><br/><small>${escapeHtml(rm)}</small></td>
         <td>${escapeHtml(rec.dokter || "—")}</td>
         <td style="white-space: pre-wrap;">${formatBlock(parsed.STENT) || "—"}</td>
@@ -375,7 +376,8 @@ export function buildPemakaianAlkesWhatsAppText(opts: {
   opts.rows.slice(0, 20).forEach((r, i) => {
     const raw = r as unknown as Record<string, unknown>;
     const nama = normalizeNamaPasien(displayNamaPasien(raw));
-    const tgl = String(r.tanggal ?? "").slice(5, 10); // MM-DD
+    const ymd = tanggalBarisKeYmdWib(r.tanggal);
+    const tgl = ymd.length >= 10 ? ymd.slice(5, 10) : "—"; // MM-DD
     const parsed = opts.parsePemakaian(String(r.pemakaian ?? ""));
     const allItems = [
       ...parsed.STENT,

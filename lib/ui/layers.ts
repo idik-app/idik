@@ -65,4 +65,14 @@ export const UI_LAYERS = {
   fullscreen: "z-[9999]",
   /** Jarvis Assistant Agent */
   jarvisAgent: "z-[100100]",
+  /**
+   * Portal listbox autocomplete barang (variant table → body).
+   * Di bawah Jarvis; di atas kartu dashboard, blur, dan tabel besar.
+   */
+  barangAutocompletePortal: "z-[100090]",
+} as const;
+
+/** Nilai numerik untuk inline style portal (z-index kelas saja kadang kalah pada stacking konteks). */
+export const Z_INDEX_VALUES = {
+  barangAutocompletePortal: 100_090,
 } as const;

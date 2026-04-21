@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Building2, Plus, MapPin } from "lucide-react";
+import { Building2, MapPin } from "lucide-react";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { cn } from "@/lib/utils";
 
@@ -83,19 +83,24 @@ export default function RsPerujukField({
           setIsEditing(true);
           setTimeout(() => inputRef.current?.focus(), 50);
         }}
+        onMouseDown={(e) => e.stopPropagation()}
         className={cn(
-          "flex items-center justify-center p-1 rounded-full transition-all border border-transparent",
+          "flex items-center justify-center rounded-full border border-transparent p-2 transition-all min-h-[2.25rem] min-w-[2.25rem]",
           "hover:bg-cyan-100/50 hover:border-cyan-300/30 text-cyan-700/50 dark:text-white/30 dark:hover:bg-white/5",
           className
         )}
       >
-        <MapPin size={14} />
+        <MapPin size={14} aria-hidden />
       </button>
     );
   }
 
   return (
-    <div className="relative group flex items-center gap-1.5 w-full">
+    <div
+      className="relative group flex w-full min-w-0 items-center gap-1.5"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
       <Building2 
         size={12} 
         className={cn(
@@ -125,9 +130,9 @@ export default function RsPerujukField({
           }
         }}
         className={cn(
-          "w-full rounded border px-2 py-1 text-[11px] font-semibold focus:outline-none transition-all",
-          "border-cyan-400/40 bg-white text-slate-800 placeholder:text-slate-400 focus:ring-1 focus:ring-cyan-500/30",
-          "dark:border-cyan-800/40 dark:bg-black/40 dark:text-white dark:placeholder:text-white/40",
+          "w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:outline-none transition-all",
+          "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 focus:ring-1 focus:ring-cyan-500/30",
+          "dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
           saving && "opacity-60 grayscale",
           className,
         )}

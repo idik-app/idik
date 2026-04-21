@@ -27,10 +27,6 @@ export type TindakanFilteredSummary = {
   dokterBreakdown?: string[];
   /** Rincian dokter untuk KPI PPCI (minggu ini). */
   ppciDokterBreakdown?: string[];
-  /** Mode perhitungan KPI aktif. */
-  kpiMode?: "default" | "filter";
-  /** Label mode KPI untuk ditampilkan ke user. */
-  kpiModeLabel?: string;
   /** Semua baris hasil filter (termasuk fallback) untuk pencarian record di drawer. */
   allRows?: any[];
 };
@@ -262,19 +258,6 @@ export default function TindakanSummary({
 
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      {header && filtered?.kpiModeLabel ? (
-        <div
-          className={cn(
-            "inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wide",
-            filtered.kpiMode === "filter"
-              ? "border-amber-400/60 bg-amber-100/90 text-amber-900 dark:border-amber-700/55 dark:bg-black dark:text-white"
-              : "border-cyan-400/60 bg-cyan-100/90 text-cyan-900 dark:border-cyan-700/55 dark:bg-black dark:text-white",
-          )}
-          title={filtered.kpiModeLabel}
-        >
-          Mode KPI: {filtered.kpiModeLabel}
-        </div>
-      ) : null}
       <div
         className={cn(
           "flex flex-wrap items-stretch min-w-0",

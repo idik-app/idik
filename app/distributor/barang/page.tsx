@@ -1356,25 +1356,27 @@ function DistributorBarangPageContent() {
                   title="Fokus cepat: /"
                   className="min-w-[12rem] flex-1 bg-slate-950/70 border border-cyan-800/70 rounded-md px-2 py-1.5 text-[12px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
                 />
-                {!loading && q.trim().length > 0 && filteredRows.length === 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const qt = q.trim();
-                      openTambahProdukModal(
-                        looksLikeBarcodeSearchToken(qt)
-                          ? { seedBarcodeFromFilter: qt }
-                          : {
-                              seedLotFromFilter: qt,
-                            },
-                      );
-                    }}
-                    title="Buka form tambah produk dengan info dari filter"
-                    className="shrink-0 px-3 py-1.5 rounded-md text-[12px] bg-emerald-500/25 border border-emerald-400/55 hover:bg-emerald-500/35 text-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed animate-in fade-in zoom-in duration-200"
-                  >
-                    Tambah Barang
-                  </button>
-                )}
+                {!loading &&
+                  q.trim().length > 0 &&
+                  filteredRows.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const qt = q.trim();
+                        openTambahProdukModal(
+                          looksLikeBarcodeSearchToken(qt)
+                            ? { seedBarcodeFromFilter: qt }
+                            : {
+                                seedLotFromFilter: qt,
+                              },
+                        );
+                      }}
+                      title="Buka form tambah produk dengan info dari filter"
+                      className="shrink-0 px-3 py-1.5 rounded-md text-[12px] bg-emerald-500/25 border border-emerald-400/55 hover:bg-emerald-500/35 text-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed animate-in fade-in zoom-in duration-200"
+                    >
+                      Tambah Barang
+                    </button>
+                  )}
                 <select
                   value={filterKategori}
                   onChange={(e) => setFilterKategori(e.target.value)}
@@ -1492,7 +1494,9 @@ function DistributorBarangPageContent() {
                               openTambahProdukModal({ seedNama: rs.nama })
                             }
                           >
-                            {showAdminAllDistributors && <Td className="text-gray-500">—</Td>}
+                            {showAdminAllDistributors && (
+                              <Td className="text-gray-500">—</Td>
+                            )}
                             <Td className="text-cyan-100/90 font-medium">
                               {rs.nama}
                               <span className="ml-2 px-1 rounded bg-cyan-500/10 text-cyan-400 text-[9px] border border-cyan-500/20">
@@ -1557,7 +1561,9 @@ function DistributorBarangPageContent() {
                           {r.barcode ?? "—"}
                         </Td>
                         <Td>{r.kategori ?? "—"}</Td>
-                        <Td className="font-mono text-[11px]">{r.lot ?? "—"}</Td>
+                        <Td className="font-mono text-[11px]">
+                          {r.lot ?? "—"}
+                        </Td>
                         <Td>{r.ukuran ?? "—"}</Td>
                         <Td className="whitespace-nowrap text-[11px] font-mono">
                           {formatDistributorEdDisplay(r.ed)}
@@ -1625,28 +1631,48 @@ function DistributorBarangPageContent() {
                         </Td>
                       </tr>
                     ))}
-                    {rsOnlyItems.filter(rs => !allRows.some(ar => ar.master_barang_id === rs.id)).length > 0 && (
+                    {rsOnlyItems.filter(
+                      (rs) =>
+                        !allRows.some((ar) => ar.master_barang_id === rs.id),
+                    ).length > 0 && (
                       <>
                         <tr className="bg-slate-900/40 text-cyan-400 font-semibold text-[11px]">
-                          <td colSpan={tableColSpan} className="px-3 py-2 border-y border-cyan-900/40">
-                            Ditemukan di Master RS (Belum ada di Katalog PT Anda)
+                          <td
+                            colSpan={tableColSpan}
+                            className="px-3 py-2 border-y border-cyan-900/40"
+                          >
+                            Ditemukan di Master RS (Belum ada di Katalog PT
+                            Anda)
                           </td>
                         </tr>
                         {rsOnlyItems
-                          .filter(rs => !allRows.some(ar => ar.master_barang_id === rs.id))
+                          .filter(
+                            (rs) =>
+                              !allRows.some(
+                                (ar) => ar.master_barang_id === rs.id,
+                              ),
+                          )
                           .slice(0, 5)
                           .map((rs) => (
                             <tr
                               key={rs.id}
                               className="bg-slate-900/10 hover:bg-slate-900/30 cursor-pointer group"
-                              onClick={() => openTambahProdukModal({ seedNama: rs.nama })}
+                              onClick={() =>
+                                openTambahProdukModal({ seedNama: rs.nama })
+                              }
                             >
-                              {showAdminAllDistributors && <Td className="text-gray-500">—</Td>}
+                              {showAdminAllDistributors && (
+                                <Td className="text-gray-500">—</Td>
+                              )}
                               <Td className="text-cyan-100/70 font-medium">
                                 {rs.nama}
-                                <span className="ml-2 px-1 rounded bg-cyan-500/10 text-cyan-400 text-[9px] border border-cyan-500/20 font-bold uppercase">RS Only</span>
+                                <span className="ml-2 px-1 rounded bg-cyan-500/10 text-cyan-400 text-[9px] border border-cyan-500/20 font-bold uppercase">
+                                  RS Only
+                                </span>
                               </Td>
-                              <Td className="text-gray-600 font-mono text-[10px]">{rs.kode}</Td>
+                              <Td className="text-gray-600 font-mono text-[10px]">
+                                {rs.kode}
+                              </Td>
                               <Td className="text-gray-600">—</Td>
                               <Td className="text-gray-600">—</Td>
                               <Td className="text-gray-600">—</Td>
@@ -1655,7 +1681,10 @@ function DistributorBarangPageContent() {
                               <Td className="text-gray-600 text-right">—</Td>
                               <Td className="text-gray-600 text-right">—</Td>
                               <Td className="text-center py-1 bg-slate-950/50 group-hover:bg-slate-900/50">
-                                <button type="button" className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 text-[10px] border border-emerald-500/30 hover:bg-emerald-500/30">
+                                <button
+                                  type="button"
+                                  className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 text-[10px] border border-emerald-500/30 hover:bg-emerald-500/30"
+                                >
                                   Klaim ke PT
                                 </button>
                               </Td>

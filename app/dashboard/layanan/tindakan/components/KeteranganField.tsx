@@ -23,7 +23,8 @@ export default function KeteranganField({
   const { show } = useNotification();
   const [draft, setDraft] = useState(String(value ?? ""));
   const [saving, setSaving] = useState(false);
-  const [isEditing, setIsEditing] = useState(Boolean(value));
+  /** false = tampilan ringkas (ikon); true = input terbuka untuk edit */
+  const [isEditing, setIsEditing] = useState(false);
   const lastPersistedRef = useRef(String(value ?? ""));
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -31,14 +32,12 @@ export default function KeteranganField({
     const val = String(value ?? "");
     setDraft(val);
     lastPersistedRef.current = val;
-    // Always show input if it has value
-    if (val) setIsEditing(true);
   }, [value, tindakanId]);
 
   const persist = useCallback(async () => {
     const next = draft.trim();
     if (next === lastPersistedRef.current) {
-      if (!next) setIsEditing(false);
+      setIsEditing(false);
       return;
     }
 
@@ -61,7 +60,7 @@ export default function KeteranganField({
         throw new Error(json.message || res.statusText);
       }
       lastPersistedRef.current = next;
-      if (!next) setIsEditing(false);
+      setIsEditing(false);
       onSaved?.();
     } catch (e) {
       show({
@@ -74,41 +73,89 @@ export default function KeteranganField({
     }
   }, [draft, show, tindakanId, onSaved]);
 
-  if (!isEditing && !draft) {
+  const openEditor = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditing(true);
+    setDraft(lastPersistedRef.current);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  }, []);
+
+  const summary = String(draft ?? "").trim();
+
+  /** Belum isi sama sekali — tombol tambah */
+  if (!isEditing && !summary) {
     return (
       <button
         type="button"
         title="Tambah Keterangan"
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsEditing(true);
-          setTimeout(() => inputRef.current?.focus(), 50);
-        }}
+        onClick={openEditor}
+        onMouseDown={(e) => e.stopPropagation()}
         className={cn(
-          "flex items-center justify-center p-1 rounded-full transition-all border border-transparent",
+          "flex items-center justify-center rounded-full border border-transparent p-2 transition-all min-h-[2.25rem] min-w-[2.25rem]",
           "hover:bg-cyan-100/50 hover:border-cyan-300/30 text-cyan-700/50 dark:text-white/30 dark:hover:bg-white/5",
-          className
+          className,
         )}
       >
-        <MessageSquarePlus size={14} />
+        <MessageSquarePlus size={14} aria-hidden />
+      </button>
+    );
+  }
+
+  /** Ada teks tapi mode ringkas — hanya ikon; RS perujuk tetap lega di kiri */
+  if (!isEditing && summary) {
+    const label = summary;
+    const titlePreview =
+      label.length > 80 ? `${label.slice(0, 80)}…` : label || "Keterangan";
+    return (
+      <button
+        type="button"
+        title={titlePreview}
+        aria-label={`Keterangan: ${titlePreview}`}
+        onClick={openEditor}
+        onMouseDown={(e) => e.stopPropagation()}
+        className={cn(
+          "flex items-center justify-center rounded-full border border-transparent p-2 transition-all min-h-[2.25rem] min-w-[2.25rem]",
+          "hover:bg-cyan-100/50 hover:border-cyan-300/40 text-cyan-700/80 dark:text-cyan-300/90 dark:hover:bg-white/10",
+          label.toLowerCase().includes("pribadi") &&
+            "border-amber-500/35 bg-amber-500/10 text-amber-600 dark:border-amber-500/40 dark:text-amber-300",
+          className,
+        )}
+      >
+        <MessageSquareText
+          size={14}
+          className={cn(
+            "shrink-0",
+            label.toLowerCase().includes("pribadi")
+              ? "text-amber-600 dark:text-amber-400"
+              : "text-cyan-600 dark:text-cyan-400",
+          )}
+          aria-hidden
+        />
       </button>
     );
   }
 
   return (
-    <div className="relative group flex items-center gap-1.5 w-full">
+    <div
+      className="relative group flex w-full min-w-0 items-center gap-1.5"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    >
       {!draft && (
-        <MessageSquarePlus size={12} className="shrink-0 text-cyan-700/40 dark:text-white/20" />
+        <MessageSquarePlus
+          size={12}
+          className="shrink-0 text-cyan-700/40 dark:text-white/20"
+        />
       )}
       {draft && (
-        <MessageSquareText 
-          size={12} 
+        <MessageSquareText
+          size={12}
           className={cn(
             "shrink-0",
-            draft.toLowerCase().includes("pribadi") 
-              ? "text-amber-500 animate-pulse" 
-              : "text-cyan-500 dark:text-cyan-400"
-          )} 
+            draft.toLowerCase().includes("pribadi")
+              ? "text-amber-500 animate-pulse"
+              : "text-cyan-500 dark:text-cyan-400",
+          )}
         />
       )}
       <input
@@ -127,13 +174,13 @@ export default function KeteranganField({
           if (e.key === "Escape") {
             e.preventDefault();
             setDraft(lastPersistedRef.current);
-            if (!lastPersistedRef.current) setIsEditing(false);
+            setIsEditing(false);
           }
         }}
         className={cn(
-          "w-full rounded border px-2 py-0.5 text-[10px] font-semibold focus:outline-none transition-all",
-          "border-cyan-400/30 bg-white/50 text-slate-800 placeholder:text-slate-400 focus:ring-1 focus:ring-cyan-500/30",
-          "dark:border-cyan-800/30 dark:bg-black/20 dark:text-white dark:placeholder:text-white/30",
+          "w-full min-w-[6rem] rounded-md border px-2 py-1.5 text-sm font-semibold focus:outline-none transition-all",
+          "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 focus:ring-1 focus:ring-cyan-500/30",
+          "dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
           saving && "opacity-60 grayscale",
           className,
         )}

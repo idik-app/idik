@@ -20,6 +20,7 @@ import {
   downloadPemakaianAlkesExcel,
   wrapReportHtmlDocument,
 } from "../lib/tindakanReportTemplates";
+import { tanggalBarisKeYmdWib } from "../lib/tanggalBarisWib";
 
 // Daftar kata kunci distributor untuk otomatisasi label di UI (antisipasi input manual)
 const DISTRIBUTOR_KONSOLIDASI_KEYWORDS = [
@@ -178,14 +179,14 @@ export default function TindakanLaporanPemakaianModal({
 
     if (filterTanggalFrom) {
       result = result.filter((r) => {
-        const d = String(r.tanggal ?? "").slice(0, 10);
+        const d = tanggalBarisKeYmdWib(r.tanggal);
         return d >= filterTanggalFrom;
       });
     }
 
     if (filterTanggalTo) {
       result = result.filter((r) => {
-        const d = String(r.tanggal ?? "").slice(0, 10);
+        const d = tanggalBarisKeYmdWib(r.tanggal);
         return d <= filterTanggalTo;
       });
     }
@@ -886,7 +887,7 @@ export default function TindakanLaporanPemakaianModal({
                         className="hover:bg-slate-50 dark:hover:bg-white/5"
                       >
                         <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20">
-                          {String(r.tanggal ?? "").slice(0, 10)}
+                          {tanggalBarisKeYmdWib(r.tanggal)}
                         </td>
                         <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20">
                           <div className="font-bold leading-tight">

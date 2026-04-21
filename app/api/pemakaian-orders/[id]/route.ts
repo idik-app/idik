@@ -4,8 +4,19 @@ import { requireUser } from "@/lib/auth/guards";
 import { getServiceSupabaseAdmin } from "@/lib/auth/serviceSupabase";
 import { normalizeTemplateInputBarang } from "@/lib/pemakaian/templateInputBarang";
 import { normalizeKategoriAlkesLine } from "@/lib/distributorCatalog";
+import { ensureInventarisForPemakaianFifo } from "@/lib/inventaris/ensureStockForPemakaianFifo";
+import { tindakanIdTextParamForAllocateFifo } from "@/lib/pemakaian/tindakanIdForAllocateRpc";
+import {
+  normalizeMasterBarangUuid,
+  resolveMasterBarangUuidForFifo,
+  type MasterBarangRowRef,
+} from "@/lib/pemakaian/masterBarangUuidForFifo";
+import { lineEligibleForPemakaianFifo } from "@/lib/pemakaian/fifoOrderLine";
+import { rpcAllocatePemakaianFifo } from "@/lib/pemakaian/allocateFifoRpc";
 
 export const dynamic = "force-dynamic";
+
+const LOKASI_FIFO = "Cathlab";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -29,6 +40,7 @@ type LineIn = {
   ukuran?: string;
   ed?: string;
   isKonsolidasi?: boolean;
+  status?: string;
   harga?: number;
   keterangan?: string;
 };
@@ -93,7 +105,11 @@ function normalizeItems(
             : undefined,
         ed:
           typeof it.ed === "string" && it.ed.trim() ? it.ed.trim() : undefined,
-        isKonsolidasi: !!it.isKonsolidasi,
+        isKonsolidasi:
+          !!it.isKonsolidasi ||
+          String(it.status ?? "")
+            .trim()
+            .toUpperCase() === "KONSOLIDASI",
         keterangan:
           typeof it.keterangan === "string" && it.keterangan.trim()
             ? it.keterangan.trim()
@@ -216,7 +232,7 @@ export async function PATCH(req: Request, { params }: Params) {
 
   const { data: existing, error: fetchErr } = await supabase
     .from("cathlab_pemakaian_order")
-    .select("id, status, items, mode, tanggal, pasien")
+    .select("id, status, items, mode, tanggal, pasien, tindakan_id")
     .eq("id", id)
     .maybeSingle();
 
@@ -334,39 +350,143 @@ export async function PATCH(req: Request, { params }: Params) {
   // Jika items atau status berubah, kita hitung ulang stok FIFO.
   const isPemakaian = (body.mode || existing.mode) === "PEMAKAIAN";
   if (isPemakaian && (body.items !== undefined || body.status !== undefined)) {
+    const newStatus = (patch.status as string) || (existing.status as string);
+    const itemsToAllocate =
+      (patch.items as NormalizedLine[]) ||
+      (existing.items as NormalizedLine[]);
+
+    let allMastersForFifo: MasterBarangRowRef[] = [];
+    if (newStatus !== "DRAFT") {
+      const { data: am } = await supabase
+        .from("master_barang")
+        .select("id, nama, created_at");
+      allMastersForFifo = (am ?? []).map((m) => ({
+        id: m.id,
+        nama: m.nama ?? "",
+        created_at: m.created_at,
+      }));
+      for (const item of itemsToAllocate) {
+        if (!lineEligibleForPemakaianFifo(item)) continue;
+        const resolved = resolveMasterBarangUuidForFifo(
+          allMastersForFifo,
+          item.barang,
+        );
+        if (!resolved.ok && resolved.reason === "legacy_or_invalid_id") {
+          return NextResponse.json(
+            {
+              ok: false,
+              message: `Master "${item.barang}" punya duplikat / ID non-UUID di database. Rapikan di Master Barang (satu baris UUID per nama) lalu coba lagi.`,
+            },
+            { status: 500 },
+          );
+        }
+      }
+    }
+
     try {
       // 1. Kembalikan stok lama (reverse)
-      await supabase.rpc("reverse_pemakaian_order_allocations", {
-        p_order_id: id,
-      });
+      const { error: revErr } = await supabase.rpc(
+        "reverse_pemakaian_order_allocations",
+        {
+          p_order_id: id,
+        },
+      );
+      if (revErr) {
+        console.error("[PatchOrder] reverse_pemakaian_order_allocations:", revErr);
+        return NextResponse.json(
+          {
+            ok: false,
+            message: `Gagal mengembalikan stok order sebelumnya: ${revErr.message}. Simpan dibatalkan agar stok tidak dobel.`,
+          },
+          { status: 409 },
+        );
+      }
 
       // 2. Alokasikan stok baru (kecuali jika status baru adalah DRAFT)
-      const newStatus = (patch.status as string) || (existing.status as string);
       if (newStatus !== "DRAFT") {
-        const itemsToAllocate = (patch.items as NormalizedLine[]) || (existing.items as NormalizedLine[]);
-        
-        // Ambil data master untuk lookup ID
-        const { data: allMasters } = await supabase.from("master_barang").select("id, nama");
-        
+        const fifoTotals = new Map<string, number>();
         for (const item of itemsToAllocate) {
-          if (item.tipe === "N" && item.qtyDipakai > 0) {
-            const masterId = allMasters?.find(
-              (m) => m.nama.toLowerCase() === item.barang.toLowerCase()
-            )?.id;
+          if (!lineEligibleForPemakaianFifo(item)) continue;
+          const resolved = resolveMasterBarangUuidForFifo(
+            allMastersForFifo,
+            item.barang,
+          );
+          if (!resolved.ok) {
+            continue;
+          }
+          fifoTotals.set(
+            resolved.masterUuid,
+            (fifoTotals.get(resolved.masterUuid) ?? 0) + item.qtyDipakai,
+          );
+        }
 
-            if (masterId) {
-              const { error: allocErr } = await supabase.rpc("allocate_pemakaian_fifo", {
-                p_master_barang_id: masterId,
-                p_jumlah: item.qtyDipakai,
-                p_lokasi: "Cathlab",
-                p_order_id: id,
-                p_tanggal: (patch.tanggal as string || existing.tanggal as string || "").slice(0, 10) || undefined,
-                p_keterangan: `Update dari order ${id} (${body.pasien || existing.pasien})`,
-              });
-              if (allocErr) {
-                return NextResponse.json({ ok: false, message: `Stok tidak cukup untuk "${item.barang}". ${allocErr.message}` }, { status: 400 });
+        const tanggalAlloc = (
+          (patch.tanggal as string) ||
+          (existing.tanggal as string) ||
+          ""
+        ).slice(0, 10);
+
+        for (const [masterId, qty] of fifoTotals) {
+          if (qty <= 0) continue;
+          const namaLabel =
+            allMastersForFifo.find(
+              (m) => normalizeMasterBarangUuid(m.id) === masterId,
+            )?.nama ?? masterId;
+
+          const ensure = await ensureInventarisForPemakaianFifo(supabase, {
+            masterBarangId: masterId,
+            lokasi: LOKASI_FIFO,
+            qtyNeeded: qty,
+          });
+          if (!ensure.ok) {
+            console.error(
+              "[PATCH pemakaian-orders] FIFO ensure dilewati:",
+              id,
+              namaLabel,
+              ensure.message,
+            );
+            continue;
+          }
+          if (ensure.toppedUp > 0) {
+            console.warn(
+              `[PATCH pemakaian-orders ${id}] Inventaris ${LOKASI_FIFO} +${ensure.toppedUp} otomatis untuk "${namaLabel}" (master ${masterId})`,
+            );
+          }
+
+          const { error: allocErr } = await rpcAllocatePemakaianFifo(supabase, {
+            p_master_barang_id: masterId,
+            p_jumlah: qty,
+            p_lokasi: LOKASI_FIFO,
+            p_tindakan_id_text: tindakanIdTextParamForAllocateFifo(
+              existing.tindakan_id,
+            ),
+            p_order_id: id,
+            p_tanggal: tanggalAlloc || undefined,
+            p_keterangan: `Update dari order ${id} (${body.pasien || existing.pasien})`,
+          });
+          if (allocErr) {
+            const supHost = (() => {
+              const u = process.env.NEXT_PUBLIC_SUPABASE_URL;
+              if (!u) return "(missing NEXT_PUBLIC_SUPABASE_URL)";
+              try {
+                return new URL(u).hostname;
+              } catch {
+                return "(invalid NEXT_PUBLIC_SUPABASE_URL)";
               }
-            }
+            })();
+            console.error(
+              "[PATCH pemakaian-orders] FIFO gagal (simpan tetap dilanjutkan)",
+              id,
+              "| supabase host:",
+              supHost,
+              "| tindakan_id order:",
+              existing.tindakan_id ?? "(null)",
+              "| barang:",
+              namaLabel,
+              "| error:",
+              allocErr,
+            );
+            continue;
           }
         }
       }

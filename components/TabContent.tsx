@@ -28,6 +28,9 @@ const PemakaianPage = dynamic(() => import("@/app/dashboard/pemakaian/page"));
 const MasterFarmasiPage = dynamic(
   () => import("@/app/dashboard/farmasi/master/page")
 );
+const MasterBarangFarmasiPage = dynamic(
+  () => import("@/app/dashboard/farmasi/master-barang/page"),
+);
 const DepoDashboardPage = dynamic(
   () => import("@/app/depo/(main)/dashboard/page")
 );
@@ -95,6 +98,8 @@ export default function TabContent() {
       case "farmasi-master-data":
       case "master":
         return <MasterFarmasiPage />;
+      case "master-barang":
+        return <MasterBarangFarmasiPage />;
       case "farmasi-stok-opname":
         return <FarmasiPlaceholder slug={["stok-opname"]} />;
       case "farmasi-laporan-keluar":

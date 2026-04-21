@@ -4,8 +4,21 @@ import { requireUser } from "@/lib/auth/guards";
 import { getServiceSupabaseAdmin } from "@/lib/auth/serviceSupabase";
 import { normalizeTemplateInputBarang } from "@/lib/pemakaian/templateInputBarang";
 import { normalizeKategoriAlkesLine } from "@/lib/distributorCatalog";
+import { ensureInventarisForPemakaianFifo } from "@/lib/inventaris/ensureStockForPemakaianFifo";
+import {
+  tindakanIdTextForOrder,
+  tindakanIdTextParamForAllocateFifo,
+} from "@/lib/pemakaian/tindakanIdForAllocateRpc";
+import {
+  normalizeMasterBarangUuid,
+  resolveMasterBarangUuidForFifo,
+} from "@/lib/pemakaian/masterBarangUuidForFifo";
+import { lineEligibleForPemakaianFifo } from "@/lib/pemakaian/fifoOrderLine";
+import { rpcAllocatePemakaianFifo } from "@/lib/pemakaian/allocateFifoRpc";
 
 export const dynamic = "force-dynamic";
+
+const LOKASI_FIFO = "Cathlab";
 
 function newOrderId(): string {
   const t = Date.now().toString(36).toUpperCase();
@@ -24,7 +37,9 @@ type LineIn = {
   lot?: string;
   ukuran?: string;
   ed?: string;
+  /** Eksplisit; jika hanya `status` yang dikirim, dinormalisasi di bawah. */
   isKonsolidasi?: boolean;
+  status?: string;
   harga?: number;
   keterangan?: string;
 };
@@ -73,13 +88,11 @@ export async function POST(req: Request) {
       ? body.catatan.trim()
       : null;
   const ruangan = typeof body.ruangan === "string" ? body.ruangan.trim() : "";
-  const tindakanIdRaw =
-    typeof body.tindakanId === "string"
-      ? body.tindakanId
-      : typeof (body as { tindakan_id?: unknown }).tindakan_id === "string"
-        ? String((body as { tindakan_id?: string }).tindakan_id)
-        : "";
-  const tindakanId = tindakanIdRaw.trim() || null;
+  const rawTindakan =
+    (body as { tindakanId?: unknown }).tindakanId ??
+    (body as { tindakan_id?: unknown }).tindakan_id;
+  const tindakanIdText = tindakanIdTextForOrder(rawTindakan);
+  const tindakanIdFifoText = tindakanIdTextParamForAllocateFifo(rawTindakan);
 
   if (!pasien || !dokter || !depo) {
     return NextResponse.json(
@@ -148,7 +161,11 @@ export async function POST(req: Request) {
             : undefined,
         ed:
           typeof it.ed === "string" && it.ed.trim() ? it.ed.trim() : undefined,
-        isKonsolidasi: !!it.isKonsolidasi,
+        isKonsolidasi:
+          !!it.isKonsolidasi ||
+          String(it.status ?? "")
+            .trim()
+            .toUpperCase() === "KONSOLIDASI",
         keterangan:
           typeof it.keterangan === "string" && it.keterangan.trim()
             ? it.keterangan.trim()
@@ -174,25 +191,43 @@ export async function POST(req: Request) {
 
   const id = newOrderId();
 
-  // --- AUTO-CREATE MASTER BARANG & DISTRIBUTOR & ALLOCATE STOCK ---
-  // Kita proses pendaftaran barang baru ke Master jika belum ada,
-  // dan otomatis kurangi stok FIFO jika mode PEMAKAIAN.
+  /** Harus mutabel: insert baris baru harus langsung terlihat iterasi berikutnya
+   *  agar tidak membuat dua `master_barang` untuk nama sama dalam satu request. */
+  let mastersList: { id: string; nama: string | null }[] = [];
+  let distsList: { id: string; nama_pt: string }[] = [];
+
+  // --- AUTO-CREATE MASTER BARANG & DISTRIBUTOR (tanpa FIFO; order harus ada di DB dulu untuk FK pemakaian) ---
   try {
-    const { data: allMasters } = await supabase
+    const { data: mastersInitial } = await supabase
       .from("master_barang")
-      .select("id, nama");
-    const { data: allDists } = await supabase
+      .select("id, nama, created_at");
+    const { data: distsInitial } = await supabase
       .from("master_distributor")
       .select("id, nama_pt");
+
+    mastersList = [...(mastersInitial ?? [])];
+    distsList = [...(distsInitial ?? [])];
 
     for (const item of normalized) {
       const namaBarang = item.barang.trim();
       const namaDist = item.distributor?.trim();
 
-      // 1. Cari atau buat Master Barang
-      let masterId = allMasters?.find(
-        (m) => m.nama.toLowerCase() === namaBarang.toLowerCase(),
-      )?.id;
+      // 1. Cari atau buat Master Barang (duplikat nama: utamakan baris id UUID)
+      const existingMaster = resolveMasterBarangUuidForFifo(
+        mastersList,
+        namaBarang,
+      );
+      if (!existingMaster.ok && existingMaster.reason === "legacy_or_invalid_id") {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: `Master "${namaBarang}" punya duplikat / ID non-UUID di database. Rapikan di Master Barang lalu coba lagi.`,
+          },
+          { status: 500 },
+        );
+      }
+      let masterId: string | undefined =
+        existingMaster.ok ? existingMaster.masterUuid : undefined;
 
       if (!masterId) {
         const { data: newMaster, error: errM } = await supabase
@@ -203,15 +238,22 @@ export async function POST(req: Request) {
             kategori: item.kategori || null,
             is_active: true,
           })
-          .select("id")
+          .select("id, created_at")
           .single();
-        if (!errM && newMaster) masterId = newMaster.id;
+        if (!errM && newMaster?.id) {
+          masterId = newMaster.id;
+          mastersList.push({
+            id: newMaster.id,
+            nama: namaBarang,
+            created_at: newMaster.created_at ?? null,
+          });
+        }
       }
 
       // 2. Cari atau buat Master Distributor (jika ada nama distributor)
       let distId = null;
       if (namaDist) {
-        distId = allDists?.find(
+        distId = distsList.find(
           (d) => d.nama_pt.toLowerCase() === namaDist.toLowerCase(),
         )?.id;
 
@@ -224,13 +266,15 @@ export async function POST(req: Request) {
             })
             .select("id")
             .single();
-          if (!errD && newDist) distId = newDist.id;
+          if (!errD && newDist?.id) {
+            distId = newDist.id;
+            distsList.push({ id: newDist.id, nama_pt: namaDist });
+          }
         }
       }
 
       // 3. Daftarkan Varian (distributor_barang) jika ada LOT/Ukuran/ED
       if (masterId && (item.lot || item.ukuran || item.ed)) {
-        // Cek apakah varian ini sudah ada
         const { data: existingVar } = await supabase
           .from("distributor_barang")
           .select("id")
@@ -253,44 +297,10 @@ export async function POST(req: Request) {
           });
         }
       }
-
-      // 4. OTOMATIS KURANGI STOK (FIFO)
-      // Hanya jika mode PEMAKAIAN, tipe NORMAL (N), dan qtyDipakai > 0.
-      if (
-        mode === "PEMAKAIAN" &&
-        item.tipe === "N" &&
-        item.qtyDipakai > 0 &&
-        masterId
-      ) {
-        const { error: allocErr } = await supabase.rpc(
-          "allocate_pemakaian_fifo",
-          {
-            p_master_barang_id: masterId,
-            p_jumlah: item.qtyDipakai,
-            p_lokasi: "Cathlab",
-            p_tindakan_id: tindakanId,
-            p_keterangan: `Otomatis dari order ${id} (${pasien})`,
-            p_tanggal: tanggal.slice(0, 10),
-            p_order_id: id,
-          },
-        );
-
-        if (allocErr) {
-          console.error("[AllocateFIFO] Gagal untuk", namaBarang, ":", allocErr);
-          return NextResponse.json(
-            {
-              ok: false,
-              message: `Stok tidak cukup untuk "${namaBarang}". ${allocErr.message}`,
-            },
-            { status: 400 },
-          );
-        }
-      }
     }
   } catch (e) {
     console.error("[AutoCreateAndAllocate] Gagal:", e);
-    // Kita biarkan lanjut simpan order meskipun auto-create/allocate gagal di level catch blok
-    // Tapi jika rpc di atas return error, dia sudah stop lewat return NextResponse.
+    // Master/distributor: lanjut simpan order; baris baru di loop di atas bisa belum ter-commit.
   }
 
   const row = {
@@ -311,7 +321,7 @@ export async function POST(req: Request) {
     template_input_barang: normalizeTemplateInputBarang(
       body.templateInputBarang,
     ),
-    ...(tindakanId ? { tindakan_id: tindakanId } : {}),
+    ...(tindakanIdText ? { tindakan_id: tindakanIdText } : {}),
   };
 
   const { data, error } = await supabase
@@ -325,6 +335,112 @@ export async function POST(req: Request) {
       { ok: false, message: error.message },
       { status: 500 },
     );
+  }
+
+  const rollbackCreatedOrder = async () => {
+    const { error: revErr } = await supabase.rpc(
+      "reverse_pemakaian_order_allocations",
+      { p_order_id: id },
+    );
+    if (revErr) {
+      console.error("[POST pemakaian-orders] rollback reverse allocations:", revErr);
+    }
+    const { error: delErr } = await supabase
+      .from("cathlab_pemakaian_order")
+      .delete()
+      .eq("id", id);
+    if (delErr) {
+      console.error("[POST pemakaian-orders] rollback hapus order:", delErr);
+    }
+  };
+
+  // FIFO memakai cathlab_pemakaian_order_id → baris order harus sudah ada (FK pemakaian).
+  if (mode === "PEMAKAIAN") {
+    const fifoTotals = new Map<string, number>();
+    for (const item of normalized) {
+      if (!lineEligibleForPemakaianFifo(item)) continue;
+      const namaBarang = item.barang.trim();
+      const resolved = resolveMasterBarangUuidForFifo(mastersList, namaBarang);
+      if (!resolved.ok) {
+        if (resolved.reason === "legacy_or_invalid_id") {
+          await rollbackCreatedOrder();
+          return NextResponse.json(
+            {
+              ok: false,
+              message: `Master "${namaBarang}" punya duplikat / ID non-UUID di database. Rapikan di Master Barang lalu coba lagi.`,
+            },
+            { status: 500 },
+          );
+        }
+        continue;
+      }
+      fifoTotals.set(
+        resolved.masterUuid,
+        (fifoTotals.get(resolved.masterUuid) ?? 0) + item.qtyDipakai,
+      );
+    }
+
+    for (const [masterId, qty] of fifoTotals) {
+      if (qty <= 0) continue;
+      const namaLabel =
+        mastersList.find(
+          (m) => normalizeMasterBarangUuid(m.id) === masterId,
+        )?.nama ?? masterId;
+
+      const ensure = await ensureInventarisForPemakaianFifo(supabase, {
+        masterBarangId: masterId,
+        lokasi: LOKASI_FIFO,
+        qtyNeeded: qty,
+      });
+      if (!ensure.ok) {
+        console.error(
+          "[POST pemakaian-orders] FIFO ensure dilewati (order tetap disimpan):",
+          namaLabel,
+          ensure.message,
+        );
+        continue;
+      }
+      if (ensure.toppedUp > 0) {
+        console.warn(
+          `[POST pemakaian-orders ${id}] Inventaris ${LOKASI_FIFO} +${ensure.toppedUp} otomatis untuk "${namaLabel}" (master ${masterId})`,
+        );
+      }
+
+      const { error: allocErr } = await rpcAllocatePemakaianFifo(supabase, {
+        p_master_barang_id: masterId,
+        p_jumlah: qty,
+        p_lokasi: LOKASI_FIFO,
+        p_tindakan_id_text: tindakanIdFifoText,
+        p_keterangan: `Otomatis dari order ${id} (${pasien})`,
+        p_tanggal: tanggal.slice(0, 10),
+        p_order_id: id,
+      });
+
+      if (allocErr) {
+        const supHost = (() => {
+          const u = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          if (!u) return "(missing NEXT_PUBLIC_SUPABASE_URL)";
+          try {
+            return new URL(u).hostname;
+          } catch {
+            return "(invalid NEXT_PUBLIC_SUPABASE_URL)";
+          }
+        })();
+        console.error(
+          "[AllocateFIFO] Gagal untuk",
+          namaLabel,
+          "| supabase host:",
+          supHost,
+          "| tindakanIdFifoText:",
+          tindakanIdFifoText ?? "(null)",
+          "| masterId:",
+          masterId,
+          "| error:",
+          allocErr,
+        );
+        continue;
+      }
+    }
   }
 
   return NextResponse.json({ ok: true, order: data }, { status: 201 });

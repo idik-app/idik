@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import useSWR from "swr";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
@@ -55,7 +56,10 @@ import { runDeduped } from "@/lib/api/runDeduped";
 import { useAppDialog } from "@/contexts/AppDialogContext";
 import { PrintIcon } from "@/components/icons/PrintIcon";
 import {
+  komponenKatalogEntriesNotInMaster,
+  mergeKomponenKatalogLists,
   normalizeTemplateInputBarang,
+  type KomponenKatalogBaris,
   type TemplateInputBarangPayload,
 } from "@/lib/pemakaian/templateInputBarang";
 import {
@@ -245,6 +249,37 @@ function resolveHargaFromBarangInput(
 
   if (row) return hargaFromPickRow(row, options);
   return undefined;
+}
+
+function pemakaianKatalogPickRow(
+  r: KomponenKatalogBaris,
+  seq: number,
+): MasterBarangPickRow {
+  const safe = r.namaBarang.trim().slice(0, 400);
+  const slug = safe
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+  const kat = r.kategori?.trim() || null;
+  return {
+    pickId: `komponen-katalog-${r.id}-${seq}`,
+    master_barang_id: "__komponen_katalog__",
+    distributor_barang_id: null,
+    kode: "",
+    nama: safe,
+    jenis: kat ? `Komponen cathlab · ${kat}` : "Komponen cathlab",
+    kategori: kat,
+    barcode: null,
+    satuan: null,
+    distributor_id: r.distributorId,
+    distributor_nama: r.distributorNama?.trim() || null,
+    lot: null,
+    ukuran: null,
+    ed: null,
+    harga_jual: null,
+    is_konsolidasi: null,
+  };
 }
 
 function mapCathlabOrderRow(r: Record<string, unknown>): PemakaianOrder | null {
@@ -471,6 +506,88 @@ export default function PemakaianPage() {
   const { pasien: rawPasien, isLoading: pasienListLoading } = useMasterPasien();
   const { items: barangVariantList, isLoading: barangVariantLoading } = useMasterVariants();
 
+  const { data: farmasiKatalogRes } = useSWR(
+    "/api/farmasi/komponen-katalog",
+    async (url: string) => {
+      const res = await fetch(url, { credentials: "include", cache: "no-store" });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        rows?: unknown;
+      };
+      if (!res.ok || !j?.ok) return null;
+      return j;
+    },
+    { revalidateOnFocus: true, dedupingInterval: 30_000 },
+  );
+
+  const globalKomponenKatalogRows = useMemo(
+    () =>
+      normalizeTemplateInputBarang({
+        komponenKatalog: farmasiKatalogRes?.rows,
+      }).komponenKatalog ?? [],
+    [farmasiKatalogRes],
+  );
+
+  const drawerBarangComboOptions = useMemo((): MasterBarangPickRow[] => {
+    const master = barangVariantList as MasterBarangPickRow[];
+    const L = (s: string) => s.trim().toLowerCase();
+    const masterNamaKeys = new Set<string>();
+    for (const v of master) {
+      const k = L(v.nama ?? "");
+      if (k) masterNamaKeys.add(k);
+    }
+    const fromKatalog = komponenKatalogEntriesNotInMaster(
+      { komponenKatalog: globalKomponenKatalogRows },
+      masterNamaKeys,
+    ).map((r, i) => pemakaianKatalogPickRow(r, i));
+    return [...master, ...fromKatalog];
+  }, [barangVariantList, globalKomponenKatalogRows]);
+
+  const [pemakaianDistributorOptions, setPemakaianDistributorOptions] =
+    useState<{ id: string | null; nama_pt: string }[]>([]);
+  const [pemakaianDistributorsLoading, setPemakaianDistributorsLoading] =
+    useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setPemakaianDistributorsLoading(true);
+      let rows: { id: string | null; nama_pt: string }[] = [];
+      try {
+        const res = await fetch("/api/distributor/distributors", {
+          credentials: "include",
+        });
+        const j = await res.json().catch(() => ({}));
+        if (j?.ok && Array.isArray(j.data)) {
+          rows = j.data.map((d: { id: string; nama_pt: string }) => ({
+            id: d.id,
+            nama_pt: String(d.nama_pt ?? "").trim(),
+          }));
+        }
+      } catch {
+        /* fallback dari varian */
+      }
+      if (cancelled) return;
+      if (rows.length === 0) {
+        const m = new Map<string, { id: string | null; nama_pt: string }>();
+        for (const v of barangVariantList as MasterBarangPickRow[]) {
+          const id = v.distributor_id?.trim() || null;
+          const nama = v.distributor_nama?.trim() || "";
+          if (id && nama) m.set(id, { id, nama_pt: nama });
+          else if (nama) {
+            m.set(`n:${nama.toLowerCase()}`, { id: null, nama_pt: nama });
+          }
+        }
+        rows = Array.from(m.values());
+      }
+      setPemakaianDistributorOptions(rows);
+      setPemakaianDistributorsLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [barangVariantList]);
+
   const pasienList = useMemo(() => {
     return (rawPasien as Record<string, unknown>[])
       .map(mapApiPasienRow)
@@ -526,6 +643,8 @@ export default function PemakaianPage() {
     TemplateChecklistRow[]
   >(() => [...TEMPLATE_KOMPONEN]);
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
+  /** Cegah PATCH template berulang saat panel edit order (penyimpanan diam). */
+  const lastDetailSilentTemplateJsonRef = useRef<string | null>(null);
 
   useEffect(() => {
     setTemplateRowsObat(loadObatAlkesRows());
@@ -536,6 +655,9 @@ export default function PemakaianPage() {
     setDetailRow(row);
     setDetailDraft(structuredClone(row));
     setDetailRincianTab("struk");
+    lastDetailSilentTemplateJsonRef.current = JSON.stringify(
+      normalizeTemplateInputBarang(row.templateInputBarang),
+    );
   }
 
   function closeOrderDetail() {
@@ -544,6 +666,7 @@ export default function PemakaianPage() {
     setDetailDraft(null);
     setDetailRincianTab("struk");
     setDetailFocusLineId(null);
+    lastDetailSilentTemplateJsonRef.current = null;
   }
 
   function patchDetailTemplateField(
@@ -553,10 +676,7 @@ export default function PemakaianPage() {
   ) {
     setDetailDraft((d) => {
       if (!d) return d;
-      const cur = d.templateInputBarang ?? {
-        obatAlkes: {},
-        komponen: {},
-      };
+      const cur = normalizeTemplateInputBarang(d.templateInputBarang);
       return {
         ...d,
         templateInputBarang: {
@@ -724,9 +844,11 @@ export default function PemakaianPage() {
     if (doctorListLoading) return;
     drawerAutofillRef.current.dokter = true;
     if (!isDokterSession || !sessionUsername) return;
-    const exact = doctorList.find(
+    const exact = (doctorList as DoctorOption[]).find(
       (d) =>
-        d.nama_dokter.trim().toLowerCase() ===
+        String(d.nama_dokter ?? "")
+          .trim()
+          .toLowerCase() ===
         sessionUsername.trim().toLowerCase(),
     );
     if (!exact) return;
@@ -1061,7 +1183,11 @@ export default function PemakaianPage() {
   function cancelDetailEdit() {
     if (!detailRow) return;
     const fresh = orders.find((o) => o.id === detailRow.id);
-    setDetailDraft(structuredClone(fresh ?? detailRow));
+    const base = fresh ?? detailRow;
+    setDetailDraft(structuredClone(base));
+    lastDetailSilentTemplateJsonRef.current = JSON.stringify(
+      normalizeTemplateInputBarang(base.templateInputBarang),
+    );
   }
 
   async function saveDetailDraft() {
@@ -1088,10 +1214,9 @@ export default function PemakaianPage() {
             status: detailDraft.status,
             items: detailDraft.items,
             catatan: detailDraft.catatan ?? null,
-            templateInputBarang: detailDraft.templateInputBarang ?? {
-              obatAlkes: {},
-              komponen: {},
-            },
+            templateInputBarang: normalizeTemplateInputBarang(
+              detailDraft.templateInputBarang ?? {},
+            ),
           }),
         },
       );
@@ -1337,14 +1462,15 @@ export default function PemakaianPage() {
     if (!raw) return;
     setBarangScanOpen(false);
     const q = raw.toLowerCase();
-    const byBarcode = barangVariantList.find(
+    const variantRows = barangVariantList as MasterBarangPickRow[];
+    const byBarcode = variantRows.find(
       (v) => v.barcode?.trim().toLowerCase() === q,
     );
     if (byBarcode) {
       applyBarangPick(byBarcode);
       return;
     }
-    const matches = barangVariantList.filter((v) =>
+    const matches = variantRows.filter((v) =>
       rowMatchesBarangQuery(v, raw),
     );
     if (matches.length === 1) {
@@ -1354,11 +1480,80 @@ export default function PemakaianPage() {
     setBarangPickerQuery(raw);
   }
 
-  const filteredBarangPicks = useMemo(() => {
+  const detailBarangComboOptions = useMemo((): MasterBarangPickRow[] => {
+    const master = barangVariantList as MasterBarangPickRow[];
+    if (!detailDraft) return master;
+    const L = (s: string) => s.trim().toLowerCase();
+    const masterNamaKeys = new Set<string>();
+    for (const v of master) {
+      const k = L(v.nama ?? "");
+      if (k) masterNamaKeys.add(k);
+    }
+    const katalogPayload = {
+      komponenKatalog: mergeKomponenKatalogLists(
+        globalKomponenKatalogRows,
+        detailDraft.templateInputBarang?.komponenKatalog,
+      ),
+    };
+    const fromKatalog = komponenKatalogEntriesNotInMaster(
+      katalogPayload,
+      masterNamaKeys,
+    ).map((r, i) => pemakaianKatalogPickRow(r, i));
+    return [...master, ...fromKatalog];
+  }, [barangVariantList, detailDraft, globalKomponenKatalogRows]);
+
+  const filteredBarangPicks = useMemo((): MasterBarangPickRow[] => {
     const raw = barangPickerQuery.trim();
-    if (!raw) return barangVariantList;
-    return barangVariantList.filter((v) => rowMatchesBarangQuery(v, raw));
-  }, [barangPickerQuery, barangVariantList]);
+    const base: MasterBarangPickRow[] =
+      barangPickerTarget === "detail" && detailDraft
+        ? detailBarangComboOptions
+        : barangPickerTarget === "drawer"
+          ? drawerBarangComboOptions
+          : (barangVariantList as MasterBarangPickRow[]);
+    if (!raw) return base;
+    return base.filter((v) => rowMatchesBarangQuery(v, raw));
+  }, [
+    barangPickerQuery,
+    barangVariantList,
+    barangPickerTarget,
+    detailDraft,
+    detailBarangComboOptions,
+    drawerBarangComboOptions,
+  ]);
+
+  /** PATCH hanya template (checklist + katalog komponen) tanpa toast. */
+  useEffect(() => {
+    if (!detailDraft?.id?.trim() || detailSaving) return;
+    const id = detailDraft.id.trim();
+    const normalized = normalizeTemplateInputBarang(
+      detailDraft.templateInputBarang,
+    );
+    const json = JSON.stringify(normalized);
+    if (lastDetailSilentTemplateJsonRef.current === json) return;
+    const handle = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await fetch(
+            `/api/pemakaian-orders/${encodeURIComponent(id)}`,
+            {
+              method: "PATCH",
+              credentials: "include",
+              cache: "no-store",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ templateInputBarang: normalized }),
+            },
+          );
+          const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
+          if (res.ok && j?.ok) {
+            lastDetailSilentTemplateJsonRef.current = json;
+          }
+        } catch {
+          /* diam */
+        }
+      })();
+    }, 750);
+    return () => window.clearTimeout(handle);
+  }, [detailDraft?.id, detailDraft?.templateInputBarang, detailSaving]);
 
   function patchDetailLine(lineId: string, patch: Partial<PemakaianLine>) {
     setDetailDraft((d) => {
@@ -2355,7 +2550,7 @@ export default function PemakaianPage() {
                                       return d;
                                     });
                                   }}
-                                  options={barangVariantList}
+                                  options={detailBarangComboOptions}
                                   loading={barangVariantLoading}
                                 />
                               </td>
@@ -2794,7 +2989,7 @@ export default function PemakaianPage() {
                                     return rows;
                                   });
                                 }}
-                                options={barangVariantList}
+                                options={drawerBarangComboOptions}
                                 loading={barangVariantLoading}
                               />
                             </td>
@@ -3039,7 +3234,12 @@ export default function PemakaianPage() {
                   </p>
                 ) : filteredBarangPicks.length === 0 ? (
                   <p className="px-3 py-6 text-center text-[11px] text-white/50">
-                    {barangVariantList.length === 0
+                    {(barangPickerTarget === "detail" && detailDraft
+                      ? detailBarangComboOptions
+                      : barangPickerTarget === "drawer"
+                        ? drawerBarangComboOptions
+                        : barangVariantList
+                    ).length === 0
                       ? "Belum ada data master / mapping distributor."
                       : "Tidak ada baris yang cocok dengan pencarian."}
                   </p>
@@ -3131,9 +3331,14 @@ export default function PemakaianPage() {
               for (const [k, v] of Object.entries(cur.komponen ?? {})) {
                 if (idK.has(k)) komponenM[k] = v;
               }
+              const kk = cur.komponenKatalog ?? [];
               return {
                 ...d,
-                templateInputBarang: { obatAlkes, komponen: komponenM },
+                templateInputBarang: {
+                  obatAlkes,
+                  komponen: komponenM,
+                  komponenKatalog: kk,
+                },
               };
             });
           }}
@@ -3159,6 +3364,7 @@ export default function PemakaianPage() {
           >
             <ConsumableAngiografiPrintTemplate
               mode={mode}
+              komponenKatalogGlobal={globalKomponenKatalogRows}
               order={{
                 id: detailDraft.id,
                 tanggal: detailDraft.tanggal,
@@ -3183,10 +3389,9 @@ export default function PemakaianPage() {
                   qtyDipakai: l.qtyDipakai,
                   tipe: l.tipe,
                 })),
-                templateInputBarang: detailDraft.templateInputBarang ?? {
-                  obatAlkes: {},
-                  komponen: {},
-                },
+                templateInputBarang: normalizeTemplateInputBarang(
+                  detailDraft.templateInputBarang ?? {},
+                ),
                 templateRowsObatAlkes: templateRowsObat,
                 templateRowsKomponen: templateRowsKomponen,
               }}

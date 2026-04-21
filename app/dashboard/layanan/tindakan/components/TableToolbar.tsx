@@ -252,9 +252,9 @@ export default function TableToolbar({
     <div
       className={cn(
         "relative flex shrink-0 flex-col min-w-0 transition-colors duration-500",
-        "bg-slate-50/90 dark:bg-black/35",
+        "bg-slate-50/95 dark:bg-black/75",
         /* Di atas area scroll + thead sticky (z-10) agar tidak tertutup */
-        UI_LAYERS.hud,
+        UI_LAYERS.floatingCard,
       )}
     >
       <AnimatePresence initial={false}>
@@ -407,9 +407,9 @@ export default function TableToolbar({
                         role="menu"
                         aria-labelledby="tindakan-toolbar-laporan-trigger"
                         className={cn(
-                          "absolute left-0 top-full mt-1 min-w-[14rem] rounded-lg border py-1 shadow-lg",
-                          UI_LAYERS.popover,
-                          "border-emerald-600/40 bg-white dark:border-emerald-500/35 dark:bg-black/95",
+                          "absolute left-0 top-full mt-1.5 min-w-[14rem] rounded-xl border py-1.5 shadow-2xl",
+                          UI_LAYERS.modal,
+                          "border-emerald-600/50 bg-white dark:border-emerald-500/40 dark:bg-zinc-950",
                           "ring-1 ring-black/5 dark:ring-white/10",
                         )}
                       >

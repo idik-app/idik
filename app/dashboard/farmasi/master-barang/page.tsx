@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import useSWR from 'swr';
 import {
   Boxes,
   PackageSearch,
@@ -8,7 +9,14 @@ import {
   Filter,
   ScanLine,
   Tag,
+  Layers,
 } from 'lucide-react';
+import { KomponenKatalogPanel } from '@/app/dashboard/pemakaian/components/RincianBarangTemplateTabs';
+import {
+  normalizeTemplateInputBarang,
+  type KomponenKatalogBaris,
+} from '@/lib/pemakaian/templateInputBarang';
+import type { MasterBarangPickRow } from '@/components/ui/barang-variant-combobox';
 
 type JenisBarang = 'OBAT' | 'ALKES';
 
@@ -43,6 +51,17 @@ function isPublicSupabaseConfigured() {
   );
 }
 
+async function jsonFetcher(url: string) {
+  const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(
+      typeof j?.message === 'string' ? j.message : `HTTP ${res.status}`,
+    );
+  }
+  return j;
+}
+
 export default function MasterBarangPage() {
   const [query, setQuery] = useState('');
   const [jenis, setJenis] = useState<'ALL' | JenisBarang>('ALL');
@@ -51,6 +70,110 @@ export default function MasterBarangPage() {
   const [items, setItems] = useState<MasterBarang[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const {
+    data: katalogRes,
+    mutate: mutateKatalog,
+    isLoading: katalogListLoading,
+    error: katalogFetchError,
+  } = useSWR('/api/farmasi/komponen-katalog', jsonFetcher, {
+    revalidateOnFocus: true,
+    dedupingInterval: 30_000,
+  });
+
+  const { data: variantsRes, isLoading: variantsLoading } = useSWR(
+    '/api/master-barang/variants',
+    jsonFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 300_000 },
+  );
+
+  const barangPickOptions = (variantsRes?.items ?? []) as MasterBarangPickRow[];
+
+  const [katalogDraft, setKatalogDraft] = useState<KomponenKatalogBaris[]>([]);
+  const [katalogDistOptions, setKatalogDistOptions] = useState<
+    { id: string | null; nama_pt: string }[]
+  >([]);
+  const [katalogDistLoading, setKatalogDistLoading] = useState(true);
+  const [katalogSaveMsg, setKatalogSaveMsg] = useState<string | null>(null);
+  const [katalogSaving, setKatalogSaving] = useState(false);
+
+  useEffect(() => {
+    if (!katalogRes?.ok) return;
+    setKatalogDraft(
+      normalizeTemplateInputBarang({ komponenKatalog: katalogRes.rows })
+        .komponenKatalog ?? [],
+    );
+  }, [katalogRes]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setKatalogDistLoading(true);
+      let rows: { id: string | null; nama_pt: string }[] = [];
+      try {
+        const res = await fetch('/api/distributor/distributors', {
+          credentials: 'include',
+        });
+        const j = await res.json().catch(() => ({}));
+        if (j?.ok && Array.isArray(j.data)) {
+          rows = j.data.map((d: { id: string; nama_pt: string }) => ({
+            id: d.id,
+            nama_pt: String(d.nama_pt ?? '').trim(),
+          }));
+        }
+      } catch {
+        /* biarkan kosong */
+      }
+      if (cancelled) return;
+      if (rows.length === 0 && barangPickOptions.length > 0) {
+        const m = new Map<string, { id: string | null; nama_pt: string }>();
+        for (const v of barangPickOptions) {
+          const id = v.distributor_id?.trim() || null;
+          const nama = v.distributor_nama?.trim() || '';
+          if (id && nama) m.set(id, { id, nama_pt: nama });
+          else if (nama) {
+            m.set(`n:${nama.toLowerCase()}`, { id: null, nama_pt: nama });
+          }
+        }
+        rows = Array.from(m.values());
+      }
+      setKatalogDistOptions(rows);
+      setKatalogDistLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [barangPickOptions]);
+
+  const saveKomponenKatalog = useCallback(async () => {
+    setKatalogSaving(true);
+    setKatalogSaveMsg(null);
+    try {
+      const res = await fetch('/api/farmasi/komponen-katalog', {
+        method: 'PUT',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: katalogDraft }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j?.ok) {
+        throw new Error(
+          typeof j?.message === 'string'
+            ? j.message
+            : `Gagal menyimpan (HTTP ${res.status}).`,
+        );
+      }
+      await mutateKatalog();
+      setKatalogSaveMsg('Katalog tersimpan. Data dipakai di input pemakaian cathlab.');
+    } catch (e) {
+      setKatalogSaveMsg(
+        e instanceof Error ? e.message : 'Gagal menyimpan katalog.',
+      );
+    } finally {
+      setKatalogSaving(false);
+    }
+  }, [katalogDraft, mutateKatalog]);
 
   useEffect(() => {
     const run = async () => {
@@ -182,6 +305,65 @@ export default function MasterBarangPage() {
       </div>
 
       <div
+        className="rounded-2xl border border-[#D4AF37]/60 bg-gradient-to-br from-[#0B0F15]/95 to-[#101A24]/95 p-4 space-y-3"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <Layers size={22} className="text-[#D4AF37] shrink-0" />
+            <div>
+              <h2 className="text-sm font-semibold text-[#D4AF37]">
+                Komponen cathlab (katalog)
+              </h2>
+              <p className="text-[11px] text-cyan-300/85 max-w-xl">
+                Daftar distributor + kategori + nama untuk saran autocomplete di{' '}
+                <span className="text-cyan-200">Input Pemakaian Alkes</span> dan halaman pemakaian.
+                Disimpan terpusat di database (bukan per order).
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => void saveKomponenKatalog()}
+            disabled={katalogSaving || katalogListLoading}
+            className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wide
+              bg-gradient-to-r from-[#D4AF37] to-emerald-400 text-black disabled:opacity-50 disabled:pointer-events-none
+              shadow-[0_0_14px_rgba(212,175,55,0.35)] hover:shadow-[0_0_20px_rgba(45,212,191,0.45)] transition"
+          >
+            {katalogSaving ? 'Menyimpan…' : 'Simpan katalog'}
+          </button>
+        </div>
+        {katalogListLoading ? (
+          <p className="text-[11px] text-cyan-400/80">Memuat katalog…</p>
+        ) : null}
+        {katalogFetchError ? (
+          <p className="text-[11px] text-amber-300">
+            {katalogFetchError instanceof Error
+              ? katalogFetchError.message
+              : 'Gagal memuat katalog (perlu login / migrasi DB).'}
+          </p>
+        ) : null}
+        {katalogSaveMsg ? (
+          <p
+            className={`text-[11px] ${
+              katalogSaveMsg.includes('Gagal') || katalogSaveMsg.includes('HTTP')
+                ? 'text-amber-300'
+                : 'text-emerald-300'
+            }`}
+          >
+            {katalogSaveMsg}
+          </p>
+        ) : null}
+        <KomponenKatalogPanel
+          rows={katalogDraft}
+          onChangeRows={setKatalogDraft}
+          distributorOptions={katalogDistOptions}
+          distributorsLoading={katalogDistLoading}
+          barangOptions={barangPickOptions}
+          barangLoading={variantsLoading}
+        />
+      </div>
+
+      <div
         className="bg-gradient-to-r from-[#020617]/90 via-[#020617]/80 to-[#020617]/90
                    border border-cyan-800/70 rounded-2xl px-4 py-3 flex flex-wrap gap-3 items-center text-xs animate-in fade-in duration-300"
       >
@@ -224,7 +406,7 @@ export default function MasterBarangPage() {
       )}
 
       <div
-        className="bg-gradient-to-br from-[#0B0F15]/90 to-[#111B26]/90 border border-[#0EA5E9]/40 rounded-2xl p-4 backdrop-blur-md overflow-hidden"
+        className="bg-gradient-to-br from-[#0B0F15]/90 to-[#111B26]/90 border border-[#0EA5E9]/40 rounded-2xl p-4 backdrop-blur-md overflow-x-hidden overflow-y-visible"
       >
         <div className="flex items-center justify-between mb-3">
           <div>

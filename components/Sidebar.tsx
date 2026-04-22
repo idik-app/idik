@@ -41,6 +41,13 @@ function safeJsonParse<T>(raw: string | null, fallback: T): T {
   }
 }
 
+/** Route di bawah /dashboard harus selalu di-push agar URL ↔ tab ↔ sidebar sinkron. */
+function shouldSyncUrlWithHref(href: string | undefined, role: string, item: MenuItem) {
+  if (!href) return false;
+  if (href.startsWith("/dashboard")) return true;
+  return !item.noHrefForRoles?.includes(role);
+}
+
 export default function Sidebar() {
   const {
     isSidebarOpen,
@@ -147,9 +154,9 @@ export default function Sidebar() {
       new CustomEvent("jarvis-neuralpulse", { detail: { tab: item.id } })
     ); // 🔗 send pulse
 
-    const effectiveHref = item.noHrefForRoles?.includes(role)
-      ? undefined
-      : item.href;
+    const href = item.href;
+    const effectiveHref =
+      href && shouldSyncUrlWithHref(href, role, item) ? href : undefined;
 
     // URL = sumber kebenaran; push + scroll:false mengurangi lompatan scroll
     if (effectiveHref) router.push(effectiveHref, { scroll: false });
@@ -159,9 +166,9 @@ export default function Sidebar() {
 
   const prefetchHref = useCallback(
     (item: MenuItem) => {
-      const effectiveHref = item.noHrefForRoles?.includes(role)
-        ? undefined
-        : item.href;
+      const href = item.href;
+      const effectiveHref =
+        href && shouldSyncUrlWithHref(href, role, item) ? href : undefined;
       if (!effectiveHref) return;
       if (prefetchedRef.current.has(effectiveHref)) return;
       prefetchedRef.current.add(effectiveHref);

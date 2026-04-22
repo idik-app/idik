@@ -10,6 +10,16 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { menuConfig } from "@/app/config/menuConfig";
 
+function shouldSyncTabHref(
+  href: string | undefined,
+  role: string,
+  item: { href?: string; noHrefForRoles?: string[] }
+) {
+  if (!href) return false;
+  if (href.startsWith("/dashboard")) return true;
+  return !item.noHrefForRoles?.includes(role);
+}
+
 /* ⚡ Cathlab JARVIS TabBar v2.8 – Ringan + scroll ke tab aktif
    🔹 Tanpa AnimatePresence/spring per pill (DOM + komposit lebih murah)
    🔹 Garis aktif tetap shared layoutId + LayoutGroup
@@ -37,10 +47,8 @@ export default function TabBar() {
         items?: Array<{ id: string; href?: string; noHrefForRoles?: string[] }>;
       }>) {
         for (const item of group.items ?? []) {
-          if (item?.id && item?.href) {
-            if (!item.noHrefForRoles?.includes(role)) {
-              map.set(item.id, item.href);
-            }
+          if (item?.id && item?.href && shouldSyncTabHref(item.href, role, item)) {
+            map.set(item.id, item.href);
           }
         }
       }
@@ -112,20 +120,15 @@ export default function TabBar() {
       let next = container.scrollLeft;
       if (overLeft) next += r.left - c.left - pad;
       if (overRight) next += r.right - c.right + pad;
+      /* "auto" = segera mengikuti tab aktif; "smooth" terasa jeda/idle jika klik cepat. */
       container.scrollTo({
         left: Math.max(0, Math.min(maxScroll, next)),
-        behavior: "smooth",
+        behavior: "auto",
       });
     };
 
-    let inner = 0;
-    const outer = requestAnimationFrame(() => {
-      inner = requestAnimationFrame(run);
-    });
-    return () => {
-      cancelAnimationFrame(outer);
-      cancelAnimationFrame(inner);
-    };
+    const id = requestAnimationFrame(run);
+    return () => cancelAnimationFrame(id);
   }, [activeTab, mounted, tabCount]);
 
   // Sinkron URL ↔ tab ditangani di TabContext (biar konsisten dengan mapping menuConfig)
@@ -145,7 +148,7 @@ export default function TabBar() {
       {/* 🔷 Main Tab Container — min-h agar tidak collapse saat banyak tab ditutup */}
       <div
         className={cn(
-          "relative flex items-center min-h-[40px] border-b transition-colors duration-500",
+          "relative flex items-center min-h-[40px] border-b transition-colors duration-200",
           lightMode
             ? "bg-slate-100/90 border-cyan-600/25 shadow-sm"
             : "bg-[#04070d]/70 border-cyan-500/20 shadow-[0_0_15px_rgba(0,255,255,0.25)]"
@@ -159,15 +162,7 @@ export default function TabBar() {
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
-                <div
-                  key={tab.id}
-                  data-tabbar-tab={tab.id}
-                  className="shrink-0"
-                  style={{
-                    contentVisibility: "auto",
-                    containIntrinsicSize: "auto 32px",
-                  }}
-                >
+                <div key={tab.id} data-tabbar-tab={tab.id} className="shrink-0">
                   <button
                     type="button"
                     onClick={() => {
@@ -181,7 +176,7 @@ export default function TabBar() {
                     onFocus={() => prefetchTabHref(tab.id)}
                     onMouseEnter={() => prefetchTabHref(tab.id)}
                     className={cn(
-                      "group relative flex items-center gap-1 px-2 py-1 sm:gap-1.5 sm:px-3 sm:py-1 rounded-full border transition-colors duration-200",
+                      "touch-manipulation group relative flex min-h-[32px] items-center gap-1 px-2 py-1 sm:gap-1.5 sm:px-3 sm:py-1 rounded-full border transition-colors duration-150 active:scale-[0.98]",
                       isActive
                         ? lightMode
                           ? "border-[#b8860b]/65 bg-gradient-to-r from-white to-cyan-50/95 text-cyan-900 shadow-sm"
@@ -212,7 +207,7 @@ export default function TabBar() {
                         className="absolute bottom-0 left-[15%] right-[15%] h-[2px]
                                    bg-gradient-to-r from-[#D4AF37]/80 via-cyan-300/90 to-[#D4AF37]/80
                                    shadow-[0_0_10px_#00ffff,0_0_15px_#D4AF37]"
-                        transition={{ type: "tween", duration: 0.2, ease: "easeOut" }}
+                        transition={{ type: "tween", duration: 0.12, ease: "easeOut" }}
                       />
                     )}
                   </button>

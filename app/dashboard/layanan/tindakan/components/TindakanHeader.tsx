@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { memo } from "react";
 import Link from "next/link";
 import { Phone, ChevronLeft, ChevronDown, ChevronUp, Sparkles, Cloud, BarChart2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -10,7 +11,7 @@ import type { AccessTarget } from "./TindakanRoleAccessModal";
 
 type ThemeTone = "cyan" | "emerald";
 
-export default function TindakanHeader({
+function TindakanHeader({
   themeTone,
   onRoleAccessClick,
   onPhoneDirectoryOpen,
@@ -202,3 +203,4 @@ export default function TindakanHeader({
   );
 }
 
+export default memo(TindakanHeader);

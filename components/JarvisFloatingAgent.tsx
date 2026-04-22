@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useLayoutEffect, useState, useCallback, useRef } from "react";
 import { motion, useAnimation, AnimatePresence } from "framer-motion";
 import { useAI } from "@/app/contexts/AIContext";
 import JarvisAgent from "./JarvisAgent";
@@ -48,6 +48,8 @@ export default function JarvisFloatingAgent() {
   const [isOpen, setIsOpen] = useState(false);
   const [isInteracting, setIsInteracting] = useState(false);
   const isMounted = useRef(true);
+  /** Harus true agar useAnimation terhubung ke motion.div (bukan saat return null). */
+  const showAgentRef = useRef(false);
 
   const isLoggedIn = username !== "unknown" && role !== "guest";
 
@@ -65,17 +67,42 @@ export default function JarvisFloatingAgent() {
     pathname?.startsWith("/depo") || 
     pathname?.startsWith("/cssd");
 
+  const showAgent = isVisible && !isExcludedRoute;
+
+  useLayoutEffect(() => {
+    showAgentRef.current = showAgent;
+  }, [showAgent]);
+
+  useEffect(() => {
+    if (!showAgent) {
+      void controls.stop();
+    }
+  }, [showAgent, controls]);
+
+  /** Framer Motion: controls.start/set hanya aman setelah motion dengan animate={controls} sudah mount. */
+  function waitForControlsHost(): Promise<void> {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+  }
+
   // --- Initial Position (Force Center for Visibility) ---
   useEffect(() => {
-    // Set to center of screen on mount after a short delay
+    if (!showAgent) return;
     const timer = setTimeout(() => {
-      const centerX = window.innerWidth / 2 - 100;
-      const centerY = window.innerHeight / 2 - 150;
-      controls.set({ x: centerX, y: centerY, opacity: 1, scale: 1 });
-      console.log("🤖 Jarvis Agent Positioned at Center:", centerX, centerY);
+      if (!showAgentRef.current || !isMounted.current) return;
+      void waitForControlsHost().then(() => {
+        if (!showAgentRef.current || !isMounted.current) return;
+        const centerX = window.innerWidth / 2 - 100;
+        const centerY = window.innerHeight / 2 - 150;
+        void controls.set({ x: centerX, y: centerY, opacity: 1, scale: 1 });
+        console.log("🤖 Jarvis Agent Positioned at Center:", centerX, centerY);
+      });
     }, 1500);
     return () => clearTimeout(timer);
-  }, [controls]);
+  }, [controls, showAgent]);
 
   // --- Force Always Visible for Debugging ---
   useEffect(() => {
@@ -84,63 +111,76 @@ export default function JarvisFloatingAgent() {
 
   // --- Stop movement when menu opens or mouse is interacting ---
   useEffect(() => {
+    if (!showAgentRef.current) return;
     if (isOpen || isInteracting) {
-      controls.stop();
+      void controls.stop();
     }
-  }, [isOpen, isInteracting, controls]);
+  }, [isOpen, isInteracting, controls, showAgent]);
 
   const startPatrol = useCallback(async () => {
     if (isPatrolling || isOpen || isInteracting) return;
+    if (!showAgentRef.current) return;
     setIsPatrolling(true);
 
     // Initial wait to let user see Jarvis at center
     await new Promise((r) => setTimeout(r, 6000));
 
+    await waitForControlsHost();
+
     while (true) {
-      if (!isMounted.current || target || isOpen || isInteracting) {
-        setIsPatrolling(false); // Stop patrolling state
-        return; // Exit the loop entirely
+      if (
+        !isMounted.current ||
+        !showAgentRef.current ||
+        target ||
+        isOpen ||
+        isInteracting
+      ) {
+        setIsPatrolling(false);
+        return;
       }
 
       const nextX = Math.random() * (window.innerWidth - 250) + 125;
       const nextY = Math.random() * (window.innerHeight - 350) + 175;
-      
+
       console.log("🚀 Jarvis Patrolling to:", nextX, nextY);
 
-      if (isMounted.current) {
+      if (isMounted.current && showAgentRef.current) {
         await controls.start({
           x: nextX,
           y: nextY,
-          transition: { 
-            duration: 12 + Math.random() * 8, 
-            ease: "linear" 
+          transition: {
+            duration: 12 + Math.random() * 8,
+            ease: "linear",
           },
         });
       }
 
-      // Pause briefly at points
-      if (isMounted.current) {
-        await new Promise(r => setTimeout(r, 3000 + Math.random() * 4000));
+      if (isMounted.current && showAgentRef.current) {
+        await new Promise((r) => setTimeout(r, 3000 + Math.random() * 4000));
       }
     }
-  }, [controls, isPatrolling, target, isOpen]);
+  }, [controls, isPatrolling, target, isOpen, isInteracting]);
 
   // --- Move to Target ---
-  const moveToTarget = useCallback(async (newTarget: TargetPosition) => {
-    setTarget(newTarget);
-    setIsVisible(true);
-    
-    await controls.start({
-      x: newTarget.x - 100, // Center the agent (width/2)
-      y: newTarget.y - 150, // Hover above the point
-      opacity: 1,
-      scale: 1,
-      transition: { duration: 1.5, ease: "easeInOut" }
-    });
+  const moveToTarget = useCallback(
+    async (newTarget: TargetPosition) => {
+      setTarget(newTarget);
+      setIsVisible(true);
+      await waitForControlsHost();
+      if (!showAgentRef.current || !isMounted.current) return;
 
-    // Stay for 5 seconds
-    setTimeout(() => setTarget(null), 5000);
-  }, [controls]);
+      await controls.start({
+        x: newTarget.x - 100,
+        y: newTarget.y - 150,
+        opacity: 1,
+        scale: 1,
+        transition: { duration: 1.5, ease: "easeInOut" },
+      });
+
+      setTimeout(() => setTarget(null), 5000);
+    },
+    [controls]
+  );
 
   // --- Listen for Visit Requests ---
   useEffect(() => {
@@ -156,10 +196,23 @@ export default function JarvisFloatingAgent() {
 
   // --- Start Patrolling if Visible and no target ---
   useEffect(() => {
-    if (isVisible && !target && !isPatrolling && !isOpen && !isInteracting) {
-      startPatrol();
+    if (
+      showAgent &&
+      !target &&
+      !isPatrolling &&
+      !isOpen &&
+      !isInteracting
+    ) {
+      void startPatrol();
     }
-  }, [isVisible, target, startPatrol, isPatrolling, isOpen, isInteracting]);
+  }, [
+    showAgent,
+    target,
+    startPatrol,
+    isPatrolling,
+    isOpen,
+    isInteracting,
+  ]);
 
   if (!isVisible || isExcludedRoute) return null;
 

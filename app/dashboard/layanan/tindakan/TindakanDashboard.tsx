@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, startTransition } from "react";
 import { Phone } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -26,7 +26,7 @@ import FastTrackListModal from "./components/FastTrackListModal";
 import { UI_LAYERS } from "@/lib/ui/layers";
 
 const TindakanDetailDrawer = dynamic(
-  () => import("./components/TindakanDetailDrawer"),
+  () => import(/* webpackPrefetch: true */ "./components/TindakanDetailDrawer"),
   { ssr: false, loading: () => null },
 );
 
@@ -57,7 +57,10 @@ export default function TindakanDashboard() {
     useState<TindakanFilteredSummary | null>(null);
   const onFilteredSummaryChange = useCallback(
     (next: TindakanFilteredSummary) => {
-      setFilteredSummary(next);
+      /* KPI header boleh tertunda sedikit agar interaksi tabel/filter tetap responsif. */
+      startTransition(() => {
+        setFilteredSummary(next);
+      });
     },
     [],
   );

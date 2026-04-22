@@ -5,7 +5,6 @@ import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { FIELD_LABELS } from "../bridge/wireframeDrawerTabs";
-import { DatetimeLocalPicker } from "@/components/ui/datetime-local-picker";
 import FastTrackPhotoDropzone from "./FastTrackPhotoDropzone";
 
 const DEBOUNCE_MS = 550;
@@ -114,6 +113,14 @@ export default function FastTrackBlock({
   useEffect(() => {
     d2bDraftRef.current = d2bDraft;
   }, [d2bDraft]);
+
+  useEffect(() => {
+    setIgdDraft(normalizeDatetimeLocalInput(draftFrom(pasienDatangValue)));
+  }, [pasienDatangValue]);
+
+  useEffect(() => {
+    setD2bDraft(normalizeDatetimeLocalInput(draftFrom(doorToBalloonValue)));
+  }, [doorToBalloonValue]);
 
   const computedMinutes = minutesFromIgdToBalloon(igdDraft, d2bDraft);
 
@@ -267,8 +274,15 @@ export default function FastTrackBlock({
   };
 
   const boxClass = cn(
-    "rounded-md border px-2 py-1.5",
-    "border-cyan-200/80 bg-white shadow-sm dark:border-cyan-900/25 dark:bg-black/25",
+    "rounded-xl border px-3 py-2 shadow-none",
+    "border-[#8B98A8]/90 bg-[#A8B4C2]",
+  );
+
+  const nativeDatetimeClass = cn(
+    "w-full rounded-xl border border-white/12 bg-[#5C6573] px-2 py-1.5 text-left text-[12px] font-semibold text-white shadow-none outline-none transition-colors",
+    "placeholder:text-white/55 hover:bg-[#545C6A] focus:ring-2 focus:ring-[#2C3E50]/35",
+    "[color-scheme:dark]",
+    "[&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:invert",
   );
 
   const canEdit = Boolean(tindakanId);
@@ -288,12 +302,12 @@ export default function FastTrackBlock({
   return (
     <div className="space-y-3">
       {/* Status Toggle */}
-      <div className={cn(boxClass, "flex items-center justify-between")}>
+      <div className={cn(boxClass, "flex items-center justify-between gap-3")}>
         <div>
-          <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-white/90">
+          <dt className="text-[10px] font-bold uppercase tracking-wider text-white">
             Status Fast-Track STEMI
           </dt>
-          <dd className="mt-0.5 text-[11px] font-medium text-slate-500 dark:text-white/70">
+          <dd className="mt-0.5 text-[11px] font-medium text-white/75">
             Aktifkan untuk menampilkan indikator KPI di tabel utama.
           </dd>
         </div>
@@ -307,10 +321,8 @@ export default function FastTrackBlock({
           />
           <div
             className={cn(
-              "h-5 w-9 rounded-full bg-slate-200 transition-colors after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-focus:outline-none dark:bg-slate-800",
-              isFt
-                ? "bg-orange-500 after:translate-x-full after:border-white dark:bg-orange-600"
-                : "",
+              "h-6 w-11 shrink-0 rounded-full bg-[#8B98A8] transition-colors after:absolute after:left-[3px] after:top-[3px] after:h-[18px] after:w-[18px] after:rounded-full after:bg-white after:shadow-sm after:transition-all after:content-[''] peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-[#2C3E50]/40",
+              isFt ? "bg-[#2C3E50] after:translate-x-5" : "",
             )}
           />
         </label>
@@ -319,31 +331,25 @@ export default function FastTrackBlock({
       <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(200px,280px)]">
         <dl className="grid grid-cols-1 gap-1.5 text-sm font-semibold">
           <div className={boxClass}>
-            <dt
-              className={cn(
-                "text-[10px] font-bold leading-tight",
-                "text-slate-600 dark:text-white",
-              )}
-            >
+            <dt className="text-[10px] font-bold leading-tight text-white">
               {FIELD_LABELS.pasien_datang_igd ?? "Waktu pasien tiba di IGD"}
             </dt>
             <dd className="mt-0.5 overflow-visible">
               {canEdit ? (
-                <DatetimeLocalPicker
-                  appearance="drawer"
+                <input
+                  type="datetime-local"
+                  step={60}
                   value={igdDraft}
-                  onChange={(v) => {
+                  onChange={(e) => {
+                    const v = e.target.value;
                     setIgdDraft(v);
                     scheduleIgd(v);
                   }}
+                  className={nativeDatetimeClass}
+                  aria-label={FIELD_LABELS.pasien_datang_igd ?? "Waktu pasien tiba di IGD"}
                 />
               ) : (
-                <span
-                  className={cn(
-                    "text-[13px] font-semibold",
-                    "text-slate-950 dark:text-white",
-                  )}
-                >
+                <span className="text-[13px] font-semibold text-white">
                   {formatWaktuDisplay(draftFrom(pasienDatangValue))}
                 </span>
               )}
@@ -351,31 +357,27 @@ export default function FastTrackBlock({
           </div>
 
           <div className={boxClass}>
-            <dt
-              className={cn(
-                "text-[10px] font-bold leading-tight",
-                "text-slate-600 dark:text-white",
-              )}
-            >
+            <dt className="text-[10px] font-bold leading-tight text-white">
               {FIELD_LABELS.door_to_balloon ?? "Waktu door-to-balloon (cathlab)"}
             </dt>
             <dd className="mt-0.5 overflow-visible">
               {canEdit ? (
-                <DatetimeLocalPicker
-                  appearance="drawer"
+                <input
+                  type="datetime-local"
+                  step={60}
                   value={d2bDraft}
-                  onChange={(v) => {
+                  onChange={(e) => {
+                    const v = e.target.value;
                     setD2bDraft(v);
                     scheduleD2b(v);
                   }}
+                  className={nativeDatetimeClass}
+                  aria-label={
+                    FIELD_LABELS.door_to_balloon ?? "Waktu door-to-balloon (cathlab)"
+                  }
                 />
               ) : (
-                <span
-                  className={cn(
-                    "text-[13px] font-semibold",
-                    "text-slate-950 dark:text-white",
-                  )}
-                >
+                <span className="text-[13px] font-semibold text-white">
                   {formatWaktuDisplay(draftFrom(doorToBalloonValue))}
                 </span>
               )}
@@ -383,39 +385,19 @@ export default function FastTrackBlock({
           </div>
 
           <div className={boxClass}>
-            <dt
-              className={cn(
-                "text-[10px] font-bold leading-tight",
-                "text-slate-600 dark:text-white",
-              )}
-            >
+            <dt className="text-[10px] font-bold leading-tight text-white">
               {FIELD_LABELS.total_waktu_fast_track ?? "Total waktu"}
             </dt>
-            <dd
-              className={cn(
-                "mt-0.5 text-[13px] font-semibold leading-snug break-words",
-                "text-slate-950 dark:text-white",
-              )}
-            >
+            <dd className="mt-0.5 break-words text-[13px] font-semibold leading-snug text-white">
               {invalidOrder ? (
-                <span
-                  className={cn(
-                    "font-semibold",
-                    "text-amber-800 dark:text-amber-200/95",
-                  )}
-                >
+                <span className="font-semibold text-amber-100">
                   Urutan waktu tidak valid (balloon sebelum tiba IGD)
                 </span>
               ) : (
                 totalDisplay
               )}
             </dd>
-            <p
-              className={cn(
-                "mt-1 text-[10px] font-medium leading-snug",
-                "text-slate-500 dark:text-white/90",
-              )}
-            >
+            <p className="mt-1 text-[10px] font-medium leading-snug text-white/80">
               Total dihitung otomatis: selisih menit dari waktu tiba IGD hingga
               waktu first device / balloon di cathlab (door-to-balloon).
             </p>
@@ -427,6 +409,7 @@ export default function FastTrackBlock({
           fotosValue={fastTrackFotosValue}
           canEdit={canEdit}
           onSaved={onSaved}
+          drawerMuted
         />
       </div>
 

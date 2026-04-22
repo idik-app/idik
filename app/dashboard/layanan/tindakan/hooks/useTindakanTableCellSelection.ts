@@ -57,6 +57,30 @@ function isDocumentTypingFocus(): boolean {
   );
 }
 
+/**
+ * Pilihan teks asli di luar `<table>` (drawer, modal, judul) harus disalin oleh browser,
+ * bukan diganti TSV sel — listener `copy` global memakai capture sehingga tanpa ini
+ * yang tersalin bisa No. RM dari sel yang masih ter-blok di belakang.
+ */
+function domTextSelectionShouldUseNativeCopy(table: HTMLTableElement | null): boolean {
+  if (!table) return false;
+  const sel = document.getSelection();
+  if (!sel || sel.rangeCount === 0) return false;
+  if (sel.toString().trim() === "") return false;
+
+  const hostEl = (n: Node | null): Element | null => {
+    if (!n) return null;
+    return n.nodeType === Node.TEXT_NODE ? n.parentElement : (n as Element);
+  };
+
+  const range = sel.getRangeAt(0);
+  const startEl = hostEl(range.startContainer);
+  const endEl = hostEl(range.endContainer);
+  if (!startEl || !endEl) return false;
+  const fullyInsideTable = table.contains(startEl) && table.contains(endEl);
+  return !fullyInsideTable;
+}
+
 /** Target klik mengarah ke kontrol isian — jangan mulai seleksi blok */
 export function isTindakanCellSelectInteractiveTarget(
   target: EventTarget | null,
@@ -309,11 +333,13 @@ export function useTindakanTableCellSelection(
     if (!tableRef) return;
 
     const onCopy = (e: ClipboardEvent) => {
+      const table = tableRef.current;
+      if (domTextSelectionShouldUseNativeCopy(table)) return;
+
       const rs = rangesRef.current;
       if (rs.length === 0) return;
       if (isDocumentTypingFocus()) return;
 
-      const table = tableRef.current;
       if (!table) return;
 
       const chunks = rs.map((rect) =>

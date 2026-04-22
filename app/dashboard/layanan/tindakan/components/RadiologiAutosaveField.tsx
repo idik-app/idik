@@ -15,23 +15,32 @@ import { cn } from "@/lib/utils";
 
 export type RadiologiFieldKey =
   | "fluoro_time"
-  | "dose"
+  /** Label drawer / wireframe; nilai dari kolom `dose`, simpan ke `dose`. */
+  | "air_kerma"
+  /** Label drawer / wireframe; nilai dari kolom `dap_gy_cm2`, simpan ke `dap_gy_cm2`. */
+  | "dap_dose"
   | "kv"
   | "ma"
-  | "waktu"
-  | "dap_gy_cm2";
+  | "waktu";
 
 const FIELD_KIND: Record<
   RadiologiFieldKey,
   "fluoro" | "numeric" | "waktu_range"
 > = {
   fluoro_time: "fluoro",
-  dose: "numeric",
+  air_kerma: "numeric",
+  dap_dose: "numeric",
   kv: "numeric",
   ma: "numeric",
   waktu: "waktu_range",
-  dap_gy_cm2: "numeric",
 };
+
+/** Kunci body PATCH — selaras `getWireframeFieldValue` / kolom tindakan. */
+function patchBodyKey(field: RadiologiFieldKey): string {
+  if (field === "air_kerma") return "dose";
+  if (field === "dap_dose") return "dap_gy_cm2";
+  return field;
+}
 
 /** Field numerik / fluoro: simpan setelah jeda mengetik pendek. */
 const DEBOUNCE_MS_DEFAULT = 550;
@@ -172,7 +181,7 @@ export default function RadiologiAutosaveField({
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ [field]: payloadVal }),
+          body: JSON.stringify({ [patchBodyKey(field)]: payloadVal }),
         },
       );
       const json = (await res.json().catch(() => ({}))) as {
@@ -234,14 +243,14 @@ export default function RadiologiAutosaveField({
   const ariaLabel =
     field === "fluoro_time"
       ? "Fluoro time"
-      : field === "dose"
-        ? "Dose (mGy)"
+      : field === "air_kerma"
+        ? "Air kerma (mGy)"
         : field === "kv"
           ? "kV"
           : field === "ma"
             ? "mA"
-            : field === "dap_gy_cm2"
-              ? "DAP (Gy·cm²)"
+            : field === "dap_dose"
+              ? "DAP (mGy·cm)"
               : "Waktu";
 
   const inputClassNumeric = cn(

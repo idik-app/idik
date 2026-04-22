@@ -23,6 +23,8 @@ type Props = {
   canEdit: boolean;
   onSaved?: () => void;
   appearance?: "default" | "table";
+  /** Panel abu lembut di drawer (kontras rendah, teks terang). */
+  drawerMuted?: boolean;
 };
 
 export default function FastTrackPhotoDropzone({
@@ -31,20 +33,18 @@ export default function FastTrackPhotoDropzone({
   canEdit,
   onSaved,
   appearance = "default",
+  drawerMuted = false,
 }: Props) {
   const isTable = appearance === "table";
   const [urls, setUrls] = useState<string[]>(() =>
     parseFastTrackFotosUrls(fotosValue),
   );
-  // ... rest of state ...
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
-
-  // ... rest of logic ...
 
   useEffect(() => {
     setUrls(parseFastTrackFotosUrls(fotosValue));
@@ -155,7 +155,7 @@ export default function FastTrackPhotoDropzone({
   const hasPhotos = urls.length > 0;
 
   const zoneClass = cn(
-    "relative flex flex-col rounded-lg border-2 border-dashed text-center transition-colors",
+    "relative flex flex-col rounded-xl border-2 border-dashed text-center transition-colors",
     isTable
       ? hasPhotos
         ? "min-h-[3rem] overflow-hidden p-0.5"
@@ -163,11 +163,17 @@ export default function FastTrackPhotoDropzone({
       : hasPhotos
         ? "min-h-[13rem] overflow-hidden p-1"
         : "min-h-[11rem] px-3 py-4",
-    canEdit && !uploading
-      ? dragOver
-        ? "border-cyan-500 bg-cyan-50/80 dark:border-cyan-400 dark:bg-cyan-950/30"
-        : "border-cyan-300/70 bg-white/80 hover:border-cyan-400/80 dark:border-cyan-800/50 dark:bg-black/20 dark:hover:border-cyan-600/50"
-      : "border-slate-200 bg-slate-50/50 dark:border-cyan-900/40 dark:bg-black/15",
+    drawerMuted && !isTable
+      ? canEdit && !uploading
+        ? dragOver
+          ? "border-[#2C3E50] bg-[#98A6B5]"
+          : "border-[#4A5568] bg-[#B8C5D3] hover:border-[#2C3E50]/65"
+        : "border-[#5C6573]/80 bg-[#A8B4C2]/95"
+      : canEdit && !uploading
+        ? dragOver
+          ? "border-cyan-500 bg-cyan-50/80 dark:border-cyan-400 dark:bg-cyan-950/30"
+          : "border-cyan-300/70 bg-white/80 hover:border-cyan-400/80 dark:border-cyan-800/50 dark:bg-black/20 dark:hover:border-cyan-600/50"
+        : "border-slate-200 bg-slate-50/50 dark:border-cyan-900/40 dark:bg-black/15",
   );
 
   return (
@@ -176,7 +182,7 @@ export default function FastTrackPhotoDropzone({
         <p
           className={cn(
             "text-[10px] font-bold uppercase tracking-wider",
-            "text-slate-600 dark:text-white",
+            drawerMuted ? "text-[#2C3E50]" : "text-slate-600 dark:text-white",
           )}
         >
           Foto dokumentasi
@@ -361,7 +367,9 @@ export default function FastTrackPhotoDropzone({
             <ImagePlus
               className={cn(
                 isTable ? "h-4 w-4" : "h-8 w-8",
-                "text-cyan-600/80 dark:text-white",
+                drawerMuted && !isTable
+                  ? "text-white"
+                  : "text-cyan-600/80 dark:text-white",
               )}
               aria-hidden
             />
@@ -370,7 +378,9 @@ export default function FastTrackPhotoDropzone({
                 <p
                   className={cn(
                     "text-[11px] font-semibold leading-snug",
-                    "text-slate-800 dark:text-cyan-100/90",
+                    drawerMuted
+                      ? "text-[#2C3E50]"
+                      : "text-slate-800 dark:text-cyan-100/90",
                   )}
                 >
                   {canEdit
@@ -380,7 +390,7 @@ export default function FastTrackPhotoDropzone({
                 <p
                   className={cn(
                     "text-[10px] font-medium",
-                    "text-slate-500 dark:text-white/90",
+                    drawerMuted ? "text-white/85" : "text-slate-500 dark:text-white/90",
                   )}
                 >
                   Otomatis dikompresi maks. 500 KB (JPEG) · seret JPG/PNG/WEBP/GIF
@@ -393,9 +403,11 @@ export default function FastTrackPhotoDropzone({
                 disabled={uploading}
                 onClick={() => inputRef.current?.click()}
                 className={cn(
-                  "rounded-md border px-2 py-0.5 font-bold transition-colors disabled:opacity-50",
+                  "rounded-lg border px-2 py-0.5 font-bold transition-colors disabled:opacity-50",
                   isTable ? "text-[8px]" : "mt-1 px-2.5 py-1 text-[10px]",
-                  "border-cyan-500/40 bg-cyan-50 text-cyan-900 hover:bg-cyan-100 dark:border-cyan-500/35 dark:bg-cyan-950/40 dark:text-cyan-200 dark:hover:bg-cyan-900/40",
+                  drawerMuted && !isTable
+                    ? "border-[#4A5568] bg-[#D1D9E2] text-[#2C3E50] hover:bg-[#C5CEDA]"
+                    : "border-cyan-500/40 bg-cyan-50 text-cyan-900 hover:bg-cyan-100 dark:border-cyan-500/35 dark:bg-cyan-950/40 dark:text-cyan-200 dark:hover:bg-cyan-900/40",
                 )}
               >
                 {isTable ? "Upload" : "Pilih file"}

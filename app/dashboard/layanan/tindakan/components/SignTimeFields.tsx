@@ -166,7 +166,7 @@ function SignTimeField({
       <dt
         className={cn(
           "text-[10px] font-bold leading-tight",
-          "text-slate-600 dark:text-white",
+          "text-white/90",
         )}
       >
         {label}
@@ -210,8 +210,8 @@ function SignTimeField({
               }}
               placeholder="HH:mm"
               className={cn(
-                "w-full rounded-md border py-1.5 pl-2 pr-8 text-[12px] font-semibold focus:outline-none focus:ring-1",
-                "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 focus:ring-cyan-500/40 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/40",
+                "w-full rounded-xl border py-1.5 pl-2 pr-8 text-[12px] font-semibold focus:outline-none focus:ring-1",
+                "border-white/12 bg-[#5C6573] text-white placeholder:text-white/50 focus:ring-white/25",
               )}
             />
             <button
@@ -220,7 +220,7 @@ function SignTimeField({
               title="Set ke waktu sekarang"
               className={cn(
                 "absolute right-1.5 flex h-6 w-6 items-center justify-center rounded-md transition-colors",
-                "text-slate-400 hover:bg-slate-100 hover:text-cyan-600 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-cyan-400",
+                "text-white/45 hover:bg-white/10 hover:text-white",
               )}
             >
               <Clock className="h-3.5 w-3.5" />
@@ -230,7 +230,7 @@ function SignTimeField({
           <span
             className={cn(
               "text-[13px] font-semibold",
-              "text-slate-950 dark:text-white",
+              "text-white",
             )}
           >
             {formatJamSajaDisplay(draftFrom(serverValue))}
@@ -276,8 +276,8 @@ export default function SignTimeFields({
   };
 
   const boxClass = cn(
-    "rounded-md border px-2 py-1.5",
-    "border-cyan-200/80 bg-white shadow-sm dark:border-cyan-900/25 dark:bg-black/25",
+    "rounded-lg border px-2 py-1.5",
+    "border-white/10 bg-[#5C6573]/35 shadow-none",
   );
 
   return (

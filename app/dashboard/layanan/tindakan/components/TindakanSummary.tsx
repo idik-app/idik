@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import {
   Activity,
   CalendarDays,
@@ -169,7 +170,7 @@ function getEmptyHint(label: string): string | null {
   return null;
 }
 
-export default function TindakanSummary({
+function TindakanSummary({
   stats,
   loading,
   themeTone,
@@ -529,3 +530,5 @@ export default function TindakanSummary({
     </div>
   );
 }
+
+export default memo(TindakanSummary);

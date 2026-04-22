@@ -12,66 +12,66 @@ const tabPanelCache: Record<
 /*───────────────────────────────────────────────
  ⚙️ Dynamic Imports – All Modules
 ───────────────────────────────────────────────*/
-const DashboardMain = dynamic(() => import("@/app/dashboard/page")); // ✅ Server dashboard utama
-const PasienPage = dynamic(() => import("@/app/dashboard/pasien/page"));
-const DokterPage = dynamic(() => import("@/app/dashboard/dokter/page"), {
+const DashboardMain = dynamic(() => import(/* webpackPrefetch: true */ "@/app/dashboard/page")); // ✅ Server dashboard utama
+const PasienPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/dashboard/pasien/page"));
+const DokterPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/dashboard/dokter/page"), {
   loading: () => (
     <div className="flex min-h-[12rem] items-center justify-center text-cyan-400/90 text-sm">
       Memuat modul Dokter…
     </div>
   ),
 });
-const RuanganPage = dynamic(() => import("@/app/dashboard/ruangan/page"));
-const PerawatHubPage = dynamic(() => import("@/app/dashboard/perawat/page"));
-const InventarisPage = dynamic(() => import("@/app/dashboard/inventaris/page"));
-const PemakaianPage = dynamic(() => import("@/app/dashboard/pemakaian/page"));
+const RuanganPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/dashboard/ruangan/page"));
+const PerawatHubPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/dashboard/perawat/page"));
+const InventarisPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/dashboard/inventaris/page"));
+const PemakaianPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/dashboard/pemakaian/page"));
 const MasterFarmasiPage = dynamic(
-  () => import("@/app/dashboard/farmasi/master/page")
+  () => import(/* webpackPrefetch: true */ "@/app/dashboard/farmasi/master/page")
 );
 const MasterBarangFarmasiPage = dynamic(
-  () => import("@/app/dashboard/farmasi/master-barang/page"),
+  () => import(/* webpackPrefetch: true */ "@/app/dashboard/farmasi/master-barang/page"),
 );
 const DepoDashboardPage = dynamic(
-  () => import("@/app/depo/(main)/dashboard/page")
+  () => import(/* webpackPrefetch: true */ "@/app/depo/(main)/dashboard/page")
 );
 const DistributorPortalPage = dynamic(
-  () => import("@/app/distributor/pemakaian/page")
+  () => import(/* webpackPrefetch: true */ "@/app/distributor/pemakaian/page")
 );
 const FarmasiPlaceholder = dynamic(
-  () => import("@/components/farmasi/FarmasiModulePlaceholder")
+  () => import(/* webpackPrefetch: true */ "@/components/farmasi/FarmasiModulePlaceholder")
 );
 const TindakanPage = dynamic(
-  () => import("@/app/dashboard/layanan/tindakan/page")
+  () => import(/* webpackPrefetch: true */ "@/app/dashboard/layanan/tindakan/page")
 );
 const MasterTindakanPage = dynamic(
-  () => import("@/app/dashboard/layanan/master-tindakan/page")
+  () => import(/* webpackPrefetch: true */ "@/app/dashboard/layanan/master-tindakan/page")
 );
-const LaporanPage = dynamic(() => import("@/app/dashboard/laporan/page"));
+const LaporanPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/dashboard/laporan/page"));
 const MonitoringPage = dynamic(
-  () => import("@/app/dashboard/smart/monitoring/page")
+  () => import(/* webpackPrefetch: true */ "@/app/dashboard/smart/monitoring/page")
 );
 const Koronar3DPage = dynamic(
-  () => import("@/app/dashboard/cathlab/koronar-3d/page")
+  () => import(/* webpackPrefetch: true */ "@/app/dashboard/cathlab/koronar-3d/page")
 );
 const AnalyticsPage = dynamic(
-  () => import("@/app/dashboard/smart/analytics/page")
+  () => import(/* webpackPrefetch: true */ "@/app/dashboard/smart/analytics/page")
 );
-const CSSDPage = dynamic(() => import("@/app/cssd/dashboard/page"));
-const DatabasePage = dynamic(() => import("@/app/system/database/page"));
-const SystemPage = dynamic(() => import("@/app/system/page"));
+const CSSDPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/cssd/dashboard/page"));
+const DatabasePage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/system/database/page"));
+const SystemPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/system/page"));
 
 /* 🔧 System / Developer Mode */
-const ConsolePage = dynamic(() => import("@/app/system/console/page"));
-const ApiKeysPage = dynamic(() => import("@/app/system/api-keys/page"));
-const SupabasePage = dynamic(() => import("@/app/system/supabase/page"));
+const ConsolePage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/system/console/page"));
+const ApiKeysPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/system/api-keys/page"));
+const SupabasePage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/system/supabase/page"));
 const DBExplorerPage = dynamic(
-  () => import("@/components/dashboard/DashboardClient") // ✅ hanya di sini
+  () => import(/* webpackPrefetch: true */ "@/components/dashboard/DashboardClient") // ✅ hanya di sini
 );
-const DebugPage = dynamic(() => import("@/app/system/debug/page"));
-const VersionPage = dynamic(() => import("@/app/system/version/page"));
-const AuditPage = dynamic(() => import("@/app/system/database/audit/page"));
-const SettingsPage = dynamic(() => import("@/app/dashboard/settings/page"));
-const AdminPage = dynamic(() => import("@/app/dashboard/admin/page"));
+const DebugPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/system/debug/page"));
+const VersionPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/system/version/page"));
+const AuditPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/system/database/audit/page"));
+const SettingsPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/dashboard/settings/page"));
+const AdminPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/dashboard/admin/page"));
 
 /*───────────────────────────────────────────────
  🧩 TabContent – Cached Persistent Edition (Final)

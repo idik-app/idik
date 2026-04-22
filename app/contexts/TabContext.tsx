@@ -94,8 +94,8 @@ export function TabProvider({ children }: { children: ReactNode }) {
     setDirection(id > activeTab ? 1 : -1);
     setLoadingTab(true);
     triggerFX("scan-page");
-
-    window.setTimeout(() => setLoadingTab(false), 400);
+    /* Jangan menahan UI 400ms — respons tab terasa “idle”. */
+    queueMicrotask(() => setLoadingTab(false));
   };
 
   /* 🔄 Refresh tab */

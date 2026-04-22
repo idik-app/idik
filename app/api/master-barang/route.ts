@@ -2,7 +2,20 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guards";
 import { getServiceSupabaseAdmin } from "@/lib/auth/serviceSupabase";
 
-/** Master barang farmasi + nama PT distributor (join `master_distributor`). */
+type RowWithDist = {
+  id: string;
+  kode: string | null;
+  nama: string | null;
+  jenis: string | null;
+  kategori: string | null;
+  satuan: string | null;
+  barcode: string | null;
+  distributor_id: string | null;
+  is_active: boolean | null;
+  master_distributor: { nama_pt: string | null } | null;
+};
+
+/** Master barang farmasi + nama PT distributor (satu query + embed FK). */
 export async function GET() {
   const user = await requireUser();
   if (!user.ok) return user.response;
@@ -22,7 +35,7 @@ export async function GET() {
   const { data: rows, error } = await supabase
     .from("master_barang")
     .select(
-      "id, kode, nama, jenis, kategori, satuan, barcode, distributor_id, is_active"
+      "id, kode, nama, jenis, kategori, satuan, barcode, distributor_id, is_active, master_distributor ( nama_pt )"
     )
     .order("nama", { ascending: true });
 
@@ -33,40 +46,19 @@ export async function GET() {
     );
   }
 
-  const active = (rows ?? []).filter((r) => {
+  const list = (rows ?? []) as RowWithDist[];
+  const active = list.filter((r) => {
     if (r.is_active === false) return false;
     return (r.nama ?? "").trim().length > 0;
   });
 
-  const distIds = [
-    ...new Set(
-      active
-        .map((r) => r.distributor_id)
-        .filter((id): id is string => Boolean(id && String(id).trim()))
-    ),
-  ];
-
-  const distMap = new Map<string, string>();
-  if (distIds.length > 0) {
-    const { data: dists, error: de } = await supabase
-      .from("master_distributor")
-      .select("id, nama_pt")
-      .in("id", distIds);
-    if (!de) {
-      for (const d of dists ?? []) {
-        const id = d.id as string;
-        const nama = (d as { nama_pt?: string | null }).nama_pt ?? "";
-        distMap.set(id, String(nama).trim());
-      }
-    }
-  }
-
-  return NextResponse.json({
+  const body = {
     ok: true,
     items: active.map((r) => {
       const did = r.distributor_id ? String(r.distributor_id) : null;
+      const dn = r.master_distributor?.nama_pt;
       const distributor_nama =
-        did && distMap.has(did) ? distMap.get(did)! : null;
+        dn != null && String(dn).trim().length > 0 ? String(dn).trim() : null;
       return {
         id: r.id as string,
         kode: (r.kode as string) ?? "",
@@ -79,5 +71,12 @@ export async function GET() {
         distributor_nama: distributor_nama || null,
       };
     }),
+  };
+
+  return NextResponse.json(body, {
+    status: 200,
+    headers: {
+      "Cache-Control": "private, max-age=20, stale-while-revalidate=120",
+    },
   });
 }

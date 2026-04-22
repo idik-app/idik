@@ -29,25 +29,14 @@ function findTindakanRow(list: unknown[], id: string) {
 export function useTindakanBridgeAdapter() {
   // --------------------------------------------------------------------
   // SERVER FILTERS (Date Range)
-  // Default: Awal bulan ini (WIB)
+  // Default: tanpa batas tanggal — agar RM / riwayat bulan lalu tetap bisa
+  // ditemukan (filter tanggal opsional lewat toolbar).
   // --------------------------------------------------------------------
   const [serverFilters, setServerFilters] = useState<{
     from?: string;
     to?: string;
     search?: string;
-  }>(() => {
-    const now = new Date();
-    // Gunakan Intl untuk memastikan zona waktu Asia/Jakarta
-    const formatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Jakarta",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-    const today = formatter.format(now);
-    const startOfMonth = today.substring(0, 8) + "01";
-    return { from: startOfMonth };
-  });
+  }>({});
 
   // --------------------------------------------------------------------
   // BRIDGE SYSTEM

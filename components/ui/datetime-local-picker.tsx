@@ -62,12 +62,17 @@ export function DatetimeLocalPicker({
   onChange,
   className,
   appearance = "default",
+  /** Gabungkan ke tombol pemicu (mis. field abu gelap di drawer). */
+  triggerClassName,
+  triggerIconClassName,
 }: {
   value: string;
   onChange: (isoLike: string) => void;
   className?: string;
   /** `drawer`: gaya selaras tab tindakan + panel diposisikan fixed (tidak terpotong scroll). */
   appearance?: Appearance;
+  triggerClassName?: string;
+  triggerIconClassName?: string;
 }) {
   const { theme } = useTheme();
   const isDark = theme !== "light";
@@ -360,11 +365,13 @@ export function DatetimeLocalPicker({
     isDrawer
       ? "border-cyan-400/55 bg-white text-slate-950 hover:bg-cyan-50/80 focus:ring-cyan-500/35 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:hover:bg-black/55 dark:focus:ring-cyan-500/30"
       : "border-white/15 bg-black/40 text-white hover:bg-black/55 focus:ring-[#E8C547]/40",
+    triggerClassName,
   );
 
   const iconClass = cn(
     "h-3.5 w-3.5 shrink-0",
     isDrawer ? "text-cyan-600 dark:text-white/90" : "text-[#E8C547]/90",
+    triggerIconClassName,
   );
 
   return (

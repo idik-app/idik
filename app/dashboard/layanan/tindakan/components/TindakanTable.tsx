@@ -8,6 +8,7 @@ import {
   useCallback,
   useRef,
 } from "react";
+import dynamic from "next/dynamic";
 import {
   Activity,
   ChevronDown,
@@ -59,13 +60,32 @@ import {
 import { useTindakanBridgeAdapter } from "../bridge/useTindakanBridgeAdapter";
 import TableContainer from "../components/TableContainer";
 import TableToolbar from "../components/TableToolbar";
-import FastTrackListModal from "../components/FastTrackListModal";
-import TindakanWeeklyPpciModal from "../components/TindakanWeeklyPpciModal";
-import TindakanTerbanyakLabModal from "../components/TindakanTerbanyakLabModal";
-import TindakanLaporanModal from "../components/TindakanLaporanModal";
-import TindakanLaporanPemakaianModal from "../components/TindakanLaporanPemakaianModal";
 import TablePagination from "../components/TablePagination";
-import PemakaianAlkesModal from "./PemakaianAlkesModal";
+
+const FastTrackListModal = dynamic(
+  () => import(/* webpackPrefetch: true */ "../components/FastTrackListModal"),
+  { ssr: false, loading: () => null },
+);
+const TindakanTerbanyakLabModal = dynamic(
+  () =>
+    import(/* webpackPrefetch: true */ "../components/TindakanTerbanyakLabModal"),
+  { ssr: false, loading: () => null },
+);
+const TindakanLaporanModal = dynamic(
+  () => import(/* webpackPrefetch: true */ "../components/TindakanLaporanModal"),
+  { ssr: false, loading: () => null },
+);
+const TindakanLaporanPemakaianModal = dynamic(
+  () =>
+    import(
+      /* webpackPrefetch: true */ "../components/TindakanLaporanPemakaianModal"
+    ),
+  { ssr: false, loading: () => null },
+);
+const PemakaianAlkesModal = dynamic(
+  () => import(/* webpackPrefetch: true */ "./PemakaianAlkesModal"),
+  { ssr: false, loading: () => null },
+);
 import { computeTindakanStatsFromRows } from "../hooks/useTindakanStats";
 import {
   TINDAKAN_TABLE_COL as TCol,
@@ -1209,20 +1229,10 @@ export default function TindakanTable({
   const [filterDokter, setFilterDokter] = useState("");
   const [filterRuangan, setFilterRuangan] = useState("");
   const [filterTindakan, setFilterTindakan] = useState("");
-  const [filterTanggalFrom, setFilterTanggalFrom] = useState(() => {
-    const now = new Date();
-    const formatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Jakarta",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-    return formatter.format(now).substring(0, 8) + "01";
-  });
+  const [filterTanggalFrom, setFilterTanggalFrom] = useState("");
   const [filterTanggalTo, setFilterTanggalTo] = useState("");
   const [filterPciOnly, setFilterPciOnly] = useState(false);
   const [fastTrackModalOpen, setFastTrackModalOpen] = useState(false);
-  const [ppciWeeklyModalOpen, setPpciWeeklyModalOpen] = useState(false);
   const [tindakanTerbanyakLabOpen, setTindakanTerbanyakLabOpen] =
     useState(false);
   const [laporanModalOpen, setLaporanModalOpen] = useState(false);
@@ -1742,31 +1752,33 @@ export default function TindakanTable({
     [filteredRowStats],
   );
 
-  /** KPI tertentu diminta mengikuti tanggal hari ini (WIB). */
-  const todayRowsForKpi = useMemo(() => {
+  /** Satu pass pada filteredRecords untuk KPI hari ini + PPCI minggu (hemat 1× O(n)). */
+  const { todayRowsForKpi, weeklyPpciRowsForKpi } = useMemo(() => {
     const today = todayWibYmd();
-    return filteredRecords.filter((rec) => {
+    const wStart = startOfWeekWibYmd();
+    const wEnd = endOfWeekWibYmd();
+    const todayRows: TindakanJoinResult[] = [];
+    const weeklyRows: TindakanJoinResult[] = [];
+    for (const rec of filteredRecords) {
       const key = extractCalendarDateKey(String(rec.tanggal ?? "").trim());
-      return key === today;
-    });
-  }, [filteredRecords]);
-
-  /** KPI PPCI diminta mengikuti tanggal minggu ini (Senin-Minggu WIB). */
-  const weeklyPpciRowsForKpi = useMemo(() => {
-    const start = startOfWeekWibYmd();
-    const end = endOfWeekWibYmd();
-    return filteredRecords.filter((rec) => {
+      if (key === today) {
+        todayRows.push(rec);
+      }
       const t = String(rec.tindakan ?? "").trim().toLowerCase();
-      if (!t.includes("ppci")) return false;
-
-      // RS Rujukan pribadi tidak dihitung dalam kuota mingguan
-      const rs = String(rec.rs_perujuk ?? "").trim().toLowerCase();
-      const ket = String(rec.keterangan ?? "").trim().toLowerCase();
-      if (rs.includes("pribadi") || ket.includes("pribadi")) return false;
-
-      const key = extractCalendarDateKey(String(rec.tanggal ?? "").trim());
-      return key >= start && key <= end;
-    });
+      if (t.includes("ppci")) {
+        const rs = String(rec.rs_perujuk ?? "").trim().toLowerCase();
+        const ket = String(rec.keterangan ?? "").trim().toLowerCase();
+        if (!rs.includes("pribadi") && !ket.includes("pribadi")) {
+          if (key != null && key >= wStart && key <= wEnd) {
+            weeklyRows.push(rec);
+          }
+        }
+      }
+    }
+    return {
+      todayRowsForKpi: todayRows,
+      weeklyPpciRowsForKpi: weeklyRows,
+    };
   }, [filteredRecords]);
 
   const {

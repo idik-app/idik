@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, memo } from "react";
 import { createPortal } from "react-dom";
 import {
   Activity,
@@ -10,6 +10,7 @@ import {
   History,
   type LucideIcon,
   MapPin,
+  PanelLeft,
   Stethoscope,
   User,
   Users,
@@ -47,6 +48,12 @@ import BiayaAutosaveField, {
   type BiayaAutosaveFieldKey,
 } from "./BiayaAutosaveField";
 import FastTrackBlock from "./FastTrackBlock";
+import PasienAutosaveField, {
+  isPasienDrawerAutosaveKey,
+  type PasienDrawerAutosaveKey,
+} from "./PasienAutosaveField";
+import RsPerujukField from "./RsPerujukField";
+import RuanganTindakanField from "./RuanganTindakanField";
 import SignTimeFields from "./SignTimeFields";
 import { buildResumeWhatsAppText } from "../lib/buildResumeWhatsAppText";
 import { toast } from "sonner";
@@ -89,13 +96,10 @@ function sortTindakanByTanggalDesc(
   });
 }
 
-/** Padding horizontal header modal (px-3 + scrollbar fudge) untuk hitung minWidth tab */
-const HEADER_TAB_ROW_PAD_X = 28;
-
 const RADIOLOGI_AUTOSAVE_FIELDS: RadiologiFieldKey[] = [
   "fluoro_time",
-  "dose",
-  "dap_gy_cm2",
+  "air_kerma",
+  "dap_dose",
   "kv",
   "ma",
   "waktu",
@@ -323,90 +327,62 @@ const TAB_ICONS: Record<WireframeTabId, LucideIcon> = {
   history: History,
 };
 
-interface TabButtonProps {
+interface DrawerSidebarTabButtonProps {
   t: (typeof WIREFRAME_DRAWER_TABS)[number];
   isActive: boolean;
   hasData?: boolean;
   onClick: () => void;
-  mousePos: { x: number; y: number };
-  isDragging: boolean;
 }
 
-function TabButton({
+function DrawerSidebarTabButton({
   t,
   isActive,
   hasData,
   onClick,
-  mousePos,
-  isDragging,
-}: TabButtonProps) {
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [scale, setScale] = useState(1);
+}: DrawerSidebarTabButtonProps) {
   const Icon = TAB_ICONS[t.id as WireframeTabId];
-
-  // Proximity Zoom Logic
-  useEffect(() => {
-    if (!buttonRef.current || isDragging) return;
-    const btn = buttonRef.current;
-    const updateScale = () => {
-      const rect = btn.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      const dist = Math.sqrt(
-        Math.pow(mousePos.x - centerX, 2) + Math.pow(mousePos.y - centerY, 2),
-      );
-
-      if (dist < 150) {
-        // Proximity Zoom: Scale up from 1.1 to 1.15 based on distance
-        const s = 1.15 - (dist / 150) * 0.05;
-        setScale(s);
-      } else {
-        setScale(1);
-      }
-    };
-    updateScale();
-  }, [mousePos, isDragging]);
 
   return (
     <button
-      ref={buttonRef}
       type="button"
       role="tab"
       aria-selected={isActive}
+      title={t.label}
       onClick={onClick}
-      style={{ transform: `scale(${scale})` }}
       className={cn(
-        "group relative shrink-0 rounded-md px-3 py-1.5 text-left text-[11px] font-black uppercase tracking-wider transition-all duration-300 ease-out sm:text-xs focus-visible:outline-none",
+        "group relative flex w-full cursor-pointer select-text items-start gap-2 rounded-xl px-2.5 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide transition-all duration-200 sm:text-xs focus-visible:outline-none focus-visible:ring-2",
+        "focus-visible:ring-[#005EB8]/35",
         isActive
-          ? "border border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.2)]"
-          : "border border-transparent text-gray-500 hover:text-cyan-300 hover:border-cyan-500/30",
+          ? "border border-[#005EB8]/35 bg-[#005EB8]/10 text-[#005EB8] shadow-sm"
+          : "border border-transparent text-[#4A5568] hover:border-[#E8EDF2] hover:bg-white hover:text-[#2D3748]",
       )}
     >
-      <div className="flex items-center gap-2">
-        {Icon && (
-          <Icon
-            size={14}
-            className={cn(
-              "shrink-0 transition-colors duration-300",
-              isActive
-                ? "text-cyan-400"
-                : "text-gray-500 group-hover:text-cyan-300",
-            )}
-          />
-        )}
-        <span>{t.label}</span>
-        {hasData && !isActive && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75"></span>
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-cyan-500"></span>
-          </span>
-        )}
-      </div>
+      {Icon ? (
+        <Icon
+          size={15}
+          className={cn(
+            "mt-0.5 shrink-0 transition-colors duration-200",
+            isActive
+              ? "text-[#005EB8]"
+              : "text-[#4A5568] group-hover:text-[#005EB8]/90",
+          )}
+        />
+      ) : null}
+      <span className="min-w-0 flex-1 select-text leading-snug">
+        <span className="select-text sm:hidden">{t.short}</span>
+        <span className="hidden select-text sm:inline">{t.label}</span>
+      </span>
+      {hasData && !isActive ? (
+        <span className="absolute right-1.5 top-2 flex h-1.5 w-1.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#005EB8] opacity-40" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#005EB8]" />
+        </span>
+      ) : null}
     </button>
   );
 }
 
-export default function TindakanDetailDrawer({
+function TindakanDetailDrawer({
   open,
   initialTab,
   record,
@@ -424,39 +400,13 @@ export default function TindakanDetailDrawer({
     }
   }, [open, initialTab]);
 
-  const tabRowMeasureRef = useRef<HTMLDivElement>(null);
-  const tabScrollRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-
-  // Drag-to-Scroll Logic
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!tabScrollRef.current) return;
-    setIsDragging(true);
-    setStartX(e.pageX - tabScrollRef.current.offsetLeft);
-    setScrollLeft(tabScrollRef.current.scrollLeft);
-  };
-
-  const handleMouseLeave = () => setIsDragging(false);
-  const handleMouseUp = () => setIsDragging(false);
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    setMousePos({ x: e.pageX, y: e.pageY });
-    if (!isDragging || !tabScrollRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - tabScrollRef.current.offsetLeft;
-    const walk = (x - startX) * 2;
-    tabScrollRef.current.scrollLeft = scrollLeft - walk;
-  };
-
-  const [modalMinWidthPx, setModalMinWidthPx] = useState<number | null>(null);
   const [waCopied, setWaCopied] = useState(false);
   const [titleCopied, setTitleCopied] = useState(false);
+  /** Di viewport < sm: panel tab bisa disembunyikan agar konten lebar; default tertutup. */
+  const [mobileTabMenuOpen, setMobileTabMenuOpen] = useState(false);
 
   // SWR hooks for master data
-  const { pasien: pasienMaster } = usePasienDetail(
+  const { pasien: pasienMaster, mutate: mutatePasien } = usePasienDetail(
     open ? record?.pasien_id : null,
     open ? record?.no_rm : null,
     open ? record?.nama_pasien : null,
@@ -535,6 +485,14 @@ export default function TindakanDetailDrawer({
     return { ...merged, tarif_tindakan: detailTarifFromApi };
   }, [record, pasienMaster, tindakanDetail, detailTarifFromApi]);
 
+  /** Untuk autosave master pasien: utamakan FK baris, lalu id hasil lookup RM/nama. */
+  const pasienEditId = useMemo(() => {
+    if (!displayRecord) return "";
+    const fromRow = String(displayRecord.pasien_id ?? "").trim();
+    if (fromRow) return fromRow;
+    return String(pasienMaster?.id ?? "").trim();
+  }, [displayRecord, pasienMaster?.id]);
+
   const riwayatPasienRows = useMemo(() => {
     if (!displayRecord) return [];
     const peers = allTindakanRows.filter((r) =>
@@ -551,6 +509,10 @@ export default function TindakanDetailDrawer({
   useEffect(() => {
     setWaCopied(false);
   }, [tab, displayRecord?.id]);
+
+  useEffect(() => {
+    if (!open) setMobileTabMenuOpen(false);
+  }, [open]);
 
   // Jembatan Navigasi Otomatis (Auto-Jump Tab)
   // Jika sedang di tab awal (Pasien) dan link laporan terdeteksi masuk (via Sync Drive),
@@ -570,52 +532,6 @@ export default function TindakanDetailDrawer({
 
     return () => clearTimeout(timer);
   }, [open, displayRecord?.pci_report_link]);
-
-  useLayoutEffect(() => {
-    if (!open) {
-      setModalMinWidthPx(null);
-      return;
-    }
-    const row = tabRowMeasureRef.current;
-    if (!row) return;
-
-    const update = () => {
-      const vw = window.innerWidth;
-      const shellPad = 24;
-      const sidebarRaw = getComputedStyle(document.documentElement)
-        .getPropertyValue("--sidebar-width")
-        .trim();
-      const sidebarPx = Number.parseFloat(sidebarRaw);
-      const sidebar = Number.isFinite(sidebarPx) ? sidebarPx : 0;
-      const maxUsable = Math.max(280, vw - shellPad - sidebar);
-      const needed = Math.ceil(row.scrollWidth + HEADER_TAB_ROW_PAD_X);
-      setModalMinWidthPx(Math.min(needed, maxUsable));
-    };
-
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(row);
-    window.addEventListener("resize", update);
-    return () => {
-      ro.disconnect();
-      window.removeEventListener("resize", update);
-    };
-  }, [open]);
-
-  /** Tab aktif tetap terlihat di strip horizontal (Pasien sering terpotong di kiri). */
-  useLayoutEffect(() => {
-    if (!open) return;
-    const row = tabRowMeasureRef.current;
-    if (!row) return;
-    const active = row.querySelector<HTMLElement>(
-      '[role="tab"][aria-selected="true"]',
-    );
-    active?.scrollIntoView({
-      inline: "center",
-      block: "nearest",
-      behavior: "smooth",
-    });
-  }, [open, tab]);
 
   useEffect(() => {
     if (!open) return;
@@ -651,12 +567,12 @@ export default function TindakanDetailDrawer({
     const tinStr = String(displayRecord.tindakan ?? "").trim();
 
     return (
-      <div className="min-w-0 flex-1 overflow-hidden whitespace-nowrap flex items-center gap-2">
-        <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap">
-          <span className="text-white/70">{hariTanggal}</span>
-          <span className="font-black text-yellow-400">{rmStr || "—"}</span>
-          <span className="font-bold text-white">{namaStr}</span>
-          <span className="font-black text-cyan-400">{tinStr || "—"}</span>
+      <div className="flex min-w-0 flex-1 cursor-default select-none items-center gap-2 overflow-hidden whitespace-nowrap">
+        <div className="flex select-none items-center gap-2 overflow-hidden whitespace-nowrap">
+          <span className="text-[#4A5568]">{hariTanggal}</span>
+          <span className="font-black text-[#005EB8]">{rmStr || "—"}</span>
+          <span className="font-bold text-[#2D3748]">{namaStr}</span>
+          <span className="font-semibold text-[#005EB8]">{tinStr || "—"}</span>
         </div>
         {displayRecord && (
           <button
@@ -677,8 +593,8 @@ export default function TindakanDetailDrawer({
               }
             }}
             className={cn(
-              "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-cyan-500/50 bg-cyan-500/10 text-cyan-400 transition-all duration-300 hover:bg-cyan-500/20",
-              titleCopied && "border-emerald-500/50 bg-emerald-500/20 text-emerald-400",
+              "flex h-5 w-5 shrink-0 cursor-pointer select-none items-center justify-center rounded-lg border border-[#005EB8]/40 bg-white text-[#005EB8] transition-all duration-300 hover:bg-[#E8EDF2]",
+              titleCopied && "border-emerald-600/40 bg-emerald-50 text-emerald-700",
             )}
           >
             {titleCopied ? <Check size={10} /> : <Copy size={10} />}
@@ -709,7 +625,7 @@ export default function TindakanDetailDrawer({
         <button
           type="button"
           aria-label="Tutup detail tindakan"
-          className={cn("absolute inset-0", "bg-slate-900/40 dark:bg-black/65")}
+          className={cn("absolute inset-0", "bg-[#2D3748]/45")}
           onClick={onClose}
         />
         {/* Flex center (bukan translate -50%) agar teks tidak blur di subpiksel / Windows */}
@@ -719,100 +635,131 @@ export default function TindakanDetailDrawer({
             aria-modal="true"
             aria-labelledby="tindakan-detail-modal-title"
             className={cn(
-              "pointer-events-auto flex h-[85vh] max-h-[85vh] min-w-0 w-full max-w-4xl flex-col overflow-hidden rounded-xl border antialiased [text-rendering:optimizeLegibility]",
-              "border-cyan-500/30 bg-[#050505] dark:border-cyan-400/20",
+              "pointer-events-auto flex h-[85vh] max-h-[85vh] min-w-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl border antialiased [text-rendering:optimizeLegibility]",
+              "border-[#E8EDF2] bg-[#F0F4F8] shadow-[0_24px_48px_rgba(45,55,72,0.12)]",
+              "font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
             )}
-            style={
-              modalMinWidthPx != null
-                ? { minWidth: `${modalMinWidthPx}px` }
-                : undefined
-            }
             onClick={(e) => e.stopPropagation()}
           >
             <div
               className={cn(
-                "shrink-0 border-b px-3 py-2 sm:px-3.5",
-                "border-cyan-500/20 bg-black/40",
+                "shrink-0 border-b px-3 py-2.5 sm:px-4",
+                "border-[#E8EDF2] bg-white",
               )}
             >
               <div className="flex items-center justify-between gap-2">
-                <div id="tindakan-detail-modal-title" className="min-w-0 flex-1 flex items-center gap-2 text-[13px] font-bold leading-snug sm:text-sm overflow-hidden">
-                  {title}
+                <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
+                  <button
+                    type="button"
+                    className={cn(
+                      "shrink-0 rounded-lg border p-1.5 transition-all sm:hidden",
+                      "border-[#E8EDF2] bg-white text-[#005EB8] hover:bg-[#F0F4F8]",
+                    )}
+                    aria-expanded={mobileTabMenuOpen}
+                    aria-controls="tindakan-drawer-tabnav"
+                    onClick={() => setMobileTabMenuOpen((v) => !v)}
+                    aria-label={
+                      mobileTabMenuOpen
+                        ? "Tutup menu bagian"
+                        : "Buka menu bagian"
+                    }
+                  >
+                    {mobileTabMenuOpen ? (
+                      <X size={17} aria-hidden />
+                    ) : (
+                      <PanelLeft size={17} aria-hidden />
+                    )}
+                  </button>
+                  <div
+                    id="tindakan-detail-modal-title"
+                    className="flex min-w-0 flex-1 cursor-default select-none items-center gap-2 overflow-hidden text-[13px] font-bold leading-snug text-[#2D3748] sm:text-sm"
+                  >
+                    {title}
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
                   className={cn(
-                    "shrink-0 rounded-md border p-1.5 transition-all duration-300",
-                    "border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/20 hover:shadow-[0_0_15px_rgba(34,211,238,0.4)]",
+                    "shrink-0 rounded-lg border p-1.5 transition-all duration-300",
+                    "border-[#E8EDF2] bg-white text-[#4A5568] hover:border-[#005EB8]/30 hover:text-[#005EB8]",
                   )}
                 >
                   <X size={17} />
                 </button>
               </div>
-
-              <div className="mt-2 min-w-0">
-                <div
-                  ref={tabScrollRef}
-                  onMouseDown={handleMouseDown}
-                  onMouseLeave={handleMouseLeave}
-                  onMouseUp={handleMouseUp}
-                  onMouseMove={handleMouseMove}
-                  className={cn(
-                    "-mx-0.5 overflow-x-auto overflow-y-hidden px-0.5 pb-1 cursor-grab active:cursor-grabbing select-none",
-                    "scrollbar-thin scroll-smooth scrollbar-h-[3px]",
-                    "scrollbar-thumb-cyan-500/50 transition-colors duration-300",
-                  )}
-                >
-                  <div
-                    ref={tabRowMeasureRef}
-                    className="flex w-max min-w-0 flex-nowrap gap-2 py-1"
-                    role="tablist"
-                    aria-label="Bagian detail tindakan"
-                  >
-                    {WIREFRAME_DRAWER_TABS.map((t) => {
-                      // Cek apakah tab memiliki data untuk indikator dot navigasi
-                      const hasData =
-                        t.fields.some((f) => {
-                          const val = getWireframeFieldValue(
-                            displayRecord as unknown as Record<string, unknown>,
-                            f,
-                          );
-                          return !isBlank(val);
-                        }) ||
-                        Boolean(
-                          t.id === "fast_track" &&
-                            getWireframeFieldValue(
-                              displayRecord as unknown as Record<string, unknown>,
-                              "is_fast_track",
-                            ),
-                        );
-
-                      return (
-                        <TabButton
-                          key={t.id}
-                          t={t}
-                          isActive={tab === t.id}
-                          hasData={hasData}
-                          onClick={() => !isDragging && setTab(t.id)}
-                          mousePos={mousePos}
-                          isDragging={isDragging}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
             </div>
 
-            <div
-              className={cn(
-                "min-h-0 flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-cyan-900/40",
-                "bg-transparent",
-              )}
-            >
+            <div className="relative flex min-h-0 min-w-0 flex-1">
+              {mobileTabMenuOpen ? (
+                <button
+                  type="button"
+                  aria-label="Tutup menu bagian"
+                  className="absolute inset-0 z-10 bg-[#2D3748]/25 sm:hidden"
+                  onClick={() => setMobileTabMenuOpen(false)}
+                />
+              ) : null}
+              <nav
+                id="tindakan-drawer-tabnav"
+                className={cn(
+                  "relative z-10 flex shrink-0 flex-col gap-1 overflow-y-auto border-r py-3 pl-2 pr-1.5 sm:w-[15rem] sm:pl-3 sm:pr-2",
+                  "border-[#E8EDF2] bg-white scrollbar-thin scrollbar-thumb-[#CBD5E0]",
+                  "max-sm:absolute max-sm:inset-y-0 max-sm:left-0 max-sm:z-20 max-sm:w-52 max-sm:shadow-[4px_0_32px_rgba(45,55,72,0.15)]",
+                  "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out",
+                  !mobileTabMenuOpen &&
+                    "max-sm:pointer-events-none max-sm:-translate-x-full",
+                )}
+                role="tablist"
+                aria-label="Bagian detail tindakan"
+              >
+                {WIREFRAME_DRAWER_TABS.map((t) => {
+                  const hasData = displayRecord
+                    ? t.fields.some((f) => {
+                        const val = getWireframeFieldValue(
+                          displayRecord as unknown as Record<string, unknown>,
+                          f,
+                        );
+                        return !isBlank(val);
+                      }) ||
+                      Boolean(
+                        t.id === "fast_track" &&
+                          getWireframeFieldValue(
+                            displayRecord as unknown as Record<string, unknown>,
+                            "is_fast_track",
+                          ),
+                      )
+                    : false;
+
+                  return (
+                    <DrawerSidebarTabButton
+                      key={t.id}
+                      t={t}
+                      isActive={tab === t.id}
+                      hasData={hasData}
+                      onClick={() => {
+                        setTab(t.id);
+                        setMobileTabMenuOpen(false);
+                      }}
+                    />
+                  );
+                })}
+              </nav>
+
+              <div
+                className={cn(
+                  "clinical-detail-drawer-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-3 py-3 sm:px-5 sm:py-5",
+                  "bg-[#D1D9E5] text-[#2C3E50] scrollbar-thin scrollbar-thumb-[#94A3B8]",
+                  "font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
+                  "[&_input:not([type='checkbox']):not([type='radio'])]:rounded-xl",
+                  "[&_input:not([type='checkbox']):not([type='radio'])]:!border-white/12",
+                  "[&_input:not([type='checkbox']):not([type='radio'])]:!bg-[#5C6573]",
+                  "[&_input:not([type='checkbox']):not([type='radio'])]:!text-white",
+                  "[&_input]:placeholder:!text-white/55",
+                  "[&_select]:rounded-xl [&_select]:!border-white/12 [&_select]:!bg-[#5C6573] [&_select]:!text-white",
+                )}
+              >
               {!displayRecord ? (
-                <p className="text-sm font-semibold text-white">
+                <p className="text-sm font-semibold text-[#2C3E50]/85">
                   Tidak ada data baris.
                 </p>
               ) : (
@@ -822,10 +769,10 @@ export default function TindakanDetailDrawer({
                     <div className="space-y-4">
                       {/* ... existing history content ... */}
                       <div>
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2C3E50]">
                           Resume
                         </h3>
-                        <p className="mt-1 text-xs font-medium text-white/80">
+                        <p className="mt-1 text-xs font-medium text-[#2C3E50]/80">
                           Ringkasan semua bagian ada di versi teks WhatsApp di
                           bawah. Lanjut: metadata sistem dan riwayat tindakan
                           pasien yang sama.
@@ -835,17 +782,16 @@ export default function TindakanDetailDrawer({
                       {/* Ringkasan Klinis Sesi Ini */}
                       <div
                         className={cn(
-                          "rounded-xl border p-4 transition-all duration-300",
-                          "border-cyan-500/20 bg-cyan-500/5 hover:border-cyan-500/40",
+                          "rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none transition-all duration-300",
                         )}
                       >
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-cyan-400">
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-white">
                           Hasil Klinis Sesi Ini
                         </h3>
                         <div className="mt-3 space-y-3">
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <dt className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+                              <dt className="text-[10px] font-black uppercase tracking-wider text-white/90">
                                 Diagnosa Awal & Severity
                               </dt>
                               <dd className="mt-1 flex items-center gap-2">
@@ -853,18 +799,18 @@ export default function TindakanDetailDrawer({
                                   {displayRecord.diagnosa || "—"}
                                 </span>
                                 {displayRecord.severity_level && (
-                                  <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-[10px] font-black text-red-400">
+                                  <span className="rounded bg-red-900/25 px-1.5 py-0.5 text-[10px] font-black text-red-100 ring-1 ring-red-200/40">
                                     Lvl {displayRecord.severity_level}
                                   </span>
                                 )}
                               </dd>
                             </div>
                             <div>
-                              <dt className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+                              <dt className="text-[10px] font-black uppercase tracking-wider text-white/90">
                                 Kelompok Kasus (Grup)
                               </dt>
                               <dd className="mt-1">
-                                <span className="rounded bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-black text-cyan-400">
+                                <span className="rounded bg-[#2C3E50]/35 px-1.5 py-0.5 text-[10px] font-black text-white">
                                   {displayRecord.kategori || "—"}
                                 </span>
                               </dd>
@@ -872,20 +818,20 @@ export default function TindakanDetailDrawer({
                           </div>
                           {displayRecord.kesimpulan_laporan && (
                             <div>
-                              <dt className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+                              <dt className="text-[10px] font-black uppercase tracking-wider text-white/90">
                                 Hasil Akhir (Temuan Medis)
                               </dt>
-                              <dd className="mt-1 border-l-2 border-cyan-500/30 pl-3 text-xs font-medium italic leading-relaxed text-white/90">
+                              <dd className="mt-1 border-l-2 border-white/35 pl-3 text-xs font-medium italic leading-relaxed text-white/95">
                                 {displayRecord.kesimpulan_laporan}
                               </dd>
                             </div>
                           )}
                           {displayRecord.plan_medis && (
                             <div>
-                              <dt className="text-[10px] font-black uppercase tracking-wider text-gray-500">
+                              <dt className="text-[10px] font-black uppercase tracking-wider text-white/90">
                                 Rencana Lanjutan (Plan)
                               </dt>
-                              <dd className="mt-1 text-xs font-medium leading-relaxed text-emerald-400/90">
+                              <dd className="mt-1 text-xs font-medium leading-relaxed text-white/90">
                                 {displayRecord.plan_medis}
                               </dd>
                             </div>
@@ -895,12 +841,11 @@ export default function TindakanDetailDrawer({
 
                       <div
                         className={cn(
-                          "rounded-xl border p-4 transition-all duration-300",
-                          "border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/40",
+                          "rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none transition-all duration-300",
                         )}
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-white">
                             Versi teks WhatsApp
                           </p>
                           <button
@@ -923,7 +868,7 @@ export default function TindakanDetailDrawer({
                             disabled={!resumeWhatsAppText}
                             className={cn(
                               "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-black uppercase tracking-wider transition-all duration-300 disabled:opacity-50",
-                              "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)]",
+                              "border-[#2C3E50] bg-[#2C3E50] text-white hover:bg-[#243342]",
                             )}
                           >
                             <Copy size={14} aria-hidden />
@@ -932,7 +877,7 @@ export default function TindakanDetailDrawer({
                         </div>
                         {waCopied ? (
                           <p
-                            className="mt-2 text-xs font-bold text-emerald-400 animate-pulse"
+                            className="mt-2 text-xs font-semibold text-white/85 animate-pulse"
                             role="status"
                           >
                             Tersalin — tempel di WhatsApp.
@@ -947,8 +892,7 @@ export default function TindakanDetailDrawer({
                             value={resumeWhatsAppText}
                             rows={8}
                             className={cn(
-                              "mt-1 w-full resize-none rounded-lg border px-3 py-2.5 font-mono text-[11px] font-medium leading-relaxed outline-none transition-all duration-300",
-                              "border-emerald-500/20 bg-black/40 text-emerald-50/90 focus:border-emerald-500/50 focus:shadow-[0_0_15px_rgba(16,185,129,0.1)]",
+                              "mt-1 w-full resize-none rounded-xl border border-white/12 bg-[#5C6573] px-3 py-2.5 font-mono text-[11px] font-medium leading-relaxed text-white/95 outline-none transition-all duration-300 placeholder:text-white/55",
                             )}
                           />
                         </label>
@@ -956,11 +900,10 @@ export default function TindakanDetailDrawer({
 
                       <div
                         className={cn(
-                          "rounded-lg border px-4 py-3 transition-all duration-300",
-                          "border-cyan-500/20 bg-black/20 hover:border-cyan-500/40",
+                          "rounded-xl border border-[#9AA8B8]/80 bg-[#B8C5D3] px-4 py-3 shadow-none transition-all duration-300",
                         )}
                       >
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/90">
                           Metadata sistem
                         </p>
                         <dl className="mt-3 grid grid-cols-1 gap-4 text-xs sm:grid-cols-3">
@@ -990,7 +933,7 @@ export default function TindakanDetailDrawer({
                                 : formatFieldValue(key, raw);
                             return (
                               <div key={key}>
-                                <dt className="text-[10px] font-black uppercase tracking-wider text-gray-600">
+                                <dt className="text-[10px] font-black uppercase tracking-wider text-white/90">
                                   {label}
                                 </dt>
                                 <dd className="mt-1 font-mono font-bold text-white">
@@ -1004,10 +947,10 @@ export default function TindakanDetailDrawer({
 
                       <section className="space-y-3">
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">
+                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2C3E50]">
                             Riwayat tindakan pasien
                           </p>
-                          <p className="text-[10px] font-bold text-yellow-400">
+                          <p className="text-[10px] font-bold text-[#2C3E50]">
                             {displayRecord.no_rm
                               ? `NO. RM: ${String(displayRecord.no_rm).trim()}`
                               : displayRecord.pasien_id
@@ -1016,7 +959,7 @@ export default function TindakanDetailDrawer({
                           </p>
                         </div>
                         {riwayatPasienRows.length === 0 ? (
-                          <p className="rounded-lg border border-dashed border-cyan-500/20 bg-black/20 px-4 py-4 text-xs font-medium text-white/60">
+                          <p className="rounded-xl border border-dashed border-[#6B7280] bg-[#B8C5D3]/60 px-4 py-4 text-xs font-medium text-[#2C3E50]">
                             Tidak ada baris lain yang cocok dengan RM / ID
                             pasien ini dalam snapshot data saat ini.
                           </p>
@@ -1035,12 +978,12 @@ export default function TindakanDetailDrawer({
                                   className={cn(
                                     "rounded-xl border px-4 py-3 text-sm transition-all duration-300",
                                     isCurrent
-                                      ? "border-cyan-500 bg-cyan-500/10 shadow-[0_0_20px_rgba(34,211,238,0.1)]"
-                                      : "border-cyan-500/20 bg-black/20 hover:border-cyan-500/40",
+                                      ? "border-[#2C3E50] bg-[#A8B4C2] shadow-sm"
+                                      : "border-[#9AA8B8] bg-[#C5CEDA] hover:border-[#2C3E50]/35",
                                   )}
                                 >
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <span className="font-mono text-xs font-black text-cyan-400">
+                                    <span className="font-mono text-xs font-black text-[#2C3E50]">
                                       {formatFieldValue(
                                         "tanggal_tindakan",
                                         getWireframeFieldValue(
@@ -1053,33 +996,33 @@ export default function TindakanDetailDrawer({
                                       )}
                                     </span>
                                     {isCurrent ? (
-                                      <span className="rounded border border-cyan-500 bg-cyan-500/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white">
+                                      <span className="rounded border border-[#2C3E50] bg-[#2C3E50] px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white">
                                         KASUS INI
                                       </span>
                                     ) : null}
                                   </div>
-                                  <p className="mt-1.5 font-bold text-white">
+                                  <p className="mt-1.5 font-bold text-[#2C3E50]">
                                     {r.tindakan?.trim() || "—"}
                                     {r.kategori && (
-                                      <span className="ml-2 rounded bg-cyan-500/10 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-cyan-400">
+                                      <span className="ml-2 rounded bg-[#2C3E50]/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-[#2C3E50]">
                                         {r.kategori}
                                       </span>
                                     )}
                                   </p>
                                   {r.kesimpulan_laporan && (
-                                    <p className="mt-1 text-[11px] italic text-white/60 line-clamp-1">
+                                    <p className="mt-1 text-[11px] italic text-[#2C3E50]/80 line-clamp-1">
                                       {r.kesimpulan_laporan}
                                     </p>
                                   )}
-                                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-medium text-white/70">
+                                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-medium text-[#2C3E50]/85">
                                     <span>
-                                      <span className="font-black uppercase tracking-tighter text-gray-500 mr-1">
+                                      <span className="font-black uppercase tracking-tighter text-[#2C3E50]/70 mr-1">
                                         Dokter:
                                       </span>
                                       {r.dokter?.trim() || "—"}
                                     </span>
                                     <span>
-                                      <span className="font-black uppercase tracking-tighter text-gray-500 mr-1">
+                                      <span className="font-black uppercase tracking-tighter text-[#2C3E50]/70 mr-1">
                                         Ruangan:
                                       </span>
                                       {r.ruangan?.trim() || "—"}
@@ -1101,11 +1044,11 @@ export default function TindakanDetailDrawer({
                         key={def.id}
                         className={cn("space-y-3", tab !== def.id && "hidden")}
                       >
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2C3E50]">
                           {def.label}
                         </h3>
                         {def.id === "fast_track" ? (
-                          <div className="rounded-xl border border-cyan-500/20 bg-black/20 p-4">
+                          <div className="rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none">
                             <FastTrackBlock
                               tindakanId={String(displayRecord.id ?? "").trim()}
                               isFastTrackValue={getWireframeFieldValue(
@@ -1171,10 +1114,10 @@ export default function TindakanDetailDrawer({
                                       key={key}
                                       className={cn(
                                         "rounded-lg border px-3 py-2.5 transition-all duration-300",
-                                        "border-cyan-500/10 bg-black/20 hover:border-cyan-500/30 hover:shadow-[0_0_10px_rgba(34,211,238,0.05)]",
+                                        "border-[#9AA8B8]/80 bg-[#B8C5D3] shadow-none hover:border-[#2C3E50]/25",
                                       )}
                                     >
-                                      <dt className="text-[9px] font-black uppercase tracking-widest text-gray-600">
+                                      <dt className="text-[9px] font-black uppercase tracking-widest text-white/90">
                                         {FIELD_LABELS[key] ?? key}
                                       </dt>
                                       <dd className="mt-1 text-[13px] font-bold leading-snug text-white">
@@ -1195,8 +1138,7 @@ export default function TindakanDetailDrawer({
                             <div className="space-y-3 sm:col-span-1">
                               <div
                                 className={cn(
-                                  "flex flex-col gap-4 rounded-lg border px-3 py-3 transition-all duration-300",
-                                  "border-cyan-500/10 bg-black/20 hover:border-cyan-500/30 hover:shadow-[0_0_10px_rgba(34,211,238,0.05)]",
+                                  "flex flex-col gap-4 rounded-xl border border-[#9AA8B8]/80 bg-[#B8C5D3] px-3 py-3 shadow-none transition-all duration-300",
                                 )}
                               >
                                 {def.fields
@@ -1217,7 +1159,7 @@ export default function TindakanDetailDrawer({
                                     ).trim();
                                     return (
                                       <div key={key}>
-                                        <dt className="text-[9px] font-black uppercase tracking-widest text-gray-600">
+                                        <dt className="text-[9px] font-black uppercase tracking-widest text-white/90">
                                           {FIELD_LABELS[key] ?? key}
                                         </dt>
                                         <dd className="mt-1 text-[13px] font-bold leading-snug text-white">
@@ -1266,6 +1208,10 @@ export default function TindakanDetailDrawer({
                                 const isKategoriEditable =
                                   def.id === "tindakan" &&
                                   key === "kategori" &&
+                                  Boolean(tindakanId);
+                                const isRuanganEditable =
+                                  def.id === "lokasi" &&
+                                  key === "ruangan" &&
                                   Boolean(tindakanId);
                                 const isCathlabEditable =
                                   def.id === "lokasi" &&
@@ -1316,33 +1262,65 @@ export default function TindakanDetailDrawer({
                                   canPatchTindakan &&
                                   (key === "total" ||
                                     isBiayaWireframeEmpty(key, rawVal));
+                                const isPasienMasterEditable =
+                                  def.id === "pasien" &&
+                                  isPasienDrawerAutosaveKey(key) &&
+                                  Boolean(pasienEditId);
+                                const isRsPerujukEditable =
+                                  def.id === "pasien" &&
+                                  key === "rs_perujuk" &&
+                                  canPatchTindakan;
 
                                 return (
                                   <div
                                     key={key}
                                     className={cn(
-                                      "rounded-lg border px-3 py-2.5 transition-all duration-300",
-                                      "border-cyan-500/10 bg-black/20 hover:border-cyan-500/30 hover:shadow-[0_0_10px_rgba(34,211,238,0.05)]",
+                                      "rounded-xl border border-[#9AA8B8]/80 bg-[#B8C5D3] px-3 py-2.5 shadow-none transition-all duration-300",
+                                      "hover:border-[#2C3E50]/25",
                                       key === "no_rm" &&
-                                        "border-yellow-500/20 bg-yellow-500/5",
+                                        "border-[#2C3E50]/35 bg-[#A8B4C4]",
                                       isCompactField && "sm:col-span-1",
                                       (key === "air_kerma" ||
                                         key === "dap_dose") &&
-                                        "border-amber-500/20 bg-amber-500/5",
+                                        "border-[#9AA8B8]/80 bg-[#B8C5D3]",
                                     )}
                                   >
-                                    <dt className="text-[9px] font-black uppercase tracking-widest text-gray-600">
+                                    <dt className="text-[9px] font-black uppercase tracking-widest text-white/90">
                                       {FIELD_LABELS[key] ?? key}
                                     </dt>
                                     <dd
                                       className={cn(
                                         "mt-1 text-[13px] font-bold leading-snug text-white",
-                                        key === "no_rm" && "text-yellow-400",
+                                        key === "no_rm" && "text-white",
                                         key === "pemakaian" &&
-                                          "whitespace-pre-wrap font-mono text-[11px] leading-relaxed tracking-tight text-cyan-50/90",
+                                          "whitespace-pre-wrap font-mono text-[11px] leading-relaxed tracking-tight text-white/95",
                                       )}
                                     >
-                                      {isRadiologiEditable ? (
+                                      {isPasienMasterEditable ? (
+                                        <PasienAutosaveField
+                                          pasienId={pasienEditId}
+                                          wireframeKey={key as PasienDrawerAutosaveKey}
+                                          rawValue={rawVal}
+                                          onPasienUpdated={(p) => {
+                                            void mutatePasien(
+                                              { ok: true, data: p },
+                                              { revalidate: false },
+                                            );
+                                          }}
+                                          onSaved={onRecordPatch}
+                                        />
+                                      ) : isRsPerujukEditable ? (
+                                        <RsPerujukField
+                                          tindakanId={tindakanId}
+                                          value={
+                                            rawVal === null ||
+                                            rawVal === undefined
+                                              ? null
+                                              : String(rawVal)
+                                          }
+                                          onSaved={onRecordPatch}
+                                        />
+                                      ) : isRadiologiEditable ? (
                                         <RadiologiAutosaveField
                                           tindakanId={tindakanId}
                                           field={key as RadiologiFieldKey}
@@ -1379,6 +1357,17 @@ export default function TindakanDetailDrawer({
                                         <MasterPerawatTimField
                                           tindakanId={tindakanId}
                                           field={key as TimPerawatFieldKey}
+                                          value={
+                                            rawVal === null ||
+                                            rawVal === undefined
+                                              ? null
+                                              : String(rawVal)
+                                          }
+                                          onSaved={onRecordPatch}
+                                        />
+                                      ) : isRuanganEditable ? (
+                                        <RuanganTindakanField
+                                          tindakanId={tindakanId}
                                           value={
                                             rawVal === null ||
                                             rawVal === undefined
@@ -1429,7 +1418,7 @@ export default function TindakanDetailDrawer({
                               })}
                             </dl>
                             {def.id === "tindakan" ? (
-                              <div className="mt-4 rounded-xl border border-cyan-500/20 bg-black/20 p-4">
+                              <div className="mt-4 rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none">
                                 <SignTimeFields
                                   tindakanId={String(
                                     displayRecord.id ?? "",
@@ -1467,6 +1456,7 @@ export default function TindakanDetailDrawer({
                 </>
               )}
             </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1474,3 +1464,5 @@ export default function TindakanDetailDrawer({
 
   return createPortal(layer, mountPoint);
 }
+
+export default memo(TindakanDetailDrawer);

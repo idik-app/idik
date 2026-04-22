@@ -17,6 +17,7 @@ import LayoutSidebar from "./LayoutSidebar";
 import LayoutHeader from "./LayoutHeader";
 import LayoutMain from "./LayoutMain";
 import LayoutLoader from "./LayoutLoader";
+import DashboardRouteWarmup from "../DashboardRouteWarmup";
 
 /*───────────────────────────────────────────────
  ⚙️ LayoutContainer – Cathlab JARVIS Mode v4.2 Stable
@@ -133,6 +134,7 @@ export default function LayoutContainer() {
 
   return (
     <LazyMotion features={domAnimation}>
+      <DashboardRouteWarmup />
       <motion.div
         className={cn(
           "relative flex min-h-app h-app overflow-x-hidden overflow-y-hidden transition-colors duration-500",

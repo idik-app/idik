@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +16,7 @@ interface Props {
   pageSizeOptions?: number[];
 }
 
-export default function TablePagination({
+function TablePagination({
   currentPage,
   totalPages,
   totalItems,
@@ -125,3 +125,5 @@ export default function TablePagination({
     </div>
   );
 }
+
+export default memo(TablePagination);

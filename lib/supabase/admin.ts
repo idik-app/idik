@@ -7,10 +7,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 let adminClient: SupabaseClient | null = null;
 let readOnlyAdminClient: SupabaseClient | null = null;
 
-export function createAdminClient(isReadOnly: boolean = false) {
-  if (isReadOnly && readOnlyAdminClient) return readOnlyAdminClient;
-  if (!isReadOnly && adminClient) return adminClient;
-
+export function createAdminClient(isReadOnly: boolean = false, role?: string) {
   const url = isReadOnly 
     ? (process.env.NEXT_PUBLIC_SUPABASE_READ_URL || process.env.NEXT_PUBLIC_SUPABASE_URL)
     : process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -22,6 +19,21 @@ export function createAdminClient(isReadOnly: boolean = false) {
       "Missing Supabase URL or Service Role Key environment variables. Cannot create Admin Client."
     );
   }
+
+  // Jika ada role, kita tidak menggunakan singleton karena role bersifat per-request
+  if (role) {
+    return createClient(url, key, {
+      auth: { persistSession: false },
+      global: {
+        headers: {
+          "x-app-role": role.toLowerCase(),
+        },
+      },
+    });
+  }
+
+  if (isReadOnly && readOnlyAdminClient) return readOnlyAdminClient;
+  if (!isReadOnly && adminClient) return adminClient;
 
   const client = createClient(url, key, {
     auth: { persistSession: false },

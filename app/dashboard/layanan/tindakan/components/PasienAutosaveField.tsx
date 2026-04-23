@@ -1,8 +1,10 @@
 "use client";
 
+import { Calendar } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { Pasien } from "@/app/dashboard/pasien/types/pasien";
+import { cn } from "@/lib/utils";
 import { getWireframeFieldValue } from "../bridge/wireframeDrawerTabs";
 import { normalizeJenisKelamin } from "../lib/displayTindakanRow";
 
@@ -48,6 +50,23 @@ function toYyyyMmDd(raw: unknown): string {
   if (raw === null || raw === undefined || raw === "") return "";
   const s = String(raw).trim();
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const dmy = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dmy) {
+    const day = Number(dmy[1]);
+    const month = Number(dmy[2]);
+    const year = Number(dmy[3]);
+    const dt = new Date(year, month - 1, day);
+    if (
+      dt.getFullYear() === year &&
+      dt.getMonth() === month - 1 &&
+      dt.getDate() === day
+    ) {
+      const m = String(month).padStart(2, "0");
+      const dd = String(day).padStart(2, "0");
+      return `${year}-${m}-${dd}`;
+    }
+    return "";
+  }
   const d = Date.parse(s);
   if (Number.isFinite(d)) {
     const dt = new Date(d);
@@ -59,6 +78,59 @@ function toYyyyMmDd(raw: unknown): string {
   return "";
 }
 
+/** Tampilan Indonesia: `1969-11-10` → `10-11-1969` */
+function isoToDmy(iso: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
+  const [y, m, d] = iso.split("-");
+  return `${d}-${m}-${y}`;
+}
+
+/** Terima `DD-MM-YYYY` / `DD/MM/YYYY` (tempel ketik) atau `YYYY-MM-DD`. */
+function parseTglLahirToIso(s: string): string | null {
+  const t = s.trim();
+  if (!t) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+    const y = Number(t.slice(0, 4));
+    const m = Number(t.slice(5, 7));
+    const day = Number(t.slice(8, 10));
+    const dt = new Date(y, m - 1, day);
+    if (
+      dt.getFullYear() === y &&
+      dt.getMonth() === m - 1 &&
+      dt.getDate() === day
+    ) {
+      return t;
+    }
+    return null;
+  }
+  const m = t.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (!m) return null;
+  const day = Number(m[1]);
+  const month = Number(m[2]);
+  const year = Number(m[3]);
+  const dt = new Date(year, month - 1, day);
+  if (
+    dt.getFullYear() !== year ||
+    dt.getMonth() !== month - 1 ||
+    dt.getDate() !== day
+  ) {
+    return null;
+  }
+  const mm = String(month).padStart(2, "0");
+  const dd = String(day).padStart(2, "0");
+  return `${year}-${mm}-${dd}`;
+}
+
+/** Tempel/ketik `1969-10-11` atau `1969-10-11T…` → tampilan `11-10-1969`. */
+function normalizeTglLahirInputDisplay(v: string): string {
+  const t = v.trim();
+  const m = t.match(/^(\d{4}-\d{2}-\d{2})(?:[T\s].*)?$/);
+  if (!m) return v;
+  const iso = parseTglLahirToIso(m[1]);
+  if (!iso) return v;
+  return isoToDmy(iso);
+}
+
 function draftFromWireframe(
   key: PasienDrawerAutosaveKey,
   raw: unknown,
@@ -67,7 +139,10 @@ function draftFromWireframe(
     const jk = normalizeJenisKelamin(raw);
     return jk ?? "";
   }
-  if (key === "tgl_lahir") return toYyyyMmDd(raw);
+  if (key === "tgl_lahir") {
+    const iso = toYyyyMmDd(raw);
+    return iso ? isoToDmy(iso) : "";
+  }
   if (raw === null || raw === undefined) return "";
   return String(raw).trim();
 }
@@ -90,8 +165,9 @@ function buildPatch(
     return { jenisKelamin: t };
   }
   if (key === "tgl_lahir") {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
-    return { tanggalLahir: t };
+    const iso = parseTglLahirToIso(t);
+    if (!iso) return null;
+    return { tanggalLahir: iso };
   }
   if (key === "alamat") {
     if (!t) return null;
@@ -108,6 +184,13 @@ function valueUnchanged(
   draft: string,
   raw: unknown,
 ): boolean {
+  if (key === "tgl_lahir") {
+    const parsed = parseTglLahirToIso(draft);
+    const prevIso = toYyyyMmDd(raw);
+    if (!parsed && !prevIso) return true;
+    if (!parsed || !prevIso) return false;
+    return parsed === prevIso;
+  }
   const prev = draftFromWireframe(key, raw);
   if (key === "no_telp") return draft.trim() === prev.trim();
   return draft.trim() === prev;
@@ -142,6 +225,7 @@ export default function PasienAutosaveField({
     null,
   );
   const rawRef = useRef(rawValue);
+  const tglLahirPickerRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     rawRef.current = rawValue;
@@ -293,23 +377,72 @@ export default function PasienAutosaveField({
   }
 
   if (wireframeKey === "tgl_lahir") {
+    const isoForPicker = parseTglLahirToIso(draft) ?? "";
+    const todayIso = new Date().toISOString().slice(0, 10);
+
+    const openNativeDatePicker = () => {
+      const el = tglLahirPickerRef.current;
+      if (!el) return;
+      try {
+        el.showPicker?.();
+      } catch {
+        el.click();
+      }
+    };
+
     return (
       <div className="space-y-1">
-        <input
-          type="date"
-          className={`${inputClass} max-w-[12rem] font-mono`}
-          autoComplete="bday"
-          value={draft}
-          aria-label="Tanggal lahir"
-          onFocus={handleFocus}
-          onChange={(e) => {
-            const v = e.target.value;
-            setDraft(v);
-            setSaveError(null);
-            schedulePersist(v);
-          }}
-          onBlur={handleBlur}
-        />
+        <div className="flex max-w-[15rem] items-stretch gap-1">
+          <input
+            type="text"
+            inputMode="numeric"
+            autoComplete="bday"
+            placeholder="DD-MM-YYYY"
+            className={`${inputClass} min-w-0 flex-1 font-mono`}
+            value={draft}
+            aria-label="Tanggal lahir"
+            onFocus={handleFocus}
+            onChange={(e) => {
+              const v = normalizeTglLahirInputDisplay(e.target.value);
+              setDraft(v);
+              setSaveError(null);
+              schedulePersist(v);
+            }}
+            onBlur={handleBlur}
+          />
+          <button
+            type="button"
+            className={cn(
+              "mt-0.5 inline-flex shrink-0 items-center justify-center rounded-md border border-cyan-900/50 bg-black/40 px-2 text-white transition hover:border-cyan-500/50 hover:bg-black/55 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",
+            )}
+            aria-label="Buka kalender tanggal lahir"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              handleFocus();
+              openNativeDatePicker();
+            }}
+          >
+            <Calendar className="h-4 w-4" aria-hidden />
+          </button>
+          <input
+            ref={tglLahirPickerRef}
+            type="date"
+            className="fixed left-0 top-0 h-px w-px opacity-0"
+            tabIndex={-1}
+            aria-hidden
+            max={todayIso}
+            min="1900-01-01"
+            value={isoForPicker}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (!v) return;
+              const next = isoToDmy(v);
+              setDraft(next);
+              setSaveError(null);
+              schedulePersist(next);
+            }}
+          />
+        </div>
         {saveError ? (
           <p className="text-[11px] text-rose-300/90">{saveError}</p>
         ) : null}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { useMasterTindakanKategori } from "@/app/hooks/useMasterData";
@@ -23,6 +24,7 @@ type Props = {
   tindakanId: string;
   value: string | null | undefined;
   onSaved?: () => void;
+  controlVariant?: "default" | "drawerCharcoal";
 };
 
 function norm(s: string) {
@@ -33,6 +35,7 @@ export default function KategoriTindakanField({
   tindakanId,
   value,
   onSaved,
+  controlVariant = "default",
 }: Props) {
   const { show } = useNotification();
   const listId = useId();
@@ -46,6 +49,13 @@ export default function KategoriTindakanField({
   const [editNama, setEditNama] = useState("");
   const [newNama, setNewNama] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [managePortalMount, setManagePortalMount] =
+    useState<HTMLElement | null>(null);
+
+  /** Selalu `document.body` agar klik tidak tertelan stacking / pointer-events di fullscreen subtree. */
+  useEffect(() => {
+    setManagePortalMount(document.body);
+  }, []);
 
   useEffect(() => {
     lastPersistedRef.current =
@@ -242,61 +252,81 @@ export default function KategoriTindakanField({
     }
   };
 
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="min-w-0 flex-1">
-          <MasterKategoriTindakanCombobox
-            listboxId={`${listId}-kategori-tindakan`}
-            value={draft}
-            loading={loadingList || savingRow}
-            options={pickerOptions}
-            onChange={(label) => setDraft(label)}
-            onInputBlur={handleBlurCommit}
-            onSelectOption={(picked) => {
-              skipBlurCommitRef.current = true;
-              const canonical = formatMasterKategoriLabel(picked);
-              setDraft(canonical);
-              void persistKategori(canonical);
-              queueMicrotask(() => {
-                skipBlurCommitRef.current = false;
-              });
-            }}
-            inputClassName={cn(
-              "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:outline-none focus:ring-1",
+  const combobox = (
+    <MasterKategoriTindakanCombobox
+      listboxId={`${listId}-kategori-tindakan`}
+      value={draft}
+      loading={loadingList || savingRow}
+      options={pickerOptions}
+      onChange={(label) => setDraft(label)}
+      onInputBlur={handleBlurCommit}
+      onSelectOption={(picked) => {
+        skipBlurCommitRef.current = true;
+        const canonical = formatMasterKategoriLabel(picked);
+        setDraft(canonical);
+        void persistKategori(canonical);
+        queueMicrotask(() => {
+          skipBlurCommitRef.current = false;
+        });
+      }}
+      inputClassName={cn(
+        "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:outline-none",
+        controlVariant === "drawerCharcoal"
+          ? "border-white/12 bg-[#5C6573] text-white placeholder:text-white/55 focus:ring-2 focus:ring-[#2C3E50]/35"
+          : cn(
+              "focus:ring-1",
               "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500",
               "dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
-              savingRow ? "opacity-70" : undefined,
-            )}
-          />
+            ),
+        savingRow ? "opacity-70" : undefined,
+      )}
+    />
+  );
+
+  const toolbar = (
+    <>
+      <button
+        type="button"
+        title="Simpan teks ini ke daftar master"
+        onClick={() => void addMasterFromDraft()}
+        disabled={busyId !== null || savingRow}
+        className={cn(
+          "inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-semibold disabled:opacity-50",
+          "border-cyan-600/45 bg-cyan-100 text-cyan-900 hover:bg-cyan-200/80 dark:border-cyan-700/40 dark:bg-cyan-950/40 dark:text-white dark:hover:bg-cyan-900/30",
+        )}
+      >
+        <Plus size={14} />
+        Master
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setManageOpen(true);
+          void reloadItems();
+        }}
+        className={cn(
+          "inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-semibold",
+          "border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200/90 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10",
+        )}
+      >
+        Kelola daftar
+      </button>
+    </>
+  );
+
+  return (
+    <div className="space-y-2">
+      {controlVariant === "drawerCharcoal" ? (
+        <>
+          <div className="min-w-0 w-full max-w-full">{combobox}</div>
+          <div className="flex flex-wrap items-center gap-2">{toolbar}</div>
+        </>
+      ) : (
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="min-w-0 flex-1">{combobox}</div>
+          {toolbar}
         </div>
-        <button
-          type="button"
-          title="Simpan teks ini ke daftar master"
-          onClick={() => void addMasterFromDraft()}
-          disabled={busyId !== null || savingRow}
-          className={cn(
-            "inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-semibold disabled:opacity-50",
-            "border-cyan-600/45 bg-cyan-100 text-cyan-900 hover:bg-cyan-200/80 dark:border-cyan-700/40 dark:bg-cyan-950/40 dark:text-white dark:hover:bg-cyan-900/30",
-          )}
-        >
-          <Plus size={14} />
-          Master
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setManageOpen(true);
-            void reloadItems();
-          }}
-          className={cn(
-            "inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1.5 text-xs font-semibold",
-            "border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200/90 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10",
-          )}
-        >
-          Kelola daftar
-        </button>
-      </div>
+      )}
       {savingRow ? (
         <p
           className={cn(
@@ -312,28 +342,33 @@ export default function KategoriTindakanField({
         </p>
       ) : null}
 
-      {manageOpen ? (
-        <div
-          className={`fixed inset-0 ${UI_LAYERS.modalManager} flex items-end justify-center p-3 sm:items-center`}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Kelola kategori master"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/75"
-            aria-label="Tutup"
-            onClick={() => {
-              setManageOpen(false);
-              setEditingId(null);
-            }}
-          />
-          <div
-            className={cn(
-              "relative z-10 flex max-h-[min(70vh,520px)] w-full max-w-md flex-col overflow-hidden rounded-xl border shadow-xl",
-              "border-slate-200 bg-white dark:border-cyan-500/35 dark:bg-[#070d14]",
-            )}
-          >
+      {manageOpen && managePortalMount
+        ? createPortal(
+            <div
+              className={cn(
+                "fixed inset-0 isolate flex items-end justify-center p-3 sm:items-center",
+                UI_LAYERS.dialogOverlayTop,
+                "pointer-events-auto",
+              )}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Kelola kategori master"
+            >
+              <button
+                type="button"
+                className="pointer-events-auto absolute inset-0 z-0 bg-black/75"
+                aria-label="Tutup"
+                onClick={() => {
+                  setManageOpen(false);
+                  setEditingId(null);
+                }}
+              />
+              <div
+                className={cn(
+                  "pointer-events-auto relative z-10 flex max-h-[min(70vh,520px)] w-full max-w-md flex-col overflow-hidden rounded-xl border shadow-xl",
+                  "border-slate-200 bg-white dark:border-cyan-500/35 dark:bg-[#070d14]",
+                )}
+              >
             <div
               className={cn(
                 "border-b px-3 py-2",
@@ -513,9 +548,11 @@ export default function KategoriTindakanField({
                 Tutup
               </button>
             </div>
-          </div>
-        </div>
-      ) : null}
+              </div>
+            </div>,
+            managePortalMount,
+          )
+        : null}
     </div>
   );
 }

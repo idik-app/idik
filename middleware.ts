@@ -2,224 +2,157 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 
-/* ⚙️ IDIK-App Middleware v1.5 – 9 Role RBAC (docs/AUDIT_LEVEL_IDIK.md)
-   🔹 Verifikasi JWT berbasis cookie "session"
-   🔹 RBAC: admin / administrator / superadmin untuk rute sensitif
+/* 🛡️ IDIK-App Advanced Security Middleware v2.0
+   🔹 Global API Protection & JWT Verification
+   🔹 Security Headers (HSTS, CSP, X-Frame-Options)
+   🔹 RBAC: multi-tier access control
 */
 
-/** Secret harus sama dengan app/api/auth/route.ts (baca per-request agar konsisten dengan API). */
-function getSecret(): string {
-  const secret = process.env.JWT_SECRET;
-  if (process.env.NODE_ENV === "production" && !secret) {
-    console.error("[Middleware] JWT_SECRET tidak di-set di production");
-    return "";
-  }
-  return secret || "dev-secret";
-}
-
-// Role tiers (lowercase)
+const LOG_PREFIX = "[Security-Middleware]";
 const ADMIN_ROLES = ["admin", "administrator", "superadmin"];
 const ADMINISTRATOR_ROLES = ["administrator", "superadmin"];
 const SUPERADMIN_ROLES = ["superadmin"];
 
-const LOG_PREFIX = "[Middleware]";
+// Whitelist rute publik (tidak butuh auth)
+const PUBLIC_API_ROUTES = [
+  "/api/auth/login",
+  "/api/auth/refresh",
+  "/api/version",
+  "/api/health",
+];
+
+/** Secret management dengan fallback aman (error di production) */
+function getSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === "production" && !secret) {
+    throw new Error(`${LOG_PREFIX} FATAL: JWT_SECRET tidak terkonfigurasi di Production!`);
+  }
+  return secret || "dev-secret-warning-unsecure";
+}
+
+/** Helper untuk menyuntikkan header keamanan standar industri */
+function applySecurityHeaders(res: NextResponse) {
+  const headers = res.headers;
+  headers.set("X-DNS-Prefetch-Control", "on");
+  headers.set("X-Frame-Options", "DENY");
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+  headers.set("X-XSS-Protection", "1; mode=block");
+  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  // CSP Dasar (Bisa diperketat sesuai kebutuhan)
+  headers.set("Content-Security-Policy", "frame-ancestors 'none';");
+  return res;
+}
 
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
-  const isDashboard = pathname.startsWith("/dashboard");
-  const isSystem = pathname.startsWith("/system");
-  const isDistributor = pathname.startsWith("/distributor");
-  const isDepo = pathname.startsWith("/depo");
+  const isApi = pathname.startsWith("/api");
+  
+  // 1. Inisialisasi Response (default: lanjut ke rute berikutnya)
+  let res = NextResponse.next();
 
-  /** URL lama: login depo terpisah — sekarang semua lewat root `/`. */
-  if (pathname === "/depo/login" || pathname.startsWith("/depo/login/")) {
-    const url = new URL("/", req.url);
-    const from = req.nextUrl.searchParams.get("from");
-    if (from) url.searchParams.set("from", from);
-    return NextResponse.redirect(url);
+  // 2. Terapkan Security Headers ke semua response (termasuk redirect)
+  res = applySecurityHeaders(res);
+
+  // 3. Bypass Auth untuk Rute Publik
+  const isPublicApi = PUBLIC_API_ROUTES.some((route) => pathname.startsWith(route));
+  if (isPublicApi) return res;
+
+  // Khusus /distributor/pemakaian dengan focus_order (Public Portal)
+  if (pathname === "/distributor/pemakaian" && req.nextUrl.searchParams.get("focus_order")) {
+    return res;
   }
 
-  if (!isDashboard && !isSystem && !isDistributor && !isDepo)
-    return NextResponse.next();
-
-  /** 🔓 Public access untuk link WhatsApp (Portal Pemakaian) bila ada focus_order. */
-  if (
-    pathname === "/distributor/pemakaian" &&
-    req.nextUrl.searchParams.get("focus_order")
-  ) {
-    return NextResponse.next();
-  }
-
+  // 4. Verifikasi Token
   const token = req.cookies.get("session")?.value;
   if (!token) {
-    console.log(
-      `${LOG_PREFIX} ${pathname} → redirect reason=missing (no session cookie)`,
-    );
-    return redirectToHome(req, "missing");
-  }
-
-  // /system/* tidak ada RBAC khusus; cukup wajib login
-  if (isSystem) {
-    const secret = getSecret();
-    if (!secret) return redirectToHome(req, "invalid");
-    try {
-      const secretKey = new TextEncoder().encode(secret);
-      await jwtVerify(token, secretKey);
-      return NextResponse.next();
-    } catch (err) {
-      console.warn(
-        `${LOG_PREFIX} ${pathname} → redirect reason=invalid (token verify failed):`,
-        err,
-      );
-      return redirectToHome(req, "invalid");
+    if (isApi) {
+      return applySecurityHeaders(NextResponse.json({ ok: false, message: "Unauthorized: No session" }, { status: 401 }));
     }
-  }
-
-  const secret = getSecret();
-  if (!secret) {
-    console.log(
-      `${LOG_PREFIX} ${pathname} → redirect reason=invalid (JWT_SECRET empty)`,
-    );
-    return redirectToHome(req, "invalid");
+    return applySecurityHeaders(redirectToHome(req, "missing"));
   }
 
   try {
+    const secret = getSecret();
     const secretKey = new TextEncoder().encode(secret);
     const { payload } = await jwtVerify(token, secretKey);
-    const role =
-      (payload as any)?.role != null
-        ? String((payload as any)?.role)
-            .trim()
-            .toLowerCase()
-        : "pasien";
+    const role = String((payload as any)?.role ?? "pasien").trim().toLowerCase();
 
-    // Portal distributor: allow distributor + admin tiers
-    if (isDistributor) {
-      const allow = new Set([
-        "distributor",
-        "perawat",
-        // Legacy role mapping: getRedirectTargetForRole("vendor") → /distributor/dashboard
-        // so middleware must allow it too.
-        "vendor",
-        "admin",
-        "administrator",
-        "superadmin",
-      ]);
-      if (!allow.has(role)) {
-        console.warn(
-          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
-        );
-        return redirectToUnauthorized(req);
-      }
-      console.log(`${LOG_PREFIX} ${pathname} → ok role=${role}`);
-      return NextResponse.next();
+    // 5. RBAC Logic
+    
+    // Portal Distributor
+    if (pathname.startsWith("/distributor")) {
+      const allow = ["distributor", "perawat", "vendor", ...ADMIN_ROLES];
+      if (!allow.includes(role)) return applySecurityHeaders(redirectToUnauthorized(req));
     }
 
-    if (isDepo) {
-      const allow = new Set([
-        "depo_farmasi",
-        "depo",
-        "perawat",
-        "farmasi",
-        "pharmacy",
-        "admin",
-        "administrator",
-        "superadmin",
-      ]);
-      if (!allow.has(role)) {
-        console.warn(
-          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
-        );
-        return redirectToUnauthorized(req);
-      }
-      console.log(`${LOG_PREFIX} ${pathname} → ok role=${role}`);
-      return NextResponse.next();
+    // Portal Depo
+    if (pathname.startsWith("/depo")) {
+      const allow = ["depo_farmasi", "depo", "perawat", "farmasi", ...ADMIN_ROLES];
+      if (!allow.includes(role)) return applySecurityHeaders(redirectToUnauthorized(req));
     }
 
-    // Rute sensitif: tier admin / administrator / superadmin (cek spesifik dulu)
-    if (pathname.startsWith("/system/database/audit")) {
-      if (!ADMINISTRATOR_ROLES.includes(role)) {
-        console.warn(
-          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
-        );
-        return redirectToUnauthorized(req);
-      }
-    } else if (pathname.startsWith("/system/database")) {
-      if (!SUPERADMIN_ROLES.includes(role)) {
-        console.warn(
-          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
-        );
-        return redirectToUnauthorized(req);
-      }
-    } else if (pathname.startsWith("/dashboard/database")) {
-      if (!SUPERADMIN_ROLES.includes(role)) {
-        console.warn(
-          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
-        );
-        return redirectToUnauthorized(req);
-      }
-    } else if (pathname.startsWith("/dashboard/audit")) {
-      if (!ADMINISTRATOR_ROLES.includes(role)) {
-        console.warn(
-          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
-        );
-        return redirectToUnauthorized(req);
-      }
-    } else if (pathname.startsWith("/dashboard/layanan/tindakan")) {
-      const allowed = ["perawat", ...ADMIN_ROLES];
-      if (!allowed.includes(role)) {
-        console.warn(
-          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
-        );
-        return redirectToUnauthorized(req);
-      }
-    } else if (pathname.startsWith("/dashboard/admin")) {
-      if (!ADMIN_ROLES.includes(role)) {
-        console.warn(
-          `${LOG_PREFIX} [RBAC] ditolak role=${role} path=${pathname} → /unauthorized`,
-        );
-        return redirectToUnauthorized(req);
+    // Rute Sensitif (Database/Audit)
+    if (pathname.includes("/database") || pathname.includes("/audit")) {
+      const isSensitiveApi = isApi && (pathname.includes("/database") || pathname.includes("/audit"));
+      
+      // Superadmin Only untuk Database
+      if (pathname.includes("/database")) {
+        if (!SUPERADMIN_ROLES.includes(role)) {
+          if (isApi) return applySecurityHeaders(NextResponse.json({ ok: false, message: "Forbidden" }, { status: 403 }));
+          return applySecurityHeaders(redirectToUnauthorized(req));
+        }
+      } 
+      // Administrator+ untuk Audit
+      else if (pathname.includes("/audit")) {
+        if (!ADMINISTRATOR_ROLES.includes(role)) {
+          if (isApi) return applySecurityHeaders(NextResponse.json({ ok: false, message: "Forbidden" }, { status: 403 }));
+          return applySecurityHeaders(redirectToUnauthorized(req));
+        }
       }
     }
 
-    console.log(`${LOG_PREFIX} ${pathname} → ok role=${role}`);
-    return NextResponse.next();
+    // Admin-only Dashboard
+    if (pathname.startsWith("/dashboard/admin") && !ADMIN_ROLES.includes(role)) {
+      return applySecurityHeaders(redirectToUnauthorized(req));
+    }
+
+    // 6. Finalisasi - Lanjutkan dengan headers
+    return res;
   } catch (err) {
-    console.warn(
-      `${LOG_PREFIX} ${pathname} → redirect reason=invalid (token verify failed):`,
-      err,
-    );
-    return redirectToHome(req, "invalid");
+    console.error(`${LOG_PREFIX} JWT Error:`, err);
+    if (isApi) {
+      return applySecurityHeaders(NextResponse.json({ ok: false, message: "Unauthorized: Invalid token" }, { status: 401 }));
+    }
+    return applySecurityHeaders(redirectToHome(req, "invalid"));
   }
 }
 
-/* 🔁 Redirect helper: kembali ke root dengan alasan (no-store agar redirect tidak di-cache) */
-function redirectToHome(req: NextRequest, reason: "missing" | "invalid") {
+/* 🔁 Redirect Helpers */
+function redirectToHome(req: NextRequest, reason: string) {
   const url = new URL("/", req.url);
   url.searchParams.set("from", req.nextUrl.pathname);
   url.searchParams.set("reason", reason);
   const res = NextResponse.redirect(url);
   res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
-  res.headers.set("Pragma", "no-cache");
   return res;
 }
 
-/* 🚫 Redirect ke halaman unauthorized */
 function redirectToUnauthorized(req: NextRequest) {
   const url = new URL("/unauthorized", req.url);
   url.searchParams.set("from", req.nextUrl.pathname);
   return NextResponse.redirect(url);
 }
 
-/* ✅ Matcher: dashboard + system (keduanya wajib login) */
+/* ✅ Matcher: Mencakup API dan semua portal utama */
 export const config = {
   matcher: [
+    "/api/:path*",
     "/dashboard/:path*",
-    "/system",
     "/system/:path*",
-    "/distributor",
     "/distributor/:path*",
-    "/depo",
     "/depo/:path*",
   ],
 };
+

@@ -18,11 +18,14 @@ export const DialogTrigger = DialogPrimitive.Trigger;
 export function DialogContent({
   children,
   className,
+  bodyClassName,
   overlayClassName,
   hideOverlay,
   ...props
 }: DialogPrimitive.DialogContentProps & {
   className?: string;
+  /** Class untuk wrapper isi (default `p-6`); set `p-0` bila isi menata padding sendiri. */
+  bodyClassName?: string;
   /** Naikkan z-index bila dialog dibuka dari layer tinggi (mis. drawer z-[5000]). */
   overlayClassName?: string;
   /** Sembunyikan backdrop hitam di belakang modal. */
@@ -57,7 +60,11 @@ export function DialogContent({
           }
         }}
       >
-        <div className="relative h-full w-full p-6">{children}</div>
+        <div
+          className={cn("relative h-full w-full p-6", bodyClassName)}
+        >
+          {children}
+        </div>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );

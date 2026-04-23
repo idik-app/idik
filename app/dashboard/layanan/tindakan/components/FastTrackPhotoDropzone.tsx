@@ -23,7 +23,7 @@ type Props = {
   canEdit: boolean;
   onSaved?: () => void;
   appearance?: "default" | "table";
-  /** Panel abu lembut di drawer (kontras rendah, teks terang). */
+  /** Panel abu lembut di drawer — teks gelap di atas latar terang. */
   drawerMuted?: boolean;
 };
 
@@ -368,7 +368,7 @@ export default function FastTrackPhotoDropzone({
               className={cn(
                 isTable ? "h-4 w-4" : "h-8 w-8",
                 drawerMuted && !isTable
-                  ? "text-white"
+                  ? "text-[#2C3E50]"
                   : "text-cyan-600/80 dark:text-white",
               )}
               aria-hidden
@@ -390,7 +390,7 @@ export default function FastTrackPhotoDropzone({
                 <p
                   className={cn(
                     "text-[10px] font-medium",
-                    drawerMuted ? "text-white/85" : "text-slate-500 dark:text-white/90",
+                    drawerMuted ? "text-[#4A5568]" : "text-slate-500 dark:text-white/90",
                   )}
                 >
                   Otomatis dikompresi maks. 500 KB (JPEG) · seret JPG/PNG/WEBP/GIF

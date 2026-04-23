@@ -16,41 +16,8 @@ export default function DatabaseConsole() {
   const [error, setError] = useState("");
 
   async function runQuery() {
-    if (!sql.trim()) return;
-
-    setLoading(true);
-    setError("");
+    setError("SECURITY ALERT: Akses SQL langsung telah dinonaktifkan demi keamanan data. Gunakan SQL Editor di Dashboard Supabase jika diperlukan.");
     setResult(null);
-
-    // TODO: Ganti ini dengan data user yang SESUNGGUHNYA dari session/auth hook Anda
-    const user = {
-      id: "system-test",
-      name: "Cathlab Admin",
-      role: "admin", // Kritis: Harus 'admin' agar API Route mengizinkan eksekusi
-    };
-
-    try {
-      const res = await fetch("/api/database/query", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sql, user }),
-      });
-
-      const data = await res.json();
-
-      // Jika API Route mengembalikan ok: false atau status HTTP non-200
-      if (!data.ok || !res.ok) {
-        throw new Error(data.message || "Gagal menjalankan query.");
-      }
-
-      // Data yang dikembalikan adalah array of objects (SELECT) atau JSON status (DML)
-      setResult(data.data);
-    } catch (err: any) {
-      // Menangkap error dari API Route (error SQL atau error keamanan)
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
   }
 
   // Fungsi untuk menentukan apakah hasil adalah data tabel atau status DML

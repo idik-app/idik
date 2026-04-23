@@ -11,7 +11,7 @@ import { setCathlabStokToTarget } from "@/lib/stokCathlabDelta";
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const idAuth = await getDistributorIdentity();
   if (!idAuth.ok)
@@ -30,7 +30,8 @@ export async function PATCH(
     );
   }
 
-  const mappingId = String(params.id);
+  const { id: paramId } = await params;
+  const mappingId = String(paramId);
   if (!mappingId)
     return NextResponse.json(
       { ok: false, message: "Invalid id" },
@@ -230,7 +231,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const via = new URL(req.url).searchParams.get("via");
   const idAuth = await getDistributorIdentity();
@@ -250,7 +251,8 @@ export async function DELETE(
     );
   }
 
-  const mappingId = String(params.id);
+  const { id: paramId } = await params;
+  const mappingId = String(paramId);
   if (!mappingId)
     return NextResponse.json(
       { ok: false, message: "Invalid id" },

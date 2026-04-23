@@ -20,9 +20,8 @@ export const dynamic = "force-dynamic";
 const POSTGREST_SAFE_CHUNK = 1000;
 
 const PROJECTIONS_LIST = [
-  "id, tanggal, dokter, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, ruangan, pasien_id, created_at, inserted_at, updated_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan",
-  "id, tanggal, dokter, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan",
-  "*",
+  "id, tanggal, dokter, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, ruangan, pasien_id, created_at, inserted_at, updated_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan",
+  "id, tanggal, dokter, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan",
 ];
 
 async function fetchTableOrderedInChunks(
@@ -130,14 +129,22 @@ export async function GET(request: Request) {
     const dateFrom = searchParams.get("from")?.trim();
     const dateTo = searchParams.get("to")?.trim();
     const search = searchParams.get("search")?.trim();
+    /** Satu baris tindakan tepat (sinkron URL `?tindakanId=` dengan header). */
+    const tindakanIdEq = searchParams.get("tindakanId")?.trim();
 
     const { requireRole } = await import("@/lib/auth/guards");
-    const auth = await requireRole(["perawat", "admin", "administrator", "superadmin"]);
+    const auth = await requireRole([
+      "perawat",
+      "dokter",
+      "admin",
+      "administrator",
+      "superadmin",
+    ]);
     if (!auth.ok) return auth.response;
 
     const projections = workingProjectionCache 
-      ? [workingProjectionCache, ...PROJECTIONS_LIST.filter(p => p !== workingProjectionCache)]
-      : PROJECTIONS_LIST;
+      ? [workingProjectionCache, ...PROJECTIONS_LIST.filter(p => p !== workingProjectionCache), "*"]
+      : [...PROJECTIONS_LIST, "*"];
 
     let data: Record<string, unknown>[] | null = null;
     let lastError: { message?: string } | null = null;
@@ -149,6 +156,17 @@ export async function GET(request: Request) {
 
     const tarifMap = await fetchMasterTarifLookupMap(supabase);
 
+    // List kolom aman untuk mencegah kebocoran data sensitif (PII) dari tabel tindakan
+    const SAFE_TINDAKAN_COLUMNS = new Set([
+      "id", "tanggal", "dokter", "operator", "nama_pasien", "nama", "no_rm", "no_rekam_medis", 
+      "tindakan", "jenis", "alkes_utama", "kategori", "status", "ruangan", "pasien_id", 
+      "created_at", "inserted_at", "updated_at", "is_fast_track", "pasien_datang_igd", 
+      "door_to_balloon", "total_waktu_fast_track", "pci_report_link", "pemakaian", 
+      "kelas_pembiayaan", "asmed", "resume_erm", "sjp", "berkas_laporan", 
+      "consumable_kelengkapan", "billing_simrs", "pj_laporan", "operan_ranap", 
+      "rs_perujuk", "keterangan", "tarif_tindakan", "umur", "jenis_kelamin"
+    ]);
+
     for (const projection of projections) {
       const getBaseQuery = () => {
         let q = supabase
@@ -157,6 +175,7 @@ export async function GET(request: Request) {
           .order("tanggal", { ascending: false, nullsFirst: false })
           .order("id", { ascending: false });
 
+        if (tindakanIdEq) q = q.eq("id", tindakanIdEq);
         if (dateFrom) q = q.gte("tanggal", dateFrom);
         if (dateTo) q = q.lte("tanggal", dateTo);
         if (search) {
@@ -200,30 +219,38 @@ export async function GET(request: Request) {
 
         // High-performance mapping for 10k+ rows
         data = allRawRows.slice(0, limit).map((row) => {
+          // Filter hanya kolom aman
+          const filteredRow: Record<string, any> = {};
+          for (const key in row) {
+            if (SAFE_TINDAKAN_COLUMNS.has(key)) {
+              filteredRow[key] = row[key];
+            }
+          }
+
           // Inline some logic to avoid function call overhead in hot loop
-          const rawNoRm = row.no_rm || row.rm || row.no_rekam_medis || row.nomor_rm || row.no_rm_pasien;
+          const rawNoRm = filteredRow.no_rm || filteredRow.rm || filteredRow.no_rekam_medis || filteredRow.nomor_rm || filteredRow.no_rm_pasien;
           const noRm = typeof rawNoRm === 'string' ? rawNoRm.trim() || null : (rawNoRm ? String(rawNoRm) : null);
           
-          const rawNama = row.nama_pasien || row.nama;
+          const rawNama = filteredRow.nama_pasien || filteredRow.nama;
           const nama_pasien = typeof rawNama === 'string' ? rawNama.trim() || null : (rawNama ? String(rawNama) : null);
           
           const withApiFields = {
-            ...row,
+            ...filteredRow,
             nama_pasien,
             no_rm: noRm,
-            ruangan: row.ruangan || null,
-            created_at: row.created_at || row.inserted_at || row.updated_at || null,
-            umur: row.umur || null,
-            tgl_lahir: row.tgl_lahir || null,
+            ruangan: filteredRow.ruangan || null,
+            created_at: filteredRow.created_at || filteredRow.inserted_at || filteredRow.updated_at || null,
+            umur: filteredRow.umur || null,
+            tgl_lahir: filteredRow.tgl_lahir || null,
           };
           
           // Inline enrich logic for speed
-          const dbTarif = row.tarif_tindakan;
+          const dbTarif = filteredRow.tarif_tindakan;
           if (dbTarif !== null && dbTarif !== undefined && dbTarif !== "" && Number.isFinite(Number(dbTarif))) {
             return withApiFields;
           }
           
-          const tindakan = row.tindakan ?? row.jenis;
+          const tindakan = filteredRow.tindakan ?? filteredRow.jenis;
           if (tindakan && tarifMap.size > 0) {
             const k = String(tindakan).trim().replace(/\s+/g, " ").toUpperCase();
             const hit = tarifMap.get(k);

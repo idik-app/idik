@@ -55,12 +55,23 @@ export default function TindakanDashboardModal({
     deleteEntry, 
     addEntry, 
     togglePin, 
-    isLoaded 
+    isLoaded,
+    loadError,
+    flushPendingSaves,
   } = usePhoneDirectory();
 
   const [search, setSearch] = useState("");
   const [selectedFloor, setSelectedFloor] = useState<string>("Semua");
   const [isEditMode, setIsEditMode] = useState(false);
+
+  const floorChoices = useMemo(() => {
+    const set = new Set<string>();
+    data.forEach((item) => {
+      if (item.floor) set.add(item.floor);
+    });
+    for (let i = 1; i <= 7; i += 1) set.add(`LT ${i}`);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "id"));
+  }, [data]);
 
   const floors = useMemo<string[]>(() => {
     if (!data) return ["Semua"];
@@ -112,72 +123,104 @@ export default function TindakanDashboardModal({
     );
   };
 
-  if (!isLoaded) return null;
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={async (next) => {
+        if (!next && isEditMode) {
+          try {
+            await flushPendingSaves();
+          } catch {
+            // flushPendingSaves already sets loadError
+          }
+          setIsEditMode(false);
+        }
+        onOpenChange(next);
+      }}
+    >
       <DialogContent
         overlayClassName={UI_LAYERS.dialogOverlayTop}
+        bodyClassName="flex h-full min-h-0 flex-col overflow-hidden p-0"
         className={cn(
-          "max-h-[85vh] w-[min(100vw-1rem,750px)] overflow-hidden border p-0",
+          "flex h-[min(92dvh,56rem)] max-h-[92dvh] w-[calc(100vw-0.75rem)] max-w-[min(100vw-0.75rem,60rem)] flex-col overflow-hidden border p-0 sm:w-[min(100vw-1rem,60rem)]",
           "border-slate-300/60 bg-white/98 backdrop-blur-xl dark:border-cyan-500/35 dark:bg-slate-950/95",
           UI_LAYERS.dialogContentTop
         )}
       >
-        <div className="flex flex-col h-full max-h-[85vh]">
-          <DialogHeader className="shrink-0 p-3 pb-1.5 sm:p-4 sm:pb-2 space-y-1 pr-12 text-left">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2.5">
-                <div className={cn(
-                  "p-2 rounded-xl",
-                  themeTone === "emerald" 
-                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                    : "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400"
-                )}>
-                  <Phone className="h-5 w-5" />
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden max-h-full">
+          <DialogHeader className="mb-0 shrink-0 space-y-2 p-2.5 pb-1.5 pl-2.5 pr-10 text-left sm:p-3 sm:pr-12">
+            <div className="flex flex-col gap-2.5 min-[400px]:flex-row min-[400px]:items-start min-[400px]:justify-between">
+              <div className="flex min-w-0 items-start gap-2 sm:gap-2.5">
+                <div
+                  className={cn(
+                    "shrink-0 rounded-xl p-1.5 sm:p-2",
+                    themeTone === "emerald"
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                      : "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400"
+                  )}
+                >
+                  <Phone className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
-                <div>
-                  <DialogTitle className="text-xl font-bold dark:text-white">
+                <div className="min-w-0 pr-0">
+                  <DialogTitle className="text-base font-bold leading-tight sm:text-lg dark:text-white">
                     Direktori Telepon Internal
                   </DialogTitle>
-                  <DialogDescription className="text-xs dark:text-white/80">
+                  <DialogDescription className="text-[11px] leading-snug dark:text-white/80 sm:text-xs">
                     Daftar ekstensi unit RSUD dr. Mohamad Soewandhie
                   </DialogDescription>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2 min-[400px]:max-w-[min(100%,20rem)]">
                 <button
-                  onClick={() => setIsEditMode(!isEditMode)}
+                  type="button"
+                  onClick={async () => {
+                    if (isEditMode) {
+                      try {
+                        await flushPendingSaves();
+                      } catch {
+                        // loadError
+                      }
+                    }
+                    setIsEditMode((v) => !v);
+                  }}
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
-                    isEditMode 
-                      ? "bg-amber-100 border-amber-300 text-amber-700 dark:bg-amber-900/30 dark:border-amber-700 dark:text-amber-300"
-                      : "bg-slate-100 border-slate-200 text-slate-600 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300"
+                    "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition-all sm:px-3 sm:text-xs",
+                    isEditMode
+                      ? "border-amber-300 bg-amber-100 text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                      : "border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
                   )}
                 >
                   {isEditMode ? (
                     <>
-                      <Check className="h-3.5 w-3.5" />
+                      <Check className="h-3.5 w-3.5 shrink-0" />
                       Selesai Edit
                     </>
                   ) : (
                     <>
-                      <Edit2 className="h-3.5 w-3.5" />
+                      <Edit2 className="h-3.5 w-3.5 shrink-0" />
                       Edit Data
                     </>
                   )}
                 </button>
                 {isEditMode && (
                   <button
-                    onClick={() => addEntry({ unit: "Unit Baru", ext: "-", location: "-", floor: "LT 1" })}
+                    type="button"
+                    onClick={() => {
+                      void addEntry({
+                        unit: "Unit Baru",
+                        ext: "-",
+                        location: "-",
+                        floor: "LT 1",
+                      });
+                    }}
                     className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border",
+                      "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-[11px] font-bold sm:px-3 sm:text-xs",
                       themeTone === "emerald"
-                        ? "bg-emerald-600 border-emerald-600 text-white"
-                        : "bg-cyan-600 border-cyan-600 text-white"
+                        ? "border-emerald-600 bg-emerald-600 text-white"
+                        : "border-cyan-600 bg-cyan-600 text-white"
                     )}
                   >
-                    <Plus className="h-3.5 w-3.5" />
+                    <Plus className="h-3.5 w-3.5 shrink-0" />
                     Tambah
                   </button>
                 )}
@@ -185,7 +228,16 @@ export default function TindakanDashboardModal({
             </div>
           </DialogHeader>
 
-          <div className="px-4 sm:px-6 pb-4 space-y-4">
+          {loadError ? (
+            <div
+              className="mx-2 mb-0.5 rounded-lg border border-amber-200/80 bg-amber-50/90 px-2.5 py-1.5 text-[11px] text-amber-900 dark:border-amber-800/50 dark:bg-amber-950/40 dark:text-amber-200 sm:mx-3 sm:px-3 sm:text-xs"
+              role="status"
+            >
+              {loadError}
+            </div>
+          ) : null}
+
+          <div className="shrink-0 space-y-3 px-2.5 pb-2.5 sm:px-3 sm:pb-3 md:px-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
@@ -199,16 +251,17 @@ export default function TindakanDashboardModal({
               />
             </div>
 
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1">
               {floors.map((floor) => (
                 <button
+                  type="button"
                   key={floor}
                   onClick={() => {
                     setSelectedFloor(floor);
                     setCurrentPage(1);
                   }}
                   className={cn(
-                    "px-3 py-1 text-[11px] font-bold rounded-full transition-all border",
+                    "rounded-full border px-2 py-0.5 text-[10px] font-bold transition-all sm:px-2.5 sm:py-1 sm:text-[11px]",
                     selectedFloor === floor
                       ? (themeTone === "emerald" 
                           ? "bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-900/20"
@@ -222,35 +275,50 @@ export default function TindakanDashboardModal({
             </div>
           </div>
 
-          <ScrollArea className="flex-1 px-4 sm:px-6">
-            <div className="rounded-xl border border-slate-200/60 dark:border-cyan-900/30 overflow-hidden bg-white/50 dark:bg-black/20">
-              <Table>
+          <ScrollArea className="h-0 min-h-0 flex-1 px-2.5 sm:px-3 md:px-4">
+            {!isLoaded ? (
+              <p className="py-10 text-center text-sm text-slate-500 dark:text-white/85">
+                Memuat data direktori…
+              </p>
+            ) : (
+            <div className="overflow-x-auto rounded-xl border border-slate-200/60 bg-white/50 dark:border-cyan-900/30 dark:bg-black/20">
+              <Table className="w-full min-w-[28rem] table-fixed sm:min-w-0 sm:table-auto text-sm">
                 <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
-                  <TableRow className="hover:bg-transparent border-slate-200/60 dark:border-cyan-900/30">
-                    <TableHead className="w-[10%] text-center px-2">
-                       <Star className="h-3.5 w-3.5 mx-auto opacity-70" />
+                  <TableRow className="border-slate-200/60 hover:bg-transparent dark:border-cyan-900/30">
+                    <TableHead className="w-9 text-center sm:w-10 px-1.5 sm:px-2">
+                       <Star className="mx-auto h-3.5 w-3.5 opacity-70" />
                     </TableHead>
-                    <TableHead className="w-[35%] font-bold text-slate-700 dark:text-slate-200">
-                      <div className="flex items-center gap-1.5">
-                        <Building2 className="h-3.5 w-3.5 opacity-70" />
-                        Unit / Ruangan
+                    <TableHead className="w-[32%] min-w-[6rem] font-bold text-slate-700 dark:text-slate-200 sm:w-auto">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Building2 className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                        <span className="min-w-0 break-words">Unit / Ruangan</span>
                       </div>
                     </TableHead>
-                    <TableHead className="w-[15%] font-bold text-slate-700 dark:text-slate-200">
-                      <div className="flex items-center gap-1.5 text-center justify-center">
-                        <Hash className="h-3.5 w-3.5 opacity-70" />
+                    <TableHead className="w-20 px-1 font-bold text-slate-700 dark:text-slate-200 sm:w-24">
+                      <div className="flex items-center justify-center gap-1.5 text-center">
+                        <Hash className="h-3.5 w-3.5 shrink-0 opacity-70" />
                         Ext
                       </div>
                     </TableHead>
-                    <TableHead className="w-[30%] font-bold text-slate-700 dark:text-slate-200">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="h-3.5 w-3.5 opacity-70" />
-                        Lokasi
+                    {isEditMode && (
+                      <TableHead className="w-[4.5rem] px-1 text-[9px] font-bold uppercase leading-tight tracking-wide text-slate-700 dark:text-white sm:text-[10px] sm:w-24">
+                        Lantai
+                      </TableHead>
+                    )}
+                    <TableHead
+                      className={cn(
+                        "min-w-0 font-bold text-slate-700 dark:text-slate-200",
+                        isEditMode ? "w-[28%] sm:w-[30%]" : "w-[36%] sm:w-[38%]",
+                      )}
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <MapPin className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                        <span className="min-w-0 break-words">Lokasi</span>
                       </div>
                     </TableHead>
                     {isEditMode && (
-                      <TableHead className="w-[10%] text-center px-2">
-                        <X className="h-3.5 w-3.5 mx-auto opacity-70" />
+                      <TableHead className="w-8 text-center sm:w-10 px-0.5 sm:px-2">
+                        <X className="mx-auto h-3.5 w-3.5 opacity-70" />
                       </TableHead>
                     )}
                   </TableRow>
@@ -262,9 +330,12 @@ export default function TindakanDashboardModal({
                         key={item.id}
                         className="border-slate-100 dark:border-cyan-900/20 hover:bg-slate-50/50 dark:hover:bg-cyan-950/20 transition-colors"
                       >
-                        <TableCell className="text-center py-3 px-2">
+                        <TableCell className="px-1.5 py-2 text-center align-top sm:px-2 sm:py-3">
                           <button
-                            onClick={() => togglePin(item.id)}
+                            type="button"
+                            onClick={() => {
+                              void togglePin(item.id);
+                            }}
                             className={cn(
                               "transition-all hover:scale-110",
                               item.isPinned 
@@ -276,20 +347,20 @@ export default function TindakanDashboardModal({
                             <Star className="h-4 w-4" />
                           </button>
                         </TableCell>
-                        <TableCell className="py-3">
+                        <TableCell className="min-w-0 py-2 align-top sm:py-3">
                           {isEditMode ? (
                             <input
                               value={item.unit}
                               onChange={(e) => updateEntry(item.id, { unit: e.target.value })}
-                              className="w-full bg-transparent border-none focus:ring-1 focus:ring-cyan-500 rounded px-1 font-semibold text-slate-900 dark:text-white"
+                              className="w-full min-w-0 rounded border-none bg-transparent px-0.5 text-left text-sm font-semibold text-slate-900 focus:ring-1 focus:ring-cyan-500 dark:text-white"
                             />
                           ) : (
-                            <span className="font-semibold text-slate-900 dark:text-white">
+                            <span className="break-words text-sm font-semibold leading-snug text-slate-900 dark:text-white">
                               {highlightText(item.unit, search)}
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-center py-3">
+                        <TableCell className="px-1 py-2 text-center align-top sm:py-3">
                           {isEditMode ? (
                             <input
                               value={item.ext}
@@ -300,7 +371,7 @@ export default function TindakanDashboardModal({
                             <Badge 
                               variant="secondary"
                               className={cn(
-                                "font-mono text-sm px-2.5 py-0.5 border shadow-sm",
+                                "inline-block max-w-full break-all font-mono text-xs px-2 py-0.5 border shadow-sm sm:text-sm",
                                 themeTone === "emerald"
                                   ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/50"
                                   : "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800/50"
@@ -310,23 +381,44 @@ export default function TindakanDashboardModal({
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="py-3">
+                        {isEditMode && (
+                          <TableCell className="px-0.5 py-2 align-top sm:py-3">
+                            <select
+                              value={item.floor ?? "LT 1"}
+                              onChange={(e) =>
+                                updateEntry(item.id, { floor: e.target.value })
+                              }
+                              className="w-full min-w-0 max-w-full rounded-md border border-slate-200 bg-white py-1 pl-1 pr-5 text-[10px] font-semibold text-slate-900 focus:ring-1 focus:ring-cyan-500 dark:border-cyan-800/50 dark:bg-slate-900 dark:text-white sm:pr-6 sm:text-xs"
+                              aria-label="Lantai"
+                            >
+                              {floorChoices.map((f) => (
+                                <option key={f} value={f}>
+                                  {f}
+                                </option>
+                              ))}
+                            </select>
+                          </TableCell>
+                        )}
+                        <TableCell className="min-w-0 py-2 align-top sm:py-3">
                           {isEditMode ? (
                             <input
                               value={item.location}
                               onChange={(e) => updateEntry(item.id, { location: e.target.value })}
-                              className="w-full bg-transparent border-none focus:ring-1 focus:ring-cyan-500 rounded px-1 text-slate-600 dark:text-slate-400 text-xs"
+                              className="w-full min-w-0 rounded border-none bg-transparent px-0.5 text-xs text-slate-600 focus:ring-1 focus:ring-cyan-500 dark:text-white dark:placeholder:text-white/90"
                             />
                           ) : (
-                            <span className="text-slate-600 dark:text-slate-400 text-xs">
+                            <span className="break-words text-xs leading-snug text-slate-600 dark:text-slate-400">
                               {highlightText(item.location, search)}
                             </span>
                           )}
                         </TableCell>
                         {isEditMode && (
-                          <TableCell className="text-center py-3 px-2">
+                          <TableCell className="px-0.5 py-2 text-center align-top sm:px-2 sm:py-3">
                             <button
-                              onClick={() => deleteEntry(item.id)}
+                              type="button"
+                              onClick={() => {
+                                void deleteEntry(item.id);
+                              }}
                               className="text-red-500 hover:text-red-600 transition-colors p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20"
                               title="Hapus unit"
                             >
@@ -338,7 +430,10 @@ export default function TindakanDashboardModal({
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={isEditMode ? 5 : 4} className="h-32 text-center text-slate-500 dark:text-slate-400">
+                      <TableCell
+                        colSpan={isEditMode ? 6 : 4}
+                        className="h-32 text-center text-slate-500 dark:text-slate-400"
+                      >
                         Tidak ada data yang ditemukan
                       </TableCell>
                     </TableRow>
@@ -346,34 +441,37 @@ export default function TindakanDashboardModal({
                 </TableBody>
               </Table>
             </div>
+            )}
           </ScrollArea>
 
           {totalPages > 1 && (
-            <div className="shrink-0 p-4 border-t border-slate-100 dark:border-cyan-900/30 flex items-center justify-between">
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <div className="flex shrink-0 flex-col gap-2 border-t border-slate-100 px-2.5 py-2 dark:border-cyan-900/30 min-[400px]:flex-row min-[400px]:items-center min-[400px]:justify-between sm:px-4 sm:py-2.5">
+              <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 sm:text-xs">
                 Halaman {currentPage} dari {totalPages}
               </span>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5 sm:gap-2">
                 <button
+                  type="button"
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-cyan-800/50 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-cyan-950/30 transition-colors dark:text-white"
+                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-bold transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-cyan-800/50 dark:hover:bg-cyan-950/30 dark:text-white sm:px-3 sm:py-1.5 sm:text-xs"
                 >
                   Sebelumnya
                 </button>
                 <button
+                  type="button"
                   disabled={currentPage === totalPages}
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  className="px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-200 dark:border-cyan-800/50 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-cyan-950/30 transition-colors dark:text-white"
+                  className="rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-bold transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-cyan-800/50 dark:hover:bg-cyan-950/30 dark:text-white sm:px-3 sm:py-1.5 sm:text-xs"
                 >
                   Selanjutnya
                 </button>
               </div>
             </div>
           )}
-          <div className="p-4 bg-slate-50/50 dark:bg-slate-900/30 shrink-0">
-             <p className="text-[10px] text-center text-slate-400 dark:text-slate-500 font-medium uppercase tracking-wider">
-               Internal Directory RSUD dr. Mohamad Soewandhie • Auto-saved
+          <div className="shrink-0 bg-slate-50/50 px-2.5 py-2.5 dark:bg-slate-900/30 sm:px-4 sm:py-3">
+             <p className="text-[9px] text-center font-medium uppercase leading-snug tracking-wider text-slate-400 dark:text-slate-500 sm:text-[10px]">
+               Internal Directory RSUD dr. Mohamad Soewandhie • tersimpan ke database
              </p>
           </div>
         </div>

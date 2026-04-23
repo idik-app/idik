@@ -256,6 +256,8 @@ function DistributorBarangPageContent() {
   const [formKonsolidasi, setFormKonsolidasi] = useState<boolean>(false);
   const [userDistributorIsKonsolidasi, setUserDistributorIsKonsolidasi] =
     useState<boolean>(false);
+  /** `user.distributor_id` dari /api/distributor/me — akun distributor (bukan admin_view). */
+  const [sessionDistributorId, setSessionDistributorId] = useState("");
   /** Nama barang master di mode edit (read-only; sumber kebenaran tetap master_barang_id). */
   const [selectedMasterLabel, setSelectedMasterLabel] = useState("");
   const [formNamaMasterBaru, setFormNamaMasterBaru] = useState("");
@@ -436,7 +438,13 @@ function DistributorBarangPageContent() {
         if (!alive) return;
         const isAdmin = j?.mode === "admin_view";
         setAdminView(isAdmin);
-        setUserDistributorIsKonsolidasi(Boolean(j?.is_konsolidasi));
+        setUserDistributorIsKonsolidasi(
+          Boolean(j?.distributor?.is_konsolidasi ?? j?.is_konsolidasi),
+        );
+        const did = j?.user?.distributor_id;
+        setSessionDistributorId(
+          typeof did === "string" && did.trim() ? did.trim() : "",
+        );
 
         if (isAdmin) {
           fetch("/api/distributor/distributors", { cache: "no-store" })
@@ -816,7 +824,9 @@ function DistributorBarangPageContent() {
     }) => {
       setEditing(null);
       setProdukModalError(null);
-      setFormDistributorId(distributorIdParam || "");
+      setFormDistributorId(
+        distributorIdParam || sessionDistributorId || "",
+      );
       setFormKodeDistributor("");
       setFormKategoriAlkes("");
       setFormLot("");
@@ -846,7 +856,13 @@ function DistributorBarangPageContent() {
       setFormKodeMasterBaru("");
       setModalOpen(true);
     },
-    [adminView, distributorIdParam, distributors, userDistributorIsKonsolidasi],
+    [
+      adminView,
+      distributorIdParam,
+      distributors,
+      sessionDistributorId,
+      userDistributorIsKonsolidasi,
+    ],
   );
 
   useEffect(() => {
@@ -875,6 +891,7 @@ function DistributorBarangPageContent() {
     adminView,
     distributorIdParam,
     distributors,
+    sessionDistributorId,
     userDistributorIsKonsolidasi,
   ]);
 
@@ -1128,7 +1145,8 @@ function DistributorBarangPageContent() {
           payload.kode_master_baru = formKodeMasterBaru.trim();
         /** Modul Cathlab distributor: master baru selalu ALKES. */
         payload.jenis_master = "ALKES";
-        const finalDistId = formDistributorId || distributorIdParam;
+        const finalDistId =
+          formDistributorId || distributorIdParam || sessionDistributorId;
         if (!finalDistId) {
           setProdukModalError("Pilih Distributor terlebih dahulu.");
           return;

@@ -76,6 +76,24 @@ export async function GET(
       );
     }
 
+    const isClinicalStaff = ["admin", "administrator", "superadmin", "perawat", "dokter"].includes(user.role);
+    
+    // List kolom aman untuk mencegah kebocoran data sensitif (PII) dari tabel pasien
+    const SAFE_PASIEN_COLUMNS = new Set([
+      "id", "nama", "no_rm", "jenis_kelamin", "jk", "created_at", "updated_at", 
+      "jenis_pembiayaan", "kelas_perawatan", "tgl_lahir", "tanggal_lahir",
+      "asuransi", "dokter", "pci_report_link", "diagnosa", "faktor_risiko", 
+      "severity_level", "hasil_lab_ppm", "temuan_pembuluh", "kesimpulan_laporan", 
+      "plan_medis", "total_kontras", "air_kerma", "dap_dose"
+    ]);
+    
+    if (isClinicalStaff) {
+      SAFE_PASIEN_COLUMNS.add("alamat");
+      SAFE_PASIEN_COLUMNS.add("no_telp");
+      SAFE_PASIEN_COLUMNS.add("no_hp");
+      SAFE_PASIEN_COLUMNS.add("kontak");
+    }
+
     const { data, error } = await supabase
       .from("pasien")
       .select("*")
@@ -96,8 +114,16 @@ export async function GET(
       );
     }
 
+    // Filter kolom secara manual sebelum dipetakan
+    const filteredData: Record<string, any> = {};
+    for (const key in data) {
+      if (SAFE_PASIEN_COLUMNS.has(key)) {
+        filteredData[key] = (data as any)[key];
+      }
+    }
+
     return NextResponse.json(
-      { ok: true, data: mapFromSupabase(data) },
+      { ok: true, data: mapFromSupabase(filteredData) },
       { status: 200 }
     );
   } catch (err: unknown) {

@@ -70,6 +70,8 @@ type Props = {
   field: KlinisFieldKey;
   value: unknown;
   onSaved?: () => void;
+  /** Drawer tab Tindakan: textarea/input abu gelap + teks putih. */
+  controlVariant?: "default" | "drawerCharcoal";
 };
 
 export default function KlinisAutosaveField({
@@ -78,6 +80,7 @@ export default function KlinisAutosaveField({
   field,
   value,
   onSaved,
+  controlVariant = "default",
 }: Props) {
   const [draft, setDraft] = useState(() => draftFromValue(value));
   const [isExtracting, setIsExtracting] = useState(false);
@@ -325,8 +328,13 @@ export default function KlinisAutosaveField({
   const isGoogleDocs = draft.includes("docs.google.com");
 
   const inputClass = cn(
-    "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",
-    "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
+    "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:outline-none",
+    controlVariant === "drawerCharcoal"
+      ? "border-white/12 bg-[#5C6573] text-white placeholder:text-white/55 focus:border-cyan-500/50 focus:ring-2 focus:ring-[#2C3E50]/35"
+      : cn(
+          "focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30",
+          "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
+        ),
   );
 
   const aria =

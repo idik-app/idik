@@ -21,7 +21,7 @@ export default function PhoneShortcutsBar({ themeTone }: { themeTone: "cyan" | "
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
     
-    reorderPins(items);
+    void reorderPins(items).catch(() => null);
   };
 
   if (!isLoaded || pinnedItems.length === 0) return null;
@@ -77,7 +77,10 @@ export default function PhoneShortcutsBar({ themeTone }: { themeTone: "cyan" | "
                       </div>
 
                       <button
-                        onClick={() => togglePin(item.id)}
+                        type="button"
+                        onClick={() => {
+                          void togglePin(item.id);
+                        }}
                         className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full hover:bg-red-100 dark:hover:bg-red-900/40 text-red-500"
                         title="Hapus dari shortcut"
                       >

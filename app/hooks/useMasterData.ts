@@ -81,7 +81,7 @@ export function useMasterTindakanKategori() {
   });
 
   return {
-    kategori: data?.kategori || EMPTY_ARRAY,
+    kategori: data?.items || data?.kategori || EMPTY_ARRAY,
     isLoading,
     isError: error,
     mutate,

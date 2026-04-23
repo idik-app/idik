@@ -24,6 +24,7 @@ import TindakanSummary, {
 import TindakanTable from "./components/TindakanTable";
 import FastTrackListModal from "./components/FastTrackListModal";
 import { UI_LAYERS } from "@/lib/ui/layers";
+import { PhoneDirectoryProvider } from "./contexts/PhoneDirectoryContext";
 
 const TindakanDetailDrawer = dynamic(
   () => import(/* webpackPrefetch: true */ "./components/TindakanDetailDrawer"),
@@ -76,6 +77,7 @@ export default function TindakanDashboard() {
   const summaryLoading = Boolean(adapter.loading) || filteredSummary === null;
 
   return (
+    <PhoneDirectoryProvider>
     <div
       key="tindakan-dashboard"
       className={cn(
@@ -239,5 +241,6 @@ export default function TindakanDashboard() {
         onOpenChange={setRoleAccessOpen}
       />
     </div>
+    </PhoneDirectoryProvider>
   );
 }

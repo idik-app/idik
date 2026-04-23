@@ -11,7 +11,12 @@ type Props = {
   onSaved?: () => void;
   placeholder?: string;
   className?: string;
+  /** Drawer tab Pasien: kotak isian selaras `PasienAutosaveField` (bukan hanya ikon). */
+  variant?: "default" | "drawerPasien";
 };
+
+const DRAWER_INPUT_CLASS =
+  "mt-0.5 w-full min-w-0 rounded-md border border-cyan-900/50 bg-black/40 px-2 py-1.5 text-sm text-white placeholder:text-white/90 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30";
 
 export default function RsPerujukField({
   tindakanId,
@@ -19,6 +24,7 @@ export default function RsPerujukField({
   onSaved,
   placeholder = "Asal RS...",
   className,
+  variant = "default",
 }: Props) {
   const { show } = useNotification();
   const [draft, setDraft] = useState(String(value ?? ""));
@@ -73,7 +79,32 @@ export default function RsPerujukField({
     }
   }, [draft, show, tindakanId, onSaved]);
 
+  const isDrawer = variant === "drawerPasien";
+
   if (!isEditing && !draft) {
+    if (isDrawer) {
+      return (
+        <button
+          type="button"
+          title="Isi RS Perujuk"
+          aria-label="Isi RS Perujuk"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsEditing(true);
+            setTimeout(() => inputRef.current?.focus(), 50);
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          className={cn(
+            DRAWER_INPUT_CLASS,
+            "flex items-center gap-2 text-left font-normal hover:border-cyan-500/40",
+            className,
+          )}
+        >
+          <MapPin className="h-4 w-4 shrink-0 text-white/70" aria-hidden />
+          <span className="truncate text-white/55">{placeholder}</span>
+        </button>
+      );
+    }
     return (
       <button
         type="button"
@@ -87,7 +118,7 @@ export default function RsPerujukField({
         className={cn(
           "flex items-center justify-center rounded-full border border-transparent p-2 transition-all min-h-[2.25rem] min-w-[2.25rem]",
           "hover:bg-cyan-100/50 hover:border-cyan-300/30 text-cyan-700/50 dark:text-white/30 dark:hover:bg-white/5",
-          className
+          className,
         )}
       >
         <MapPin size={14} aria-hidden />
@@ -97,19 +128,29 @@ export default function RsPerujukField({
 
   return (
     <div
-      className="relative group flex w-full min-w-0 items-center gap-1.5"
+      className={cn(
+        "relative group flex w-full min-w-0 items-center gap-1.5",
+        isDrawer && "gap-2",
+      )}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
-      <Building2 
-        size={12} 
-        className={cn(
-          "shrink-0",
-          draft 
-            ? "text-cyan-500 dark:text-cyan-400" 
-            : "text-cyan-700/40 dark:text-white/20"
-        )} 
-      />
+      {isDrawer ? (
+        <MapPin
+          className="mt-0.5 h-4 w-4 shrink-0 text-white/70"
+          aria-hidden
+        />
+      ) : (
+        <Building2
+          size={12}
+          className={cn(
+            "shrink-0",
+            draft
+              ? "text-cyan-500 dark:text-cyan-400"
+              : "text-cyan-700/40 dark:text-white/20",
+          )}
+        />
+      )}
       <input
         ref={inputRef}
         type="text"
@@ -130,11 +171,15 @@ export default function RsPerujukField({
           }
         }}
         className={cn(
-          "w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:outline-none transition-all",
-          "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 focus:ring-1 focus:ring-cyan-500/30",
-          "dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
+          isDrawer
+            ? DRAWER_INPUT_CLASS
+            : cn(
+                "w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:outline-none transition-all",
+                "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 focus:ring-1 focus:ring-cyan-500/30",
+                "dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
+              ),
           saving && "opacity-60 grayscale",
-          className,
+          !isDrawer && className,
         )}
       />
     </div>

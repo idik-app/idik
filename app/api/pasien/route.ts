@@ -155,12 +155,28 @@ export async function GET(request: Request) {
           ? defaultLimit
           : 0;
 
-    const columns = compact
-      ? "id,nama,no_rm,jenis_kelamin,jk,created_at,jenis_pembiayaan,kelas_perawatan,tgl_lahir"
-      : "*";
+    const isClinicalStaff = ["admin", "administrator", "superadmin", "perawat", "dokter"].includes(user.role);
+
+    // List kolom aman untuk mencegah kebocoran data sensitif (PII) dari tabel pasien
+    const SAFE_PASIEN_COLUMNS = new Set([
+      "id", "nama", "no_rm", "jenis_kelamin", "jk", "created_at", "updated_at", 
+      "jenis_pembiayaan", "kelas_perawatan", "tgl_lahir", "tanggal_lahir",
+      "asuransi", "dokter", "pci_report_link", "diagnosa", "faktor_risiko", 
+      "severity_level", "hasil_lab_ppm", "temuan_pembuluh", "kesimpulan_laporan", 
+      "plan_medis", "total_kontras", "air_kerma", "dap_dose"
+    ]);
+    
+    // Tambahkan alamat & kontak jika staf klinis
+    if (isClinicalStaff) {
+      SAFE_PASIEN_COLUMNS.add("alamat");
+      SAFE_PASIEN_COLUMNS.add("no_telp");
+      SAFE_PASIEN_COLUMNS.add("no_hp");
+      SAFE_PASIEN_COLUMNS.add("kontak");
+    }
 
     // Gunakan chunked fetching jika limit > 1000 untuk melewati batas default PostgREST
-    const { data, error } = await fetchTableOrderedInChunks(supabase, columns, limit || 20000);
+    // Gunakan select("*") agar kompatibel dengan berbagai versi schema, lalu filter di JS
+    const { data: rawData, error } = await fetchTableOrderedInChunks(supabase, "*", limit || 20000);
 
     if (error) {
       return NextResponse.json(
@@ -169,13 +185,24 @@ export async function GET(request: Request) {
       );
     }
 
+    // Filter data di tingkat aplikasi (Application-level Security)
+    const filteredData = (rawData ?? []).map((row: any) => {
+      const filteredRow: Record<string, any> = {};
+      for (const key in row) {
+        if (SAFE_PASIEN_COLUMNS.has(key)) {
+          filteredRow[key] = row[key];
+        }
+      }
+      return filteredRow;
+    });
+
     // Update cache jika ini adalah request compact default
     if (compact && !noRm && !namaLookup && !limitRaw) {
-      pasienCompactCache = data ?? [];
+      pasienCompactCache = filteredData;
       pasienCompactCacheExpires = Date.now() + 120 * 1000; // 2 menit
     }
 
-    return NextResponse.json({ ok: true, data: data ?? [] }, { status: 200 });
+    return NextResponse.json({ ok: true, data: filteredData }, { status: 200 });
   } catch (err: unknown) {
     console.error("❌ Gagal mengambil pasien:", err);
     return NextResponse.json(

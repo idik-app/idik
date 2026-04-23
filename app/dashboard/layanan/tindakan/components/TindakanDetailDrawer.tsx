@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import type { Pasien } from "@/app/dashboard/pasien/types/pasien";
+import { formatTanggalLahirFromDb } from "@/app/dashboard/pasien/data/pasienSchema";
 import { formatKelasPerawatanDisplay } from "@/app/dashboard/pasien/utils/formatKelasPerawatan";
 import { hitungUsia } from "@/app/dashboard/pasien/utils/formatUsia";
 
@@ -47,6 +48,7 @@ import KlinisAutosaveField, {
 import BiayaAutosaveField, {
   type BiayaAutosaveFieldKey,
 } from "./BiayaAutosaveField";
+import KelasPembiayaanBiayaField from "./KelasPembiayaanBiayaField";
 import FastTrackBlock from "./FastTrackBlock";
 import PasienAutosaveField, {
   isPasienDrawerAutosaveKey,
@@ -55,6 +57,7 @@ import PasienAutosaveField, {
 import RsPerujukField from "./RsPerujukField";
 import RuanganTindakanField from "./RuanganTindakanField";
 import SignTimeFields from "./SignTimeFields";
+import TindakanTanggalDrawerField from "./TindakanTanggalDrawerField";
 import { buildResumeWhatsAppText } from "../lib/buildResumeWhatsAppText";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -126,8 +129,8 @@ const BIAYA_AUTOSAVE_KEYS = new Set([
 ]);
 
 /**
- * Kolom biaya selain Perolehan BPJS (`total`): autosave hanya saat kosong;
- * setelah terisi → read-only terformat. Perolehan BPJS selalu input (casemix / perawat).
+ * Kolom biaya: `total` selalu input; krs/consumable/pemakaian autosave hanya saat kosong;
+ * `kelas_pembiayaan` memakai dua dropdown (selaras form Tambah Pasien).
  */
 function isBiayaWireframeEmpty(key: string, val: unknown): boolean {
   if (val === null || val === undefined || val === "") return true;
@@ -136,6 +139,20 @@ function isBiayaWireframeEmpty(key: string, val: unknown): boolean {
     return !Number.isFinite(n);
   }
   return String(val).trim() === "";
+}
+
+/** Tab Biaya (≥sm): kiri = nominal, kanan = kelas pembiayaan + pemakaian (teks). */
+function biayaDrawerCardGridClass(key: string): string {
+  return cn(
+    key === "tarif_tindakan" && "sm:col-start-1 sm:row-start-1",
+    key === "total" && "sm:col-start-2 sm:row-start-1",
+    key === "kelas_pembiayaan" && "sm:col-start-3 sm:row-start-1",
+    key === "krs" && "sm:col-start-1 sm:row-start-2",
+    key === "selisih" && "sm:col-start-2 sm:row-start-2",
+    key === "consumable" && "sm:col-start-1 sm:row-start-3 sm:col-span-2",
+    key === "pemakaian" &&
+      "sm:col-start-3 sm:row-start-2 sm:row-span-2 min-h-[12rem]",
+  );
 }
 
 function isBlank(v: unknown): boolean {
@@ -231,13 +248,18 @@ function mergePasienMasterIntoRow(
     ? (pasien.jenisKelamin ?? null)
     : String(rawJk).trim() || null;
 
-  let umur = row.umur;
-  if (umur === null || umur === undefined) {
-    const dobStr =
-      typeof tgl_lahir === "string" && tgl_lahir.trim()
-        ? tgl_lahir.trim()
-        : (pasien.tanggalLahir?.trim() ?? "");
-    if (dobStr) umur = hitungUsia(dobStr).angka;
+  const dobStr =
+    typeof tgl_lahir === "string" && tgl_lahir.trim()
+      ? tgl_lahir.trim()
+      : (pasien.tanggalLahir?.trim() ?? "");
+  const isoDob = formatTanggalLahirFromDb(dobStr);
+  let umur: number | null = null;
+  if (row.umur !== null && row.umur !== undefined) {
+    const n = Number(row.umur);
+    if (Number.isFinite(n)) umur = n;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(isoDob)) {
+    umur = hitungUsia(isoDob).angka;
   }
 
   /** Tab Biaya — "Kelas pembiayaan": jenis + kelas (mis. NPBI - 1, BPJS - 3); selaras laporan cara bayar. */
@@ -350,11 +372,11 @@ function DrawerSidebarTabButton({
       title={t.label}
       onClick={onClick}
       className={cn(
-        "group relative flex w-full cursor-pointer select-text items-start gap-2 rounded-xl px-2.5 py-2.5 text-left text-[11px] font-bold uppercase tracking-wide transition-all duration-200 sm:text-xs focus-visible:outline-none focus-visible:ring-2",
-        "focus-visible:ring-[#005EB8]/35",
+        "group relative flex w-full cursor-pointer select-text items-start gap-2 rounded-xl px-2.5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.12em] transition-all duration-200 sm:text-xs focus-visible:outline-none focus-visible:ring-2",
+        "focus-visible:ring-slate-400/35",
         isActive
-          ? "border border-[#005EB8]/35 bg-[#005EB8]/10 text-[#005EB8] shadow-sm"
-          : "border border-transparent text-[#4A5568] hover:border-[#E8EDF2] hover:bg-white hover:text-[#2D3748]",
+          ? "border border-slate-300 bg-white text-slate-900 shadow-[0_1px_4px_rgba(15,23,42,0.07)]"
+          : "border border-transparent text-slate-600 hover:border-slate-300 hover:bg-[#DDE6F2] hover:text-slate-900",
       )}
     >
       {Icon ? (
@@ -363,8 +385,8 @@ function DrawerSidebarTabButton({
           className={cn(
             "mt-0.5 shrink-0 transition-colors duration-200",
             isActive
-              ? "text-[#005EB8]"
-              : "text-[#4A5568] group-hover:text-[#005EB8]/90",
+              ? "text-indigo-700"
+              : "text-slate-500 group-hover:text-slate-700",
           )}
         />
       ) : null}
@@ -374,8 +396,8 @@ function DrawerSidebarTabButton({
       </span>
       {hasData && !isActive ? (
         <span className="absolute right-1.5 top-2 flex h-1.5 w-1.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#005EB8] opacity-40" />
-          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#005EB8]" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-500/35" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-indigo-500" />
         </span>
       ) : null}
     </button>
@@ -567,12 +589,14 @@ function TindakanDetailDrawer({
     const tinStr = String(displayRecord.tindakan ?? "").trim();
 
     return (
-      <div className="flex min-w-0 flex-1 cursor-default select-none items-center gap-2 overflow-hidden whitespace-nowrap">
-        <div className="flex select-none items-center gap-2 overflow-hidden whitespace-nowrap">
-          <span className="text-[#4A5568]">{hariTanggal}</span>
-          <span className="font-black text-[#005EB8]">{rmStr || "—"}</span>
-          <span className="font-bold text-[#2D3748]">{namaStr}</span>
-          <span className="font-semibold text-[#005EB8]">{tinStr || "—"}</span>
+      <div className="flex min-w-0 flex-1 cursor-default select-text items-center gap-2 overflow-hidden whitespace-nowrap">
+        <div className="flex select-text items-center gap-2 overflow-hidden whitespace-nowrap">
+          <span className="text-slate-300">{hariTanggal}</span>
+          <span className="font-black tabular-nums text-amber-100">
+            {rmStr || "—"}
+          </span>
+          <span className="font-bold text-white">{namaStr}</span>
+          <span className="font-medium text-slate-200">{tinStr || "—"}</span>
         </div>
         {displayRecord && (
           <button
@@ -593,8 +617,8 @@ function TindakanDetailDrawer({
               }
             }}
             className={cn(
-              "flex h-5 w-5 shrink-0 cursor-pointer select-none items-center justify-center rounded-lg border border-[#005EB8]/40 bg-white text-[#005EB8] transition-all duration-300 hover:bg-[#E8EDF2]",
-              titleCopied && "border-emerald-600/40 bg-emerald-50 text-emerald-700",
+              "flex h-5 w-5 shrink-0 cursor-pointer select-none items-center justify-center rounded-lg border border-white/25 bg-white/10 text-slate-200 transition-all duration-300 hover:border-white/40 hover:bg-white/20 hover:text-white",
+              titleCopied && "border-emerald-400/50 bg-emerald-950/60 text-emerald-300",
             )}
           >
             {titleCopied ? <Check size={10} /> : <Copy size={10} />}
@@ -636,7 +660,7 @@ function TindakanDetailDrawer({
             aria-labelledby="tindakan-detail-modal-title"
             className={cn(
               "pointer-events-auto flex h-[85vh] max-h-[85vh] min-w-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl border antialiased [text-rendering:optimizeLegibility]",
-              "border-[#E8EDF2] bg-[#F0F4F8] shadow-[0_24px_48px_rgba(45,55,72,0.12)]",
+              "border-slate-200/90 bg-slate-50/90 shadow-[0_24px_56px_rgba(15,23,42,0.09),0_0_1px_rgba(15,23,42,0.04)]",
               "font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
             )}
             onClick={(e) => e.stopPropagation()}
@@ -644,7 +668,7 @@ function TindakanDetailDrawer({
             <div
               className={cn(
                 "shrink-0 border-b px-3 py-2.5 sm:px-4",
-                "border-[#E8EDF2] bg-white",
+                "border-white/10 bg-gradient-to-r from-[#1B2B44] to-[#2D4A6E] shadow-[0_1px_0_rgba(255,255,255,0.08)_inset]",
               )}
             >
               <div className="flex items-center justify-between gap-2">
@@ -653,7 +677,7 @@ function TindakanDetailDrawer({
                     type="button"
                     className={cn(
                       "shrink-0 rounded-lg border p-1.5 transition-all sm:hidden",
-                      "border-[#E8EDF2] bg-white text-[#005EB8] hover:bg-[#F0F4F8]",
+                      "border-white/20 bg-white/10 text-slate-100 hover:border-white/35 hover:bg-white/20 hover:text-white",
                     )}
                     aria-expanded={mobileTabMenuOpen}
                     aria-controls="tindakan-drawer-tabnav"
@@ -672,7 +696,7 @@ function TindakanDetailDrawer({
                   </button>
                   <div
                     id="tindakan-detail-modal-title"
-                    className="flex min-w-0 flex-1 cursor-default select-none items-center gap-2 overflow-hidden text-[13px] font-bold leading-snug text-[#2D3748] sm:text-sm"
+                    className="flex min-w-0 flex-1 cursor-default select-text items-center gap-2 overflow-hidden text-[13px] font-bold leading-snug text-white sm:text-sm"
                   >
                     {title}
                   </div>
@@ -682,7 +706,7 @@ function TindakanDetailDrawer({
                   onClick={onClose}
                   className={cn(
                     "shrink-0 rounded-lg border p-1.5 transition-all duration-300",
-                    "border-[#E8EDF2] bg-white text-[#4A5568] hover:border-[#005EB8]/30 hover:text-[#005EB8]",
+                    "border-white/20 bg-white/10 text-slate-200 hover:border-white/35 hover:bg-white/20 hover:text-white",
                   )}
                 >
                   <X size={17} />
@@ -703,7 +727,7 @@ function TindakanDetailDrawer({
                 id="tindakan-drawer-tabnav"
                 className={cn(
                   "relative z-10 flex shrink-0 flex-col gap-1 overflow-y-auto border-r py-3 pl-2 pr-1.5 sm:w-[15rem] sm:pl-3 sm:pr-2",
-                  "border-[#E8EDF2] bg-white scrollbar-thin scrollbar-thumb-[#CBD5E0]",
+                  "border-slate-300 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] scrollbar-thin scrollbar-thumb-slate-400",
                   "max-sm:absolute max-sm:inset-y-0 max-sm:left-0 max-sm:z-20 max-sm:w-52 max-sm:shadow-[4px_0_32px_rgba(45,55,72,0.15)]",
                   "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out",
                   !mobileTabMenuOpen &&
@@ -748,7 +772,7 @@ function TindakanDetailDrawer({
               <div
                 className={cn(
                   "clinical-detail-drawer-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-3 py-3 sm:px-5 sm:py-5",
-                  "bg-[#D1D9E5] text-[#2C3E50] scrollbar-thin scrollbar-thumb-[#94A3B8]",
+                  "bg-gradient-to-br from-slate-100 via-[#E6E9EF] to-slate-200 text-slate-700 scrollbar-thin scrollbar-thumb-slate-300/60",
                   "font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
                   "[&_input:not([type='checkbox']):not([type='radio'])]:rounded-xl",
                   "[&_input:not([type='checkbox']):not([type='radio'])]:!border-white/12",
@@ -759,20 +783,23 @@ function TindakanDetailDrawer({
                 )}
               >
               {!displayRecord ? (
-                <p className="text-sm font-semibold text-[#2C3E50]/85">
+                <p className="text-sm font-semibold text-slate-700/90">
                   Tidak ada data baris.
                 </p>
               ) : (
                 <>
                   {/* Tab: History (Resume) */}
                   <div className={cn(tab !== "history" && "hidden")}>
-                    <div className="space-y-4">
-                      {/* ... existing history content ... */}
+                    {/*
+                      Tab Resume: latar panel (gradien slate terang) tetap terang bahkan saat dark mode global.
+                      Pakai permukaan & teks “paper” (slate) saja — hindari dark:text-white di atas kartu terang.
+                    */}
+                    <div className="space-y-4 text-slate-800">
                       <div>
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2C3E50]">
+                        <h3 className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-800">
                           Resume
                         </h3>
-                        <p className="mt-1 text-xs font-medium text-[#2C3E50]/80">
+                        <p className="mt-1 text-xs font-medium leading-relaxed text-slate-600/95">
                           Ringkasan semua bagian ada di versi teks WhatsApp di
                           bawah. Lanjut: metadata sistem dan riwayat tindakan
                           pasien yang sama.
@@ -782,35 +809,44 @@ function TindakanDetailDrawer({
                       {/* Ringkasan Klinis Sesi Ini */}
                       <div
                         className={cn(
-                          "rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none transition-all duration-300",
+                          "rounded-2xl border border-slate-200/70 bg-white/95 p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(15,23,42,0.06)] transition-all duration-300",
+                          "dark:border-slate-300/90 dark:bg-white dark:shadow-[0_1px_3px_rgba(15,23,42,0.08)]",
                         )}
                       >
-                        <h3 className="text-[10px] font-black uppercase tracking-widest text-white">
+                        <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                           Hasil Klinis Sesi Ini
                         </h3>
                         <div className="mt-3 space-y-3">
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <dt className="text-[10px] font-black uppercase tracking-wider text-white/90">
+                              <dt className="text-[10px] font-medium uppercase tracking-[0.1em] text-slate-500/95">
                                 Diagnosa Awal & Severity
                               </dt>
-                              <dd className="mt-1 flex items-center gap-2">
-                                <span className="text-xs font-bold text-white">
+                              <dd className="mt-1 flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-semibold text-slate-900/95">
                                   {displayRecord.diagnosa || "—"}
                                 </span>
                                 {displayRecord.severity_level && (
-                                  <span className="rounded bg-red-900/25 px-1.5 py-0.5 text-[10px] font-black text-red-100 ring-1 ring-red-200/40">
+                                  <span
+                                    className={cn(
+                                      "rounded-lg bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-800 ring-1 ring-rose-200/90",
+                                    )}
+                                  >
                                     Lvl {displayRecord.severity_level}
                                   </span>
                                 )}
                               </dd>
                             </div>
                             <div>
-                              <dt className="text-[10px] font-black uppercase tracking-wider text-white/90">
+                              <dt className="text-[10px] font-medium uppercase tracking-[0.1em] text-slate-500/95">
                                 Kelompok Kasus (Grup)
                               </dt>
                               <dd className="mt-1">
-                                <span className="rounded bg-[#2C3E50]/35 px-1.5 py-0.5 text-[10px] font-black text-white">
+                                <span
+                                  className={cn(
+                                    "inline-flex items-center rounded-lg border border-indigo-200/60 bg-indigo-50/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-950/90",
+                                  )}
+                                >
                                   {displayRecord.kategori || "—"}
                                 </span>
                               </dd>
@@ -818,20 +854,24 @@ function TindakanDetailDrawer({
                           </div>
                           {displayRecord.kesimpulan_laporan && (
                             <div>
-                              <dt className="text-[10px] font-black uppercase tracking-wider text-white/90">
+                              <dt className="text-[10px] font-medium uppercase tracking-[0.1em] text-slate-500/95">
                                 Hasil Akhir (Temuan Medis)
                               </dt>
-                              <dd className="mt-1 border-l-2 border-white/35 pl-3 text-xs font-medium italic leading-relaxed text-white/95">
+                              <dd
+                                className={cn(
+                                  "mt-1 border-l-2 border-indigo-300/60 pl-3 text-xs font-medium italic leading-relaxed text-slate-700/95",
+                                )}
+                              >
                                 {displayRecord.kesimpulan_laporan}
                               </dd>
                             </div>
                           )}
                           {displayRecord.plan_medis && (
                             <div>
-                              <dt className="text-[10px] font-black uppercase tracking-wider text-white/90">
+                              <dt className="text-[10px] font-medium uppercase tracking-[0.1em] text-slate-500/95">
                                 Rencana Lanjutan (Plan)
                               </dt>
-                              <dd className="mt-1 text-xs font-medium leading-relaxed text-white/90">
+                              <dd className="mt-1 text-xs font-medium leading-relaxed text-slate-700/95">
                                 {displayRecord.plan_medis}
                               </dd>
                             </div>
@@ -841,11 +881,12 @@ function TindakanDetailDrawer({
 
                       <div
                         className={cn(
-                          "rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none transition-all duration-300",
+                          "rounded-2xl border border-slate-200/70 bg-white/95 p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(15,23,42,0.06)] transition-all duration-300",
+                          "dark:border-slate-300/90 dark:bg-white dark:shadow-[0_1px_3px_rgba(15,23,42,0.08)]",
                         )}
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-white">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                             Versi teks WhatsApp
                           </p>
                           <button
@@ -867,8 +908,8 @@ function TindakanDetailDrawer({
                             }}
                             disabled={!resumeWhatsAppText}
                             className={cn(
-                              "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-black uppercase tracking-wider transition-all duration-300 disabled:opacity-50",
-                              "border-[#2C3E50] bg-[#2C3E50] text-white hover:bg-[#243342]",
+                              "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.1em] transition-all duration-300 disabled:opacity-50",
+                              "border-slate-700/20 bg-slate-800 text-white shadow-sm hover:bg-slate-900",
                             )}
                           >
                             <Copy size={14} aria-hidden />
@@ -877,7 +918,7 @@ function TindakanDetailDrawer({
                         </div>
                         {waCopied ? (
                           <p
-                            className="mt-2 text-xs font-semibold text-white/85 animate-pulse"
+                            className="mt-2 text-xs font-semibold text-emerald-700"
                             role="status"
                           >
                             Tersalin — tempel di WhatsApp.
@@ -892,7 +933,8 @@ function TindakanDetailDrawer({
                             value={resumeWhatsAppText}
                             rows={8}
                             className={cn(
-                              "mt-1 w-full resize-none rounded-xl border border-white/12 bg-[#5C6573] px-3 py-2.5 font-mono text-[11px] font-medium leading-relaxed text-white/95 outline-none transition-all duration-300 placeholder:text-white/55",
+                              "mt-1 w-full resize-none rounded-xl border border-slate-200/80 bg-slate-50/90 px-3 py-2.5 font-mono text-[11px] font-medium leading-relaxed text-slate-800/95 outline-none transition-all duration-300",
+                              "placeholder:text-slate-400",
                             )}
                           />
                         </label>
@@ -900,10 +942,11 @@ function TindakanDetailDrawer({
 
                       <div
                         className={cn(
-                          "rounded-xl border border-[#9AA8B8]/80 bg-[#B8C5D3] px-4 py-3 shadow-none transition-all duration-300",
+                          "rounded-xl border border-slate-200/70 bg-white/95 px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-8px_rgba(15,23,42,0.05)] transition-all duration-300",
+                          "dark:border-slate-300/90 dark:bg-white",
                         )}
                       >
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/90">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                           Metadata sistem
                         </p>
                         <dl className="mt-3 grid grid-cols-1 gap-4 text-xs sm:grid-cols-3">
@@ -933,10 +976,10 @@ function TindakanDetailDrawer({
                                 : formatFieldValue(key, raw);
                             return (
                               <div key={key}>
-                                <dt className="text-[10px] font-black uppercase tracking-wider text-white/90">
+                                <dt className="text-[10px] font-medium uppercase tracking-[0.1em] text-slate-500/95">
                                   {label}
                                 </dt>
-                                <dd className="mt-1 font-mono font-bold text-white">
+                                <dd className="mt-1 font-mono text-sm font-semibold text-slate-900/95">
                                   {display}
                                 </dd>
                               </div>
@@ -947,10 +990,10 @@ function TindakanDetailDrawer({
 
                       <section className="space-y-3">
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2C3E50]">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-700/95">
                             Riwayat tindakan pasien
                           </p>
-                          <p className="text-[10px] font-bold text-[#2C3E50]">
+                          <p className="text-[10px] font-medium text-slate-600">
                             {displayRecord.no_rm
                               ? `NO. RM: ${String(displayRecord.no_rm).trim()}`
                               : displayRecord.pasien_id
@@ -959,7 +1002,11 @@ function TindakanDetailDrawer({
                           </p>
                         </div>
                         {riwayatPasienRows.length === 0 ? (
-                          <p className="rounded-xl border border-dashed border-[#6B7280] bg-[#B8C5D3]/60 px-4 py-4 text-xs font-medium text-[#2C3E50]">
+                          <p
+                            className={cn(
+                              "rounded-xl border border-dashed border-slate-300 bg-white px-4 py-4 text-xs font-medium text-slate-600",
+                            )}
+                          >
                             Tidak ada baris lain yang cocok dengan RM / ID
                             pasien ini dalam snapshot data saat ini.
                           </p>
@@ -976,14 +1023,14 @@ function TindakanDetailDrawer({
                                 <li
                                   key={rid || `peer-${idx}-${r.tanggal ?? ""}`}
                                   className={cn(
-                                    "rounded-xl border px-4 py-3 text-sm transition-all duration-300",
+                                    "rounded-xl border px-4 py-3 text-sm text-slate-800/95 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all duration-300",
                                     isCurrent
-                                      ? "border-[#2C3E50] bg-[#A8B4C2] shadow-sm"
-                                      : "border-[#9AA8B8] bg-[#C5CEDA] hover:border-[#2C3E50]/35",
+                                      ? "border-indigo-200/80 bg-indigo-50/50 ring-1 ring-indigo-200/40"
+                                      : "border-slate-200/70 bg-white/90 hover:border-slate-300/80",
                                   )}
                                 >
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <span className="font-mono text-xs font-black text-[#2C3E50]">
+                                    <span className="font-mono text-xs font-bold text-slate-800">
                                       {formatFieldValue(
                                         "tanggal_tindakan",
                                         getWireframeFieldValue(
@@ -996,33 +1043,41 @@ function TindakanDetailDrawer({
                                       )}
                                     </span>
                                     {isCurrent ? (
-                                      <span className="rounded border border-[#2C3E50] bg-[#2C3E50] px-2 py-0.5 text-[9px] font-black uppercase tracking-widest text-white">
+                                      <span
+                                        className={cn(
+                                          "rounded-lg border border-slate-700/25 bg-slate-800 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-white shadow-sm",
+                                        )}
+                                      >
                                         KASUS INI
                                       </span>
                                     ) : null}
                                   </div>
-                                  <p className="mt-1.5 font-bold text-[#2C3E50]">
+                                  <p className="mt-1.5 font-bold text-slate-900">
                                     {r.tindakan?.trim() || "—"}
                                     {r.kategori && (
-                                      <span className="ml-2 rounded bg-[#2C3E50]/20 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-[#2C3E50]">
+                                      <span
+                                        className={cn(
+                                          "ml-2 rounded-lg border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-700",
+                                        )}
+                                      >
                                         {r.kategori}
                                       </span>
                                     )}
                                   </p>
                                   {r.kesimpulan_laporan && (
-                                    <p className="mt-1 text-[11px] italic text-[#2C3E50]/80 line-clamp-1">
+                                    <p className="mt-1 text-[11px] italic text-slate-600 line-clamp-1">
                                       {r.kesimpulan_laporan}
                                     </p>
                                   )}
-                                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-medium text-[#2C3E50]/85">
+                                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-medium text-slate-700">
                                     <span>
-                                      <span className="font-black uppercase tracking-tighter text-[#2C3E50]/70 mr-1">
+                                      <span className="mr-1 font-bold uppercase tracking-tighter text-slate-500">
                                         Dokter:
                                       </span>
                                       {r.dokter?.trim() || "—"}
                                     </span>
                                     <span>
-                                      <span className="font-black uppercase tracking-tighter text-[#2C3E50]/70 mr-1">
+                                      <span className="mr-1 font-bold uppercase tracking-tighter text-slate-500">
                                         Ruangan:
                                       </span>
                                       {r.ruangan?.trim() || "—"}
@@ -1044,7 +1099,7 @@ function TindakanDetailDrawer({
                         key={def.id}
                         className={cn("space-y-3", tab !== def.id && "hidden")}
                       >
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#2C3E50]">
+                        <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-800/95">
                           {def.label}
                         </h3>
                         {def.id === "fast_track" ? (
@@ -1184,7 +1239,9 @@ function TindakanDetailDrawer({
                                 "grid grid-cols-1 gap-3",
                                 def.id === "radiologi"
                                   ? "sm:grid-cols-4"
-                                  : "sm:grid-cols-3",
+                                  : def.id === "biaya"
+                                    ? "sm:grid-cols-3 sm:grid-rows-3"
+                                    : "sm:grid-cols-3",
                               )}
                             >
                               {def.fields.map((key) => {
@@ -1256,6 +1313,10 @@ function TindakanDetailDrawer({
                                 const canPatchTindakan = Boolean(tindakanId);
                                 const isBiayaAutosaveField =
                                   BIAYA_AUTOSAVE_KEYS.has(key);
+                                const isKelasPembiayaanField =
+                                  def.id === "biaya" &&
+                                  key === "kelas_pembiayaan" &&
+                                  canPatchTindakan;
                                 const isBiayaEditable =
                                   def.id === "biaya" &&
                                   isBiayaAutosaveField &&
@@ -1270,6 +1331,14 @@ function TindakanDetailDrawer({
                                   def.id === "pasien" &&
                                   key === "rs_perujuk" &&
                                   canPatchTindakan;
+                                const isPasienUmurReadonly =
+                                  def.id === "pasien" && key === "umur";
+                                const drawerCharcoalTindakan =
+                                  def.id === "tindakan";
+                                const isTanggalTindakanEditable =
+                                  def.id === "tindakan" &&
+                                  key === "tanggal_tindakan" &&
+                                  Boolean(tindakanId);
 
                                 return (
                                   <div
@@ -1283,6 +1352,11 @@ function TindakanDetailDrawer({
                                       (key === "air_kerma" ||
                                         key === "dap_dose") &&
                                         "border-[#9AA8B8]/80 bg-[#B8C5D3]",
+                                      def.id === "tindakan" &&
+                                        key === "kategori" &&
+                                        "sm:col-span-3",
+                                      def.id === "biaya" &&
+                                        biayaDrawerCardGridClass(key),
                                     )}
                                   >
                                     <dt className="text-[9px] font-black uppercase tracking-widest text-white/90">
@@ -1309,8 +1383,46 @@ function TindakanDetailDrawer({
                                           }}
                                           onSaved={onRecordPatch}
                                         />
+                                      ) : isPasienUmurReadonly ? (
+                                        <div
+                                          className={cn(
+                                            "mt-0.5 w-full rounded-md border border-cyan-900/50 bg-black/40 px-2 py-1.5 text-sm font-mono tabular-nums text-white",
+                                          )}
+                                        >
+                                          {(() => {
+                                            const u = rawVal;
+                                            if (
+                                              typeof u === "number" &&
+                                              Number.isFinite(u)
+                                            ) {
+                                              return `${u} TH`;
+                                            }
+                                            if (
+                                              typeof u === "string" &&
+                                              /^\d+$/.test(u.trim())
+                                            ) {
+                                              return `${u.trim()} TH`;
+                                            }
+                                            const dob = getWireframeFieldValue(
+                                              displayRecord as unknown as Record<
+                                                string,
+                                                unknown
+                                              >,
+                                              "tgl_lahir",
+                                            );
+                                            const iso = formatTanggalLahirFromDb(
+                                              dob ?? "",
+                                            );
+                                            if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+                                              return hitungUsia(iso).teks;
+                                            }
+                                            return "—";
+                                          })()}
+                                        </div>
                                       ) : isRsPerujukEditable ? (
                                         <RsPerujukField
+                                          variant="drawerPasien"
+                                          placeholder="Nama RS perujuk…"
                                           tindakanId={tindakanId}
                                           value={
                                             rawVal === null ||
@@ -1333,6 +1445,21 @@ function TindakanDetailDrawer({
                                           pasienId={pasienId}
                                           field={key as KlinisFieldKey}
                                           value={rawVal}
+                                          onSaved={onRecordPatch}
+                                          controlVariant={
+                                            drawerCharcoalTindakan
+                                              ? "drawerCharcoal"
+                                              : "default"
+                                          }
+                                        />
+                                      ) : isKelasPembiayaanField ? (
+                                        <KelasPembiayaanBiayaField
+                                          tindakanId={tindakanId}
+                                          value={rawVal}
+                                          pasien={
+                                            (pasienMaster as Pasien | null) ??
+                                            null
+                                          }
                                           onSaved={onRecordPatch}
                                         />
                                       ) : isBiayaEditable ? (
@@ -1397,6 +1524,11 @@ function TindakanDetailDrawer({
                                               : String(rawVal)
                                           }
                                           onSaved={onRecordPatch}
+                                          controlVariant={
+                                            drawerCharcoalTindakan
+                                              ? "drawerCharcoal"
+                                              : "default"
+                                          }
                                         />
                                       ) : isKategoriEditable ? (
                                         <KategoriTindakanField
@@ -1407,6 +1539,17 @@ function TindakanDetailDrawer({
                                               ? null
                                               : String(rawVal)
                                           }
+                                          onSaved={onRecordPatch}
+                                          controlVariant={
+                                            drawerCharcoalTindakan
+                                              ? "drawerCharcoal"
+                                              : "default"
+                                          }
+                                        />
+                                      ) : isTanggalTindakanEditable ? (
+                                        <TindakanTanggalDrawerField
+                                          tindakanId={tindakanId}
+                                          value={rawVal}
                                           onSaved={onRecordPatch}
                                         />
                                       ) : (

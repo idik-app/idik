@@ -15,6 +15,8 @@ type Props = {
   tindakanId: string;
   value: string | null | undefined;
   onSaved?: () => void;
+  /** Drawer tab Tindakan: kotak abu gelap + teks putih (sama seperti Sign time). */
+  controlVariant?: "default" | "drawerCharcoal";
 };
 
 function norm(s: string) {
@@ -25,6 +27,7 @@ export default function MasterJenisTindakanField({
   tindakanId,
   value,
   onSaved,
+  controlVariant = "default",
 }: Props) {
   const { show } = useNotification();
   const listId = useId();
@@ -166,9 +169,14 @@ export default function MasterJenisTindakanField({
           });
         }}
         inputClassName={cn(
-          "rounded-md border px-2 py-1.5 text-sm font-semibold focus:outline-none focus:ring-1",
-          "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 focus:ring-cyan-500/30",
-          "dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
+          "rounded-md border px-2 py-1.5 text-sm font-semibold focus:outline-none",
+          controlVariant === "drawerCharcoal"
+            ? "border-white/12 bg-[#5C6573] text-white placeholder:text-white/55 focus:ring-2 focus:ring-[#2C3E50]/35"
+            : cn(
+                "focus:ring-1",
+                "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 focus:ring-cyan-500/30",
+                "dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
+              ),
           saving ? "opacity-70" : undefined,
         )}
       />

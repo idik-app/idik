@@ -16,11 +16,11 @@ import {
   ClipboardList,
   FileText,
   History,
-  Info,
   MapPin,
   Plus,
   SquarePen,
   Stethoscope,
+  HeartPulse,
   Trash2,
   User,
   Users,
@@ -30,6 +30,11 @@ import {
 
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { useAppDialog } from "@/contexts/AppDialogContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import { extractDataFromText } from "@/lib/tindakan/reportExtractor";
@@ -84,6 +89,10 @@ const TindakanLaporanPemakaianModal = dynamic(
 );
 const PemakaianAlkesModal = dynamic(
   () => import(/* webpackPrefetch: true */ "./PemakaianAlkesModal"),
+  { ssr: false, loading: () => null },
+);
+const IntensiveDashboardView = dynamic(
+  () => import("@/components/intensive/IntensiveDashboardView"),
   { ssr: false, loading: () => null },
 );
 import { computeTindakanStatsFromRows } from "../hooks/useTindakanStats";
@@ -1250,6 +1259,49 @@ export default function TindakanTable({
   >({});
   const [pemakaianModalRow, setPemakaianModalRow] =
     useState<TindakanJoinResult | null>(null);
+  const [icuModalRow, setIcuModalRow] = useState<TindakanJoinResult | null>(
+    null,
+  );
+  /** Arc menu nama pasien: tetap terbuka singkat setelah mouse leave agar sempat ke ikon. */
+  const [arcMenuRowKey, setArcMenuRowKey] = useState<string | null>(null);
+  const arcMenuCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  const openArcMenu = useCallback((rowKey: string) => {
+    if (arcMenuCloseTimerRef.current != null) {
+      clearTimeout(arcMenuCloseTimerRef.current);
+      arcMenuCloseTimerRef.current = null;
+    }
+    setArcMenuRowKey(rowKey);
+  }, []);
+
+  const scheduleCloseArcMenu = useCallback(() => {
+    if (arcMenuCloseTimerRef.current != null) {
+      clearTimeout(arcMenuCloseTimerRef.current);
+    }
+    arcMenuCloseTimerRef.current = setTimeout(() => {
+      setArcMenuRowKey(null);
+      arcMenuCloseTimerRef.current = null;
+    }, 700);
+  }, []);
+
+  const closeArcMenuImmediate = useCallback(() => {
+    if (arcMenuCloseTimerRef.current != null) {
+      clearTimeout(arcMenuCloseTimerRef.current);
+      arcMenuCloseTimerRef.current = null;
+    }
+    setArcMenuRowKey(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (arcMenuCloseTimerRef.current != null) {
+        clearTimeout(arcMenuCloseTimerRef.current);
+      }
+    };
+  }, []);
+
   /**
    * Setelah simpan order pemakaian, SWR `pemakaianOrdersRaw` bisa tertunda —
    * override ini memetakan `tindakanId → orderId` agar kolom Aksi langsung "Edit pemakaian".
@@ -2911,48 +2963,6 @@ export default function TindakanTable({
                 "bg-white/85 dark:bg-black/20",
               )}
             >
-              <div
-                className={cn(
-                  "flex items-start gap-2 border-b border-amber-200/50 px-3 py-2 text-[11px] leading-snug",
-                  "bg-amber-50/95 dark:bg-amber-950/40 text-cyan-950/90 dark:text-slate-200/95",
-                )}
-              >
-                <Info
-                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-600 dark:text-cyan-400"
-                  aria-hidden
-                />
-                <p>
-                  <span className="font-bold text-cyan-900 dark:text-cyan-200/95">
-                    Seleksi seperti spreadsheet:
-                  </span>{" "}
-                  klik-seret pada area sel (bukan di dalam input).{" "}
-                  <kbd className="rounded border border-amber-300/60 bg-white/80 px-1 font-mono dark:border-amber-800/50 dark:bg-black/30">
-                    Shift
-                  </kbd>{" "}
-                  + klik perluas blok;{" "}
-                  <kbd className="rounded border border-amber-300/60 bg-white/80 px-1 font-mono dark:border-amber-800/50 dark:bg-black/30">
-                    Ctrl
-                  </kbd>{" "}
-                  + seret blok kedua; panah pindah/ perluas;{" "}
-                  <kbd className="rounded border border-amber-300/60 bg-white/80 px-1 font-mono dark:border-amber-800/50 dark:bg-black/30">
-                    Esc
-                  </kbd>{" "}
-                  hapus seleksi.{" "}
-                  <kbd className="rounded border border-amber-300/60 bg-white/80 px-1 font-mono dark:border-amber-800/50 dark:bg-black/30">
-                    Ctrl+C
-                  </kbd>{" "}
-                  /{" "}
-                  <kbd className="rounded border border-amber-300/60 bg-white/80 px-1 font-mono dark:border-amber-800/50 dark:bg-black/30">
-                    Cmd+C
-                  </kbd>{" "}
-                  salin TSV;{" "}
-                  <kbd className="rounded border border-amber-300/60 bg-white/80 px-1 font-mono dark:border-amber-800/50 dark:bg-black/30">
-                    Ctrl+V
-                  </kbd>{" "}
-                  tempel ke Tanggal, Time out, Nama, Dokter, Tindakan, Ruangan
-                  (mulai dari pojok kiri atas seleksi).
-                </p>
-              </div>
               <table
                 ref={tindakanDataTableRef}
                 className="w-full min-w-[1200px] text-sm font-semibold border-collapse border border-amber-200/65 dark:border-amber-800/50"
@@ -3119,6 +3129,7 @@ export default function TindakanTable({
                       const raw = rec as unknown as Record<string, unknown>;
                       const id = String(raw.id ?? "");
                       const key = id || `row-${page}-${i}`;
+                      const arcOpen = arcMenuRowKey === key;
                       const stateKey = id || key;
                       const rowNo = (page - 1) * perPage + i + 1;
                       const { digits: dupRmDigits, display: rmDisplayForKet } =
@@ -3450,9 +3461,14 @@ export default function TindakanTable({
                                 data-no-row-click="true"
                                 onMouseDown={(e) => e.stopPropagation()}
                                 onClick={(e) => e.stopPropagation()}
+                                onMouseEnter={() => openArcMenu(key)}
+                                onMouseLeave={() => scheduleCloseArcMenu()}
                                 className={cn(
-                                  "group/arc relative mx-auto min-w-[10rem] sm:min-w-[14rem] max-w-[18rem] flex items-center gap-1.5",
-                                  "before:absolute before:-inset-[100px] before:content-[''] before:pointer-events-none group-hover/arc:before:pointer-events-auto",
+                                  "relative mx-auto min-w-[10rem] sm:min-w-[14rem] max-w-[18rem] flex items-center gap-1.5",
+                                  "before:absolute before:-inset-y-[80px] before:-left-[40px] before:-right-[160px] before:content-['']",
+                                  arcOpen
+                                    ? "before:pointer-events-auto"
+                                    : "before:pointer-events-none",
                                   ZOOM_INNER_CLASSES,
                                 )}
                                 title={pasienError ?? undefined}
@@ -3474,9 +3490,11 @@ export default function TindakanTable({
                                 {/* CONSOLIDATED NAVIGATION ARC — Right Side */}
                                 <div
                                   className={cn(
-                                    // Bawa container lebih dekat ke icon hapus
-                                    "absolute top-1/2 right-[-10px] z-20 h-0 w-0 -translate-y-1/2",
-                                    "pointer-events-none opacity-0 group-hover/arc:pointer-events-auto group-hover/arc:opacity-100 focus-within:pointer-events-auto focus-within:opacity-100 transition-all duration-500 ease-in-out overflow-visible",
+                                    "absolute top-1/2 right-[-10px] z-20 h-0 w-0 -translate-y-1/2 overflow-visible",
+                                    "transition-opacity duration-150 ease-out",
+                                    arcOpen
+                                      ? "pointer-events-auto opacity-100"
+                                      : "pointer-events-none opacity-0",
                                   )}
                                 >
                                   {[
@@ -3536,6 +3554,18 @@ export default function TindakanTable({
                                       },
                                     },
                                     {
+                                      id: "icu_monitoring",
+                                      Icon: HeartPulse,
+                                      label: "Monitoring ICU",
+                                      color:
+                                        "bg-sky-600 text-white border-sky-400",
+                                      onClick: (e: any) => {
+                                        e.stopPropagation();
+                                        closeArcMenuImmediate();
+                                        setIcuModalRow(rec);
+                                      },
+                                    },
+                                    {
                                       id: "klinis",
                                       Icon: ClipboardList,
                                       label: "Klinis",
@@ -3550,7 +3580,7 @@ export default function TindakanTable({
                                     const total = arr.length;
                                     // Spacing rapat, radius lebih kecil agar memeluk icon hapus
                                     const SPAN_DEG = 160;
-                                    const RADIUS_PX = 42;
+                                    const RADIUS_PX = 48;
                                     const baseAngle = -SPAN_DEG / 2;
                                     const angle =
                                       baseAngle +
@@ -3559,14 +3589,17 @@ export default function TindakanTable({
                                       <div
                                         key={item.id}
                                         style={{
-                                          // Radius 42px, concave left shape: ")"
                                           transform: `rotate(${angle}deg) translate(${RADIUS_PX}px) rotate(${-angle}deg)`,
-                                          transitionDelay: `${idx * 15}ms`,
+                                          transitionDelay: arcOpen
+                                            ? `${idx * 18}ms`
+                                            : "0ms",
                                         }}
                                         className={cn(
-                                          "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ease-in-out scale-0 opacity-0 group-hover:scale-100 group-hover:opacity-100 z-20",
-                                          "group-hover:animate-in group-hover:fade-in group-hover:zoom-in group-hover:duration-500",
-                                          "animate-out fade-out zoom-out duration-500",
+                                          "absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2",
+                                          "transition-transform transition-opacity duration-150 ease-out",
+                                          arcOpen
+                                            ? "scale-100 opacity-100"
+                                            : "scale-0 opacity-0",
                                         )}
                                       >
                                         <button
@@ -3581,15 +3614,16 @@ export default function TindakanTable({
                                             setHoveredRowKey(null);
                                           }}
                                           className={cn(
-                                            "flex h-7 w-7 items-center justify-center rounded-full border shadow-xl transition-all duration-300",
-                                            "hover:scale-[2.0] hover:z-30",
+                                            "flex h-8 w-8 items-center justify-center rounded-full border-2 border-white/25 shadow-xl transition-transform duration-200",
+                                            "hover:scale-125 hover:z-30 active:scale-110",
                                             item.color,
                                           )}
                                           title={item.label}
                                         >
                                           <item.Icon
-                                            size={12}
-                                            strokeWidth={3}
+                                            size={14}
+                                            strokeWidth={2.75}
+                                            className="drop-shadow-sm"
                                           />
                                         </button>
                                       </div>
@@ -3598,7 +3632,13 @@ export default function TindakanTable({
                                 </div>
 
                                 {/* ACTION GROUP — Near Pasien Field */}
-                                <div className="absolute -right-8 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover/arc:opacity-100 transition-all duration-500 ease-in-out z-20">
+                                <div
+                                  className={cn(
+                                    "absolute -right-8 top-1/2 z-20 flex -translate-y-1/2 items-center gap-1",
+                                    "transition-opacity duration-150 ease-out",
+                                    arcOpen ? "opacity-100" : "opacity-0",
+                                  )}
+                                >
                                   {id && pemakaianOrderByTindakanId[id] ? (
                                     <button
                                       type="button"
@@ -4853,13 +4893,13 @@ export default function TindakanTable({
                 </tbody>
               </table>
             </div>
-            <div
-              className={cn(
-                "shrink-0 space-y-0",
-                "bg-slate-50/80 dark:bg-black/15",
-              )}
-            >
-              {filteredRecords.length > 0 ? (
+            {filteredRecords.length > 0 ? (
+              <div
+                className={cn(
+                  "shrink-0 space-y-0",
+                  "bg-slate-50/80 dark:bg-black/15",
+                )}
+              >
                 <TablePagination
                   currentPage={page}
                   totalPages={totalPages}
@@ -4868,20 +4908,47 @@ export default function TindakanTable({
                   onPageChange={setPage}
                   onPageSizeChange={setPerPage}
                 />
-              ) : null}
-              <p
-                className={cn(
-                  "px-2 pb-1.5 pt-0 text-[10px] font-semibold leading-snug font-mono",
-                  "text-cyan-950/90 dark:text-cyan-600/75",
-                )}
-              >
-                Klik baris: drawer detail. Pemakaian / Edit: form alkes di
-                halaman ini. Pasien aktif lewat toolbar.
-              </p>
-            </div>
+              </div>
+            ) : null}
           </>
         )}
       </div>
+
+      <Dialog
+        open={icuModalRow !== null}
+        onOpenChange={(open) => {
+          if (!open) setIcuModalRow(null);
+        }}
+      >
+        <DialogContent
+          className="max-h-[100dvh] h-[100dvh] max-w-[100vw] w-[100vw] translate-x-[-50%] translate-y-[-50%] rounded-none border-0 bg-black p-0 shadow-none"
+          bodyClassName="p-0 h-full max-h-[100dvh] overflow-hidden"
+        >
+          <DialogTitle className="sr-only">Monitoring ICU</DialogTitle>
+          {icuModalRow ? (
+            <IntensiveDashboardView
+              embedded
+              tindakanId={
+                String(
+                  (icuModalRow as unknown as Record<string, unknown>).id ?? "",
+                ).trim() || undefined
+              }
+              patientHeadline={
+                pasienLabelByRowId[
+                  String(
+                    (icuModalRow as unknown as Record<string, unknown>).id ??
+                      "",
+                  )
+                ] ??
+                buildPasienLabelFromRow(
+                  icuModalRow as unknown as Record<string, unknown>,
+                )
+              }
+              onRequestClose={() => setIcuModalRow(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       {pemakaianModalInitial ? (
         <PemakaianAlkesModal

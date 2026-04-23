@@ -304,10 +304,10 @@ export default function FastTrackBlock({
       {/* Status Toggle */}
       <div className={cn(boxClass, "flex items-center justify-between gap-3")}>
         <div>
-          <dt className="text-[10px] font-bold uppercase tracking-wider text-white">
+          <dt className="text-[10px] font-bold uppercase tracking-wider text-[#1a202c]">
             Status Fast-Track STEMI
           </dt>
-          <dd className="mt-0.5 text-[11px] font-medium text-white/75">
+          <dd className="mt-0.5 text-[11px] font-medium text-[#2d3748]">
             Aktifkan untuk menampilkan indikator KPI di tabel utama.
           </dd>
         </div>
@@ -331,7 +331,7 @@ export default function FastTrackBlock({
       <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(200px,280px)]">
         <dl className="grid grid-cols-1 gap-1.5 text-sm font-semibold">
           <div className={boxClass}>
-            <dt className="text-[10px] font-bold leading-tight text-white">
+            <dt className="text-[10px] font-bold leading-tight text-[#1a202c]">
               {FIELD_LABELS.pasien_datang_igd ?? "Waktu pasien tiba di IGD"}
             </dt>
             <dd className="mt-0.5 overflow-visible">
@@ -349,7 +349,7 @@ export default function FastTrackBlock({
                   aria-label={FIELD_LABELS.pasien_datang_igd ?? "Waktu pasien tiba di IGD"}
                 />
               ) : (
-                <span className="text-[13px] font-semibold text-white">
+                <span className="text-[13px] font-semibold text-[#1a202c]">
                   {formatWaktuDisplay(draftFrom(pasienDatangValue))}
                 </span>
               )}
@@ -357,7 +357,7 @@ export default function FastTrackBlock({
           </div>
 
           <div className={boxClass}>
-            <dt className="text-[10px] font-bold leading-tight text-white">
+            <dt className="text-[10px] font-bold leading-tight text-[#1a202c]">
               {FIELD_LABELS.door_to_balloon ?? "Waktu door-to-balloon (cathlab)"}
             </dt>
             <dd className="mt-0.5 overflow-visible">
@@ -377,7 +377,7 @@ export default function FastTrackBlock({
                   }
                 />
               ) : (
-                <span className="text-[13px] font-semibold text-white">
+                <span className="text-[13px] font-semibold text-[#1a202c]">
                   {formatWaktuDisplay(draftFrom(doorToBalloonValue))}
                 </span>
               )}
@@ -385,19 +385,19 @@ export default function FastTrackBlock({
           </div>
 
           <div className={boxClass}>
-            <dt className="text-[10px] font-bold leading-tight text-white">
+            <dt className="text-[10px] font-bold leading-tight text-[#1a202c]">
               {FIELD_LABELS.total_waktu_fast_track ?? "Total waktu"}
             </dt>
-            <dd className="mt-0.5 break-words text-[13px] font-semibold leading-snug text-white">
+            <dd className="mt-0.5 break-words text-[13px] font-semibold leading-snug text-[#1a202c]">
               {invalidOrder ? (
-                <span className="font-semibold text-amber-100">
+                <span className="font-semibold text-amber-900">
                   Urutan waktu tidak valid (balloon sebelum tiba IGD)
                 </span>
               ) : (
                 totalDisplay
               )}
             </dd>
-            <p className="mt-1 text-[10px] font-medium leading-snug text-white/80">
+            <p className="mt-1 text-[10px] font-medium leading-snug text-[#4a5568]">
               Total dihitung otomatis: selisih menit dari waktu tiba IGD hingga
               waktu first device / balloon di cathlab (door-to-balloon).
             </p>

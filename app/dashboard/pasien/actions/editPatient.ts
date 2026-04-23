@@ -6,7 +6,40 @@ import { Pasien } from "../types/pasien";
 import { logPasienAudit } from "@/lib/audit/logPasien";
 import { normalizeNamaPasien } from "../utils/normalizeNamaPasien";
 import { mapFromSupabase, toPgDateFromForm } from "../data/pasienSchema";
-import { pasienSchema, type PasienFormData } from "../data/pasienValidation";
+import {
+  pasienSchema,
+  type PasienFormData,
+} from "../data/pasienValidation";
+
+/** Hanya field form utama — PATCH drawer mengirim subset; jangan validasi seluruh pasien (menyebabkan pesan error “nyasar” ke field lain). */
+const PASIEN_PATCH_SCHEMA_KEYS = new Set<keyof PasienFormData>([
+  "noRM",
+  "nama",
+  "jenisKelamin",
+  "tanggalLahir",
+  "alamat",
+  "noHP",
+]);
+
+function assertPasienPatchFieldsValid(
+  merged: PasienFormData,
+  defined: PasienPatchInput,
+): void {
+  for (const key of Object.keys(defined) as (keyof PasienPatchInput)[]) {
+    if (!PASIEN_PATCH_SCHEMA_KEYS.has(key as keyof PasienFormData)) continue;
+    const formKey = key as keyof PasienFormData;
+    const fieldSchema = pasienSchema.shape[formKey];
+    const result = fieldSchema.safeParse(merged[formKey]);
+    if (!result.success) {
+      const flat = result.error.flatten();
+      const msg =
+        [...Object.values(flat.fieldErrors).flat(), ...flat.formErrors].join(
+          "; ",
+        ) || "Validasi gagal";
+      throw new Error(msg);
+    }
+  }
+}
 
 /** PATCH drawer / UI — hanya kolom yang dikirim; sisanya dari baris DB saat ini. */
 export type PasienPatchInput = Partial<
@@ -130,15 +163,7 @@ export async function patchPatientFields(
     dap_dose: defined.dap_dose !== undefined ? defined.dap_dose : current.dap_dose,
   };
 
-  const parsed = pasienSchema.safeParse(merged);
-  if (!parsed.success) {
-    const flat = parsed.error.flatten();
-    const msg =
-      [...Object.values(flat.fieldErrors).flat(), ...flat.formErrors].join(
-        "; ",
-      ) || "Validasi gagal";
-    throw new Error(msg);
-  }
+  assertPasienPatchFieldsValid(merged, defined);
 
-  return editPatient(id, { ...parsed.data, ...clinical } as Omit<Pasien, "id">);
+  return editPatient(id, { ...merged, ...clinical } as Omit<Pasien, "id">);
 }

@@ -18,7 +18,7 @@ function AktifBadge({ aktif }: { aktif: boolean }) {
   );
 }
 
-type TextField = "nama" | "kode" | "kategori" | "keterangan";
+type TextField = "nama" | "kode" | "kategori" | "keterangan" | "slug";
 
 function EditableTextCell({
   rowId,
@@ -47,8 +47,10 @@ function EditableTextCell({
 
   const commit = useCallback(async () => {
     setErr(null);
-    const next = draft.trim();
-    const cur = (value ?? "").trim();
+    const raw = draft.trim();
+    const next = field === "slug" ? raw.toLowerCase() : raw;
+    const cur =
+      field === "slug" ? (value ?? "").trim().toLowerCase() : (value ?? "").trim();
     if (field === "nama") {
       if (next.length < 1) {
         setErr("Nama wajib diisi");
@@ -62,9 +64,11 @@ function EditableTextCell({
     const payload =
       field === "nama"
         ? { nama: next }
-        : ({
-            [field]: next.length ? next : null,
-          } as Record<string, string | null>);
+        : field === "slug"
+          ? { slug: next.length ? next : null }
+          : ({
+              [field]: next.length ? next : null,
+            } as Record<string, string | null>);
     const r = await patchRuangan(
       rowId,
       payload as Parameters<typeof patchRuangan>[1]
@@ -306,10 +310,11 @@ export default function RuanganTable({
                     rounded-xl pointer-events-none"
       />
 
-      <table className="relative w-full text-sm border-collapse z-10 min-w-[720px]">
+      <table className="relative w-full text-sm border-collapse z-10 min-w-[860px]">
         <thead className="sticky top-0 bg-black/60 text-yellow-400">
           <tr>
             <th className="px-3 py-2 text-left font-medium">Nama</th>
+            <th className="px-3 py-2 text-left font-medium">Slug URL</th>
             <th className="px-3 py-2 text-left font-medium">Kode</th>
             <th className="px-3 py-2 text-left font-medium">Kategori</th>
             <th className="px-3 py-2 text-left font-medium w-24">Kapasitas</th>
@@ -327,6 +332,14 @@ export default function RuanganTable({
             >
               <td className="px-3 py-2 align-top">
                 <EditableTextCell rowId={r.id} field="nama" value={r.nama} />
+              </td>
+              <td className="px-3 py-2 align-top max-w-[140px]">
+                <EditableTextCell
+                  rowId={r.id}
+                  field="slug"
+                  value={r.slug}
+                  placeholder="iccu"
+                />
               </td>
               <td className="px-3 py-2 align-top">
                 <EditableTextCell

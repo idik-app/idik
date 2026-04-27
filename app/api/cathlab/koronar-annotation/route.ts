@@ -84,7 +84,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const { id, title, pasien_id } = parsed.data;
+  const { id, title, pasien_id, tindakan_id, template_id: templateId } = parsed.data;
+  const templateResolved = templateId ?? null;
 
   if (id) {
     const { data: existing, error: fetchErr } = await supabase

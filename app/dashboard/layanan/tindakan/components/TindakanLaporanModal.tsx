@@ -1,5 +1,5 @@
 import { FileSpreadsheet, X, Search, Activity, Users, CheckCircle2, Stethoscope, ChevronLeft, ChevronRight } from "lucide-react";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useDeferredValue, useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,10 @@ import {
   weekdaySun0Wib,
   type MonthlyMatrixAgg,
 } from "../lib/tindakanBulananMatrix";
+import {
+  buildPasienReportLookup,
+  mergePasienMasterIntoRowForReport,
+} from "../lib/displayTindakanRow";
 import {
   buildBulananCaraBayarHtml,
   buildBulananJenisOperasiHtml,
@@ -197,7 +201,12 @@ const TableRow = React.memo(
                       {formatCell(c)}
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-64 p-2 text-[11px] z-[10002]">
+                  <PopoverContent
+                    className={cn(
+                      "w-64 p-2 text-[11px]",
+                      UI_LAYERS.dialogNestedPopover,
+                    )}
+                  >
                     <div className="mb-1 border-b pb-1 font-bold text-emerald-600 dark:text-emerald-400">
                       {label} - Tgl {day}
                     </div>
@@ -280,6 +289,62 @@ function formatCell(n: number): string {
   return n === 0 ? "" : String(n);
 }
 
+/** Ringkas RM / pasien untuk kasus baris BELUM TERISI (unik per RM atau per nama bila RM kosong). */
+function buildBelumTerisiRmList(matrix: MonthlyMatrixAgg): {
+  key: string;
+  rmLabel: string;
+  nama: string;
+  kasus: number;
+}[] {
+  const idx = matrix.rowLabels.indexOf(CARA_BAYAR_LABEL_BELUM_TERISI);
+  if (idx < 0) return [];
+  const perDay = matrix.details?.[idx];
+  if (!perDay) return [];
+
+  const agg = new Map<
+    string,
+    { rmLabel: string; nama: string; kasus: number }
+  >();
+
+  for (const dayDetails of perDay) {
+    for (const p of dayDetails) {
+      const rawRm = String(p.no_rm ?? "").trim();
+      const digits = rawRm.replace(/\D/g, "");
+      const nama = String(p.nama ?? "").trim() || "—";
+      const key =
+        digits.length >= 3
+          ? `rm:${digits}`
+          : `nama:${nama.toLowerCase()}`;
+      const rmLabel =
+        digits.length >= 3
+          ? rawRm && rawRm !== "-"
+            ? rawRm
+            : digits
+          : "Tanpa RM";
+
+      const cur = agg.get(key);
+      if (cur) {
+        cur.kasus += 1;
+      } else {
+        agg.set(key, { rmLabel, nama, kasus: 1 });
+      }
+    }
+  }
+
+  return [...agg.entries()]
+    .map(([key, v]) => ({ key, ...v }))
+    .sort((a, b) => {
+      const da = a.rmLabel.replace(/\D/g, "");
+      const db = b.rmLabel.replace(/\D/g, "");
+      if (da.length >= 3 && db.length >= 3) {
+        return da.localeCompare(db, undefined, { numeric: true });
+      }
+      if (da.length >= 3) return -1;
+      if (db.length >= 3) return 1;
+      return a.nama.localeCompare(b.nama, "id");
+    });
+}
+
 type ReportTab = "jenis" | "kategori" | "cara" | "analisis";
 
 export default function TindakanLaporanModal({
@@ -306,6 +371,34 @@ export default function TindakanLaporanModal({
 
   const ym = useMemo(() => parseYyyyMm(monthYyyyMm), [monthYyyyMm]);
 
+  /** Kurangi jank: hitung laporan dari snapshot pasien/baris yang sedikit tertunda saat data besar baru masuk. */
+  const deferredRows = useDeferredValue(rows);
+  const deferredPasien = useDeferredValue(pasienOptions);
+  const reportRowsCatchUp =
+    deferredRows !== rows || deferredPasien !== pasienOptions;
+
+  const pasienLookup = useMemo(
+    () => buildPasienReportLookup(deferredPasien),
+    [deferredPasien],
+  );
+
+  /** Nama/RM mengikuti master pasien terbaru; indeks O(1) untuk master besar. */
+  const reportRows = useMemo(
+    () =>
+      deferredRows.map((r) =>
+        mergePasienMasterIntoRowForReport(r, deferredPasien, pasienLookup),
+      ),
+    [deferredRows, deferredPasien, pasienLookup],
+  );
+
+  const matrixPasienOpts = useMemo(
+    () => ({
+      pasienOptions: deferredPasien,
+      pasienLookup,
+    }),
+    [deferredPasien, pasienLookup],
+  );
+
   // Reset page saat pencarian atau tab berubah
   useMemo(() => {
     setAnalisisPage(1);
@@ -313,29 +406,42 @@ export default function TindakanLaporanModal({
 
   const matrixJenis = useMemo(() => {
     if (!ym) return null;
-    return aggregateMonthlyJenisOperasi(rows, ym.y, ym.m);
-  }, [rows, ym]);
+    return aggregateMonthlyJenisOperasi(
+      reportRows,
+      ym.y,
+      ym.m,
+      matrixPasienOpts,
+    );
+  }, [reportRows, ym, matrixPasienOpts]);
 
   const matrixCara = useMemo(() => {
     if (!ym) return null;
-    return aggregateMonthlyCaraBayar(rows, ym.y, ym.m, {
-      pasienOptions,
-    });
-  }, [rows, ym, pasienOptions]);
+    return aggregateMonthlyCaraBayar(reportRows, ym.y, ym.m, matrixPasienOpts);
+  }, [reportRows, ym, matrixPasienOpts]);
 
   const matrixKategori = useMemo(() => {
     if (!ym) return null;
-    return aggregateMonthlyKategori(rows, ym.y, ym.m);
-  }, [rows, ym]);
+    return aggregateMonthlyKategori(
+      reportRows,
+      ym.y,
+      ym.m,
+      matrixPasienOpts,
+    );
+  }, [reportRows, ym, matrixPasienOpts]);
 
   const laporanCaraBelumTerisi = useMemo(() => {
-    if (!matrixCara) return { count: 0, strong: false };
+    if (!matrixCara) {
+      return { count: 0, strong: false, rmList: [] as ReturnType<typeof buildBelumTerisiRmList> };
+    }
     const idx = matrixCara.rowLabels.indexOf(CARA_BAYAR_LABEL_BELUM_TERISI);
-    if (idx < 0) return { count: 0, strong: false };
+    if (idx < 0) {
+      return { count: 0, strong: false, rmList: [] as ReturnType<typeof buildBelumTerisiRmList> };
+    }
     const count = matrixCara.rowTotals[idx] ?? 0;
     const gt = matrixCara.grandTotal;
     const strong = count > 0 && (count >= 5 || (gt > 0 && count / gt >= 0.15));
-    return { count, strong };
+    const rmList = buildBelumTerisiRmList(matrixCara);
+    return { count, strong, rmList };
   }, [matrixCara]);
 
   const rawMatrix =
@@ -442,7 +548,7 @@ export default function TindakanLaporanModal({
     if (!ym) return [];
     
     // Filter berdasarkan bulan terpilih
-    const monthRows = rows.filter(r => {
+    const monthRows = reportRows.filter((r) => {
       const s = String(r.tanggal ?? "").trim();
       if (s.length < 7) return false;
       const y = Number.parseInt(s.slice(0, 4), 10);
@@ -453,7 +559,7 @@ export default function TindakanLaporanModal({
     if (!searchQuery.trim()) return monthRows;
 
     const query = searchQuery.toLowerCase();
-    return monthRows.filter(r => {
+    return monthRows.filter((r) => {
       const nama = String(r.nama_pasien || "").toLowerCase();
       const rm = String(r.no_rm || "").toLowerCase();
       const tindakan = String(r.tindakan || "").toLowerCase();
@@ -498,7 +604,7 @@ export default function TindakanLaporanModal({
         temuan.includes(query)
       );
     });
-  }, [rows, ym, tab, searchQuery]);
+  }, [reportRows, ym, tab, searchQuery]);
 
   const paginatedAnalisisRows = useMemo(() => {
     const start = (analisisPage - 1) * ANALISIS_PAGE_SIZE;
@@ -625,17 +731,27 @@ export default function TindakanLaporanModal({
           )}
         >
           <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between pr-8">
-            <DialogHeader className="space-y-1 text-left sm:pr-2">
-              <DialogTitle className="flex items-center gap-2 text-left font-bold tracking-wide">
-                <FileSpreadsheet
-                  className="shrink-0 text-emerald-600 dark:text-emerald-300"
-                  size={22}
-                  strokeWidth={2.25}
-                  aria-hidden
-                />
-                Laporan tindakan
-              </DialogTitle>
-            </DialogHeader>
+            <div className="min-w-0 space-y-1 text-left sm:pr-2">
+              <DialogHeader className="space-y-1 text-left">
+                <DialogTitle className="flex items-center gap-2 text-left font-bold tracking-wide">
+                  <FileSpreadsheet
+                    className="shrink-0 text-emerald-600 dark:text-emerald-300"
+                    size={22}
+                    strokeWidth={2.25}
+                    aria-hidden
+                  />
+                  Laporan tindakan
+                </DialogTitle>
+              </DialogHeader>
+              {reportRowsCatchUp && !loading ? (
+                <p
+                  role="status"
+                  className="text-[10px] font-semibold text-slate-600 dark:text-white/70"
+                >
+                  Menyesuaikan laporan dengan data tindakan / master pasien terbaru…
+                </p>
+              ) : null}
+            </div>
             <ReportExportActionBar
               className="shrink-0 sm:pt-0.5"
               disabled={loading || !ym}
@@ -768,6 +884,37 @@ export default function TindakanLaporanModal({
                 <span className="mt-1 block font-extrabold">
                   Proporsi besar — periksa master pasien dan tautan kasus.
                 </span>
+              ) : null}
+              {laporanCaraBelumTerisi.rmList.length > 0 ? (
+                <div className="mt-2 border-t border-current/15 pt-2 dark:border-white/15">
+                  <div className="mb-1 text-[10px] font-extrabold uppercase tracking-wide opacity-90">
+                    RM / pasien (data belum lengkap)
+                  </div>
+                  <ul
+                    className={cn(
+                      "max-h-32 space-y-1 overflow-y-auto pr-1 text-left",
+                      "scrollbar-thin scrollbar-thumb-slate-400/50 dark:scrollbar-thumb-white/25",
+                    )}
+                  >
+                    {laporanCaraBelumTerisi.rmList.map((item) => (
+                      <li
+                        key={item.key}
+                        className="break-words tabular-nums text-[11px] font-semibold leading-snug"
+                      >
+                        <span className="font-mono text-emerald-800 dark:text-emerald-300">
+                          {item.rmLabel}
+                        </span>
+                        <span className="text-slate-600 dark:text-white/80">
+                          {" "}
+                          · {item.nama}
+                          {item.kasus > 1 ? (
+                            <span className="opacity-80"> ({item.kasus} kasus)</span>
+                          ) : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : null}
             </div>
           ) : null}

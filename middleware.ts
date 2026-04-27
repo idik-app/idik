@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import { UNIT_DYNAMIC_PATH_ALLOWED_ROLES } from "@/lib/auth/redirect";
 
 /* 🛡️ IDIK-App Advanced Security Middleware v2.0
    🔹 Global API Protection & JWT Verification
@@ -27,7 +28,8 @@ function getSecret(): string {
   if (process.env.NODE_ENV === "production" && !secret) {
     throw new Error(`${LOG_PREFIX} FATAL: JWT_SECRET tidak terkonfigurasi di Production!`);
   }
-  return secret || "dev-secret-warning-unsecure";
+  // Samakan dengan app/api/auth, guards, dan app/page (verifikasi JWT harus konsisten).
+  return secret || "dev-secret";
 }
 
 /** Helper untuk menyuntikkan header keamanan standar industri */
@@ -57,10 +59,20 @@ export async function middleware(req: NextRequest) {
 
   // 3. Bypass Auth untuk Rute Publik
   const isPublicApi = PUBLIC_API_ROUTES.some((route) => pathname.startsWith(route));
-  if (isPublicApi) return res;
+  /** Login & logout JWT (`app/api/auth/route.ts`) — tanpa cookie; jangan pakai prefix `/api/auth` agar `/api/auth/me` tetap terlindungi. */
+  const isAuthSessionExchange =
+    pathname === "/api/auth" &&
+    (req.method === "POST" || req.method === "DELETE");
+  if (isPublicApi || isAuthSessionExchange) return res;
 
   // Khusus /distributor/pemakaian dengan focus_order (Public Portal)
   if (pathname === "/distributor/pemakaian" && req.nextUrl.searchParams.get("focus_order")) {
+    return res;
+  }
+
+  // Dokumen root: publik (intro + modal login). Tanpa cookie, redirect ke
+  // `/?from=/&reason=missing` memicu permintaan ke `/` lagi → loop tak terbatas (ERR_TOO_MANY_REDIRECTS).
+  if (!isApi && pathname === "/") {
     return res;
   }
 
@@ -79,8 +91,25 @@ export async function middleware(req: NextRequest) {
     const { payload } = await jwtVerify(token, secretKey);
     const role = String((payload as any)?.role ?? "pasien").trim().toLowerCase();
 
-    // 5. RBAC Logic
+    // 5. RBAC Logic & Unit Isolation
     
+    // Check for dynamic unit path: /[room]/...
+    const pathSegments = pathname.split("/").filter(Boolean);
+    const potentialRoom = pathSegments[0];
+    
+    // Daftar reserved paths yang bukan merupakan ID Unit
+    const RESERVED_PATHS = ["api", "dashboard", "system", "distributor", "depo", "unauthorized", "login", "auth"];
+    
+    if (potentialRoom && !RESERVED_PATHS.includes(potentialRoom)) {
+      // Rute unit dinamis: /iccu/dashboard, /idik/..., dll.
+      // Selaraskan dengan `getRedirectTargetForRole` + `requireUnitAccess` (staff, radiografer, …).
+      if (!UNIT_DYNAMIC_PATH_ALLOWED_ROLES.has(role)) {
+        return applySecurityHeaders(redirectToUnauthorized(req));
+      }
+
+      res.headers.set("x-unit-slug", potentialRoom);
+    }
+
     // Portal Distributor
     if (pathname.startsWith("/distributor")) {
       const allow = ["distributor", "perawat", "vendor", ...ADMIN_ROLES];
@@ -145,7 +174,7 @@ function redirectToUnauthorized(req: NextRequest) {
   return NextResponse.redirect(url);
 }
 
-/* ✅ Matcher: Mencakup API dan semua portal utama */
+/* ✅ Matcher: Mencakup API, Portal utama, dan Unit dinamis */
 export const config = {
   matcher: [
     "/api/:path*",
@@ -153,6 +182,7 @@ export const config = {
     "/system/:path*",
     "/distributor/:path*",
     "/depo/:path*",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)",
   ],
 };
 

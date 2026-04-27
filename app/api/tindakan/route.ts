@@ -129,18 +129,26 @@ export async function GET(request: Request) {
     const dateFrom = searchParams.get("from")?.trim();
     const dateTo = searchParams.get("to")?.trim();
     const search = searchParams.get("search")?.trim();
+    const unitSlug = request.headers.get("x-unit-slug") || searchParams.get("unit")?.trim();
     /** Satu baris tindakan tepat (sinkron URL `?tindakanId=` dengan header). */
     const tindakanIdEq = searchParams.get("tindakanId")?.trim();
 
-    const { requireRole } = await import("@/lib/auth/guards");
-    const auth = await requireRole([
-      "perawat",
-      "dokter",
-      "admin",
-      "administrator",
-      "superadmin",
-    ]);
-    if (!auth.ok) return auth.response;
+    const { requireRole, requireUnitAccess } = await import("@/lib/auth/guards");
+    
+    // 1. Verifikasi Akses Unit jika unitSlug ada
+    if (unitSlug) {
+      const unitAuth = await requireUnitAccess(unitSlug);
+      if (!unitAuth.ok) return unitAuth.response;
+    } else {
+      const auth = await requireRole([
+        "perawat",
+        "dokter",
+        "admin",
+        "administrator",
+        "superadmin",
+      ]);
+      if (!auth.ok) return auth.response;
+    }
 
     const projections = workingProjectionCache 
       ? [workingProjectionCache, ...PROJECTIONS_LIST.filter(p => p !== workingProjectionCache), "*"]
@@ -178,6 +186,10 @@ export async function GET(request: Request) {
         if (tindakanIdEq) q = q.eq("id", tindakanIdEq);
         if (dateFrom) q = q.gte("tanggal", dateFrom);
         if (dateTo) q = q.lte("tanggal", dateTo);
+        if (unitSlug) {
+          // Filter berdasarkan ruangan (bisa berupa slug atau nama ruangan)
+          q = q.or(`ruangan.ilike.%${unitSlug}%`);
+        }
         if (search) {
           q = q.or(`nama_pasien.ilike.%${search}%,no_rm.ilike.%${search}%,dokter.ilike.%${search}%`);
         }

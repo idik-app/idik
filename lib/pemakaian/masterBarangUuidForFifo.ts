@@ -17,7 +17,7 @@ export function normalizeMasterBarangUuid(id: unknown): string | null {
 
 export type MasterBarangRowRef = {
   id: unknown;
-  nama: string;
+  nama: string | null;
   created_at?: string | null;
 };
 

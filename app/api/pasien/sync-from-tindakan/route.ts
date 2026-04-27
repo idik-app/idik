@@ -111,7 +111,7 @@ export async function POST(req: Request) {
         .limit(limit);
 
       if (!error && Array.isArray(data)) {
-        rows = data;
+        rows = data as unknown as Record<string, unknown>[];
         usedShape = shape;
         break;
       }

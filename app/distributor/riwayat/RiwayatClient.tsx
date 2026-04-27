@@ -387,16 +387,14 @@ export default function RiwayatClient() {
               ))}
             </select>
           </label>
-          <DateYmdPicker
-            label="Dari"
-            value={from}
-            onChange={setFrom}
-          />
-          <DateYmdPicker
-            label="Sampai"
-            value={to}
-            onChange={setTo}
-          />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] text-slate-400">Dari</span>
+            <DateYmdPicker value={from} onChange={setFrom} />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] text-slate-400">Sampai</span>
+            <DateYmdPicker value={to} onChange={setTo} />
+          </div>
           <button
             suppressHydrationWarning
             type="button"

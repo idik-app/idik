@@ -4,13 +4,13 @@ import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import { tanggalBarisKeYmdWib } from "./tanggalBarisWib";
+import type { PasienOption } from "@/components/ui/pasien-combobox";
 import {
   displayNamaPasien,
   displayRm,
   formatJenisKelaminDisplay,
   resolveJenisKelaminFromRow,
   resolvePasienFromRow,
-  type PasienOption,
 } from "./displayTindakanRow";
 import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
 import { parseFastTrackFotosUrls } from "./fastTrackFotos";
@@ -826,7 +826,7 @@ export function downloadMonthlyMatrixExcel(
   });
 
   // Baris JUMLAH (Footer)
-  const footer = ["JUMLAH"];
+  const footer: (string | number)[] = ["JUMLAH"];
   for (let di = 0; di < daysInMonth; di++) {
     footer.push(colTotals[di] || 0);
   }

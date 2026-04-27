@@ -2,16 +2,18 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requireUser } from "@/lib/auth/guards";
 import { getServiceSupabaseAdmin } from "@/lib/auth/serviceSupabase";
-
-/** Cache master ruangan di memori server (5 menit) */
-let ruanganCache: any[] | null = null;
-let ruanganCacheExpires = 0;
+import {
+  getRuanganListCacheIfValid,
+  setRuanganListCache,
+  invalidateRuanganListCache,
+} from "@/lib/server/ruanganListCache";
+import { normalizeRuanganSlugInput } from "@/lib/ruangan/slug";
 
 /** Daftar master ruangan untuk form pemakaian / combobox (semua baris dengan nama). */
 export async function GET() {
-  const now = Date.now();
-  if (ruanganCache && now < ruanganCacheExpires) {
-    return NextResponse.json({ ok: true, ruangan: ruanganCache, cached: true });
+  const cached = getRuanganListCacheIfValid();
+  if (cached) {
+    return NextResponse.json({ ok: true, ruangan: cached, cached: true });
   }
 
   const user = await requireUser();
@@ -31,7 +33,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("ruangan")
-    .select("id,nama,kode,kategori,aktif")
+    .select("id,nama,kode,kategori,aktif,slug")
     .order("nama", { ascending: true });
 
   if (error) {
@@ -47,6 +49,7 @@ export async function GET() {
     kode?: string | null;
     kategori?: string | null;
     aktif?: boolean | null;
+    slug?: string | null;
   };
 
   const rows = (data ?? []).filter((r: Row) =>
@@ -62,11 +65,13 @@ export async function GET() {
         ? String(r.kategori).trim()
         : null,
     aktif: r.aktif !== false,
+    slug:
+      r.slug != null && String(r.slug).trim()
+        ? String(r.slug).trim()
+        : null,
   }));
 
-  // Update Cache
-  ruanganCache = finalRuangan;
-  ruanganCacheExpires = Date.now() + 300 * 1000; // 5 menit
+  setRuanganListCache(finalRuangan);
 
   return NextResponse.json({
     ok: true,
@@ -123,7 +128,34 @@ export async function POST(req: Request) {
         ? true
         : Boolean(body.aktif);
 
+    const slugNorm = normalizeRuanganSlugInput(body?.slug);
+    if (body?.slug != null && String(body.slug).trim() !== "" && !slugNorm) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message:
+            "Slug URL tidak valid. Gunakan huruf kecil, angka, dan tanda hubung (contoh: iccu, rawat-inap).",
+        },
+        { status: 400 }
+      );
+    }
+
     const supabase = createAdminClient();
+
+    if (slugNorm) {
+      const { data: slugTaken } = await supabase
+        .from("ruangan")
+        .select("id")
+        .eq("slug", slugNorm)
+        .maybeSingle();
+      if (slugTaken?.id) {
+        return NextResponse.json(
+          { ok: false, message: `Slug "${slugNorm}" sudah dipakai ruangan lain.` },
+          { status: 400 }
+        );
+      }
+    }
+
     const { data, error } = await supabase
       .from("ruangan")
       .insert({
@@ -133,13 +165,16 @@ export async function POST(req: Request) {
         kapasitas,
         keterangan,
         aktif,
+        ...(slugNorm ? { slug: slugNorm } : {}),
       })
       .select(
-        "id,nama,kode,kategori,kapasitas,keterangan,aktif,created_at,updated_at"
+        "id,nama,kode,kategori,kapasitas,keterangan,aktif,slug,created_at,updated_at"
       )
       .maybeSingle();
 
     if (error) throw error;
+
+    invalidateRuanganListCache();
 
     return NextResponse.json({ ok: true, data }, { status: 201 });
   } catch (err: unknown) {

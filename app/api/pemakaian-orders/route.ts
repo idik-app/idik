@@ -12,6 +12,7 @@ import {
 import {
   normalizeMasterBarangUuid,
   resolveMasterBarangUuidForFifo,
+  type MasterBarangRowRef,
 } from "@/lib/pemakaian/masterBarangUuidForFifo";
 import { lineEligibleForPemakaianFifo } from "@/lib/pemakaian/fifoOrderLine";
 import { rpcAllocatePemakaianFifo } from "@/lib/pemakaian/allocateFifoRpc";
@@ -193,7 +194,7 @@ export async function POST(req: Request) {
 
   /** Harus mutabel: insert baris baru harus langsung terlihat iterasi berikutnya
    *  agar tidak membuat dua `master_barang` untuk nama sama dalam satu request. */
-  let mastersList: { id: string; nama: string | null }[] = [];
+  let mastersList: MasterBarangRowRef[] = [];
   let distsList: { id: string; nama_pt: string }[] = [];
 
   // --- AUTO-CREATE MASTER BARANG & DISTRIBUTOR (tanpa FIFO; order harus ada di DB dulu untuk FK pemakaian) ---

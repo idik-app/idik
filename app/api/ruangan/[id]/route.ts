@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/guards";
+import { invalidateRuanganListCache } from "@/lib/server/ruanganListCache";
+import { normalizeRuanganSlugInput } from "@/lib/ruangan/slug";
 
 export async function PATCH(
   req: Request,
@@ -88,6 +90,40 @@ export async function PATCH(
       patch.aktif = Boolean(body.aktif);
     }
 
+    if (body?.slug !== undefined) {
+      const slugRaw = body.slug;
+      if (slugRaw === null || slugRaw === "") {
+        patch.slug = null;
+      } else {
+        const slugNorm = normalizeRuanganSlugInput(slugRaw);
+        if (!slugNorm) {
+          return NextResponse.json(
+            {
+              ok: false,
+              message:
+                "Slug URL tidak valid. Gunakan huruf kecil, angka, dan tanda hubung (contoh: iccu, rawat-inap).",
+            },
+            { status: 400 }
+          );
+        }
+        const { data: slugRow } = await supabase
+          .from("ruangan")
+          .select("id")
+          .eq("slug", slugNorm)
+          .maybeSingle();
+        if (slugRow?.id && slugRow.id !== id) {
+          return NextResponse.json(
+            {
+              ok: false,
+              message: `Slug "${slugNorm}" sudah dipakai ruangan lain.`,
+            },
+            { status: 400 }
+          );
+        }
+        patch.slug = slugNorm;
+      }
+    }
+
     if (Object.keys(patch).length === 0) {
       return NextResponse.json(
         { ok: false, message: "Tidak ada perubahan" },
@@ -100,11 +136,13 @@ export async function PATCH(
       .update(patch)
       .eq("id", id)
       .select(
-        "id,nama,kode,kategori,kapasitas,keterangan,aktif,created_at,updated_at"
+        "id,nama,kode,kategori,kapasitas,keterangan,aktif,slug,created_at,updated_at"
       )
       .maybeSingle();
 
     if (upErr) throw upErr;
+
+    invalidateRuanganListCache();
 
     return NextResponse.json({ ok: true, data: updated }, { status: 200 });
   } catch (err: unknown) {
@@ -146,6 +184,8 @@ export async function DELETE(
 
     const { error: delErr } = await supabase.from("ruangan").delete().eq("id", id);
     if (delErr) throw delErr;
+
+    invalidateRuanganListCache();
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err: unknown) {

@@ -69,7 +69,8 @@ export default function KategoriTindakanField({
   const pickerOptions = useMemo(() => {
     const v = (value == null ? "" : String(value)).trim();
     return items.filter(
-      (o) => o.aktif !== false || formatMasterKategoriLabel(o) === v,
+      (o: MasterItem) =>
+        o.aktif !== false || formatMasterKategoriLabel(o) === v,
     );
   }, [items, value]);
 
@@ -126,7 +127,11 @@ export default function KategoriTindakanField({
       show({ type: "warning", message: "Isi kategori terlebih dahulu." });
       return;
     }
-    if (items.some((i) => i.nama.toUpperCase() === nama.toUpperCase())) {
+    if (
+      items.some(
+        (i: MasterItem) => i.nama.toUpperCase() === nama.toUpperCase(),
+      )
+    ) {
       show({ type: "warning", message: "Sudah ada di daftar master." });
       return;
     }
@@ -392,7 +397,7 @@ export default function KategoriTindakanField({
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
               <ul className="space-y-1">
-                {items.map((it) => (
+                {items.map((it: MasterItem) => (
                   <li
                     key={it.id}
                     className={cn(

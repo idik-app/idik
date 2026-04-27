@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 interface JarvisIconProps {
   size?: number | string;
@@ -40,6 +40,10 @@ export default function JarvisIcon({
   }, [status]);
 
   const style = size ? { width: size, height: size } : {};
+  const uid = useId().replace(/:/g, "");
+  const gradId = `jarvis-grad-${uid}`;
+  const glowFilterId = `jarvis-glow-${uid}`;
+  const outerGlowFilterId = `jarvis-outer-glow-${uid}`;
 
   // Color Mapping based on Status
   const getColors = () => {
@@ -58,6 +62,10 @@ export default function JarvisIcon({
   };
 
   const colors = getColors();
+  const eyeColor =
+    internalStatus === "idle" && !lightMode
+      ? "#f0b85a"
+      : colors.primary;
 
   return (
     <motion.svg
@@ -67,9 +75,8 @@ export default function JarvisIcon({
       style={style}
       className={cn(
         "relative z-10 transition-all duration-500 group cursor-pointer",
-        isSyncing && internalStatus === "idle"
-          ? "opacity-40 scale-95 blur-[0.5px]"
-          : "opacity-100",
+        isSyncing && internalStatus === "idle" &&
+          "drop-shadow-[0_0_12px_rgba(34,211,238,0.5)]",
         className
       )}
       initial="idle"
@@ -77,16 +84,21 @@ export default function JarvisIcon({
       whileTap="tap"
     >
       <defs>
-        <linearGradient id="jarvisGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor={colors.primary} />
           <stop offset="100%" stopColor={colors.secondary} />
         </linearGradient>
-        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+        <filter id={glowFilterId} x="-20%" y="-20%" width="140%" height="140%">
           <feGaussianBlur stdDeviation="2" result="blur" />
           <feComposite in="SourceGraphic" in2="blur" operator="over" />
         </filter>
-        {/* Glow for Success/Error Flare */}
-        <filter id="outerGlow" x="-50%" y="-50%" width="200%" height="200%">
+        <filter
+          id={outerGlowFilterId}
+          x="-50%"
+          y="-50%"
+          width="200%"
+          height="200%"
+        >
           <feGaussianBlur stdDeviation="4" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
@@ -130,7 +142,7 @@ export default function JarvisIcon({
             stroke={colors.primary}
             fill="none"
             transition={{ duration: 0.8, ease: "easeOut" }}
-            filter="url(#outerGlow)"
+            filter={`url(#${outerGlowFilterId})`}
           />
         )}
       </AnimatePresence>
@@ -145,15 +157,15 @@ export default function JarvisIcon({
         {/* 3. Main Face Plate (Neural Heartbeat) */}
         <motion.path
           d="M50 10 C35 10, 22 18, 20 35 L18 55 C18 75, 30 85, 35 88 L50 95 L65 88 C70 85, 82 75, 82 55 L80 35 C78 18, 65 10, 50 10 Z"
-          fill="url(#jarvisGradient)"
+          fill={`url(#${gradId})`}
           fillOpacity={lightMode ? "0.05" : "0.1"}
-          stroke="url(#jarvisGradient)"
-          strokeWidth="2"
+          stroke={`url(#${gradId})`}
+          strokeWidth="2.5"
           strokeLinejoin="round"
-          filter={lightMode ? "" : "url(#glow)"}
+          filter={lightMode ? "" : `url(#${glowFilterId})`}
           animate={{
             strokeWidth:
-              internalStatus === "diagnosing" ? [2, 3, 2] : [2, 2.5, 2],
+              internalStatus === "diagnosing" ? [2.5, 3.2, 2.5] : [2.5, 3, 2.5],
             opacity: internalStatus === "error" ? [1, 0.5, 1] : 1,
             x: internalStatus === "error" ? [0, -1, 1, -1, 0] : 0, // Glitch shake
           }}
@@ -177,7 +189,7 @@ export default function JarvisIcon({
             initial={{ y: 40, opacity: 0 }}
             animate={{ y: [40, 65, 40], opacity: [0, 0.8, 0] }}
             transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-            filter="url(#glow)"
+            filter={`url(#${glowFilterId})`}
           />
         )}
 
@@ -203,7 +215,8 @@ export default function JarvisIcon({
         {/* 6. Eye Slits (Dynamic Expressions) */}
         <motion.path
           d="M32 48 L44 52 L44 55 L32 52 Z M56 52 L68 48 L68 52 L56 55 Z"
-          fill={colors.primary}
+          fill={eyeColor}
+          filter={!lightMode && internalStatus === "idle" ? `url(#${glowFilterId})` : undefined}
           animate={{
             // Neural Heartbeat & Status Expression
             opacity:
@@ -234,7 +247,7 @@ export default function JarvisIcon({
         {/* 7. Forehead Detail */}
         <motion.path
           d="M45 25 L50 30 L55 25"
-          stroke="url(#jarvisGradient)"
+          stroke={`url(#${gradId})`}
           strokeWidth="1.5"
           fill="none"
           variants={{

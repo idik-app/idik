@@ -21,8 +21,13 @@ export default async function Home() {
     try {
       const secretKey = new TextEncoder().encode(secret);
       const { payload } = await jwtVerify(token, secretKey);
-      const role = (payload as any)?.role;
-      redirect(getRedirectTargetForRole(role));
+      const p = payload as Record<string, unknown>;
+      const role = p?.role;
+      const ruanganSlug =
+        typeof p?.ruangan_slug === "string" && p.ruangan_slug.trim().length > 0
+          ? p.ruangan_slug.trim()
+          : null;
+      redirect(getRedirectTargetForRole(role, { ruanganSlug }));
     } catch {
       // Token invalid/expired -> tetap tampilkan intro & login.
     }

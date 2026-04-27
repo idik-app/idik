@@ -12,11 +12,16 @@ export async function getBeritaTerbaru(limit = 3) {
 
   if (error) throw error
 
-  return data.map((item) => ({
+  const rows = (data ?? []) as Array<{
+    tanggal: string;
+    isi: string;
+    [k: string]: unknown;
+  }>;
+  return rows.map((item) => ({
     ...item,
     tanggalFormatted: formatTanggal(item.tanggal),
     cuplikan: truncateText(item.isi, 120),
-  }))
+  }));
 }
 
 // Ambil semua berita
@@ -29,11 +34,16 @@ export async function getSemuaBerita() {
 
   if (error) throw error
 
-  return data.map((item) => ({
+  const rows = (data ?? []) as Array<{
+    tanggal: string;
+    isi: string;
+    [k: string]: unknown;
+  }>;
+  return rows.map((item) => ({
     ...item,
     tanggalFormatted: formatTanggal(item.tanggal),
     cuplikan: truncateText(item.isi, 180),
-  }))
+  }));
 }
 
 // Ambil berita detail berdasarkan slug
@@ -46,8 +56,9 @@ export async function getBeritaBySlug(slug: string) {
 
   if (error) throw error
 
+  const row = data as { tanggal: string; [k: string]: unknown };
   return {
-    ...data,
-    tanggalFormatted: formatTanggal(data.tanggal),
-  }
+    ...row,
+    tanggalFormatted: formatTanggal(row.tanggal),
+  };
 }

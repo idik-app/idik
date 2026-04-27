@@ -29,7 +29,11 @@ type PemakaianRow = {
   tanggal: string;
   jumlah: number;
   keterangan: string | null;
-  inventaris: { nama: string; satuan: string | null } | null;
+  inventaris: {
+    nama: string;
+    satuan: string | null;
+    kategori?: string | null;
+  } | null;
   distributor_nama?: string | null;
   created_at?: string | null;
   order_id?: string | null;
@@ -60,7 +64,8 @@ type IndexedPemakaianRow = {
   groupKey: string;
 };
 
-const PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 const PORTAL_PUBLIC_BASE_URL =
   process.env.NEXT_PUBLIC_APP_URL?.trim() ||
   process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
@@ -192,6 +197,14 @@ function tableDokter(row: PemakaianRow): string {
 
 function tableRuangan(row: PemakaianRow): string {
   return row.ruangan?.trim() || "—";
+}
+
+/** Label baris pemakaian: "NAMA [KATEGORI]" bila kategori tersedia. */
+function barangDenganKategori(row: PemakaianRow): string {
+  const nama = row.inventaris?.nama?.trim() || "—";
+  const kat = row.inventaris?.kategori?.trim();
+  if (!kat) return nama;
+  return `${nama} [${kat}]`;
 }
 
 /** Kunci penggabungan: tanggal + pasien (RM & nama) + PT — beda PT tetap baris terpisah. */
@@ -349,8 +362,7 @@ function buildShareBodyGroup(rows: PemakaianRow[], infoLink?: string): string {
   lines.push("Pemakaian:");
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i]!;
-    const rp = rowKParts(r);
-    const nama = r.inventaris?.nama ?? "-";
+    const nama = barangDenganKategori(r);
     const bullet = `- ${nama}${r.jumlah != null && Number(r.jumlah) !== 1 ? ` (x${r.jumlah})` : ""}`;
     lines.push(bullet);
     const lot = r.lot?.trim();
@@ -413,7 +425,7 @@ function buildShareBody(
   if (pt) lines.push(`PT / Distributor: ${pt}`);
   lines.push("");
   lines.push("Pemakaian:");
-  const nama = row.inventaris?.nama ?? "-";
+  const nama = barangDenganKategori(row);
   const bullet = `- ${nama}${row.jumlah != null && Number(row.jumlah) !== 1 ? ` (x${row.jumlah})` : ""}`;
   lines.push(bullet);
   const lot = row.lot?.trim();
@@ -441,7 +453,7 @@ function appendWaPemakaianLines(
   r: PemakaianRow,
   itemNo: number,
 ) {
-  const nama = r.inventaris?.nama ?? "-";
+  const nama = barangDenganKategori(r);
   const qty =
     r.jumlah != null && Number(r.jumlah) !== 1 ? ` (x${r.jumlah})` : "";
   lines.push(`${itemNo}. ${nama}${qty}`);
@@ -482,7 +494,7 @@ function buildWhatsAppBodyFromGroup(
         lines.push("Dokter");
         lines.push(d);
       }
-      const r_val = row.ruangan?.trim();
+      const r_val = r.ruangan?.trim();
       if (r_val && r_val !== "—") {
         lines.push("");
         lines.push("Ruangan");
@@ -551,6 +563,7 @@ function rowMatchesSearch(r: PemakaianRow, q: string): boolean {
     formatTanggalId(r.tanggal),
     r.distributor_nama ?? "",
     r.inventaris?.nama ?? "",
+    r.inventaris?.kategori ?? "",
     r.keterangan ?? "",
     String(r.jumlah),
     r.order_id ?? "",
@@ -576,6 +589,7 @@ function buildRowSearchText(r: PemakaianRow): string {
     formatTanggalId(r.tanggal),
     r.distributor_nama ?? "",
     r.inventaris?.nama ?? "",
+    r.inventaris?.kategori ?? "",
     r.keterangan ?? "",
     String(r.jumlah),
     r.order_id ?? "",
@@ -625,6 +639,7 @@ function DistributorPemakaianPageContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPt, setFilterPt] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [detailGroup, setDetailGroup] = useState<PemakaianRow[] | null>(null);
   const [sharePreview, setSharePreview] = useState<SharePreviewState | null>(
     null,
@@ -758,12 +773,12 @@ function DistributorPemakaianPageContent() {
   );
 
   const totalFiltered = groupedRows.length;
-  const totalPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
   const safePage = Math.min(page, totalPages);
-  const pageStart = (safePage - 1) * PAGE_SIZE;
-  const pageRows = groupedRows.slice(pageStart, pageStart + PAGE_SIZE);
+  const pageStart = (safePage - 1) * pageSize;
+  const pageRows = groupedRows.slice(pageStart, pageStart + pageSize);
   const showingFrom = totalFiltered === 0 ? 0 : pageStart + 1;
-  const showingTo = Math.min(pageStart + PAGE_SIZE, totalFiltered);
+  const showingTo = Math.min(pageStart + pageSize, totalFiltered);
 
   const [isMeLoading, setIsMeLoading] = useState(true);
   const [hasSession, setHasSession] = useState(false);
@@ -790,7 +805,16 @@ function DistributorPemakaianPageContent() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, filterPt, from, to, distributorIdParam, groupedRows.length]);
+  }, [
+    searchQuery,
+    filterPt,
+    from,
+    to,
+    mode,
+    distributorIdParam,
+    groupedRows.length,
+    pageSize,
+  ]);
 
   useEffect(() => {
     setPage((p) => Math.min(p, totalPages));
@@ -985,7 +1009,7 @@ function DistributorPemakaianPageContent() {
                       className="rounded-lg bg-slate-900/40 border border-cyan-900/30 p-4"
                     >
                       <p className="text-cyan-50 font-medium text-lg mb-2">
-                        {line.inventaris?.nama ?? "—"}
+                        {barangDenganKategori(line)}
                         {line.jumlah != null && Number(line.jumlah) !== 1 && (
                           <span className="text-cyan-400 ml-2">
                             (×{line.jumlah})
@@ -1148,6 +1172,7 @@ function DistributorPemakaianPageContent() {
           <table className="min-w-full text-[12px]">
             <thead className="bg-slate-950/80">
               <tr className="text-cyan-300/80">
+                <Th className="w-10 min-w-8 text-right">No</Th>
                 <Th>Tanggal</Th>
                 <Th className="min-w-[9rem]">Nama Pasien</Th>
                 <Th className="whitespace-nowrap">No. RM</Th>
@@ -1158,7 +1183,7 @@ function DistributorPemakaianPageContent() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="px-3 py-6 text-center text-cyan-300/60"
                   >
                     Memuat...
@@ -1167,7 +1192,7 @@ function DistributorPemakaianPageContent() {
               ) : pageRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="px-3 py-6 text-center text-cyan-300/60"
                   >
                     {rows.length === 0
@@ -1176,7 +1201,7 @@ function DistributorPemakaianPageContent() {
                   </td>
                 </tr>
               ) : (
-                pageRows.map((grp) => {
+                pageRows.map((grp, rowIdx) => {
                   const r0 = grp[0]!;
                   const gkey = mergeGroupKey(r0);
                   return (
@@ -1193,6 +1218,9 @@ function DistributorPemakaianPageContent() {
                       }}
                       className="cursor-pointer hover:bg-cyan-900/20 focus:bg-cyan-900/15 focus:outline-none"
                     >
+                      <Td className="w-10 min-w-8 whitespace-nowrap align-top text-right tabular-nums text-cyan-300/85">
+                        {pageStart + rowIdx + 1}
+                      </Td>
                       <Td className="whitespace-nowrap align-top">
                         {formatTanggalId(String(r0.tanggal ?? ""))}
                       </Td>
@@ -1219,29 +1247,46 @@ function DistributorPemakaianPageContent() {
 
         {!loading && totalFiltered > 0 ? (
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-cyan-900/50 px-3 py-2 text-[11px] text-cyan-400/90">
-            <span>
-              Menampilkan {showingFrom}–{showingTo} dari {totalFiltered}
+            <span className="min-w-0 text-cyan-200/90">
+              Menampilkan {showingFrom} sampai {showingTo} dari {totalFiltered}
             </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                disabled={safePage <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="rounded-md border border-cyan-800/70 px-2 py-1 text-[11px] text-cyan-200 disabled:opacity-40 hover:bg-cyan-950/60"
-              >
-                Sebelumnya
-              </button>
-              <span className="px-2 tabular-nums">
-                {safePage} / {totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={safePage >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="rounded-md border border-cyan-800/70 px-2 py-1 text-[11px] text-cyan-200 disabled:opacity-40 hover:bg-cyan-950/60"
-              >
-                Berikutnya
-              </button>
+            <div className="ms-auto flex w-full min-w-0 flex-shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
+              <label className="flex items-center gap-1.5 text-[11px] text-cyan-300/90">
+                <span className="whitespace-nowrap">Baris</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="min-w-[3.5rem] rounded-md border border-cyan-800/70 bg-slate-950/70 py-1 pl-1.5 pr-6 text-[11px] text-cyan-100 focus:border-cyan-500/50 focus:outline-none"
+                  aria-label="Jumlah baris per halaman"
+                >
+                  {PAGE_SIZE_OPTIONS.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={safePage <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="rounded-md border border-cyan-200/30 px-2 py-1 text-[11px] text-cyan-100 transition-colors hover:bg-cyan-950/60 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Sebelumnya
+                </button>
+                <span className="px-2 tabular-nums text-cyan-100/90">
+                  {safePage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={safePage >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="rounded-md border border-cyan-200/30 px-2 py-1 text-[11px] text-cyan-100 transition-colors hover:bg-cyan-950/60 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Berikutnya
+                </button>
+              </div>
             </div>
           </div>
         ) : null}
@@ -1307,7 +1352,7 @@ function DistributorPemakaianPageContent() {
                     {detailGroup.map((lineRow) => (
                       <li key={lineRow.id}>
                         <span className="text-cyan-100">
-                          • {lineRow.inventaris?.nama ?? "—"}
+                          • {barangDenganKategori(lineRow)}
                           {lineRow.jumlah != null &&
                           Number(lineRow.jumlah) !== 1 ? (
                             <span className="text-cyan-400/80">

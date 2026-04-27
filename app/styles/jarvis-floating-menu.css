@@ -1,0 +1,391 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap');
+
+:root {
+  --jarvis-cyan: #00f2ff;
+  --jarvis-blue: #0072ff;
+  --jarvis-cyan-glow: rgba(0, 242, 255, 0.5);
+  --jarvis-blue-glow: rgba(0, 114, 255, 0.5);
+  --jarvis-bg-blur: rgba(0, 20, 40, 0.7);
+  --orbitron: 'Orbitron', sans-serif;
+  --share-tech: 'Share Tech Mono', monospace;
+}
+
+/* Arc Reactor Button Base */
+.arc-reactor-container {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 100;
+  transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Parent `.jarvis-menu-container` pakai `pointer-events: none` agar klik di luar panel tembus ke backdrop */
+  pointer-events: auto;
+}
+
+.arc-reactor-container:hover:not(.arc-reactor-container--open) {
+  transform: scale(1.1);
+}
+
+/* Terbuka: putar cincin + denyut opacity; inti tetap berdenyut pelan. */
+.arc-reactor-container--open .ring-outer {
+  animation:
+    rotate-cw 4s linear infinite,
+    orbit-breathe 2.2s ease-in-out infinite;
+}
+.arc-reactor-container--open .ring-inner {
+  animation:
+    rotate-ccw 3s linear infinite,
+    orbit-breathe 2.2s 0.15s ease-in-out infinite;
+}
+.arc-reactor-container--open .arc-reactor-core {
+  animation: reactor-pulse-subtle 2.2s ease-in-out infinite;
+}
+
+.arc-reactor-core {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  background: var(--jarvis-cyan);
+  border-radius: 50%;
+  box-shadow: 0 0 20px var(--jarvis-cyan), 0 0 40px var(--jarvis-blue);
+  z-index: 5;
+  animation: reactor-pulse 2.2s ease-in-out infinite;
+}
+
+.orbit-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px dashed var(--jarvis-cyan);
+  opacity: 0.6;
+}
+
+.ring-outer {
+  width: 56px;
+  height: 56px;
+  animation:
+    rotate-cw 4s linear infinite,
+    orbit-breathe 2.2s ease-in-out infinite;
+  border-style: double;
+  border-width: 3px;
+  border-color: var(--jarvis-cyan) transparent var(--jarvis-cyan) transparent;
+}
+
+.ring-inner {
+  width: 40px;
+  height: 40px;
+  animation:
+    rotate-ccw 3s linear infinite,
+    orbit-breathe 2.2s 0.15s ease-in-out infinite;
+  border-style: dotted;
+  border-width: 2px;
+  border-color: transparent var(--jarvis-blue) transparent var(--jarvis-blue);
+}
+
+@keyframes rotate-cw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes rotate-ccw {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+/* Denyut ganda (ringan) — seperti detak. */
+@keyframes reactor-pulse {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.88;
+    box-shadow: 0 0 10px var(--jarvis-cyan), 0 0 20px var(--jarvis-blue);
+  }
+  12% {
+    transform: scale(1.1);
+    opacity: 1;
+    box-shadow: 0 0 22px var(--jarvis-cyan), 0 0 38px var(--jarvis-blue);
+  }
+  24% {
+    transform: scale(0.95);
+    opacity: 0.9;
+    box-shadow: 0 0 12px var(--jarvis-cyan), 0 0 22px var(--jarvis-blue);
+  }
+  40% {
+    transform: scale(1.08);
+    opacity: 1;
+    box-shadow: 0 0 18px var(--jarvis-cyan), 0 0 32px var(--jarvis-blue);
+  }
+  55%,
+  70% {
+    transform: scale(0.94);
+    opacity: 0.9;
+    box-shadow: 0 0 12px var(--jarvis-cyan), 0 0 24px var(--jarvis-blue);
+  }
+  88% {
+    transform: scale(1.04);
+    opacity: 0.98;
+    box-shadow: 0 0 16px var(--jarvis-cyan), 0 0 28px var(--jarvis-blue);
+  }
+}
+
+@keyframes reactor-pulse-subtle {
+  0%,
+  100% {
+    transform: scale(0.97);
+    box-shadow: 0 0 12px var(--jarvis-cyan);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px var(--jarvis-cyan), 0 0 32px var(--jarvis-blue);
+  }
+}
+
+@keyframes orbit-breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  35% {
+    opacity: 0.8;
+  }
+  65% {
+    opacity: 0.55;
+  }
+}
+
+/* Glassmorphism Panel with L-Brackets */
+.jarvis-panel {
+  background: var(--jarvis-bg-blur);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 242, 255, 0.2);
+  position: relative;
+  padding: 1rem;
+  box-shadow: inset 0 0 20px rgba(0, 242, 255, 0.05);
+}
+
+.jarvis-panel::before,
+.jarvis-panel::after,
+.jarvis-panel .bracket-bottom-left::before,
+.jarvis-panel .bracket-bottom-right::before {
+  content: "";
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-color: var(--jarvis-cyan);
+  border-style: solid;
+  opacity: 0.8;
+}
+
+/* Top Left Bracket */
+.jarvis-panel::before {
+  top: -1px;
+  left: -1px;
+  border-width: 2px 0 0 2px;
+}
+
+/* Top Right Bracket */
+.jarvis-panel::after {
+  top: -1px;
+  right: -1px;
+  border-width: 2px 2px 0 0;
+}
+
+/* Bottom Left Bracket Placeholder */
+.bracket-bottom-left::before {
+  bottom: -1px;
+  left: -1px;
+  border-width: 0 0 2px 2px;
+}
+
+/* Bottom Right Bracket Placeholder */
+.bracket-bottom-right::before {
+  bottom: -1px;
+  right: -1px;
+  border-width: 0 2px 2px 0;
+}
+
+/* Typography (single soft glow; strong blur reads as “double” text) */
+.jarvis-title {
+  font-family: var(--orbitron);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--jarvis-cyan);
+  text-shadow: 0 0 4px var(--jarvis-cyan-glow);
+}
+
+.jarvis-data {
+  font-family: var(--share-tech);
+  color: #fff;
+}
+
+/* Floating menu items: don’t change padding on hover (reflow = hover flicker). */
+.jarvis-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  margin: 4px 0;
+  color: rgba(255, 255, 255, 0.7);
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+  position: relative;
+  overflow: visible;
+  border: 1px solid transparent;
+  will-change: transform;
+}
+
+.jarvis-menu-item:hover {
+  background: rgba(0, 242, 255, 0.1);
+  color: var(--jarvis-cyan);
+  border-color: rgba(0, 242, 255, 0.3);
+  transform: translateX(4px);
+  box-shadow: 0 0 12px rgba(0, 242, 255, 0.1);
+}
+
+.jarvis-menu-item .label {
+  opacity: 1;
+  transform: none;
+  transition: all 0.3s ease;
+  font-family: var(--share-tech);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* `pointer-events: none` pada container: hit area = hanya panel + FAB (auto),
+   bukan seluruh kotak flex — klik di gap/sela/celah “sedikit di luar” panel
+   tembus ke backdrop → menu tertutup. */
+/* z-index: gunakan UI_LAYERS.fullscreen di komponen (9999) */
+.jarvis-menu-container {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 0.5rem;
+  pointer-events: none;
+  isolation: isolate;
+}
+
+/* Di atas hampir semua konten, di bawah panel jarvis; pointer hanya buat klik = tutup */
+.jarvis-menu-backdrop {
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.jarvis-expanded-menu {
+  position: relative;
+  z-index: 1;
+  right: 0;
+  min-width: 240px;
+  flex-shrink: 0;
+  transform-origin: bottom right;
+  pointer-events: auto;
+}
+
+/* Spasi vertikal saja; klik tembus ke backdrop (parent container `none`). */
+.jarvis-fab-menu-bridge {
+  flex-shrink: 0;
+  min-height: 0.35rem;
+  min-width: 0;
+  width: 2.25rem;
+  max-width: 2.5rem;
+  align-self: flex-end;
+  pointer-events: none;
+}
+
+/* Custom Scrollbar for Menu */
+.jarvis-panel {
+  max-height: 80vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--jarvis-cyan) transparent;
+}
+
+.jarvis-panel::-webkit-scrollbar {
+  width: 4px;
+}
+
+.jarvis-panel::-webkit-scrollbar-thumb {
+  background: var(--jarvis-cyan);
+  border-radius: 10px;
+}
+
+/* Tombol gear header: ikon harus jelas di panel gelap. */
+.jarvis-header-settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.375rem;
+  border-radius: 0.375rem;
+  color: #a5f3fc;
+  background: rgba(6, 182, 212, 0.14);
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  isolation: isolate;
+  mix-blend-mode: normal;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.jarvis-header-settings-btn:hover {
+  color: #ecfeff;
+  background: rgba(6, 182, 212, 0.22);
+  border-color: rgba(34, 211, 238, 0.55);
+}
+.jarvis-header-settings-btn svg {
+  color: inherit;
+  stroke: currentColor;
+  fill: none;
+}
+/* Mode konfigurasi aktif: latar penuh seperti CTA. */
+.jarvis-header-settings-btn.jarvis-header-settings-btn--config {
+  background-color: #22d3ee;
+  color: #09090b;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+}
+.jarvis-header-settings-btn.jarvis-header-settings-btn--config:hover {
+  background-color: #5eead4;
+  color: #0a0a0a;
+  border-color: rgba(255, 255, 255, 0.28);
+}
+.jarvis-header-settings-btn.jarvis-header-settings-btn--config svg {
+  color: #09090b;
+  stroke: #09090b;
+}
+
+/* CTA Simpan: warna wajib solid (Tailwind/ dark / mix-blend sering membuat
+   bg-cyan-400 + text-zinc-950 tampil gelap di atas gelap). */
+.jarvis-form-save-cta {
+  isolation: isolate;
+  mix-blend-mode: normal;
+  background-color: #22d3ee;
+  color: #09090b;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.12);
+}
+.jarvis-form-save-cta:hover {
+  background-color: #5eead4;
+  color: #0a0a0a;
+}
+.jarvis-form-save-cta,
+.jarvis-form-save-cta span,
+.jarvis-form-save-cta svg {
+  color: #09090b;
+}
+.jarvis-form-save-cta svg {
+  stroke: #09090b;
+  fill: none;
+}
+
+/* Edit Mode Specifics */
+select option {
+  background: #0b111a;
+  color: white;
+}

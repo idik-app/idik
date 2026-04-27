@@ -103,7 +103,7 @@ export default function JadwalCathModal({
     <ModalWrapper
       onClose={onClose}
       isWide
-      zIndex={UI_LAYERS.modalTop}
+      zIndex={130}
       className="p-0 border-white/10 bg-zinc-950 rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden h-[95vh] shadow-2xl max-w-7xl"
     >
       <div className="flex flex-col h-full bg-zinc-950 text-white">

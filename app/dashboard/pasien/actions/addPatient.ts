@@ -33,7 +33,24 @@ export async function addPatient(data: Omit<Pasien, "id">): Promise<Pasien> {
   if (error) {
     console.error("❌ Supabase insert error:", error);
     console.error("📦 Payload dikirim:", payload);
-    throw new Error(error.message);
+    const msg = String(error.message ?? "");
+    const details = String((error as { details?: string }).details ?? "");
+    const dupRm =
+      error.code === "23505" &&
+      (msg.includes("pasien_no_rm") ||
+        msg.includes("no_rm") ||
+        details.includes("no_rm"));
+    if (dupRm) {
+      throw new Error(
+        `No. RM "${noRM}" sudah dipakai pasien lain. Ubah nomor RM atau gunakan pasien yang sudah ada.`,
+      );
+    }
+    if (error.code === "23505") {
+      throw new Error(
+        "Data bentrok dengan catatan yang sudah ada (nilai unik duplikat). Periksa kembali isian.",
+      );
+    }
+    throw new Error(msg || "Gagal menyimpan pasien");
   }
 
   await logPasienAudit(

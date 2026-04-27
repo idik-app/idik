@@ -471,8 +471,7 @@ function BarangPanel() {
               if (editingBarang) {
                 const { data, error } = await sb
                   .from('master_barang')
-                  // @ts-expect-error - master_barang row type from DB
-                  .update(row)
+                  .update(row as never)
                   .eq('id', editingBarang.id)
                   .select('*')
                   .single();
@@ -499,8 +498,7 @@ function BarangPanel() {
               } else {
                 const { data, error } = await sb
                   .from('master_barang')
-                  // @ts-expect-error - master_barang row type from DB
-                  .insert(row)
+                  .insert(row as never)
                   .select('*')
                   .single();
 
@@ -1067,8 +1065,7 @@ function AlkesPanel() {
               if (editingAlkes) {
                 const { data, error: err } = await sb
                   .from('master_barang')
-                  // @ts-expect-error - master_barang row type from DB
-                  .update(row)
+                  .update(row as never)
                   .eq('id', editingAlkes.id)
                   .select('*')
                   .single();
@@ -1095,8 +1092,7 @@ function AlkesPanel() {
               } else {
                 const { data, error: err } = await sb
                   .from('master_barang')
-                  // @ts-expect-error - master_barang row type from DB
-                  .insert(row)
+                  .insert(row as never)
                   .select('*')
                   .single();
 
@@ -1573,7 +1569,6 @@ function DistributorPanel() {
               if (editing) {
                 const { error } = await sb
                   .from('master_distributor')
-                  // @ts-expect-error - master_distributor row type from DB
                   .update({
                     nama_pt: payload.namaPt,
                     nama_sales: payload.namaSales,
@@ -1582,7 +1577,7 @@ function DistributorPanel() {
                     alamat: payload.alamat,
                     is_active: payload.aktif,
                     updated_at: new Date().toISOString(),
-                  })
+                  } as never)
                   .eq('id', editing.id);
                 if (error) throw error;
                 setItems((prev) =>
@@ -1593,7 +1588,6 @@ function DistributorPanel() {
               } else {
                 const { data, error } = await sb
                   .from('master_distributor')
-                  // @ts-expect-error - master_distributor row type from DB
                   .insert({
                     nama_pt: payload.namaPt,
                     nama_sales: payload.namaSales,
@@ -1601,7 +1595,7 @@ function DistributorPanel() {
                     email: payload.email,
                     alamat: payload.alamat,
                     is_active: payload.aktif,
-                  })
+                  } as never)
                   .select('*')
                   .single();
                 if (error) throw error;

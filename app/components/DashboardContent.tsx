@@ -1,7 +1,7 @@
 "use client"
 
-import ChartCard from "@/components/ChartCard"
-import QuickAction from "@/components/QuickAction"
+import ChartCard from "./ChartCard"
+import QuickAction from "./QuickAction"
 
 export default function DashboardContent() {
   return (

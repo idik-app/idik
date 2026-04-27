@@ -1,5 +1,6 @@
 import { formatPasienLabel, type PasienOption } from "@/components/ui/pasien-combobox";
 import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
+import type { TindakanJoinResult } from "../bridge/mapping.types";
 
 /**
  * Normalisasi tampilan baris tindakan — beberapa baris DB punya RM/nama kosong
@@ -253,6 +254,142 @@ export function resolvePasienFromRow(
     if (byRm.length === 1) return byRm[0]!;
   }
   return null;
+}
+
+/**
+ * Indeks pasien untuk laporan / matriks (O(1) per baris, hindari scan linear ribuan master).
+ */
+export type PasienReportLookup = {
+  byId: Map<string, PasienOption>;
+  /** RM numerik → pasien hanya jika unik di master (sama aturan `resolvePasienFromRow`). */
+  byRmSingleton: Map<string, PasienOption>;
+  byLabel: Map<string, PasienOption>;
+  byNormalizedNama: Map<string, PasienOption[]>;
+};
+
+export function buildPasienReportLookup(
+  options: readonly PasienOption[],
+): PasienReportLookup {
+  const byId = new Map<string, PasienOption>();
+  const rmBuckets = new Map<string, PasienOption[]>();
+  const byLabel = new Map<string, PasienOption>();
+  const byNormalizedNama = new Map<string, PasienOption[]>();
+
+  for (const p of options) {
+    const id = String(p.id ?? "").trim();
+    if (id) byId.set(id, p);
+
+    const d = normalizeDigitsOnly(p.no_rm ?? "");
+    if (d.length >= 3) {
+      const arr = rmBuckets.get(d);
+      if (arr) arr.push(p);
+      else rmBuckets.set(d, [p]);
+    }
+
+    const nn = normalizeNamaPasien(String(p.nama ?? "").trim());
+    if (nn) {
+      const arr = byNormalizedNama.get(nn);
+      if (arr) arr.push(p);
+      else byNormalizedNama.set(nn, [p]);
+    }
+
+    const lbl = formatPasienLabel({
+      nama: p.nama ?? "",
+      no_rm: p.no_rm ?? null,
+    });
+    if (lbl) byLabel.set(lbl, p);
+  }
+
+  const byRmSingleton = new Map<string, PasienOption>();
+  for (const [d, arr] of rmBuckets) {
+    if (arr.length === 1) byRmSingleton.set(d, arr[0]!);
+  }
+
+  return { byId, byRmSingleton, byLabel, byNormalizedNama };
+}
+
+/** Setara `resolvePasienFromRow` untuk data laporan; memakai indeks. */
+export function resolvePasienFromLookup(
+  raw: Record<string, unknown>,
+  lookup: PasienReportLookup,
+): PasienOption | null {
+  const pid = String(raw.pasien_id ?? "").trim();
+  if (pid) {
+    const h = lookup.byId.get(pid);
+    if (h) return h;
+  }
+  const label = buildPasienLabelFromRow(raw);
+  if (label) {
+    const h = lookup.byLabel.get(label);
+    if (h) return h;
+  }
+  const namaFull = pickFirstString(raw, [
+    "nama_pasien",
+    "nama",
+    "pasien_nama",
+  ]);
+  const { baseNama, rmDalamKurung } = splitNamaDanRmDalamKurung(namaFull);
+  const namaForMatch = normalizeNamaPasien((baseNama || namaFull).trim());
+  const rowRmDigits =
+    normalizeDigitsOnly(pickFirstString(raw, [...RM_FIELD_KEYS])) ||
+    normalizeDigitsOnly(rmDalamKurung);
+  if (namaForMatch) {
+    const hits = lookup.byNormalizedNama.get(namaForMatch);
+    if (hits?.length === 1) return hits[0]!;
+    if (hits && hits.length > 1 && rowRmDigits.length >= 3) {
+      const byRm = hits.filter(
+        (p) => normalizeDigitsOnly(p.no_rm ?? "") === rowRmDigits,
+      );
+      if (byRm.length === 1) return byRm[0]!;
+    }
+  }
+  if (rowRmDigits.length >= 3) {
+    const h = lookup.byRmSingleton.get(rowRmDigits);
+    if (h) return h;
+  }
+  return null;
+}
+
+/** Sama seperti `resolvePasienOptionForLaporanCaraBayar` di matriks cara bayar. */
+export function resolvePasienOptionForLaporanCaraBayarFromLookup(
+  row: TindakanJoinResult,
+  lookup: PasienReportLookup,
+): PasienOption | null {
+  const raw = row as unknown as Record<string, unknown>;
+  const pid = String(raw.pasien_id ?? "").trim();
+  if (pid) {
+    const h = lookup.byId.get(pid);
+    if (h) return h;
+  }
+  const rm = String(
+    raw.no_rm ?? raw.rm ?? raw.no_rm_pasien ?? raw.nomor_rm ?? "",
+  ).trim();
+  const digits = normalizeDigitsOnly(rm);
+  if (digits.length >= 3) {
+    return lookup.byRmSingleton.get(digits) ?? null;
+  }
+  return null;
+}
+
+/** Untuk laporan modal: tampilkan nama/RM terbaru dari master bila baris terhubung. */
+export function mergePasienMasterIntoRowForReport(
+  row: TindakanJoinResult,
+  options: readonly PasienOption[],
+  lookup?: PasienReportLookup,
+): TindakanJoinResult {
+  if (!options.length) return row;
+  const raw = row as unknown as Record<string, unknown>;
+  const p = lookup
+    ? resolvePasienFromLookup(raw, lookup)
+    : resolvePasienFromRow(options as PasienOption[], raw);
+  if (!p) return row;
+  const next: TindakanJoinResult = { ...row };
+  const nama = p.nama?.trim();
+  if (nama) next.nama_pasien = nama;
+  if (p.no_rm != null && String(p.no_rm).trim() !== "") {
+    next.no_rm = String(p.no_rm);
+  }
+  return next;
 }
 
 /**

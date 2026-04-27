@@ -1,24 +1,32 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useState, useCallback, useRef } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { motion, useAnimation, AnimatePresence } from "framer-motion";
 import { useAI } from "@/app/contexts/AIContext";
 import JarvisAgent from "./JarvisAgent";
 import { useUI } from "@/contexts/UIContext";
 import { useSession } from "@/contexts/SessionContext";
-import { UI_LAYERS } from "@/lib/ui/layers";
-import { cn } from "@/lib/utils";
 import Portal from "./Portal";
 import { useRouter, usePathname } from "next/navigation";
-import { 
-  House, 
-  Users, 
-  Stethoscope, 
-  Activity, 
-  Box, 
-  Database,
-  X 
-} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import * as LucideIcons from "lucide-react";
+import {
+  type IntensiveJarvisMenuItem,
+  normalizeIntensiveMenuRow,
+  intensiveMenuDisplayLabel,
+  getIntensiveJarvisContextSlug,
+  JARVIS_ORBIT_COLOR_CYCLE,
+  IDIK_INTENSIVE_JARVIS_ORBIT_EVENT,
+  IDIK_JARVIS_FLOATING_CLOSE_EVENT,
+} from "@/lib/intensive/jarvisMenuModel";
+import { Z_INDEX_VALUES } from "@/lib/ui/layers";
 
 interface TargetPosition {
   x: number;
@@ -26,14 +34,138 @@ interface TargetPosition {
   label?: string;
 }
 
-const MENU_ITEMS = [
-  { id: "dashboard", label: "Dashboard", icon: <House size={20} />, href: "/dashboard", color: "#22d3ee" },
-  { id: "pasien", label: "Pasien", icon: <Users size={20} />, href: "/dashboard/pasien", color: "#a855f7" },
-  { id: "dokter", label: "Dokter", icon: <Stethoscope size={20} />, href: "/dashboard/dokter", color: "#eab308" },
-  { id: "tindakan", label: "Tindakan", icon: <Activity size={20} />, href: "/dashboard/layanan/tindakan", color: "#10b981" },
-  { id: "inventaris", label: "Inventaris", icon: <Box size={20} />, href: "/dashboard/inventaris", color: "#f43f5e" },
-  { id: "database", label: "Database", icon: <Database size={20} />, href: "/system/database", color: "#6366f1" },
+type LinkOrbital = {
+  kind: "link";
+  id: string;
+  label: string;
+  fullLabel?: string;
+  href: string;
+  color: string;
+  Icon: LucideIcon;
+};
+
+type IntensiveOrbital = {
+  kind: "intensive";
+  id: string;
+  label: string;
+  fullLabel: string;
+  color: string;
+  Icon: LucideIcon;
+  menuItem: IntensiveJarvisMenuItem;
+  roomSlug: string;
+};
+
+type OrbitalMenuEntry = LinkOrbital | IntensiveOrbital;
+
+function resolveLucideIcon(name: string): LucideIcon {
+  const I = (LucideIcons as unknown as Record<string, LucideIcon>)[name];
+  return I ?? LucideIcons.HelpCircle;
+}
+
+/** Item dasar; ikon di-render lewat `Icon` agar bisa difilter. */
+const BASE_ORBITAL_MENU: Omit<LinkOrbital, "kind">[] = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    fullLabel: "Dashboard utama",
+    href: "/dashboard",
+    color: "#22d3ee",
+    Icon: LucideIcons.House,
+  },
+  {
+    id: "pasien",
+    label: "Pasien",
+    href: "/dashboard/pasien",
+    color: "#a855f7",
+    Icon: LucideIcons.Users,
+  },
+  {
+    id: "dokter",
+    label: "Dokter",
+    href: "/dashboard/dokter",
+    color: "#eab308",
+    Icon: LucideIcons.Stethoscope,
+  },
+  {
+    id: "tindakan",
+    label: "Tindakan",
+    href: "/dashboard/layanan/tindakan",
+    color: "#10b981",
+    Icon: LucideIcons.Activity,
+  },
+  {
+    id: "inventaris",
+    label: "Inventaris",
+    href: "/dashboard/inventaris",
+    color: "#f43f5e",
+    Icon: LucideIcons.Box,
+  },
+  {
+    id: "database",
+    label: "Database",
+    href: "/system/database",
+    color: "#6366f1",
+    Icon: LucideIcons.Database,
+  },
 ];
+
+const DB_ADMIN_ROLES = new Set([
+  "superadmin",
+  "administrator",
+  "admin",
+  "it",
+]);
+
+const MAX_UNIT_SHORTCUTS = 6;
+
+type AccessibleRoom = { slug: string; nama: string | null };
+
+function buildOrbitalMenuForUser(
+  isLoggedIn: boolean,
+  rooms: AccessibleRoom[],
+  role: string,
+): LinkOrbital[] {
+  const r = (role || "").toLowerCase().trim();
+  const showDatabase = DB_ADMIN_ROLES.has(r);
+  const base: LinkOrbital[] = BASE_ORBITAL_MENU.filter(
+    (item) => item.id !== "database" || showDatabase,
+  ).map((item) => ({ kind: "link" as const, ...item }));
+
+  if (!isLoggedIn) return base;
+
+  const sorted = [...rooms].sort((a, b) =>
+    (a.nama || a.slug).localeCompare(b.nama || b.slug, "id", {
+      sensitivity: "base",
+    }),
+  );
+
+  const unitItems: LinkOrbital[] = sorted
+    .slice(0, MAX_UNIT_SHORTCUTS)
+    .map((u) => {
+      const slug = u.slug.trim().toLowerCase();
+      const name = (u.nama && u.nama.trim()) || slug;
+      const label =
+        name.length > 22 ? `${name.slice(0, 20).trimEnd()}…` : name;
+      return {
+        kind: "link" as const,
+        id: `unit-${slug}`,
+        label,
+        fullLabel: u.nama?.trim()
+          ? `Dashboard unit — ${u.nama.trim()}`
+          : `Dashboard /${slug}`,
+        href: `/${slug}/dashboard`,
+        color: "#06b6d4",
+        Icon: LucideIcons.Building2,
+      };
+    });
+
+  const showGlobalOrbital = DB_ADMIN_ROLES.has(r);
+  if (unitItems.length > 0 && !showGlobalOrbital) {
+    return unitItems;
+  }
+
+  return [...unitItems, ...base];
+}
 
 export default function JarvisFloatingAgent() {
   const router = useRouter();
@@ -41,6 +173,13 @@ export default function JarvisFloatingAgent() {
   const { mode: aiMode } = useAI();
   const { themeMode } = useUI();
   const { username, role } = useSession();
+  const [accessibleRooms, setAccessibleRooms] = useState<AccessibleRoom[]>(
+    [],
+  );
+  const [intensiveJarvisRows, setIntensiveJarvisRows] = useState<
+    IntensiveJarvisMenuItem[]
+  >([]);
+  const [intensiveRoomNama, setIntensiveRoomNama] = useState("");
   const controls = useAnimation();
   const [target, setTarget] = useState<TargetPosition | null>(null);
   const [isVisible, setIsVisible] = useState(true);
@@ -50,8 +189,130 @@ export default function JarvisFloatingAgent() {
   const isMounted = useRef(true);
   /** Harus true agar useAnimation terhubung ke motion.div (bukan saat return null). */
   const showAgentRef = useRef(false);
+  /** Patroli async tidak boleh mengandalkan closure `isOpen` — cek ref setelah await panjang. */
+  const isOpenRef = useRef(isOpen);
+  const isInteractingRef = useRef(isInteracting);
+
+  useLayoutEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  useLayoutEffect(() => {
+    isInteractingRef.current = isInteracting;
+  }, [isInteracting]);
 
   const isLoggedIn = username !== "unknown" && role !== "guest";
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setAccessibleRooms([]);
+      return;
+    }
+    let cancelled = false;
+    void fetch("/api/me/accessible-ruangan", { credentials: "include" })
+      .then((res) => res.json())
+      .then((d: { ok?: boolean; data?: AccessibleRoom[] }) => {
+        if (cancelled || !d?.ok || !Array.isArray(d.data)) return;
+        setAccessibleRooms(
+          d.data.filter((x) => x?.slug && String(x.slug).trim().length > 0),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setAccessibleRooms([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn]);
+
+  const intensiveContextSlug = useMemo(
+    () => getIntensiveJarvisContextSlug(pathname, accessibleRooms),
+    [pathname, accessibleRooms],
+  );
+
+  useEffect(() => {
+    if (!isLoggedIn || !intensiveContextSlug) {
+      setIntensiveJarvisRows([]);
+      setIntensiveRoomNama("");
+      return;
+    }
+    let cancelled = false;
+    void fetch(
+      `/api/intensive/jarvis-menu?roomSlug=${encodeURIComponent(intensiveContextSlug)}`,
+      { credentials: "include" },
+    )
+      .then((res) => res.json())
+      .then(
+        (json: {
+          ok?: boolean;
+          data?: Record<string, unknown>[];
+          roomNama?: string;
+        }) => {
+          if (cancelled || !json?.ok || !Array.isArray(json.data)) {
+            if (!cancelled) {
+              setIntensiveJarvisRows([]);
+              setIntensiveRoomNama("");
+            }
+            return;
+          }
+          setIntensiveRoomNama(
+            typeof json.roomNama === "string" ? json.roomNama : "",
+          );
+          setIntensiveJarvisRows(
+            json.data.map((row) => normalizeIntensiveMenuRow(row)),
+          );
+        },
+      )
+      .catch(() => {
+        if (!cancelled) {
+          setIntensiveJarvisRows([]);
+          setIntensiveRoomNama("");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn, intensiveContextSlug]);
+
+  const orbitalMenuItems: OrbitalMenuEntry[] = useMemo(() => {
+    if (
+      isLoggedIn &&
+      intensiveContextSlug &&
+      intensiveJarvisRows.length > 0
+    ) {
+      return intensiveJarvisRows.map((item, i) => {
+        const full = intensiveMenuDisplayLabel(
+          item,
+          intensiveRoomNama,
+          intensiveContextSlug,
+        );
+        const short =
+          full.length > 22 ? `${full.slice(0, 20).trimEnd()}…` : full;
+        const cycle = JARVIS_ORBIT_COLOR_CYCLE;
+        return {
+          kind: "intensive" as const,
+          id: `jarvis-orbit-${item.id}`,
+          label: short,
+          fullLabel: full,
+          color: cycle[i % cycle.length] ?? "#22d3ee",
+          Icon: resolveLucideIcon(item.icon_name),
+          menuItem: item,
+          roomSlug: intensiveContextSlug,
+        };
+      });
+    }
+    return buildOrbitalMenuForUser(isLoggedIn, accessibleRooms, role);
+  }, [
+    isLoggedIn,
+    intensiveContextSlug,
+    intensiveJarvisRows,
+    intensiveRoomNama,
+    accessibleRooms,
+    role,
+  ]);
+
+  const orbitRadius =
+    orbitalMenuItems.length > 9 ? 130 : orbitalMenuItems.length > 6 ? 120 : 110;
 
   useEffect(() => {
     isMounted.current = true;
@@ -114,16 +375,39 @@ export default function JarvisFloatingAgent() {
     if (!showAgentRef.current) return;
     if (isOpen || isInteracting) {
       void controls.stop();
+      setIsPatrolling(false);
     }
   }, [isOpen, isInteracting, controls, showAgent]);
 
   const startPatrol = useCallback(async () => {
-    if (isPatrolling || isOpen || isInteracting) return;
+    if (isPatrolling || isOpenRef.current || isInteractingRef.current) return;
     if (!showAgentRef.current) return;
     setIsPatrolling(true);
 
-    // Initial wait to let user see Jarvis at center
-    await new Promise((r) => setTimeout(r, 6000));
+    const waitWithPatrolAbort = async (totalMs: number) => {
+      const step = 200;
+      let elapsed = 0;
+      while (elapsed < totalMs) {
+        if (
+          !isMounted.current ||
+          !showAgentRef.current ||
+          isOpenRef.current ||
+          isInteractingRef.current
+        ) {
+          return false;
+        }
+        const chunk = Math.min(step, totalMs - elapsed);
+        await new Promise((r) => setTimeout(r, chunk));
+        elapsed += chunk;
+      }
+      return true;
+    };
+
+    // Initial wait to let user see Jarvis at center (bisa dibatalkan saat menu dibuka)
+    if (!(await waitWithPatrolAbort(6000))) {
+      setIsPatrolling(false);
+      return;
+    }
 
     await waitForControlsHost();
 
@@ -132,8 +416,8 @@ export default function JarvisFloatingAgent() {
         !isMounted.current ||
         !showAgentRef.current ||
         target ||
-        isOpen ||
-        isInteracting
+        isOpenRef.current ||
+        isInteractingRef.current
       ) {
         setIsPatrolling(false);
         return;
@@ -141,8 +425,6 @@ export default function JarvisFloatingAgent() {
 
       const nextX = Math.random() * (window.innerWidth - 250) + 125;
       const nextY = Math.random() * (window.innerHeight - 350) + 175;
-
-      console.log("🚀 Jarvis Patrolling to:", nextX, nextY);
 
       if (isMounted.current && showAgentRef.current) {
         await controls.start({
@@ -155,11 +437,23 @@ export default function JarvisFloatingAgent() {
         });
       }
 
-      if (isMounted.current && showAgentRef.current) {
-        await new Promise((r) => setTimeout(r, 3000 + Math.random() * 4000));
+      if (
+        !isMounted.current ||
+        !showAgentRef.current ||
+        isOpenRef.current ||
+        isInteractingRef.current
+      ) {
+        setIsPatrolling(false);
+        return;
+      }
+
+      const pauseMs = 3000 + Math.random() * 4000;
+      if (!(await waitWithPatrolAbort(pauseMs))) {
+        setIsPatrolling(false);
+        return;
       }
     }
-  }, [controls, isPatrolling, target, isOpen, isInteracting]);
+  }, [controls, isPatrolling, target]);
 
   // --- Move to Target ---
   const moveToTarget = useCallback(
@@ -194,6 +488,16 @@ export default function JarvisFloatingAgent() {
     return () => window.removeEventListener("jarvis:visit", handleVisit);
   }, [moveToTarget]);
 
+  /** Tutup orbital bila modal layer atas (ICCU / history) dibuka — hindari state & z-index “nyangkut”. */
+  useEffect(() => {
+    const onForceClose = () => {
+      setIsOpen(() => false);
+    };
+    window.addEventListener(IDIK_JARVIS_FLOATING_CLOSE_EVENT, onForceClose);
+    return () =>
+      window.removeEventListener(IDIK_JARVIS_FLOATING_CLOSE_EVENT, onForceClose);
+  }, []);
+
   // --- Start Patrolling if Visible and no target ---
   useEffect(() => {
     if (
@@ -216,49 +520,56 @@ export default function JarvisFloatingAgent() {
 
   if (!isVisible || isExcludedRoute) return null;
 
-  const RADIUS = 110;
-
   return (
     <Portal>
-      {/* Background Overlay when menu is open */}
+      {/*
+        Satu stacking context: z-index = jarvisAgent (tetap < intensive ICCU 100200).
+        Wrapper `pointer-events: none` + backdrop / agen anak `auto` = agen selalu bisa diklik,
+        area gelap saat menu terbuka menutup menu.
+      */}
       <div
         style={{
           position: "fixed",
           inset: 0,
-          pointerEvents: isOpen ? "auto" : "none",
-          zIndex: 999998,
+          zIndex: Z_INDEX_VALUES.jarvisAgent,
+          pointerEvents: "none",
         }}
-        onClick={() => setIsOpen(false)}
       >
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            />
-          )}
-        </AnimatePresence>
-      </div>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 0,
+            pointerEvents: isOpen ? "auto" : "none",
+          }}
+          onClick={() => setIsOpen(() => false)}
+        >
+          <AnimatePresence>
+            {isOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              />
+            )}
+          </AnimatePresence>
+        </div>
 
-      <motion.div
-        drag={!isOpen}
-        dragMomentum={false}
-        initial={{ x: -300, y: -300, opacity: 0 }}
-        animate={controls}
-        whileDrag={{ scale: 1.1, cursor: "grabbing" }}
-        onMouseEnter={() => setIsInteracting(true)}
-        onMouseLeave={() => setIsInteracting(false)}
-        style={{
-          position: "fixed",
-          left: 0,
-          top: 0,
-          zIndex: 999999, // Super layer
-          pointerEvents: "auto",
-        }}
-        className="group flex items-center justify-center"
-      >
+        <motion.div
+          initial={{ x: -300, y: -300, opacity: 0 }}
+          animate={controls}
+          onMouseEnter={() => setIsInteracting(true)}
+          onMouseLeave={() => setIsInteracting(false)}
+          style={{
+            position: "fixed",
+            left: 0,
+            top: 0,
+            zIndex: 1,
+            pointerEvents: "auto",
+          }}
+          className="group flex items-center justify-center"
+        >
         <AnimatePresence>
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
@@ -279,14 +590,22 @@ export default function JarvisFloatingAgent() {
                     className="absolute w-[260px] h-[260px] rounded-full border border-cyan-400 border-dashed animate-spin-slow"
                   />
 
-                  {MENU_ITEMS.map((item, index) => {
-                    const angle = (index / MENU_ITEMS.length) * 2 * Math.PI - Math.PI / 2;
-                    const x = Math.cos(angle) * RADIUS;
-                    const y = Math.sin(angle) * RADIUS;
+                  {orbitalMenuItems.map((entry, index) => {
+                    const n = Math.max(1, orbitalMenuItems.length);
+                    const angle = (index / n) * 2 * Math.PI - Math.PI / 2;
+                    const x = Math.cos(angle) * orbitRadius;
+                    const y = Math.sin(angle) * orbitRadius;
+                    const Icon = entry.Icon;
 
                     return (
                       <motion.button
-                        key={item.id}
+                        key={entry.id}
+                        type="button"
+                        title={
+                          entry.kind === "intensive"
+                            ? entry.fullLabel
+                            : entry.fullLabel || entry.label
+                        }
                         initial={{ x: 0, y: 0, scale: 0, opacity: 0, rotate: -180 }}
                         animate={{ x, y, scale: 1, opacity: 1, rotate: 0 }}
                         exit={{ x: 0, y: 0, scale: 0, opacity: 0, rotate: 180 }}
@@ -298,23 +617,33 @@ export default function JarvisFloatingAgent() {
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          router.push(item.href);
-                          setIsOpen(false);
+                          if (entry.kind === "link") {
+                            router.push(entry.href);
+                          } else {
+                            window.dispatchEvent(
+                              new CustomEvent(IDIK_INTENSIVE_JARVIS_ORBIT_EVENT, {
+                                detail: {
+                                  item: entry.menuItem,
+                                  roomSlug: entry.roomSlug,
+                                },
+                              }),
+                            );
+                          }
+                          setIsOpen(() => false);
                         }}
                         className="absolute w-12 h-12 rounded-xl flex items-center justify-center text-white border border-white/20 hover:border-white/50 transition-colors shadow-lg group/item"
-                        style={{ backgroundColor: `${item.color}22` }}
+                        style={{ backgroundColor: `${entry.color}22` }}
                       >
                         <div
                           className="absolute inset-0 rounded-xl opacity-0 group-hover/item:opacity-100 transition-opacity blur-md"
-                          style={{ backgroundColor: item.color }}
+                          style={{ backgroundColor: entry.color }}
                         />
-                        <div className="relative z-10" style={{ color: item.color }}>
-                          {item.icon}
+                        <div className="relative z-10" style={{ color: entry.color }}>
+                          <Icon size={20} aria-hidden />
                         </div>
 
-                        {/* Hover Tooltip */}
-                        <div className="absolute -bottom-6 opacity-0 group-hover/item:opacity-100 transition-opacity whitespace-nowrap text-[10px] font-bold text-white uppercase tracking-tighter bg-black/60 px-2 py-0.5 rounded-sm border border-white/10">
-                          {item.label}
+                        <div className="absolute -bottom-6 opacity-0 group-hover/item:opacity-100 transition-opacity whitespace-nowrap text-[10px] font-bold text-white uppercase tracking-tighter bg-black/60 px-2 py-0.5 rounded-sm border border-white/10 max-w-[9rem] truncate">
+                          {entry.label}
                         </div>
                       </motion.button>
                     );
@@ -323,12 +652,12 @@ export default function JarvisFloatingAgent() {
               )}
             </AnimatePresence>
 
-            <div
-              className="cursor-pointer"
+            <button
+              type="button"
+              className="cursor-pointer border-0 bg-transparent p-0 font-inherit outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 rounded-full"
               onClick={(e) => {
                 e.stopPropagation();
                 if (!isLoggedIn) {
-                  // Optional: beri feedback visual jika user belum login
                   window.dispatchEvent(
                     new CustomEvent("jarvis:visit", {
                       detail: { x: e.clientX, y: e.clientY, label: "SECURE ACCESS REQUIRED" },
@@ -336,16 +665,16 @@ export default function JarvisFloatingAgent() {
                   );
                   return;
                 }
-                setIsOpen(!isOpen);
+                setIsOpen((open) => !open);
               }}
             >
               <JarvisAgent
                 size={isOpen ? 60 : 40}
                 status={target ? "diagnosing" : aiMode}
-                lightMode={themeMode === "light"}
+                lightMode={themeMode === "neo-white"}
                 isOpen={isOpen}
               />
-            </div>
+            </button>
 
             {/* Label Indicator (Hidden when open) */}
             {target?.label && !isOpen && (
@@ -364,7 +693,8 @@ export default function JarvisFloatingAgent() {
             )}
           </motion.div>
         </AnimatePresence>
-      </motion.div>
+        </motion.div>
+      </div>
     </Portal>
   );
 }

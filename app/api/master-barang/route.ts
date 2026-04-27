@@ -12,7 +12,11 @@ type RowWithDist = {
   barcode: string | null;
   distributor_id: string | null;
   is_active: boolean | null;
-  master_distributor: { nama_pt: string | null } | null;
+  /** PostgREST kadang embed sebagai objek tunggal, kadang array relasi 1:n. */
+  master_distributor:
+    | { nama_pt: string | null }
+    | { nama_pt: string | null }[]
+    | null;
 };
 
 /** Master barang farmasi + nama PT distributor (satu query + embed FK). */
@@ -46,7 +50,7 @@ export async function GET() {
     );
   }
 
-  const list = (rows ?? []) as RowWithDist[];
+  const list = (rows ?? []) as unknown as RowWithDist[];
   const active = list.filter((r) => {
     if (r.is_active === false) return false;
     return (r.nama ?? "").trim().length > 0;
@@ -56,7 +60,10 @@ export async function GET() {
     ok: true,
     items: active.map((r) => {
       const did = r.distributor_id ? String(r.distributor_id) : null;
-      const dn = r.master_distributor?.nama_pt;
+      const embed = r.master_distributor;
+      const dn = Array.isArray(embed)
+        ? embed[0]?.nama_pt
+        : embed?.nama_pt;
       const distributor_nama =
         dn != null && String(dn).trim().length > 0 ? String(dn).trim() : null;
       return {

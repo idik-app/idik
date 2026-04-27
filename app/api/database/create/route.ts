@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, requireEnvFlag } from "@/lib/auth/guards";
 
+function isSafeIdentifier(name: unknown): name is string {
+  return typeof name === "string" && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
+}
+
 function normalizeColumnType(type: unknown) {
   if (typeof type !== "string") return null;
   const t = type.trim().toLowerCase();

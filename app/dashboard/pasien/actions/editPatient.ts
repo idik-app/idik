@@ -31,11 +31,8 @@ function assertPasienPatchFieldsValid(
     const fieldSchema = pasienSchema.shape[formKey];
     const result = fieldSchema.safeParse(merged[formKey]);
     if (!result.success) {
-      const flat = result.error.flatten();
       const msg =
-        [...Object.values(flat.fieldErrors).flat(), ...flat.formErrors].join(
-          "; ",
-        ) || "Validasi gagal";
+        result.error.issues.map((i) => i.message).join("; ") || "Validasi gagal";
       throw new Error(msg);
     }
   }

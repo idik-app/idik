@@ -30,6 +30,8 @@ async function ensureSupabase() {
 export type RuanganRow = {
   id: string;
   nama: string;
+  /** Slug URL unit, mis. `iccu` → `/iccu/dashboard` */
+  slug: string | null;
   kode: string | null;
   kategori: string | null;
   kapasitas: number | null;
@@ -62,7 +64,13 @@ type RuanganContextType = {
     patch: Partial<
       Pick<
         RuanganRow,
-        "nama" | "kode" | "kategori" | "kapasitas" | "keterangan" | "aktif"
+        | "nama"
+        | "slug"
+        | "kode"
+        | "kategori"
+        | "kapasitas"
+        | "keterangan"
+        | "aktif"
       >
     >
   ) => Promise<{ ok: boolean; message?: string }>;
@@ -74,9 +82,11 @@ const RuanganContext = createContext<RuanganContextType | undefined>(
 );
 
 function mapRow(r: Record<string, unknown>): RuanganRow {
+  const slugRaw = r.slug != null ? String(r.slug).trim() : "";
   return {
     id: String(r.id),
     nama: String(r.nama ?? ""),
+    slug: slugRaw.length > 0 ? slugRaw : null,
     kode: r.kode != null ? String(r.kode) : null,
     kategori: r.kategori != null ? String(r.kategori) : null,
     kapasitas: (() => {
@@ -132,7 +142,9 @@ export function RuanganProvider({ children }: { children: React.ReactNode }) {
       return { error };
     }
     if (data) {
-      setRows(data.map((r) => mapRow(r as Record<string, unknown>)));
+      setRows(
+        data.map((r: Record<string, unknown>) => mapRow(r)),
+      );
     }
     if (!silent) setLoading(false);
     return {};
@@ -144,7 +156,13 @@ export function RuanganProvider({ children }: { children: React.ReactNode }) {
       patch: Partial<
         Pick<
           RuanganRow,
-          "nama" | "kode" | "kategori" | "kapasitas" | "keterangan" | "aktif"
+          | "nama"
+          | "slug"
+          | "kode"
+          | "kategori"
+          | "kapasitas"
+          | "keterangan"
+          | "aktif"
         >
       >
     ) => {
@@ -217,6 +235,7 @@ export function RuanganProvider({ children }: { children: React.ReactNode }) {
         (r.kode?.toLowerCase().includes(q) ?? false) ||
         (r.kategori?.toLowerCase().includes(q) ?? false) ||
         (r.keterangan?.toLowerCase().includes(q) ?? false) ||
+        (r.slug?.toLowerCase().includes(q) ?? false) ||
         String(r.kapasitas ?? "").includes(q);
       const matchKat =
         !filterKategori || (r.kategori?.trim() ?? "") === filterKategori;

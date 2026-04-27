@@ -1764,7 +1764,7 @@ export default function PemakaianPage() {
     if (filteredData.length === 0) return "0 dari 0";
     const start = (safePage - 1) * pageSize + 1;
     const end = Math.min(safePage * pageSize, filteredData.length);
-    return `${start}–${end} dari ${filteredData.length}`;
+    return `${start} sampai ${end} dari ${filteredData.length}`;
   }, [filteredData.length, safePage, pageSize]);
 
   function handlePrint() {

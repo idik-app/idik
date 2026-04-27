@@ -124,7 +124,8 @@ export async function POST(req: Request) {
     const supabase = await createClient();
     const { data: inserted, error } = await supabase
       .from("pasien")
-      .insert(toInsert)
+      // PostgREST gen types untuk tabel ini `never` bila skema belum disinkron; payload sudah divalidasi.
+      .insert(toInsert as never[])
       .select("id");
 
     if (error) {

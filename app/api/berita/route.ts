@@ -12,8 +12,13 @@ export async function GET() {
 
     if (error) throw error
 
+    const rows = (data ?? []) as Array<{
+      isi: string
+      tanggal: string
+      [k: string]: unknown
+    }>
     const now = new Date()
-    const hasil = data.map((item) => {
+    const hasil = rows.map((item) => {
       const tanggalObj = new Date(item.tanggal)
       const isBaru = (now.getTime() - tanggalObj.getTime()) / (1000 * 3600 * 24) < 7
       return {

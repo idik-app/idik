@@ -58,7 +58,8 @@ export default function MasterJenisTindakanField({
   const pickerOptions = useMemo(() => {
     const v = (value == null ? "" : String(value)).trim();
     return options.filter(
-      (o) => o.aktif !== false || formatMasterTindakanLabel(o) === v,
+      (o: MasterTindakanOption) =>
+        o.aktif !== false || formatMasterTindakanLabel(o) === v,
     );
   }, [options, value]);
 

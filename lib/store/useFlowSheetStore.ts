@@ -39,7 +39,28 @@ interface FlowSheetState {
   
   currentTime: Date;
   setCurrentTime: (time: Date) => void;
+  
+  // Unit Isolation
+  currentUnitId: string | null;
+  resetStore: (unitId: string) => void;
 }
+
+const initialGroups: ParameterGroup[] = [
+  {
+    id: "vitals",
+    name: "TANDA VITAL (HEMODINAMIK)",
+    parameters: [
+      { id: "hr", name: "Heart Rate", unit: "bpm", color: "text-red-400" },
+      { id: "bp_s", name: "BP Systolic", unit: "mmHg", color: "text-blue-400" },
+      { id: "bp_d", name: "BP Diastolic", unit: "mmHg", color: "text-blue-300" },
+      { id: "map", name: "MAP", unit: "mmHg", color: "text-zinc-400" },
+      { id: "rr", name: "Resp Rate", unit: "x/mnt", color: "text-emerald-400" },
+      { id: "spo2", name: "SpO2", unit: "%", color: "text-cyan-400" },
+      { id: "temp", name: "Suhu", unit: "°C", color: "text-orange-400" },
+    ],
+  },
+  // ... rest of groups (shortened for clarity in initialization)
+];
 
 export const useFlowSheetStore = create<FlowSheetState>((set) => ({
   resolution: '1h',
@@ -161,7 +182,7 @@ export const useFlowSheetStore = create<FlowSheetState>((set) => ({
 
   replaceData: (data) => set({ data: JSON.parse(JSON.stringify(data)) as typeof data }),
   
-  expandedGroups: ['vitals'], // focus on vitals by default
+  expandedGroups: ['vitals'], 
   toggleGroup: (groupId) => set((state) => ({
     expandedGroups: state.expandedGroups.includes(groupId)
       ? state.expandedGroups.filter(id => id !== groupId)
@@ -170,4 +191,13 @@ export const useFlowSheetStore = create<FlowSheetState>((set) => ({
   
   currentTime: new Date(),
   setCurrentTime: (time) => set({ currentTime: time }),
+
+  // Unit Isolation Logic
+  currentUnitId: null,
+  resetStore: (unitId) => set({
+    currentUnitId: unitId,
+    data: {},
+    expandedGroups: ['vitals'],
+    currentTime: new Date()
+  }),
 }));

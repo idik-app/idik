@@ -128,7 +128,8 @@ export function useTindakanBridgeAdapter() {
   }, [bridge, reload]);
 
   useEffect(() => {
-    const unsub = bridge.on(TINDAKAN_OPEN_DETAIL, (p: { id?: string; tab?: string }) => {
+    const unsub = bridge.on(TINDAKAN_OPEN_DETAIL, (payload: unknown) => {
+      const p = payload as { id?: string; tab?: string };
       if (p?.id) {
         setDetailOpenId(String(p.id));
         if (p.tab) {

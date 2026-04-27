@@ -103,10 +103,29 @@ export function mapAppUserRow(row: Record<string, unknown>) {
     nama = `PT. ${stripPt(nama)}`;
   }
 
-  const { master_distributor: _m, ...rest } = row;
+  const ruNested = row.ruangan as
+    | { slug?: string | null; nama?: string | null }
+    | { slug?: string | null; nama?: string | null }[]
+    | null
+    | undefined;
+  let ruangan_slug: string | null = null;
+  let ruangan_nama: string | null = null;
+  if (ruNested && typeof ruNested === "object") {
+    const ruRow = Array.isArray(ruNested) ? ruNested[0] : ruNested;
+    if (ruRow) {
+      const s = ruRow.slug != null ? String(ruRow.slug).trim() : "";
+      ruangan_slug = s.length > 0 ? s : null;
+      const n = ruRow.nama != null ? String(ruRow.nama).trim() : "";
+      ruangan_nama = n.length > 0 ? n : null;
+    }
+  }
+
+  const { master_distributor: _m, ruangan: _r, ...rest } = row;
   return {
     ...rest,
     distributor_nama_pt: nama,
     distributor_is_konsolidasi: isKonsolidasi,
+    ruangan_slug,
+    ruangan_nama,
   };
 }

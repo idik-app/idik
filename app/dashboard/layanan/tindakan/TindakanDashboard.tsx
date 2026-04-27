@@ -1,9 +1,15 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState, startTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  startTransition,
+} from "react";
 import { Phone } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { mutate } from "swr";
 
 import { useUI } from "@/app/contexts/UIContext";
 import { cn } from "@/lib/utils";
@@ -22,14 +28,13 @@ import TindakanSummary, {
   type TindakanFilteredSummary,
 } from "./components/TindakanSummary";
 import TindakanTable from "./components/TindakanTable";
+import TindakanDetailDrawer from "./components/TindakanDetailDrawer";
 import FastTrackListModal from "./components/FastTrackListModal";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import { PhoneDirectoryProvider } from "./contexts/PhoneDirectoryContext";
 
-const TindakanDetailDrawer = dynamic(
-  () => import(/* webpackPrefetch: true */ "./components/TindakanDetailDrawer"),
-  { ssr: false, loading: () => null },
-);
+/** Baris awal tabel yang “dipanaskan” (cache SWR) agar klik baris/RM memakai data penuh tanpa jeda. */
+const TINDAKAN_DETAIL_SWR_WARM = 20;
 
 /** Tindakan medis — wireframe: daftar ringkas + drawer bertab + jembatan Pemakaian */
 export default function TindakanDashboard() {
@@ -75,6 +80,69 @@ export default function TindakanDashboard() {
   /** KPI header = snapshot terfilter dari tabel (bukan seluruh API). */
   const stats = filteredSummary?.stats ?? emptyTindakanKpiStats();
   const summaryLoading = Boolean(adapter.loading) || filteredSummary === null;
+
+  /**
+   * Panjang array dependency wajib tetap (React 19 / rules-of-hooks "changed size" error
+   * bila isi / spread halaman tindakan bocor ke deps). Di sini: selalu
+   * `[loading, tindakanListRef]`; urutan 20 id pertama dilacak lewat ref, bukan
+   * dimasukkan per-id ke array deps.
+   */
+  const lastPrefetchHeadSig = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (adapter.loading) return;
+    if (!Array.isArray(adapter.tindakanList) || !adapter.tindakanList.length) {
+      lastPrefetchHeadSig.current = null;
+      return;
+    }
+
+    const head = adapter.tindakanList
+      .slice(0, TINDAKAN_DETAIL_SWR_WARM) as TindakanJoinResult[];
+    const headSig = head
+      .map((r) => String((r as TindakanJoinResult).id ?? ""))
+      .join("\x1f");
+    if (!headSig) {
+      return;
+    }
+    if (headSig === lastPrefetchHeadSig.current) {
+      return;
+    }
+    lastPrefetchHeadSig.current = headSig;
+
+    const run = () => {
+      const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
+      for (const row of head) {
+        const id = String(row.id ?? "").trim();
+        if (!id) continue;
+        const tKey = `/api/tindakan/${encodeURIComponent(id)}`;
+        void jsonFetcher(tKey)
+          .then((json) => mutate(tKey, json, { revalidate: false }))
+          .catch(() => {});
+
+        const pid = String(row.pasien_id ?? "").trim();
+        const noRm = String(row.no_rm ?? "").trim();
+        if (pid) {
+          const pKey = `/api/pasien/${encodeURIComponent(pid)}`;
+          void jsonFetcher(pKey)
+            .then((json) => mutate(pKey, json, { revalidate: false }))
+            .catch(() => {});
+        } else if (noRm) {
+          const pKey = `/api/pasien?noRm=${encodeURIComponent(noRm)}`;
+          void jsonFetcher(pKey)
+            .then((json) => mutate(pKey, json, { revalidate: false }))
+            .catch(() => {});
+        }
+      }
+    };
+
+    if (typeof window === "undefined") return;
+    const ric = window.requestIdleCallback?.(run, { timeout: 4000 });
+    if (ric != null) {
+      return () => window.cancelIdleCallback?.(ric);
+    }
+    const t = window.setTimeout(run, 1);
+    return () => clearTimeout(t);
+  }, [adapter.loading, adapter.tindakanList]);
 
   return (
     <PhoneDirectoryProvider>

@@ -4,15 +4,17 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { ToolbarTindakan, SummaryCards, TindakanTable } from "./components";
 import DiagnosticsHUD from "@/components/DiagnosticsHUD";
+import { useTindakanBridgeAdapter } from "./bridge/useTindakanBridgeAdapter";
 
 /** 💠 TindakanContent v7.0 — Cathlab JARVIS Gold-Cyan Hybrid */
 export default function TindakanContent() {
+  const adapter = useTindakanBridgeAdapter();
   const [isLoading, setIsLoading] = useState(false);
   const onRefresh = async () => {
     setIsLoading(true);
     try {
-      // placeholder; implement real reload in TindakanTable hook/controller
       await Promise.resolve();
+      void adapter.refresh();
     } finally {
       setIsLoading(false);
     }
@@ -33,7 +35,7 @@ export default function TindakanContent() {
 
       {/* 📋 Spreadsheet View — isi sisa tinggi area tab */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <TindakanTable />
+        <TindakanTable adapter={adapter} />
       </div>
 
       {/* 🧠 Diagnostics HUD */}

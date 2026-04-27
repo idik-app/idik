@@ -77,7 +77,9 @@ export default function MasterDistributorPage() {
           return;
         }
 
-        setItems((data ?? []).map((r) => mapDistributorRow(r as MasterDistributorRow)));
+        setItems(
+          (data ?? []).map((r: MasterDistributorRow) => mapDistributorRow(r)),
+        );
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Gagal memuat data');
         setItems([]);

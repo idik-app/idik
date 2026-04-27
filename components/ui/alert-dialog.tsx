@@ -17,9 +17,15 @@ export const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
 export function AlertDialogContent({
   children,
   className,
+  overlayClassName,
+  overlayStyle,
   ...props
 }: AlertDialogPrimitive.AlertDialogContentProps & {
   className?: string;
+  /** Z-index / gaya overlay (mis. di atas panel z-tinggi seperti Jarvis). */
+  overlayClassName?: string;
+  /** Inline style pada overlay (mis. `zIndex` saat kelas saja kalah stacking). */
+  overlayStyle?: React.CSSProperties;
 }) {
   return (
     <AlertDialogPrimitive.Portal>
@@ -29,17 +35,22 @@ export function AlertDialogContent({
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.7 }}
             exit={{ opacity: 0 }}
-            className={`fixed inset-0 bg-black/75 ${UI_LAYERS.overlay}`}
+            style={overlayStyle}
+            className={cn(
+              "fixed inset-0 bg-black/75",
+              UI_LAYERS.overlay,
+              overlayClassName,
+            )}
           />
         </AlertDialogPrimitive.Overlay>
         <AlertDialogPrimitive.Content
           key="alert-dialog-content"
           {...props}
-          className={`fixed ${UI_LAYERS.modal} top-1/2 left-1/2 w-[95%] max-w-md -translate-x-1/2 -translate-y-1/2
-                     rounded-xl border border-cyan-500/40 bg-black/60 text-[hsl(var(--foreground))] 
-                     shadow-lg backdrop-blur-xl focus:outline-none ${
-                       className ?? ""
-                     }`}
+          className={cn(
+            "fixed top-1/2 left-1/2 w-[95%] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-cyan-500/40 bg-black/60 text-[hsl(var(--foreground))] shadow-lg backdrop-blur-xl focus:outline-none",
+            UI_LAYERS.modal,
+            className,
+          )}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -70,7 +81,7 @@ export const AlertDialogFooter = ({
   children: React.ReactNode;
   className?: string;
 }) => (
-  <div className={`mt-4 flex justify-end gap-2 ${className ?? ""}`}>
+  <div className={cn("mt-4 flex flex-wrap justify-end gap-2", className)}>
     {children}
   </div>
 );

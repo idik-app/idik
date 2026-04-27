@@ -11,6 +11,7 @@ type AuthUser = {
   password: string;
   role: string;
   distributorId?: string | null;
+  ruanganSlug?: string | null;
 };
 
 function getSecret(): string {
@@ -21,6 +22,8 @@ function getSecret(): string {
   return secret || "dev-secret";
 }
 
+const isDev = process.env.NODE_ENV !== "production";
+
 /** Ambil user dari tabel app_users dan verifikasi password. */
 async function getUserFromDb(
   supabase: any,
@@ -28,25 +31,69 @@ async function getUserFromDb(
   password: string
 ): Promise<AuthUser | null> {
   try {
+    // Tanpa embed `ruangan ( slug )`: relasi/embed kadang gagal di schema/cache DB
+    // sehingga seluruh login terlihat "salah password" (401).
     const { data, error } = await supabase
       .from("app_users")
-      .select("username, password_hash, role, distributor_id")
+      .select(
+        "username, password_hash, role, distributor_id, ruangan_id"
+      )
       .eq("username", username)
       .maybeSingle();
 
-    if (error || !data?.password_hash) return null;
+    if (error) {
+      if (isDev) {
+        console.warn("[Auth] app_users query error:", error.message, error.code);
+      }
+      return null;
+    }
+
+    if (!data?.password_hash) {
+      if (isDev && data) {
+        console.warn(
+          "[Auth] app_users row exists but password_hash kosong:",
+          username
+        );
+      }
+      return null;
+    }
 
     const ok = await bcrypt.compare(password, data.password_hash);
-    if (!ok) return null;
+    if (!ok) {
+      if (isDev) {
+        console.warn("[Auth] password tidak cocok untuk username:", username);
+      }
+      return null;
+    }
 
     const role = ((data.role as string) || "pasien").toLowerCase();
+    let ruanganSlug: string | null = null;
+    const ruId = (data as { ruangan_id?: string | null }).ruangan_id;
+    if (ruId != null && String(ruId).trim() !== "") {
+      const { data: ru, error: ruErr } = await supabase
+        .from("ruangan")
+        .select("slug")
+        .eq("id", ruId)
+        .maybeSingle();
+      if (ruErr && isDev) {
+        console.warn("[Auth] ruangan slug lookup error:", ruErr.message);
+      } else if (ru?.slug != null) {
+        const s = String(ru.slug).trim();
+        ruanganSlug = s.length > 0 ? s : null;
+      }
+    }
+
     return {
       username: data.username,
-      password: "", // tidak dikembalikan
+      password: "",
       role,
       distributorId: (data as any)?.distributor_id ?? null,
+      ruanganSlug,
     };
-  } catch {
+  } catch (e) {
+    if (isDev) {
+      console.warn("[Auth] getUserFromDb exception:", e);
+    }
     return null;
   }
 }
@@ -89,6 +136,7 @@ export async function POST(req: Request) {
 
   const role = String(user.role).trim().toLowerCase();
   const distributorId = user.distributorId ?? null;
+  const ruanganSlug = user.ruanganSlug ?? null;
   const distributorRoles = new Set(["distributor", "vendor"]);
   const hasDistributorId =
     distributorId != null && String(distributorId).trim() !== "";
@@ -103,12 +151,17 @@ export async function POST(req: Request) {
     );
   }
   const token = jwt.sign(
-    { username: user.username, role, distributor_id: distributorId },
+    {
+      username: user.username,
+      role,
+      distributor_id: distributorId,
+      ruangan_slug: ruanganSlug,
+    },
     secret,
     { expiresIn: "30d" }
   );
 
-  const target = getRedirectTargetForRole(role);
+  const target = getRedirectTargetForRole(role, { ruanganSlug });
 
   console.log(
     `[Auth] login ok username=${user.username} role=${role} target=${target}`

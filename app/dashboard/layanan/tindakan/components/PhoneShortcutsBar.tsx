@@ -21,7 +21,7 @@ export default function PhoneShortcutsBar({ themeTone }: { themeTone: "cyan" | "
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
     
-    void reorderPins(items).catch(() => null);
+    void reorderPins(items);
   };
 
   if (!isLoaded || pinnedItems.length === 0) return null;

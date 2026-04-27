@@ -62,7 +62,12 @@ import { buildResumeWhatsAppText } from "../lib/buildResumeWhatsAppText";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
-import { usePasienDetail, useTindakanDetail } from "@/app/hooks/useMasterData";
+import {
+  MASTER_PASIEN_COMPACT_SWR_KEY,
+  usePasienDetail,
+  useTindakanDetail,
+} from "@/app/hooks/useMasterData";
+import { mutate as mutateSwrGlobal } from "swr";
 
 type Props = {
   open: boolean;
@@ -1379,6 +1384,9 @@ function TindakanDetailDrawer({
                                             void mutatePasien(
                                               { ok: true, data: p },
                                               { revalidate: false },
+                                            );
+                                            void mutateSwrGlobal(
+                                              MASTER_PASIEN_COMPACT_SWR_KEY,
                                             );
                                           }}
                                           onSaved={onRecordPatch}

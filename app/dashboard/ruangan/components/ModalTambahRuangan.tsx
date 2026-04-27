@@ -13,6 +13,7 @@ interface Props {
 export default function ModalTambahRuangan({ onClose, onSuccess }: Props) {
   const [mounted, setMounted] = useState(false);
   const [nama, setNama] = useState("");
+  const [slug, setSlug] = useState("");
   const [kode, setKode] = useState("");
   const [kategori, setKategori] = useState("");
   const [kapasitas, setKapasitas] = useState("");
@@ -37,6 +38,10 @@ export default function ModalTambahRuangan({ onClose, onSuccess }: Props) {
       keterangan: keterangan.trim() || null,
       aktif,
     };
+    const slugT = slug.trim().toLowerCase();
+    if (slugT.length > 0) {
+      body.slug = slugT;
+    }
     if (kapasitas.trim() !== "") {
       const n = Number(kapasitas);
       if (!Number.isFinite(n) || n < 0) {
@@ -112,9 +117,26 @@ export default function ModalTambahRuangan({ onClose, onSuccess }: Props) {
               required
               value={nama}
               onChange={(e) => setNama(e.target.value)}
-              className="w-full bg-gray-950/60 border border-cyan-700/50 rounded-lg px-3 py-2 text-sm text-cyan-100 focus:border-yellow-400 focus:outline-none"
+              className="w-full bg-gray-950/60 border border-cyan-700/50 rounded-lg px-3 py-2 text-sm text-cyan-100 focus:border-yellow-400 focus:outline-none dark:placeholder:text-white/90"
               placeholder="Contoh: Cathlab 1"
             />
+          </div>
+          <div>
+            <label className="block text-xs text-cyan-500/90 mb-1">
+              Slug URL (opsional)
+            </label>
+            <input
+              value={slug}
+              onChange={(e) =>
+                setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+              }
+              className="w-full bg-gray-950/60 border border-cyan-700/50 rounded-lg px-3 py-2 text-sm text-cyan-100 focus:border-yellow-400 focus:outline-none dark:placeholder:text-white/90"
+              placeholder="iccu → /iccu/dashboard"
+            />
+            <p className="mt-1 text-[11px] text-gray-200/90 dark:text-white/85">
+              Huruf kecil, angka, dan tanda hubung. Wajib untuk redirect login per
+              unit.
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

@@ -40,7 +40,7 @@ export async function GET(
     const { data, error } = await supabase
       .from("app_users")
       .select(
-        "id,username,role,distributor_id,created_at,updated_at,master_distributor(nama_pt,is_konsolidasi)"
+        "id,username,role,distributor_id,ruangan_id,created_at,updated_at,master_distributor(nama_pt,is_konsolidasi),ruangan(slug,nama)"
       )
       .eq("id", id)
       .maybeSingle();
@@ -84,6 +84,7 @@ export async function PATCH(
       distributor_is_konsolidasi,
       password,
       username,
+      ruangan_id: ruanganIdBody,
     } = body ?? {};
     const roleNormalized =
       typeof role === "string" ? role.trim().toLowerCase() : role;
@@ -193,7 +194,7 @@ export async function PATCH(
         if (distributor_is_konsolidasi !== undefined) {
           await syncDistributorKonsolidasi(
             supabase,
-            updatePayload.distributor_id,
+            updatePayload.distributor_id as string,
             !!distributor_is_konsolidasi
           );
         }
@@ -208,6 +209,31 @@ export async function PATCH(
         );
       }
       updatePayload.password_hash = await bcrypt.hash(password, 10);
+    }
+
+    if (ruanganIdBody !== undefined) {
+      if (ruanganIdBody === null || ruanganIdBody === "") {
+        updatePayload.ruangan_id = null;
+      } else if (typeof ruanganIdBody === "string" && ruanganIdBody.trim()) {
+        const rid = ruanganIdBody.trim();
+        const { data: ruRow, error: ruErr } = await supabase
+          .from("ruangan")
+          .select("id")
+          .eq("id", rid)
+          .maybeSingle();
+        if (ruErr || !ruRow?.id) {
+          return NextResponse.json(
+            { ok: false, message: "ruangan_id tidak valid" },
+            { status: 400 }
+          );
+        }
+        updatePayload.ruangan_id = rid;
+      } else {
+        return NextResponse.json(
+          { ok: false, message: "ruangan_id tidak valid" },
+          { status: 400 }
+        );
+      }
     }
 
     const mergedDistId =
@@ -230,7 +256,7 @@ export async function PATCH(
       .update(updatePayload)
       .eq("id", id)
       .select(
-        "id,username,role,distributor_id,created_at,updated_at,master_distributor(nama_pt,is_konsolidasi)"
+        "id,username,role,distributor_id,ruangan_id,created_at,updated_at,master_distributor(nama_pt,is_konsolidasi),ruangan(slug,nama)"
       )
       .maybeSingle();
 

@@ -89,12 +89,13 @@ function normalizeItems(
           typeof it.qtyDipakai === "number" && !Number.isNaN(it.qtyDipakai)
             ? Math.max(0, it.qtyDipakai)
             : 0,
-        tipe:
+        tipe: (
           it.tipe === "R" || it.tipe === "REUSE"
             ? "R"
             : it.tipe === "B" || it.tipe === "RUSAK" || it.tipe === "BROKEN"
               ? "B"
-              : "N",
+              : "N"
+        ) as "N" | "R" | "B",
         lot:
           typeof it.lot === "string" && it.lot.trim()
             ? it.lot.trim()

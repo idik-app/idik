@@ -41,6 +41,7 @@ export async function GET(req: Request) {
       username?: string;
       role?: string;
       distributor_id?: string | null;
+      ruangan_slug?: string | null;
     };
 
     const username =
@@ -53,10 +54,16 @@ export async function GET(req: Request) {
       typeof decoded?.distributor_id === "string"
         ? decoded.distributor_id
         : decoded?.distributor_id ?? null;
+    const ruangan_slug =
+      typeof decoded?.ruangan_slug === "string"
+        ? decoded.ruangan_slug.trim().length > 0
+          ? decoded.ruangan_slug.trim()
+          : null
+        : null;
 
     // Sliding session: perpanjang token agar tidak expired saat idle
     const refreshedToken = jwt.sign(
-      { username, role, distributor_id },
+      { username, role, distributor_id, ruangan_slug },
       secret,
       { expiresIn: "30d" }
     );

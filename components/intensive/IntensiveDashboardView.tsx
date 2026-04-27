@@ -19,6 +19,9 @@ import {
   Thermometer,
   Wind,
   ExternalLink,
+  LogOut,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useFlowSheetStore, Resolution } from "@/lib/store/useFlowSheetStore";
@@ -28,10 +31,21 @@ import IntensivePatientSidebar, {
   buildIntensivePatientHeadline,
   type IntensiveTindakanListRow,
 } from "@/components/intensive/IntensivePatientSidebar";
+import JarvisFloatingMenu from "@/components/intensive/JarvisFloatingMenu";
+import IccuRegisterModal from "@/components/intensive/iccu/IccuRegisterModal";
 import { startOfDay, format, addMinutes } from "date-fns";
 import { cn } from "@/lib/utils";
 import { intensiveTimelineTotalWidthPx } from "@/lib/intensive/timelineLayout";
 import { latestVitalsSummary } from "@/lib/intensive/latestVitalsFromData";
+import { toast } from "sonner";
+import { useSession } from "@/app/contexts/SessionContext";
+import { UI_LAYERS } from "@/lib/ui/layers";
+import {
+  runIntensiveJarvisMenuAction,
+  IDIK_INTENSIVE_JARVIS_ORBIT_EVENT,
+  IDIK_JARVIS_FLOATING_CLOSE_EVENT,
+  type IntensiveJarvisOrbitDetail,
+} from "@/lib/intensive/jarvisMenuModel";
 
 const DEFAULT_DEMO_HEADLINE = "Ny. Siti Aminah (65th) • RM: 123-45-67";
 const DEFAULT_BACK_HREF = "/dashboard/layanan/tindakan";
@@ -42,6 +56,16 @@ export type IntensiveDashboardViewProps = {
   embedded?: boolean;
   onRequestClose?: () => void;
   backHref?: string;
+  /** Slug unit (`ruangan.slug`) untuk menu Jarvis per ruangan. */
+  roomSlug?: string;
+  /**
+   * Jika `true` dan `roomSlug` awal bukan unit pasti dari URL, setelah mount boleh
+   * set ke satu-satunya ruangan dari `/api/me/accessible-ruangan` (user satu unit).
+   * Untuk rute `/{room}/dashboard` set `false` agar slug di URL mutlak.
+   */
+  inferPrimaryUnitFromAccess?: boolean;
+  /** Buka menu Jarvis otomatis saat masuk dashboard (halaman /[unit]/dashboard). */
+  autoOpenJarvisMenu?: boolean;
 };
 
 const TimeResolutionControl = () => {
@@ -73,12 +97,23 @@ function IntensiveDashboardViewInner({
   embedded = false,
   onRequestClose,
   backHref = DEFAULT_BACK_HREF,
+  roomSlug = "idik",
+  inferPrimaryUnitFromAccess = false,
+  autoOpenJarvisMenu = false,
 }: IntensiveDashboardViewProps) {
+  const [effectiveUnitSlug, setEffectiveUnitSlug] = useState(() =>
+    String(roomSlug ?? "idik")
+      .trim()
+      .toLowerCase(),
+  );
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { username, role, setSession, resetSession } = useSession();
+  const [loggingOut, setLoggingOut] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [showSidebar, setShowSidebar] = useState(true);
   const replaceData = useFlowSheetStore((s) => s.replaceData);
   const updateData = useFlowSheetStore((s) => s.updateData);
   const data = useFlowSheetStore((s) => s.data);
@@ -87,14 +122,145 @@ function IntensiveDashboardViewInner({
   const loadGenRef = useRef(0);
   const outgoingIdRef = useRef<string | undefined>(undefined);
   const [hydratedForId, setHydratedForId] = useState<string | null>(null);
+  const [iccuRegisterOpen, setIccuRegisterOpen] = useState(false);
+  const [iccuHistoryOpen, setIccuHistoryOpen] = useState(false);
+  const [jarvisRoomDisplayName, setJarvisRoomDisplayName] = useState<
+    string | null
+  >(null);
+  /** Pesan dari /api/intensive/jarvis-menu bila ditolak — tampil di header kanan (bukan hanya toast). */
+  const [jarvisAccessBanner, setJarvisAccessBanner] = useState<string | null>(
+    null,
+  );
+  const [iccuSidebarListNonce, setIccuSidebarListNonce] = useState(0);
+  const bumpIccuSidebarPatientList = useCallback(() => {
+    setIccuSidebarListNonce((n) => n + 1);
+  }, []);
+
+  useEffect(() => {
+    setEffectiveUnitSlug(
+      String(roomSlug ?? "idik")
+        .trim()
+        .toLowerCase(),
+    );
+  }, [roomSlug]);
+
+  useEffect(() => {
+    if (!inferPrimaryUnitFromAccess) return;
+    let cancelled = false;
+    void fetch("/api/me/accessible-ruangan", { credentials: "include" })
+      .then((r) => r.json())
+      .then(
+        (d: {
+          ok?: boolean;
+          data?: { slug: string; nama: string | null }[];
+        }) => {
+          if (
+            cancelled ||
+            !d?.ok ||
+            !Array.isArray(d.data) ||
+            d.data.length !== 1
+          ) {
+            return;
+          }
+          const s = d.data[0]?.slug;
+          if (typeof s === "string" && s.trim()) {
+            setEffectiveUnitSlug(s.trim().toLowerCase());
+          }
+        },
+      )
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [inferPrimaryUnitFromAccess]);
+
+  useEffect(() => {
+    setJarvisRoomDisplayName(null);
+    setJarvisAccessBanner(null);
+  }, [effectiveUnitSlug]);
+
+  /** Sinkron nama user dari cookie JWT (halaman /[room]/dashboard di luar layout dashboard). */
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/auth/refresh", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d: { ok?: boolean; username?: string; role?: string }) => {
+        if (cancelled || !d?.ok) return;
+        if (typeof d.username === "string" && d.username.trim()) {
+          setSession({
+            username: d.username.trim(),
+            role: typeof d.role === "string" ? d.role : "user",
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [setSession]);
+
+  /** Aksi menu System Menu yang sama dari orbital `JarvisFloatingAgent` (peristiwa window). */
+  useEffect(() => {
+    const onOrbit = (e: Event) => {
+      const d = (e as CustomEvent<IntensiveJarvisOrbitDetail>).detail;
+      if (!d?.item || !d.roomSlug) return;
+      if (d.roomSlug !== effectiveUnitSlug) return;
+      runIntensiveJarvisMenuAction(d.item, {
+        onToggleSidebar: () => setShowSidebar((v) => !v),
+        onAddPatient: () =>
+          toast.info("Fitur Tambah Pasien Intensive dalam pengembangan"),
+        onRegisterIccu: () => {
+          setIccuHistoryOpen(false);
+          setIccuRegisterOpen(true);
+        },
+        onHistoryPasien: () => {
+          setIccuRegisterOpen(false);
+          setIccuHistoryOpen(true);
+        },
+        onOpenReports: (type) => toast.info(`Membuka Laporan ${type}...`),
+        onOpenActionsTable: () => toast.info("Membuka Tabel Tindakan..."),
+      });
+    };
+    window.addEventListener(
+      IDIK_INTENSIVE_JARVIS_ORBIT_EVENT,
+      onOrbit as EventListener,
+    );
+    return () =>
+      window.removeEventListener(
+        IDIK_INTENSIVE_JARVIS_ORBIT_EVENT,
+        onOrbit as EventListener,
+      );
+  }, [effectiveUnitSlug]);
+
+  /** Modal ICCU/history di atas `jarvisAgent`; tutup orbital agen mengambang agar tidak menutupi / nyangkut. */
+  useEffect(() => {
+    if (iccuRegisterOpen || iccuHistoryOpen) {
+      window.dispatchEvent(new CustomEvent(IDIK_JARVIS_FLOATING_CLOSE_EVENT));
+    }
+  }, [iccuRegisterOpen, iccuHistoryOpen]);
+
+  const handleLogout = useCallback(async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth", { method: "DELETE", credentials: "include" });
+    } catch {
+      /* lanjut ke root meski jaringan gagal */
+    }
+    try {
+      localStorage.removeItem("idik_user");
+    } catch {
+      /* noop */
+    }
+    resetSession();
+    window.location.href = "/";
+  }, [loggingOut, resetSession]);
 
   const vitalsStrip = useMemo(() => latestVitalsSummary(data), [data]);
 
   const urlTindakanId = embedded
     ? undefined
-    : searchParams.get("tindakanId")?.trim() ||
-      tindakanId?.trim() ||
-      undefined;
+    : searchParams.get("tindakanId")?.trim() || tindakanId?.trim() || undefined;
 
   const [embeddedTindakanId, setEmbeddedTindakanId] = useState<
     string | undefined
@@ -111,9 +277,7 @@ function IntensiveDashboardViewInner({
     if (h) setPatientHeadlineState(h);
   }, [embedded, tindakanId, patientHeadline]);
 
-  const effectiveTindakanId = embedded
-    ? embeddedTindakanId
-    : urlTindakanId;
+  const effectiveTindakanId = embedded ? embeddedTindakanId : urlTindakanId;
 
   /** Muat / simpan flow sheet per pasien + sinkron header dari baris tindakan. */
   useEffect(() => {
@@ -126,7 +290,10 @@ function IntensiveDashboardViewInner({
         await fetch("/api/intensive/flow-sheet", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tindakanId: tid, payload: { data: snapshot } }),
+          body: JSON.stringify({
+            tindakanId: tid,
+            payload: { data: snapshot },
+          }),
         });
       } catch {
         /* noop */
@@ -150,9 +317,9 @@ function IntensiveDashboardViewInner({
         fetch(
           `/api/intensive/flow-sheet?tindakanId=${encodeURIComponent(id)}`,
         ).then((r) => r.json()),
-        fetch(`/api/tindakan?tindakanId=${encodeURIComponent(id)}&limit=1`).then(
-          (r) => r.json(),
-        ),
+        fetch(
+          `/api/tindakan?tindakanId=${encodeURIComponent(id)}&limit=1`,
+        ).then((r) => r.json()),
       ]);
 
       if (gen !== loadGenRef.current) return;
@@ -163,7 +330,11 @@ function IntensiveDashboardViewInner({
       outgoingIdRef.current = id;
       setHydratedForId(id);
 
-      if (tindakanRes?.ok && Array.isArray(tindakanRes.data) && tindakanRes.data[0]) {
+      if (
+        tindakanRes?.ok &&
+        Array.isArray(tindakanRes.data) &&
+        tindakanRes.data[0]
+      ) {
         const row = tindakanRes.data[0] as IntensiveTindakanListRow &
           Record<string, unknown>;
         if (String(row.id ?? "").trim() === id) {
@@ -205,10 +376,9 @@ function IntensiveDashboardViewInner({
       if (embedded) {
         setEmbeddedTindakanId(nextId);
       } else if (pathname) {
-        router.replace(
-          `${pathname}?tindakanId=${encodeURIComponent(nextId)}`,
-          { scroll: false },
-        );
+        router.replace(`${pathname}?tindakanId=${encodeURIComponent(nextId)}`, {
+          scroll: false,
+        });
       }
     },
     [embedded, pathname, router],
@@ -251,7 +421,7 @@ function IntensiveDashboardViewInner({
       className={cn(
         "bg-black text-zinc-100 flex flex-col font-sans selection:bg-blue-500/30",
         embedded ? "min-h-0 h-full" : "min-h-screen",
-        isFullscreen && "fixed inset-0 z-[9999]",
+        isFullscreen && `fixed inset-0 ${UI_LAYERS.fullscreen}`,
       )}
     >
       <header className="h-14 border-b border-zinc-800 flex items-center justify-between px-4 bg-zinc-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
@@ -365,18 +535,83 @@ function IntensiveDashboardViewInner({
                 {isFullscreen ? "Exit" : "Full View"}
               </span>
             </Button>
-            <Button variant="ghost" size="icon" type="button" className="text-zinc-400">
+            <Button
+              variant="ghost"
+              size="icon"
+              type="button"
+              className="text-zinc-400"
+            >
               <Settings className="w-5 h-5" />
+            </Button>
+            {jarvisAccessBanner ? (
+              <div
+                className="flex min-w-0 max-w-[min(50vw,200px)] flex-col items-end justify-center rounded-lg border border-amber-500/40 bg-amber-950/55 px-2 py-1.5 sm:max-w-[280px]"
+                role="status"
+                title={jarvisAccessBanner}
+              >
+                <span className="flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide text-amber-300 dark:text-amber-200">
+                  <AlertTriangle
+                    className="h-3 w-3 shrink-0 text-amber-400"
+                    aria-hidden
+                  />
+                  Menu unit
+                </span>
+                <span className="mt-0.5 text-right text-[9px] leading-snug text-amber-50 dark:text-white line-clamp-3">
+                  {jarvisAccessBanner}
+                </span>
+              </div>
+            ) : null}
+            <div
+              className="flex items-center gap-1.5 sm:gap-2 pl-1 min-w-0 border-l border-zinc-800 ml-1 shrink-0"
+              title={role ? `${username} · ${role}` : username}
+            >
+              <div className="flex flex-col items-end min-w-0 leading-tight">
+                <span className="text-[10px] font-semibold text-white truncate max-w-[140px]">
+                  {username && username !== "unknown" ? username : "…"}
+                </span>
+                <span className="text-[8px] uppercase text-zinc-500 font-bold truncate max-w-[140px]">
+                  {role && role !== "guest" ? role : "sesi"}
+                </span>
+              </div>
+              <div
+                className="h-9 w-9 shrink-0 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[11px] font-bold text-zinc-100"
+                aria-hidden
+              >
+                {(username && username !== "unknown"
+                  ? username.slice(0, 1)
+                  : "?"
+                ).toUpperCase()}
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="h-9 w-9 shrink-0 text-zinc-400 hover:text-white hover:bg-zinc-800"
+              title={loggingOut ? "Keluar…" : "Logout — ke beranda"}
+              aria-label={loggingOut ? "Sedang keluar" : "Logout ke beranda"}
+            >
+              {loggingOut ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <LogOut className="h-4 w-4" />
+              )}
             </Button>
           </div>
         </div>
       </header>
 
       <main className="relative flex min-h-0 flex-1 flex-row overflow-hidden">
-        <IntensivePatientSidebar
-          selectedTindakanId={effectiveTindakanId}
-          onSelectPatient={handleSelectPatient}
-        />
+        {showSidebar && (
+          <IntensivePatientSidebar
+            selectedTindakanId={effectiveTindakanId}
+            onSelectPatient={handleSelectPatient}
+            iccuActiveListRefreshNonce={iccuSidebarListNonce}
+            fallbackUnitSlug={effectiveUnitSlug}
+          />
+        )}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden border-r border-zinc-800">
           <div className="bg-zinc-900/30 border-b border-zinc-800/50 px-4 py-2 flex items-center gap-8 overflow-x-auto no-scrollbar">
             <StatMini
@@ -458,8 +693,54 @@ function IntensiveDashboardViewInner({
             ● Connected to Supabase Realtime
           </span>
         </div>
-        <div className="hidden sm:block">v0.1.0-alpha • Powered by Antigravity AI</div>
+        <div className="hidden sm:block">
+          v0.1.0-alpha • Powered by Antigravity AI
+        </div>
       </footer>
+
+      {/* Sembunyikan FAB saat modal register terbuka (fixed bottom-right viewport → menumpuk kolom Aksi). */}
+      {!iccuRegisterOpen && !iccuHistoryOpen ? (
+        <JarvisFloatingMenu
+          roomSlug={effectiveUnitSlug}
+          autoOpenOnMount={!embedded && autoOpenJarvisMenu}
+          onRoomMeta={({ nama }) => setJarvisRoomDisplayName(nama)}
+          onMenuAccessState={({ ok, userMessage }) => {
+            setJarvisAccessBanner(!ok && userMessage ? userMessage : null);
+          }}
+          onToggleSidebar={() => setShowSidebar(!showSidebar)}
+          onAddPatient={() =>
+            toast.info("Fitur Tambah Pasien Intensive dalam pengembangan")
+          }
+          onRegisterIccu={() => {
+            setIccuHistoryOpen(false);
+            setIccuRegisterOpen(true);
+          }}
+          onHistoryPasien={() => {
+            setIccuRegisterOpen(false);
+            setIccuHistoryOpen(true);
+          }}
+          onOpenReports={(type) => toast.info(`Membuka Laporan ${type}...`)}
+          onOpenActionsTable={() => toast.info("Membuka Tabel Tindakan...")}
+        />
+      ) : null}
+
+      <IccuRegisterModal
+        open={iccuRegisterOpen}
+        onOpenChange={setIccuRegisterOpen}
+        roomSlug={effectiveUnitSlug}
+        roomDisplayName={jarvisRoomDisplayName ?? undefined}
+        mode="register"
+        onActiveRegisterListChanged={bumpIccuSidebarPatientList}
+      />
+
+      <IccuRegisterModal
+        open={iccuHistoryOpen}
+        onOpenChange={setIccuHistoryOpen}
+        roomSlug={effectiveUnitSlug}
+        roomDisplayName={jarvisRoomDisplayName ?? undefined}
+        mode="history"
+        onActiveRegisterListChanged={bumpIccuSidebarPatientList}
+      />
     </div>
   );
 }
@@ -502,10 +783,14 @@ function StatMini({
         {React.cloneElement(icon, { size: 14 })}
       </div>
       <div className="flex flex-col leading-none">
-        <span className="text-[9px] text-zinc-500 font-bold uppercase">{label}</span>
+        <span className="text-[9px] text-zinc-500 font-bold uppercase">
+          {label}
+        </span>
         <span className="text-sm font-bold text-zinc-200">
           {value}{" "}
-          <span className="text-[10px] font-normal text-zinc-500 uppercase">{unit}</span>
+          <span className="text-[10px] font-normal text-zinc-500 uppercase">
+            {unit}
+          </span>
         </span>
       </div>
     </div>
@@ -569,7 +854,7 @@ function InvasivePanel() {
                       onClick={() => updateData(param.id, "static", "Ya")}
                       className={`flex-1 py-1 rounded text-[9px] font-bold transition-all ${
                         data[param.id]?.["static"] === "Ya"
-                          ? "bg-blue-600 text-white shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                          ? "bg-blue-600 text-white shadow-[0_0_8_rgba(59,130,246,0.5)]"
                           : "bg-zinc-800 text-zinc-500"
                       }`}
                     >
@@ -580,7 +865,7 @@ function InvasivePanel() {
                       onClick={() => updateData(param.id, "static", "Tidak")}
                       className={`flex-1 py-1 rounded text-[9px] font-bold transition-all ${
                         data[param.id]?.["static"] === "Tidak"
-                          ? "bg-zinc-600 text-white shadow-[0_0_8px_rgba(113,113,122,0.5)]"
+                          ? "bg-zinc-600 text-white shadow-[0_0_8_rgba(113,113,122,0.5)]"
                           : "bg-zinc-800 text-zinc-500"
                       }`}
                     >
@@ -615,8 +900,8 @@ function InvasivePanel() {
           Catatan Khusus ICU
         </span>
         <p className="text-[10px] text-zinc-500 mt-1 leading-relaxed">
-          Panel ini berisi status statis harian. Data di sini tidak terpengaruh oleh scroll
-          waktu di kiri.
+          Panel ini berisi status statis harian. Data di sini tidak terpengaruh
+          oleh scroll waktu di kiri.
         </p>
       </div>
     </div>

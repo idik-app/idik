@@ -88,11 +88,19 @@ export function useMasterTindakanKategori() {
   };
 }
 
+/** Kunci SWR sama persis untuk invalidasi dari luar (mis. setelah edit master di drawer tindakan). */
+export const MASTER_PASIEN_COMPACT_SWR_KEY =
+  "/api/pasien?compact=1&limit=5000&force=1" as const;
+
 export function useMasterPasien() {
-  const { data, error, isLoading, mutate } = useSWR('/api/pasien?compact=1&limit=5000&force=1', fetcher, {
-    revalidateOnFocus: false,
-    dedupingInterval: 600000, // 10 menit
-  });
+  const { data, error, isLoading, mutate } = useSWR(
+    MASTER_PASIEN_COMPACT_SWR_KEY,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 600000, // 10 menit
+    },
+  );
 
   return {
     pasien: data?.data || EMPTY_ARRAY,

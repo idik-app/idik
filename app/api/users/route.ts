@@ -37,7 +37,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from("app_users")
       .select(
-        "id,username,role,distributor_id,created_at,updated_at,master_distributor(nama_pt,is_konsolidasi)"
+        "id,username,role,distributor_id,ruangan_id,created_at,updated_at,master_distributor(nama_pt,is_konsolidasi),ruangan(slug,nama)"
       )
       .order("created_at", { ascending: false });
 
@@ -66,6 +66,7 @@ export async function POST(req: Request) {
       role,
       distributor_id = null,
       distributor_nama_pt,
+      ruangan_id: ruanganIdRaw = null,
     } = body ?? {};
     const roleNormalized =
       typeof role === "string" ? role.trim().toLowerCase() : role;
@@ -106,6 +107,23 @@ export async function POST(req: Request) {
       );
     }
 
+    let ruangan_id: string | null = null;
+    if (ruanganIdRaw != null && String(ruanganIdRaw).trim() !== "") {
+      const rid = String(ruanganIdRaw).trim();
+      const { data: ruRow, error: ruErr } = await supabase
+        .from("ruangan")
+        .select("id")
+        .eq("id", rid)
+        .maybeSingle();
+      if (ruErr || !ruRow?.id) {
+        return NextResponse.json(
+          { ok: false, message: "ruangan_id tidak valid" },
+          { status: 400 }
+        );
+      }
+      ruangan_id = rid;
+    }
+
     const { data, error } = await supabase
       .from("app_users")
       .insert({
@@ -113,9 +131,10 @@ export async function POST(req: Request) {
         password_hash: passwordHash,
         role: roleNormalized,
         distributor_id: resolved.distributorId,
+        ruangan_id,
       })
       .select(
-        "id,username,role,distributor_id,created_at,updated_at,master_distributor(nama_pt,is_konsolidasi)"
+        "id,username,role,distributor_id,ruangan_id,created_at,updated_at,master_distributor(nama_pt,is_konsolidasi),ruangan(slug,nama)"
       )
       .single();
 

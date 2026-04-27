@@ -18,6 +18,7 @@ const ROLE_OPTIONS = [
   "pasien",
   "dokter",
   "perawat",
+  "cathlab",
   "it",
   "radiografer",
   "casemix",
@@ -35,10 +36,19 @@ type AppUser = {
   username: string;
   role: string;
   distributor_id: string | null;
+  ruangan_id: string | null;
+  ruangan_slug?: string | null;
+  ruangan_nama?: string | null;
   distributor_nama_pt?: string | null;
   distributor_is_konsolidasi?: boolean | null;
   created_at: string;
   updated_at: string;
+};
+
+type RuanganOpt = {
+  id: string;
+  nama: string;
+  slug: string | null;
 };
 
 type Distributor = {
@@ -84,6 +94,11 @@ export default function UserCrud() {
   const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [distributorsLoading, setDistributorsLoading] = useState(false);
 
+  const [ruanganList, setRuanganList] = useState<RuanganOpt[]>([]);
+  const [ruanganLoading, setRuanganLoading] = useState(false);
+  /** false = hanya ruangan yang sudah punya slug (default, daftar lebih pendek). */
+  const [ruanganPickerShowAll, setRuanganPickerShowAll] = useState(false);
+
   const [form, setForm] = useState<{
     username: string;
     password: string;
@@ -92,6 +107,7 @@ export default function UserCrud() {
     distributorNamaBaru: string;
     distributorIsKonsolidasi: boolean;
     isEditingExistingDistributor: boolean;
+    ruanganId: string | null;
   }>({
     username: "",
     password: "",
@@ -100,6 +116,7 @@ export default function UserCrud() {
     distributorNamaBaru: "",
     distributorIsKonsolidasi: false,
     isEditingExistingDistributor: false,
+    ruanganId: null,
   });
 
   const distributorById = useMemo(() => {
@@ -107,6 +124,35 @@ export default function UserCrud() {
     for (const d of distributors) m.set(d.id, d);
     return m;
   }, [distributors]);
+
+  const selectedRuanganOpt = useMemo(() => {
+    if (!form.ruanganId) return null;
+    return ruanganList.find((r) => r.id === form.ruanganId) ?? null;
+  }, [form.ruanganId, ruanganList]);
+
+  /** Opsi dropdown: default hanya yang punya slug; saat edit, sertakan unit terpilih walau belum slug. */
+  const ruanganPickerOptions = useMemo(() => {
+    const byName = (a: RuanganOpt, b: RuanganOpt) =>
+      a.nama.localeCompare(b.nama, "id", { sensitivity: "base" });
+
+    if (ruanganPickerShowAll) {
+      return [...ruanganList].sort(byName);
+    }
+
+    const withSlug = ruanganList.filter((r) => r.slug && r.slug.trim());
+    const sorted = [...withSlug].sort(byName);
+    const idSet = new Set(sorted.map((r) => r.id));
+    if (form.ruanganId && !idSet.has(form.ruanganId)) {
+      const orphan = ruanganList.find((r) => r.id === form.ruanganId);
+      if (orphan) return [orphan, ...sorted];
+    }
+    return sorted;
+  }, [ruanganList, ruanganPickerShowAll, form.ruanganId]);
+
+  const ruanganWithSlugCount = useMemo(
+    () => ruanganList.filter((r) => r.slug && r.slug.trim()).length,
+    [ruanganList],
+  );
 
   const filteredUsers = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -116,7 +162,9 @@ export default function UserCrud() {
         u.username.toLowerCase().includes(q) ||
         String(u.role).toLowerCase().includes(q) ||
         (u.distributor_id ?? "").toLowerCase().includes(q) ||
-        (u.distributor_nama_pt ?? "").toLowerCase().includes(q)
+        (u.distributor_nama_pt ?? "").toLowerCase().includes(q) ||
+        (u.ruangan_slug ?? "").toLowerCase().includes(q) ||
+        (u.ruangan_nama ?? "").toLowerCase().includes(q)
       );
     });
   }, [users, query]);
@@ -161,6 +209,38 @@ export default function UserCrud() {
     }
   }
 
+  async function fetchRuanganIfNeeded() {
+    if (ruanganList.length > 0) return;
+    setRuanganLoading(true);
+    try {
+      const { res, json } = await fetchJsonWithTimeout("/api/ruangan", {
+        cache: "no-store",
+        timeoutMs: 15000,
+      });
+      if (!res.ok || !json.ok)
+        throw new Error(json?.message || "Failed to fetch ruangan");
+      const rows = (json.ruangan ?? []) as Array<{
+        id: string;
+        nama?: string | null;
+        slug?: string | null;
+      }>;
+      setRuanganList(
+        rows.map((r) => ({
+          id: String(r.id),
+          nama: String(r.nama ?? "").trim(),
+          slug:
+            r.slug != null && String(r.slug).trim()
+              ? String(r.slug).trim()
+              : null,
+        })),
+      );
+    } catch {
+      setRuanganList([]);
+    } finally {
+      setRuanganLoading(false);
+    }
+  }
+
   function resetFormForCreate() {
     setForm({
       username: "",
@@ -170,6 +250,7 @@ export default function UserCrud() {
       distributorNamaBaru: "",
       distributorIsKonsolidasi: false,
       isEditingExistingDistributor: false,
+      ruanganId: null,
     });
   }
 
@@ -187,6 +268,7 @@ export default function UserCrud() {
       distributorIsKonsolidasi:
         u.distributor_is_konsolidasi ?? dist?.is_konsolidasi ?? false,
       isEditingExistingDistributor: false,
+      ruanganId: u.ruangan_id ?? null,
     });
   }
 
@@ -194,12 +276,14 @@ export default function UserCrud() {
     setModalMode("create");
     setEditingUser(null);
     resetFormForCreate();
+    setRuanganPickerShowAll(false);
     setSubmitError(null);
     setModalOpen(true);
   }
 
   function openEditModal(u: AppUser) {
     setModalMode("edit");
+    setRuanganPickerShowAll(false);
     setSubmitError(null);
     resetFormForEdit(u);
     setModalOpen(true);
@@ -231,6 +315,7 @@ export default function UserCrud() {
     if (!modalOpen) return;
     // fetch distributor options lazily when modal is opened
     fetchDistributorsIfNeeded();
+    fetchRuanganIfNeeded();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modalOpen]);
 
@@ -294,6 +379,7 @@ export default function UserCrud() {
             distributor_id:
               requiresDistributor && !namaBaru ? form.distributorId : null,
             distributor_is_konsolidasi: form.distributorIsKonsolidasi,
+            ruangan_id: form.ruanganId,
             ...(requiresDistributor && namaBaru
               ? {
                   distributor_nama_pt: namaBaru,
@@ -309,6 +395,7 @@ export default function UserCrud() {
         const updatePayload: Record<string, unknown> = {
           role: form.role,
           distributor_is_konsolidasi: form.distributorIsKonsolidasi,
+          ruangan_id: form.ruanganId,
         };
         const needsDist = ROLES_REQUIRE_DISTRIBUTOR.has(form.role);
         if (needsDist) {
@@ -443,7 +530,7 @@ export default function UserCrud() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Cari username / role"
+              placeholder="Cari username / role / ruangan"
               className="pl-9 pr-3 py-1.5 rounded-lg bg-gray-800/60 border border-cyan-700/40 text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
             />
           </div>
@@ -476,6 +563,7 @@ export default function UserCrud() {
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Username</th>
                 <th className="px-3 py-2 text-left font-medium">Role</th>
+                <th className="px-3 py-2 text-left font-medium">Ruangan</th>
                 <th className="px-3 py-2 text-left font-medium">Distributor</th>
                 <th className="px-3 py-2 text-left font-medium">Created</th>
                 <th className="px-3 py-2 text-center font-medium">Aksi</th>
@@ -485,7 +573,7 @@ export default function UserCrud() {
               {filteredUsers.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-3 py-6 text-center text-cyan-300"
                   >
                     Tidak ada data.
@@ -533,6 +621,26 @@ export default function UserCrud() {
                     >
                       <td className="px-3 py-2">{u.username}</td>
                       <td className="px-3 py-2">{u.role}</td>
+                      <td className="px-3 py-2 text-gray-200/90">
+                        {u.ruangan_id || u.ruangan_slug || u.ruangan_nama ? (
+                          <div className="flex flex-col">
+                            <span className="text-gray-100">
+                              {u.ruangan_nama ?? u.ruangan_slug ?? u.ruangan_id}
+                            </span>
+                            {u.ruangan_slug ? (
+                              <span className="text-[11px] text-cyan-300/90 mt-0.5">
+                                /{u.ruangan_slug}/dashboard
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-amber-300/90 mt-0.5">
+                                Master ruangan belum punya slug URL
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                       <td className="px-3 py-2">
                         {(() => {
                           const raw = u.distributor_nama_pt || dist?.nama_pt;
@@ -618,6 +726,18 @@ export default function UserCrud() {
                   <p className="mb-5 text-sm text-gray-200/90">
                     role:{" "}
                     <span className="text-gray-100">{userToDelete.role}</span>
+                    {userToDelete.ruangan_slug || userToDelete.ruangan_nama ? (
+                      <>
+                        {" "}
+                        • unit:{" "}
+                        <span className="text-gray-100">
+                          {userToDelete.ruangan_nama ?? userToDelete.ruangan_slug}
+                          {userToDelete.ruangan_slug
+                            ? ` (/${userToDelete.ruangan_slug}/dashboard)`
+                            : ""}
+                        </span>
+                      </>
+                    ) : null}
                     {userToDelete.distributor_id ? (
                       <>
                         {" "}
@@ -742,6 +862,79 @@ export default function UserCrud() {
                           </option>
                         ))}
                       </select>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm mb-1 text-cyan-300">
+                        Unit / ruangan (setelah login)
+                      </label>
+                      <select
+                        value={form.ruanganId ?? ""}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            ruanganId: e.target.value || null,
+                          }))
+                        }
+                        disabled={ruanganLoading}
+                        className="w-full bg-gray-800/60 border border-cyan-700/40 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/60 disabled:opacity-60 dark:text-white"
+                      >
+                        <option value="">
+                          {ruanganLoading
+                            ? "Memuat daftar ruangan..."
+                            : "Tidak terikat unit (akses global)"}
+                        </option>
+                        {ruanganPickerOptions.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.nama}
+                            {r.slug
+                              ? `  →  /${r.slug}/dashboard`
+                              : "  (belum ada slug URL)"}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-xs text-gray-200/90 dark:text-white/85">
+                        {!ruanganPickerShowAll ? (
+                          <>
+                            Daftar dipersingkat: hanya ruangan yang sudah punya{" "}
+                            <span className="text-cyan-200/95">slug URL</span> di
+                            master ({ruanganWithSlugCount} unit).
+                            Untuk staf/admin per unit, login mengarah ke{" "}
+                            <span className="text-cyan-200/95">/{`{slug}`}/dashboard</span>.
+                          </>
+                        ) : (
+                          <>
+                            Menampilkan semua ruangan master. Pilih yang sudah ada
+                            slug-nya agar redirect login jalan.
+                          </>
+                        )}
+                      </p>
+                      {!ruanganLoading &&
+                      !ruanganPickerShowAll &&
+                      ruanganWithSlugCount === 0 ? (
+                        <p className="mt-1 text-xs text-amber-300/95">
+                          Belum ada ruangan dengan slug. Isi kolom Slug URL di{" "}
+                          <span className="text-gray-100">Dashboard → Ruangan</span>,
+                          atau centang opsi di bawah untuk melihat semua baris.
+                        </p>
+                      ) : null}
+                      <label className="mt-2 flex items-center gap-2 text-xs text-gray-200/95 dark:text-white/90 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={ruanganPickerShowAll}
+                          onChange={(e) =>
+                            setRuanganPickerShowAll(e.target.checked)
+                          }
+                          className="rounded border-cyan-600 bg-gray-900 text-cyan-500 focus:ring-cyan-500/50"
+                        />
+                        Tampilkan semua ruangan (termasuk tanpa slug)
+                      </label>
+                      {selectedRuanganOpt && !selectedRuanganOpt.slug ? (
+                        <p className="mt-1 text-xs text-amber-300/95">
+                          Ruangan ini belum punya slug di master — isi slug dulu
+                          agar redirect login berfungsi.
+                        </p>
+                      ) : null}
                     </div>
 
                     {ROLES_REQUIRE_DISTRIBUTOR.has(form.role) && (

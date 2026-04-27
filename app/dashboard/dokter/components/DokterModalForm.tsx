@@ -2,6 +2,8 @@
 
 import { createPortal } from "react-dom";
 import { ReactNode, useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 /* =========================================================
    🌌 ModalWrapper – IDIK-App Cathlab JARVIS Mode v3.9

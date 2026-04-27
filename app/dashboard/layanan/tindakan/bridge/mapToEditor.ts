@@ -39,7 +39,7 @@ export function mapToEditor(data: TindakanJoinResult): TindakanEditorState {
 
     mesin: {
       fluoro_time: (() => {
-        const v = data.fluoro_time;
+        const v = data.fluoro_time as unknown;
         if (v === null || v === undefined || v === "") return "";
         const n =
           typeof v === "number" ? v : Number(String(v).trim().replace(",", "."));

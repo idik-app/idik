@@ -11,6 +11,8 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const tindakanId = searchParams.get("tindakanId")?.trim();
+    const unitSlug = request.headers.get("x-unit-slug");
+
     if (!tindakanId) {
       return NextResponse.json(
         { ok: false, error: "tindakanId wajib" },
@@ -18,24 +20,20 @@ export async function GET(request: Request) {
       );
     }
 
-    const { requireRole } = await import("@/lib/auth/guards");
-    const auth = await requireRole([
-      "perawat",
-      "dokter",
-      "admin",
-      "administrator",
-      "superadmin",
-    ]);
-    if (!auth.ok) return auth.response;
-
-    const supabase = getServiceSupabaseAdmin();
-    if (!supabase) {
-      return NextResponse.json(
-        { ok: false, error: "Supabase not configured" },
-        { status: 500 },
-      );
+    const { requireUnitAccess, requireRole } = await import("@/lib/auth/guards");
+    
+    // 1. Verifikasi Akses Unit jika x-unit-slug ada
+    if (unitSlug) {
+      const unitAuth = await requireUnitAccess(unitSlug);
+      if (!unitAuth.ok) return unitAuth.response;
+    } else {
+      // Fallback ke role check standar jika tidak ada unit slug (backward compatibility)
+      const auth = await requireRole(["perawat", "dokter", "admin", "administrator", "superadmin"]);
+      if (!auth.ok) return auth.response;
     }
 
+    const supabase = getServiceSupabaseAdmin();
+    // ... rest of GET logic remains same, but we could add .eq('ruangan.slug', unitSlug) if schema supports it
     const { data: row, error } = await supabase
       .from("intensive_flow_sheet")
       .select("payload, updated_at")
@@ -74,6 +72,8 @@ export async function PUT(request: Request) {
   try {
     const body = await request.json();
     const tindakanId = String(body?.tindakanId ?? "").trim();
+    const unitSlug = request.headers.get("x-unit-slug");
+
     if (!tindakanId) {
       return NextResponse.json(
         { ok: false, error: "tindakanId wajib" },
@@ -84,15 +84,15 @@ export async function PUT(request: Request) {
     const rawPayload = body?.payload as IntensiveFlowSheetPayload | undefined;
     const payload = sanitizeFlowSheetPayload(rawPayload ?? { data: {} });
 
-    const { requireRole } = await import("@/lib/auth/guards");
-    const auth = await requireRole([
-      "perawat",
-      "dokter",
-      "admin",
-      "administrator",
-      "superadmin",
-    ]);
-    if (!auth.ok) return auth.response;
+    const { requireUnitAccess, requireRole } = await import("@/lib/auth/guards");
+    
+    if (unitSlug) {
+      const unitAuth = await requireUnitAccess(unitSlug);
+      if (!unitAuth.ok) return unitAuth.response;
+    } else {
+      const auth = await requireRole(["perawat", "dokter", "admin", "administrator", "superadmin"]);
+      if (!auth.ok) return auth.response;
+    }
 
     const supabase = getServiceSupabaseAdmin();
     if (!supabase) {
@@ -107,6 +107,7 @@ export async function PUT(request: Request) {
         tindakan_id: tindakanId,
         payload: payload as unknown as Record<string, unknown>,
         updated_at: new Date().toISOString(),
+        // Note: unit_id could be added here if we want to store it explicitly
       },
       { onConflict: "tindakan_id" },
     );

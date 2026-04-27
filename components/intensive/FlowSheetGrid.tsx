@@ -8,9 +8,35 @@ import { ChevronLeft, Maximize2, Settings, Clock, Activity, Droplets, Thermomete
 import { format, startOfDay, addMinutes, addHours, subMinutes } from "date-fns";
 import HemodynamicChart from "./HemodynamicChart";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRoom } from "@/app/contexts/RoomContext";
 
 export default function FlowSheetGrid({ zoomLevel = 1 }: { zoomLevel?: number }) {
   const { resolution, expandedGroups, toggleGroup, data, updateData, groups, addParameter, updateParameter } = useFlowSheetStore();
+  
+  let clinicalConfig: any = null;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const room = useRoom();
+    clinicalConfig = room.clinical_config;
+  } catch (e) {
+    // Not in a room context
+  }
+
+  const thresholds = clinicalConfig?.thresholds || {};
+
+  const isOutOfRange = (paramId: string, value: string | number) => {
+    const threshold = thresholds[paramId];
+    if (!threshold || value === "—" || value === "") return false;
+    
+    const num = parseFloat(String(value));
+    if (isNaN(num)) return false;
+    
+    if (threshold.min !== undefined && num < threshold.min) return true;
+    if (threshold.max !== undefined && num > threshold.max) return true;
+    
+    return false;
+  };
+
   const parentRef = useRef<HTMLDivElement>(null);
   const [editingCell, setEditingCell] = useState<{ paramId: string, timestamp: string } | null>(null);
   const [editingParamId, setEditingParamId] = useState<string | null>(null);
@@ -441,7 +467,13 @@ export default function FlowSheetGrid({ zoomLevel = 1 }: { zoomLevel?: number })
                       ) : (
                         <div className="flex flex-col items-center gap-0.5">
                           <div 
-                            className={`font-mono transition-colors ${displayValue !== "—" ? "text-white font-bold" : "text-zinc-600 group-hover:text-blue-400"} text-xs`}
+                            className={`font-mono transition-colors text-xs ${
+                              displayValue !== "—" 
+                                ? isOutOfRange(row.id, displayValue)
+                                  ? "text-red-500 font-bold animate-pulse drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]"
+                                  : "text-white font-bold"
+                                : "text-zinc-600 group-hover:text-blue-400"
+                            }`}
                           >
                             {displayValue}
                           </div>

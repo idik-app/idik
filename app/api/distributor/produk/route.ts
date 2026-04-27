@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getDistributorIdentity } from "@/lib/auth/distributor";
+import {
+  getDistributorIdentity,
+  type DistributorIdentity,
+} from "@/lib/auth/distributor";
 import {
   normalizeDistributorLotAutoValue,
   parseDistributorBarangExtra,
@@ -12,7 +15,7 @@ import { setCathlabStokToTarget } from "@/lib/stokCathlabDelta";
 
 function parseOptionalDistributorId(
   req: Request,
-  id: Awaited<ReturnType<typeof getDistributorIdentity>>,
+  id: Extract<DistributorIdentity, { ok: true }>,
 ) {
   const { searchParams } = new URL(req.url);
   const distributorIdParam = (searchParams.get("distributor_id") ?? "").trim();

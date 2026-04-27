@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useParams } from "next/navigation"
 import {
   House,
   Box,
@@ -15,200 +15,191 @@ import {
   PersonWorkspace,
 } from "react-bootstrap-icons"
 import { useState } from "react"
+import { useRoom } from "@/app/contexts/RoomContext"
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const params = useParams()
+  const roomSlug = params?.room as string
+  
+  let room: any = null;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    room = useRoom()
+  } catch (e) {
+    // Not in a room context
+  }
+
+  const primaryColor = room?.branding?.primaryColor || "#0d6efd"
+  const unitName = room?.branding?.displayName || "IDIK-App"
 
   // state untuk submenu
   const [openTeam, setOpenTeam] = useState(false)
   const [openMonitoring, setOpenMonitoring] = useState(false)
   const [openSettings, setOpenSettings] = useState(false)
 
+  // Helper untuk prefixing link dengan slug unit jika ada
+  const getLink = (path: string) => {
+    if (roomSlug && path.startsWith("/")) {
+      return `/${roomSlug}${path}`
+    }
+    return path
+  }
+
+  // Cek apakah link sedang aktif (mensupport unit prefix)
+  const isActive = (path: string) => {
+    const target = getLink(path)
+    return pathname === target
+  }
+
   return (
     <aside
       className="d-flex flex-column bg-light border-end vh-100 p-3"
       style={{ width: "240px" }}
     >
-      <h5 className="mb-4 fw-bold">IDIK-App</h5>
-      <ul className="nav nav-pills flex-column">
+      <div className="mb-4 d-flex align-items-center gap-2">
+        <div className="rounded-circle" style={{ width: '12px', height: '12px', backgroundColor: primaryColor }} />
+        <h5 className="mb-0 fw-bold" style={{ color: primaryColor }}>{unitName}</h5>
+      </div>
 
+      <ul className="nav nav-pills flex-column custom-sidebar-nav">
         {/* Dashboard */}
-        <li className="nav-item mb-2">
+        <li className="nav-item mb-1">
           <Link
-            href="/dashboard"
+            href={getLink("/dashboard")}
             className={`nav-link d-flex align-items-center gap-2 ${
-              pathname === "/dashboard" ? "active" : "text-dark"
+              isActive("/dashboard") ? "active" : "text-dark"
             }`}
+            style={isActive("/dashboard") ? { backgroundColor: primaryColor } : {}}
           >
-            <House size={20} /> Dashboard
+            <House size={18} /> Dashboard
           </Link>
         </li>
 
-        {/* Patients */}
-        <li className="nav-item mb-2">
-          <Link
-            href="/patients"
-            className={`nav-link d-flex align-items-center gap-2 ${
-              pathname === "/patients" ? "active" : "text-dark"
-            }`}
-          >
-            <People size={20} /> Patients
-          </Link>
-        </li>
+        {/* Patients - Only if unit has flowsheet/patient capabilities */}
+        {(!room || room.capabilities?.flowsheet) && (
+          <li className="nav-item mb-1">
+            <Link
+              href={getLink("/patients")}
+              className={`nav-link d-flex align-items-center gap-2 ${
+                isActive("/patients") ? "active" : "text-dark"
+              }`}
+              style={isActive("/patients") ? { backgroundColor: primaryColor } : {}}
+            >
+              <People size={18} /> Patients
+            </Link>
+          </li>
+        )}
 
-        {/* Tim Cathlab with submenu */}
-        <li className="nav-item mb-2">
+        {/* Tim Unit with dynamic label */}
+        <li className="nav-item mb-1">
           <button
             onClick={() => setOpenTeam(!openTeam)}
-            className="btn nav-link d-flex align-items-center gap-2 w-100 text-start text-dark"
+            className="btn nav-link d-flex align-items-center gap-2 w-100 text-start text-dark border-0 shadow-none"
           >
-            <People size={20} /> Tim Cathlab
+            <People size={18} /> Tim {room?.branding?.displayName.split(' ')[0] || 'Unit'}
           </button>
           {openTeam && (
             <ul className="nav flex-column ms-4 mt-1">
               <li className="nav-item">
                 <Link
-                  href="/team/doctors"
+                  href={getLink("/team/doctors")}
                   className={`nav-link d-flex align-items-center gap-2 py-1 ${
-                    pathname === "/team/doctors" ? "active" : "text-secondary"
+                    isActive("/team/doctors") ? "text-primary fw-bold" : "text-secondary"
                   }`}
-                  style={{ fontSize: "0.9rem" }}
+                  style={{ fontSize: "0.85rem" }}
                 >
-                  <PersonBadge size={20} /> Dokter
+                  <PersonBadge size={16} /> Dokter
                 </Link>
               </li>
               <li className="nav-item">
                 <Link
-                  href="/team/nurses"
+                  href={getLink("/team/nurses")}
                   className={`nav-link d-flex align-items-center gap-2 py-1 ${
-                    pathname === "/team/nurses" ? "active" : "text-secondary"
+                    isActive("/team/nurses") ? "text-primary fw-bold" : "text-secondary"
                   }`}
-                  style={{ fontSize: "0.9rem" }}
+                  style={{ fontSize: "0.85rem" }}
                 >
-                  <PersonLinesFill size={20} /> Perawat
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link
-                  href="/team/radiographers"
-                  className={`nav-link d-flex align-items-center gap-2 py-1 ${
-                    pathname === "/team/radiographers" ? "active" : "text-secondary"
-                  }`}
-                  style={{ fontSize: "0.9rem" }}
-                >
-                  <PersonWorkspace size={20} /> Radiografer
+                  <PersonLinesFill size={16} /> Perawat
                 </Link>
               </li>
             </ul>
           )}
         </li>
 
-        {/* Inventory */}
-        <li className="nav-item mb-2">
+        {/* Inventory - Global or Unit Specific? (Assuming Unit for now) */}
+        <li className="nav-item mb-1">
           <Link
-            href="/inventory"
+            href={getLink("/inventory")}
             className={`nav-link d-flex align-items-center gap-2 ${
-              pathname === "/inventory" ? "active" : "text-dark"
+              isActive("/inventory") ? "active" : "text-dark"
             }`}
+            style={isActive("/inventory") ? { backgroundColor: primaryColor } : {}}
           >
-            <Box size={20} /> Inventory
+            <Box size={18} /> Inventory
           </Link>
         </li>
 
-        {/* Distributors */}
-        <li className="nav-item mb-2">
-          <Link
-            href="/distributors"
-            className={`nav-link d-flex align-items-center gap-2 ${
-              pathname === "/distributors" ? "active" : "text-dark"
-            }`}
-          >
-            🛒 Distributors
-          </Link>
-        </li>
+        {/* Monitoring - Only if enabled */}
+        {(!room || room.capabilities?.monitoring) && (
+          <li className="nav-item mb-1">
+            <button
+              onClick={() => setOpenMonitoring(!openMonitoring)}
+              className="btn nav-link d-flex align-items-center gap-2 w-100 text-start text-dark border-0 shadow-none"
+            >
+              <Activity size={18} /> Monitoring
+            </button>
+            {openMonitoring && (
+              <ul className="nav flex-column ms-4 mt-1">
+                <li className="nav-item">
+                  <Link href={getLink("/monitoring/active")} className="nav-link text-secondary py-1" style={{ fontSize: "0.85rem" }}>
+                    Live Status
+                  </Link>
+                </li>
+              </ul>
+            )}
+          </li>
+        )}
 
-        {/* Monitoring with submenu */}
-        <li className="nav-item mb-2">
-          <button
-            onClick={() => setOpenMonitoring(!openMonitoring)}
-            className="btn nav-link d-flex align-items-center gap-2 w-100 text-start text-dark"
-          >
-            <Activity size={20} /> Monitoring
-          </button>
-          {openMonitoring && (
-            <ul className="nav flex-column ms-4 mt-1">
-              <li className="nav-item">
-                <Link href="/monitoring/cathlab1" className="nav-link text-secondary py-1">
-                  Cathlab 1
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link href="/monitoring/cathlab2" className="nav-link text-secondary py-1">
-                  Cathlab 2
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link href="/monitoring/cathlab3" className="nav-link text-secondary py-1">
-                  Cathlab 3
-                </Link>
-              </li>
-            </ul>
-          )}
-        </li>
+        <hr className="my-3 text-muted opacity-25" />
 
-        {/* Reports */}
-        <li className="nav-item mb-2">
-          <Link
-            href="/reports"
-            className={`nav-link d-flex align-items-center gap-2 ${
-              pathname === "/reports" ? "active" : "text-dark"
-            }`}
-          >
-            <ClipboardData size={20} /> Reports
-          </Link>
-        </li>
-
-        {/* Notifications */}
-        <li className="nav-item mb-2">
-          <Link
-            href="/notifications"
-            className={`nav-link d-flex align-items-center gap-2 ${
-              pathname === "/notifications" ? "active" : "text-dark"
-            }`}
-          >
-            <Bell size={20} /> Notifications
-          </Link>
-        </li>
-
-        {/* Settings with submenu */}
-        <li className="nav-item mb-2">
+        {/* Settings */}
+        <li className="nav-item mb-1">
           <button
             onClick={() => setOpenSettings(!openSettings)}
-            className="btn nav-link d-flex align-items-center gap-2 w-100 text-start text-dark"
+            className="btn nav-link d-flex align-items-center gap-2 w-100 text-start text-dark border-0 shadow-none"
           >
-            <Gear size={20} /> Settings
+            <Gear size={18} /> Settings
           </button>
           {openSettings && (
             <ul className="nav flex-column ms-4 mt-1">
               <li className="nav-item">
-                <Link href="/settings/user-management" className="nav-link text-secondary py-1">
-                  User Management
+                <Link href={getLink("/settings/unit")} className="nav-link text-secondary py-1" style={{ fontSize: "0.85rem" }}>
+                  Unit Config
                 </Link>
               </li>
               <li className="nav-item">
-                <Link href="/settings/logs" className="nav-link text-secondary py-1">
+                <Link href="/settings/logs" className="nav-link text-secondary py-1" style={{ fontSize: "0.85rem" }}>
                   System Logs
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link href="/settings/integration" className="nav-link text-secondary py-1">
-                  Integrasi SIMRS
                 </Link>
               </li>
             </ul>
           )}
         </li>
       </ul>
+      
+      <style jsx>{`
+        .custom-sidebar-nav .nav-link {
+          transition: all 0.2s;
+          border-radius: 8px;
+        }
+        .custom-sidebar-nav .nav-link:hover {
+          background-color: rgba(0,0,0,0.05);
+        }
+        .custom-sidebar-nav .nav-link.active {
+          color: white !important;
+        }
+      `}</style>
     </aside>
   )
 }

@@ -30,12 +30,9 @@ import {
 
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { useAppDialog } from "@/contexts/AppDialogContext";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { resolveRoomSlugFromRuanganLabel } from "@/lib/intensive/resolveRoomSlug";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import { extractDataFromText } from "@/lib/tindakan/reportExtractor";
 import {
@@ -73,11 +70,14 @@ const FastTrackListModal = dynamic(
 );
 const TindakanTerbanyakLabModal = dynamic(
   () =>
-    import(/* webpackPrefetch: true */ "../components/TindakanTerbanyakLabModal"),
+    import(
+      /* webpackPrefetch: true */ "../components/TindakanTerbanyakLabModal"
+    ),
   { ssr: false, loading: () => null },
 );
 const TindakanLaporanModal = dynamic(
-  () => import(/* webpackPrefetch: true */ "../components/TindakanLaporanModal"),
+  () =>
+    import(/* webpackPrefetch: true */ "../components/TindakanLaporanModal"),
   { ssr: false, loading: () => null },
 );
 const TindakanLaporanPemakaianModal = dynamic(
@@ -140,6 +140,57 @@ import JarvisIcon from "@/components/JarvisIcon";
 import { TINDAKAN_SHEET_CELL } from "../lib/tindakanSheetClasses";
 
 type Adapter = ReturnType<typeof useTindakanBridgeAdapter>;
+
+/** Blok JARVIS + “Synchronizing Systems” — dipakai saat loading dan state kosong tabel. */
+function TindakanSyncStatusBlock({
+  lightMode,
+  subtitle,
+  subtitleTone = "hud",
+  animateIcon = true,
+}: {
+  lightMode: boolean;
+  subtitle: string;
+  subtitleTone?: "hud" | "body";
+  animateIcon?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col min-h-0 flex-1 items-center justify-center py-12 gap-5",
+        "max-md:flex-none",
+        "text-cyan-950 dark:text-cyan-300",
+      )}
+    >
+      <div className="relative flex items-center justify-center">
+        <JarvisIcon
+          size={80}
+          lightMode={lightMode}
+          isSyncing={animateIcon}
+          status="idle"
+        />
+      </div>
+      <div className="flex flex-col items-center gap-1 text-center px-4">
+        <span className="animate-pulse tracking-[0.2em] uppercase text-[11px] font-black opacity-90">
+          Synchronizing Systems
+        </span>
+        {subtitleTone === "hud" ? (
+          <span className="text-[10px] font-mono opacity-50 uppercase tracking-wider">
+            {subtitle}
+          </span>
+        ) : (
+          <span
+            className={cn(
+              "text-xs sm:text-sm font-semibold tracking-wide opacity-90 text-balance normal-case max-w-lg",
+              "text-cyan-900/90 dark:text-cyan-200/85",
+            )}
+          >
+            {subtitle}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /** Kolom tindakan & ruangan — amber di siang & malam. */
 const TINDAKAN_TABLE_INPUT_TEXT =
@@ -1306,8 +1357,10 @@ export default function TindakanTable({
    * Setelah simpan order pemakaian, SWR `pemakaianOrdersRaw` bisa tertunda —
    * override ini memetakan `tindakanId → orderId` agar kolom Aksi langsung "Edit pemakaian".
    */
-  const [pemakaianOrderIdOverrideByTindakan, setPemakaianOrderIdOverrideByTindakan] =
-    useState<Record<string, string>>({});
+  const [
+    pemakaianOrderIdOverrideByTindakan,
+    setPemakaianOrderIdOverrideByTindakan,
+  ] = useState<Record<string, string>>({});
 
   const [pasienLabelByRowId, setPasienLabelByRowId] = useState<
     Record<string, string>
@@ -1524,7 +1577,9 @@ export default function TindakanTable({
       pool = pool.filter((_: any, i: number) => i !== idx);
     }
 
-    for (const [tid, oid] of Object.entries(pemakaianOrderIdOverrideByTindakan)) {
+    for (const [tid, oid] of Object.entries(
+      pemakaianOrderIdOverrideByTindakan,
+    )) {
       if (tid && oid) next[tid] = oid;
     }
 
@@ -1816,10 +1871,16 @@ export default function TindakanTable({
       if (key === today) {
         todayRows.push(rec);
       }
-      const t = String(rec.tindakan ?? "").trim().toLowerCase();
+      const t = String(rec.tindakan ?? "")
+        .trim()
+        .toLowerCase();
       if (t.includes("ppci")) {
-        const rs = String(rec.rs_perujuk ?? "").trim().toLowerCase();
-        const ket = String(rec.keterangan ?? "").trim().toLowerCase();
+        const rs = String(rec.rs_perujuk ?? "")
+          .trim()
+          .toLowerCase();
+        const ket = String(rec.keterangan ?? "")
+          .trim()
+          .toLowerCase();
         if (!rs.includes("pribadi") && !ket.includes("pribadi")) {
           if (key != null && key >= wStart && key <= wEnd) {
             weeklyRows.push(rec);
@@ -1853,7 +1914,10 @@ export default function TindakanTable({
     const tFilteredMap = new Map<string, number>();
     const dFilteredMap = new Map<string, { count: number; display: string }>();
 
-    const dPpciWeeklyMap = new Map<string, { count: number; display: string }>();
+    const dPpciWeeklyMap = new Map<
+      string,
+      { count: number; display: string }
+    >();
 
     let laki = 0;
     let perempuan = 0;
@@ -2104,7 +2168,8 @@ export default function TindakanTable({
 
   const tindakanDataTableRef = useRef<HTMLTableElement>(null);
   const tindakanPasteMatrixRef = useRef<
-    ((matrix: string[][], anchor: TindakanCellRect) => void | Promise<void>) | null
+    | ((matrix: string[][], anchor: TindakanCellRect) => void | Promise<void>)
+    | null
   >(null);
   const cellSelection = useTindakanTableCellSelection(pagedRecords.length, {
     tableRef: tindakanDataTableRef,
@@ -2167,7 +2232,7 @@ export default function TindakanTable({
     const hasAnySourceRows =
       tindakanList.length > 0 || cathlabFallbackRows.length > 0;
     if (!hasAnySourceRows) {
-      return "Belum ada data tindakan di database.";
+      return "Sedang Mengambil Data Harap Bersabar.";
     }
     if (pasienActive) {
       return "Pasien ini belum memiliki data tindakan.";
@@ -2871,7 +2936,14 @@ export default function TindakanTable({
 
         <TindakanLaporanModal
           open={laporanModalOpen}
-          onOpenChange={setLaporanModalOpen}
+          onOpenChange={(next) => {
+            setLaporanModalOpen(next);
+            if (next) {
+              /* Paralel: total waktu ≈ max(API tindakan, API pasien); modal memakai useDeferredValue agar UI tetap responsif. */
+              void refresh();
+              void mutatePasien();
+            }
+          }}
           rows={filteredRecords}
           loading={loading}
           filterSummaryLines={filterSummaryLines}
@@ -2935,26 +3007,12 @@ export default function TindakanTable({
         ) : null}
 
         {loading ? (
-          <div
-            className={cn(
-              "flex flex-col min-h-0 flex-1 items-center justify-center py-12 gap-5",
-              "max-md:flex-none",
-              "text-cyan-950 dark:text-cyan-300",
-            )}
-          >
-            <div className="relative">
-              <JarvisIcon size={80} lightMode={lightMode} />
-              <div className="absolute inset-0 bg-cyan-400/10 blur-xl rounded-full animate-pulse" />
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <span className="animate-pulse tracking-[0.2em] uppercase text-[11px] font-black opacity-90">
-                Synchronizing Systems
-              </span>
-              <span className="text-[10px] font-mono opacity-50 uppercase tracking-wider">
-                Accessing Cathlab Database...
-              </span>
-            </div>
-          </div>
+          <TindakanSyncStatusBlock
+            lightMode={lightMode}
+            subtitle="Accessing Cathlab Database..."
+            subtitleTone="hud"
+            animateIcon
+          />
         ) : (
           <>
             <div
@@ -2965,6 +3023,20 @@ export default function TindakanTable({
             >
               <table
                 ref={tindakanDataTableRef}
+                onPointerDownCapture={(e) => {
+                  const t = e.target;
+                  if (!(t instanceof Element)) return;
+                  const tr = t.closest("tr[data-arc-row-key]");
+                  if (!(tr instanceof HTMLElement)) return;
+                  const clickedKey = tr.dataset.arcRowKey ?? "";
+                  if (
+                    arcMenuRowKey &&
+                    clickedKey &&
+                    clickedKey !== arcMenuRowKey
+                  ) {
+                    closeArcMenuImmediate();
+                  }
+                }}
                 className="w-full min-w-[1200px] text-sm font-semibold border-collapse border border-amber-200/65 dark:border-amber-800/50"
               >
                 <thead className={cn("sticky top-0", UI_LAYERS.tableHeader)}>
@@ -3096,15 +3168,13 @@ export default function TindakanTable({
                           "text-cyan-950/90 dark:text-cyan-500/70",
                         )}
                       >
-                        <div className="flex flex-col items-center gap-4 py-8">
-                          <JarvisIcon
-                            size={64}
+                        <div className="flex flex-col items-center gap-4 py-4">
+                          <TindakanSyncStatusBlock
                             lightMode={lightMode}
-                            className="opacity-30"
+                            subtitle={emptyMessage}
+                            subtitleTone="body"
+                            animateIcon
                           />
-                          <span className="tracking-wide opacity-80">
-                            {emptyMessage}
-                          </span>
                           {Boolean(filterPasienId.trim() || filterRm.trim()) ? (
                             <button
                               type="button"
@@ -3156,6 +3226,7 @@ export default function TindakanTable({
                       return (
                         <Fragment key={key}>
                           <tr
+                            data-arc-row-key={key}
                             data-tindakan-row-id={id || undefined}
                             onMouseDownCapture={(e) => {
                               if (!id) return;
@@ -3172,11 +3243,15 @@ export default function TindakanTable({
                             }}
                             onClick={(e) => {
                               if (!id) return;
-                              if (cellSelection.consumeRowClickIfSelectionDrag()) {
+                              if (
+                                cellSelection.consumeRowClickIfSelectionDrag()
+                              ) {
                                 e.preventDefault();
                                 return;
                               }
-                              if (suppressRowDetailClickTimerRef.current != null) {
+                              if (
+                                suppressRowDetailClickTimerRef.current != null
+                              ) {
                                 window.clearTimeout(
                                   suppressRowDetailClickTimerRef.current,
                                 );
@@ -3198,7 +3273,11 @@ export default function TindakanTable({
                             }}
                             onKeyDown={(e) => {
                               if (e.key !== "Enter" && e.key !== " ") return;
-                              if (isKeyboardEventFromRowInteractiveTarget(e.target)) {
+                              if (
+                                isKeyboardEventFromRowInteractiveTarget(
+                                  e.target,
+                                )
+                              ) {
                                 return;
                               }
                               e.preventDefault();
@@ -3208,7 +3287,7 @@ export default function TindakanTable({
                             role={id ? "button" : undefined}
                             tabIndex={id ? 0 : undefined}
                             className={cn(
-                              "group transition-colors duration-150 focus-within:relative focus-within:z-[80]",
+                              "group relative transition-colors duration-150",
                               isDuplicateRm
                                 ? "bg-amber-100/75 dark:bg-amber-950/35"
                                 : "",
@@ -3218,6 +3297,11 @@ export default function TindakanTable({
                                   : "cursor-pointer hover:bg-cyan-50/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-600/50 dark:hover:bg-cyan-900/30 dark:focus-visible:outline-cyan-500/50"
                                 : "opacity-60",
                             )}
+                            style={{
+                              // Baris lebih atas harus "di atas" saat tumpang-tindih; arc menu / before
+                              // anak baris bawah jangan melayang menerima klik ke RM/ sel baris di atas.
+                              zIndex: 20 + pagedRecords.length - i,
+                            }}
                           >
                             <td
                               {...cellSelection.getTdProps(i, TCol.NO)}
@@ -3342,8 +3426,10 @@ export default function TindakanTable({
                                 ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle tabular-nums",
                                 "text-slate-800 dark:text-slate-100",
-                                cellSelection.isCellSelected(i, TCol.TIME_OUT) &&
-                                  TINDAKAN_CELL_SELECTION_CLASS,
+                                cellSelection.isCellSelected(
+                                  i,
+                                  TCol.TIME_OUT,
+                                ) && TINDAKAN_CELL_SELECTION_CLASS,
                               )}
                               title="Dari tab Fast-Track (Time out)"
                             >
@@ -3465,7 +3551,9 @@ export default function TindakanTable({
                                 onMouseLeave={() => scheduleCloseArcMenu()}
                                 className={cn(
                                   "relative mx-auto min-w-[10rem] sm:min-w-[14rem] max-w-[18rem] flex items-center gap-1.5",
-                                  "before:absolute before:-inset-y-[80px] before:-left-[40px] before:-right-[160px] before:content-['']",
+                                  // Hanya sisi kiri–kanan (menu arc); jangan -inset-y agar area tidak
+                                  // menutupi baris lain — itu yang bikin kursor “melompat” / RM jadi kena baris beda.
+                                  "before:absolute before:inset-y-0 before:-left-2 before:-right-32 before:content-['']",
                                   arcOpen
                                     ? "before:pointer-events-auto"
                                     : "before:pointer-events-none",
@@ -3477,11 +3565,11 @@ export default function TindakanTable({
                                 {hoveredLabel && hoveredRowKey === key && (
                                   <div
                                     className={cn(
-                                      "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none",
+                                      "absolute left-1/2 bottom-full mb-1.5 w-max max-w-[min(20rem,85vw)] -translate-x-1/2 pointer-events-none",
                                       UI_LAYERS.tableHoveredLabel,
                                     )}
                                   >
-                                    <div className="bg-slate-900/95 text-white text-[14px] font-extrabold px-4 py-1 rounded-full shadow-2xl border border-white/30 whitespace-nowrap animate-in fade-in zoom-in duration-200 tracking-wide uppercase">
+                                    <div className="relative text-center bg-slate-900/95 text-white text-[13px] font-extrabold px-3 py-1.5 leading-tight rounded-lg shadow-2xl border border-white/30 whitespace-normal text-balance animate-in fade-in zoom-in duration-200 tracking-wide uppercase">
                                       {hoveredLabel}
                                     </div>
                                   </div>
@@ -3604,6 +3692,11 @@ export default function TindakanTable({
                                       >
                                         <button
                                           type="button"
+                                          onMouseDown={(e) => {
+                                            // Jangan pindah fokus ke tombol: biarkan :focus-within
+                                            // pada field nama — mencegah "zoom out" tiba-tiba saat klik icon arc.
+                                            e.preventDefault();
+                                          }}
                                           onClick={item.onClick}
                                           onMouseEnter={() => {
                                             setHoveredLabel(item.label);
@@ -3614,8 +3707,8 @@ export default function TindakanTable({
                                             setHoveredRowKey(null);
                                           }}
                                           className={cn(
-                                            "flex h-8 w-8 items-center justify-center rounded-full border-2 border-white/25 shadow-xl transition-transform duration-200",
-                                            "hover:scale-125 hover:z-30 active:scale-110",
+                                            "flex h-8 w-8 items-center justify-center rounded-full border-2 border-white/25 shadow-xl transition-transform duration-200 ease-out will-change-transform",
+                                            "z-20 hover:scale-[2] hover:z-30 active:scale-100",
                                             item.color,
                                           )}
                                           title={item.label}
@@ -3642,6 +3735,9 @@ export default function TindakanTable({
                                   {id && pemakaianOrderByTindakanId[id] ? (
                                     <button
                                       type="button"
+                                      onMouseDown={(e) =>
+                                        e.preventDefault()
+                                      }
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setPemakaianModalRow(rec);
@@ -3657,6 +3753,9 @@ export default function TindakanTable({
                                   ) : (
                                     <button
                                       type="button"
+                                      onMouseDown={(e) =>
+                                        e.preventDefault()
+                                      }
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setPemakaianModalRow(rec);
@@ -3673,6 +3772,10 @@ export default function TindakanTable({
                                   <button
                                     type="button"
                                     disabled={!id || deletingId === id}
+                                    onMouseDown={(e) => {
+                                      if (e.currentTarget.disabled) return;
+                                      e.preventDefault();
+                                    }}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       void handleDelete(id, rec);
@@ -3975,7 +4078,10 @@ export default function TindakanTable({
                               })()}
                             </td>
                             <td
-                              {...cellSelection.getTdProps(i, TCol.JENIS_KELAMIN)}
+                              {...cellSelection.getTdProps(
+                                i,
+                                TCol.JENIS_KELAMIN,
+                              )}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 "px-2 sm:px-2.5 py-1 text-[11px] text-center align-middle whitespace-nowrap",
@@ -4117,8 +4223,10 @@ export default function TindakanTable({
                                 ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
                                 "text-amber-800 dark:text-white",
-                                cellSelection.isCellSelected(i, TCol.TINDAKAN) &&
-                                  TINDAKAN_CELL_SELECTION_CLASS,
+                                cellSelection.isCellSelected(
+                                  i,
+                                  TCol.TINDAKAN,
+                                ) && TINDAKAN_CELL_SELECTION_CLASS,
                               )}
                             >
                               <div
@@ -4928,6 +5036,7 @@ export default function TindakanTable({
           {icuModalRow ? (
             <IntensiveDashboardView
               embedded
+              roomSlug={resolveRoomSlugFromRuanganLabel(icuModalRow.ruangan)}
               tindakanId={
                 String(
                   (icuModalRow as unknown as Record<string, unknown>).id ?? "",

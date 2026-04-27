@@ -254,7 +254,7 @@ export default function SeverityLevelModal({
   if (!open) return null;
 
   return (
-    <ModalWrapper onClose={onClose} isWide zIndex={UI_LAYERS.modalTop}>
+    <ModalWrapper onClose={onClose} isWide zIndex={130}>
       <div
         className={cn(
           "relative w-full transition-all duration-500 flex flex-col max-h-[90vh]",

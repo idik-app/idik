@@ -133,6 +133,14 @@ function masterBarangDistId(inv: any): string {
   return (d == null || d === "") ? "" : String(d);
 }
 
+function masterBarangKategori(inv: any): string | null {
+  const mb = inv?.master_barang;
+  const row = Array.isArray(mb) ? mb[0] : mb;
+  const k = row?.kategori;
+  if (typeof k === "string" && k.trim()) return k.trim();
+  return null;
+}
+
 function isPemakaianTableSchemaMismatch(err: { message?: string } | null): boolean {
   const m = (err?.message ?? "").toLowerCase();
   return m.includes("pemakaian.") && m.includes("does not exist");
@@ -218,7 +226,16 @@ export async function GET(req: Request) {
   const invById = new Map<string, any>();
   const invChunks = [];
   for (let i = 0; i < invIdList.length; i += 200) invChunks.push(invIdList.slice(i, i + 200));
-  const invResults = await Promise.all(invChunks.map(slice => supabase.from("inventaris").select("id, nama, satuan, lokasi, distributor_id, master_barang_id, master_barang(distributor_id)").in("id", slice)));
+  const invResults = await Promise.all(
+    invChunks.map((slice) =>
+      supabase
+        .from("inventaris")
+        .select(
+          "id, nama, satuan, lokasi, distributor_id, master_barang_id, master_barang(distributor_id, kategori)",
+        )
+        .in("id", slice),
+    ),
+  );
   for (const res of invResults) {
     for (const r of (res.data ?? [])) invById.set(String(r.id), r);
   }
@@ -288,6 +305,7 @@ export async function GET(req: Request) {
         inventaris: {
           nama: row.inventaris.nama || "-",
           satuan: row.inventaris.satuan || null,
+          kategori: masterBarangKategori(row.inventaris),
         },
         distributor_nama: null,
         order_id: null,
@@ -407,7 +425,11 @@ export async function GET(req: Request) {
           created_at: orow.created_at,
           jumlah: qty,
           tanggal: dateKey || orow.tanggal?.slice(0, 10),
-          inventaris: { nama: String(line.barang || "-"), satuan: null },
+          inventaris: {
+            nama: String(line.barang || "-"),
+            satuan: null,
+            kategori: strFromLine(line, "kategori", "Kategori"),
+          },
           distributor_nama: cleanDist || namaPtStr || null,
           order_id: orow.id,
           pasien: finalPasien,

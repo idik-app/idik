@@ -21,11 +21,15 @@ export async function POST(req: Request) {
 
     const patient = await addPatient(parsed.data as any);
     return NextResponse.json({ ok: true, data: patient }, { status: 200 });
-  } catch (err: any) {
-    console.error("❌ Gagal menambah pasien:", err?.message ?? err);
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Terjadi kesalahan server";
+    console.error("❌ Gagal menambah pasien:", message);
+    const conflict =
+      message.includes("No. RM") && message.includes("sudah dipakai");
     return NextResponse.json(
-      { ok: false, error: err?.message || "Terjadi kesalahan server" },
-      { status: 500 }
+      { ok: false, error: message },
+      { status: conflict ? 409 : 500 },
     );
   }
 }

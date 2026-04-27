@@ -2,6 +2,12 @@ import type { PasienOption } from "@/components/ui/pasien-combobox";
 import { formatKelasPerawatanDisplay } from "@/app/dashboard/pasien/utils/formatKelasPerawatan";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import {
+  resolvePasienFromLookup,
+  resolvePasienFromRow,
+  resolvePasienOptionForLaporanCaraBayarFromLookup,
+  type PasienReportLookup,
+} from "./displayTindakanRow";
+import {
   categorizeTindakanLab,
   LAB_TINDAKAN_ROW_LABELS,
 } from "./tindakanTerbanyakLab";
@@ -56,6 +62,11 @@ export type MonthlyMatrixAgg = {
     plan_medis?: string;
   }[][][];
 };
+
+/** Satu label baris → matriks hari × daftar pasien (hindari `[number]` pada field optional). */
+export type MonthlyMatrixPerLabelDetails = NonNullable<
+  MonthlyMatrixAgg["details"]
+>[number];
 
 function isInYearMonth(
   tanggal: unknown,
@@ -275,6 +286,43 @@ export function applyPasienMasterForCaraBayarRow(
   };
 }
 
+export type MonthlyMatrixPasienOpts = {
+  pasienOptions?: readonly PasienOption[];
+  pasienLookup?: PasienReportLookup;
+};
+
+function matrixDetailFromRow(
+  row: TindakanJoinResult,
+  pasienOpts?: readonly PasienOption[] | null,
+  lookup?: PasienReportLookup | null,
+): NonNullable<MonthlyMatrixAgg["details"]>[number][number][number] {
+  const pasien =
+    lookup && pasienOpts && pasienOpts.length > 0
+      ? resolvePasienFromLookup(row as unknown as Record<string, unknown>, lookup)
+      : pasienOpts && pasienOpts.length > 0
+        ? resolvePasienFromRow(
+            pasienOpts as PasienOption[],
+            row as unknown as Record<string, unknown>,
+          )
+        : null;
+  return {
+    nama:
+      pasien?.nama?.trim() ||
+      String(row.nama_pasien ?? "").trim() ||
+      "Tanpa Nama",
+    no_rm:
+      pasien != null && String(pasien.no_rm ?? "").trim() !== ""
+        ? String(pasien.no_rm)
+        : row.no_rm || "-",
+    dokter: row.dokter || "-",
+    tindakan: String(row.tindakan || "").trim(),
+    diagnosa: row.diagnosa || undefined,
+    kategori: row.kategori || undefined,
+    kesimpulan_laporan: row.kesimpulan_laporan || undefined,
+    plan_medis: row.plan_medis || undefined,
+  };
+}
+
 function finalizeMatrix(
   year: number,
   month1to12: number,
@@ -305,6 +353,7 @@ export function aggregateMonthlyJenisOperasi(
   rows: readonly TindakanJoinResult[],
   year: number,
   month1to12: number,
+  opts?: MonthlyMatrixPasienOpts,
 ): MonthlyMatrixAgg {
   const dim = daysInMonth(year, month1to12);
 
@@ -319,7 +368,7 @@ export function aggregateMonthlyJenisOperasi(
   ).sort();
 
   const byLabel = new Map<string, number[]>();
-  const detailsByLabel = new Map<string, MonthlyMatrixAgg["details"][number]>();
+  const detailsByLabel = new Map<string, MonthlyMatrixPerLabelDetails>();
 
   for (const label of uniqueTindakans) {
     byLabel.set(label, new Array(dim).fill(0));
@@ -336,16 +385,11 @@ export function aggregateMonthlyJenisOperasi(
     const di = day - 1;
     const label = String(row.tindakan || "BELUM DIISI").trim().toUpperCase();
 
-    const detail = {
-      nama: row.nama_pasien || "Tanpa Nama",
-      no_rm: row.no_rm || "-",
-      dokter: row.dokter || "-",
-      tindakan: String(row.tindakan || "").trim(),
-      diagnosa: row.diagnosa || undefined,
-      kategori: row.kategori || undefined,
-      kesimpulan_laporan: row.kesimpulan_laporan || undefined,
-      plan_medis: row.plan_medis || undefined,
-    };
+    const detail = matrixDetailFromRow(
+      row,
+      opts?.pasienOptions,
+      opts?.pasienLookup,
+    );
 
     if (byLabel.has(label)) {
       byLabel.get(label)![di] += 1;
@@ -393,10 +437,11 @@ export function aggregateMonthlyKategori(
   rows: readonly TindakanJoinResult[],
   year: number,
   month1to12: number,
+  opts?: MonthlyMatrixPasienOpts,
 ): MonthlyMatrixAgg {
   const dim = daysInMonth(year, month1to12);
   const byLabel = new Map<string, number[]>();
-  const detailsByLabel = new Map<string, MonthlyMatrixAgg["details"][number]>();
+  const detailsByLabel = new Map<string, MonthlyMatrixPerLabelDetails>();
 
   // Gunakan TINDAKAN_KATEGORI sebagai Master Grup
   const masterLabels = TINDAKAN_KATEGORI.map(k => k.toUpperCase());
@@ -428,16 +473,11 @@ export function aggregateMonthlyKategori(
       label = OTHER_LABEL;
     }
 
-    const detail = {
-      nama: row.nama_pasien || "Tanpa Nama",
-      no_rm: row.no_rm || "-",
-      dokter: row.dokter || "-",
-      tindakan: String(row.tindakan || "").trim(),
-      diagnosa: row.diagnosa || undefined,
-      kategori: row.kategori || undefined,
-      kesimpulan_laporan: row.kesimpulan_laporan || undefined,
-      plan_medis: row.plan_medis || undefined,
-    };
+    const detail = matrixDetailFromRow(
+      row,
+      opts?.pasienOptions,
+      opts?.pasienLookup,
+    );
 
     if (byLabel.has(label)) {
       byLabel.get(label)![di] += 1;
@@ -463,10 +503,11 @@ export function aggregateMonthlyTemuan(
   rows: readonly TindakanJoinResult[],
   year: number,
   month1to12: number,
+  opts?: MonthlyMatrixPasienOpts,
 ): MonthlyMatrixAgg {
   const dim = daysInMonth(year, month1to12);
   const byLabel = new Map<string, number[]>();
-  const detailsByLabel = new Map<string, MonthlyMatrixAgg["details"][number]>();
+  const detailsByLabel = new Map<string, MonthlyMatrixPerLabelDetails>();
 
   for (const label of MASTER_KATEGORI_LABELS) {
     byLabel.set(label, new Array(dim).fill(0));
@@ -486,16 +527,11 @@ export function aggregateMonthlyTemuan(
     const conclusion = String(row.kesimpulan_laporan || "").toUpperCase();
     for (const label of MASTER_KATEGORI_LABELS) {
       if (conclusion.includes(label)) {
-        const detail = {
-          nama: row.nama_pasien || "Tanpa Nama",
-          no_rm: row.no_rm || "-",
-          dokter: row.dokter || "-",
-          tindakan: String(row.tindakan || "").trim(),
-          diagnosa: row.diagnosa || undefined,
-          kategori: row.kategori || undefined,
-          kesimpulan_laporan: row.kesimpulan_laporan || undefined,
-          plan_medis: row.plan_medis || undefined,
-        };
+        const detail = matrixDetailFromRow(
+          row,
+          opts?.pasienOptions,
+          opts?.pasienLookup,
+        );
         byLabel.get(label)![di] += 1;
         detailsByLabel.get(label)![di].push(detail);
       }
@@ -515,7 +551,7 @@ export function aggregateMonthlyCaraBayar(
   rows: readonly TindakanJoinResult[],
   year: number,
   month1to12: number,
-  opts?: { pasienOptions?: readonly PasienOption[] },
+  opts?: MonthlyMatrixPasienOpts,
 ): MonthlyMatrixAgg {
   const dim = daysInMonth(year, month1to12);
   const byBucket = new Map<
@@ -524,7 +560,7 @@ export function aggregateMonthlyCaraBayar(
   >();
   const detailsByBucket = new Map<
     (typeof CARA_BAYAR_ROW_LABELS_CORE)[number],
-    MonthlyMatrixAgg["details"][number]
+    MonthlyMatrixPerLabelDetails
   >();
 
   for (const label of CARA_BAYAR_ROW_LABELS_CORE) {
@@ -535,12 +571,13 @@ export function aggregateMonthlyCaraBayar(
     );
   }
   const belumTerisi = new Array(dim).fill(0);
-  const belumTerisiDetails: MonthlyMatrixAgg["details"][number] = Array.from(
+  const belumTerisiDetails: MonthlyMatrixPerLabelDetails = Array.from(
     { length: dim },
     () => [],
   );
 
   const pasienOpts = opts?.pasienOptions;
+  const pasienLookup = opts?.pasienLookup;
 
   for (const row of rows) {
     if (!isInYearMonth(row.tanggal, year, month1to12)) continue;
@@ -548,23 +585,19 @@ export function aggregateMonthlyCaraBayar(
     if (day == null || day < 1 || day > dim) continue;
     const di = day - 1;
     const pasien =
-      pasienOpts && pasienOpts.length > 0
-        ? resolvePasienOptionForLaporanCaraBayar(pasienOpts, row)
-        : null;
-    const rowFor =
+      pasienLookup && pasienOpts && pasienOpts.length > 0
+        ? resolvePasienOptionForLaporanCaraBayarFromLookup(row, pasienLookup)
+        : pasienOpts && pasienOpts.length > 0
+          ? resolvePasienOptionForLaporanCaraBayar(pasienOpts, row)
+          : null;
+    const rowWithMaster =
       pasien != null ? applyPasienMasterForCaraBayarRow(row, pasien) : row;
+    // Nilai eksplisit di kasus (PATCH `kelas_pembiayaan`) dipakai; jika kosong, isi dari master pasien.
+    const tindakanKp = String(row.kelas_pembiayaan ?? "").trim();
+    const rowFor = tindakanKp !== "" ? row : rowWithMaster;
     const bucket = mapTindakanRowToCaraBayarLaporan(rowFor);
 
-    const detail = {
-      nama: row.nama_pasien || "Tanpa Nama",
-      no_rm: row.no_rm || "-",
-      dokter: row.dokter || "-",
-      tindakan: String(row.tindakan || "").trim(),
-      diagnosa: row.diagnosa || undefined,
-      kategori: row.kategori || undefined,
-      kesimpulan_laporan: row.kesimpulan_laporan || undefined,
-      plan_medis: row.plan_medis || undefined,
-    };
+    const detail = matrixDetailFromRow(row, pasienOpts, pasienLookup);
 
     if (bucket === CARA_BAYAR_LABEL_BELUM_TERISI) {
       belumTerisi[di] += 1;

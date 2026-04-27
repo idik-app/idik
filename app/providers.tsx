@@ -83,9 +83,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
                     <TabProvider>
                       <AIProvider>
                         {children}
-                        <JarvisFloatingAgent />
                         <GlobalLogoutOverlay />
                         <UpdateBanner />
+                        <JarvisFloatingAgent />
                       </AIProvider>
                     </TabProvider>
                   </SessionProvider>

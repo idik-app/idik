@@ -74,7 +74,9 @@ export default function TindakanTerbanyakLabModal({
       const d = String(r.dokter ?? "").trim();
       if (!d) continue;
       const canon =
-        master.length > 0 ? canonicalDoctorStoredValue(master, d) : d;
+        master.length > 0
+          ? canonicalDoctorStoredValue([...master], d)
+          : d;
       set.add(canon);
     }
     return [...set].sort((a, b) => a.localeCompare(b, "id"));
@@ -88,8 +90,8 @@ export default function TindakanTerbanyakLabModal({
       const rowD = String(r.dokter ?? "").trim();
       if (!master.length) return rowD === fd;
       return (
-        canonicalDoctorStoredValue(master, rowD) ===
-        canonicalDoctorStoredValue(master, fd)
+        canonicalDoctorStoredValue([...master], rowD) ===
+        canonicalDoctorStoredValue([...master], fd)
       );
     });
   }, [rows, filterDokter, doctorOptionsMaster]);

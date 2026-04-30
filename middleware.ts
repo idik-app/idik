@@ -41,7 +41,11 @@ function applySecurityHeaders(res: NextResponse) {
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
   headers.set("X-XSS-Protection", "1; mode=block");
-  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  headers.set(
+    "Permissions-Policy",
+    /** `camera=(self)` agar barcode scanner (/distributor/…) bisa memanggil getUserMedia; blokir mikrofon/lokasi luar origin tetap konservatif. */
+    "camera=(self), microphone=(self), geolocation=()",
+  );
   // CSP Dasar (Bisa diperketat sesuai kebutuhan)
   headers.set("Content-Security-Policy", "frame-ancestors 'none';");
   return res;

@@ -134,11 +134,15 @@ async function getDistributorBarcodeCameraStream(): Promise<MediaStream> {
   if (!md?.getUserMedia) {
     throw new Error("no-api");
   }
+
   const attempts: MediaStreamConstraints[] = [
+    /** Di beberapa HP/Android urutan ini lebih besar peluang dibanding memaksa kamera belakang dulu. */
+    { video: true, audio: false },
     { video: { facingMode: { ideal: "environment" } }, audio: false },
     { video: { facingMode: "user" }, audio: false },
-    { video: true, audio: false },
+    { video: { facingMode: { ideal: "user" } }, audio: false },
   ];
+
   let lastErr: unknown;
   for (const c of attempts) {
     try {
@@ -147,6 +151,42 @@ async function getDistributorBarcodeCameraStream(): Promise<MediaStream> {
       lastErr = e;
     }
   }
+
+  try {
+    let list = (await md.enumerateDevices()).filter(
+      (d) => d.kind === "videoinput",
+    );
+    if (!list.some((d) => d.deviceId)) {
+      try {
+        const warm = await md.getUserMedia({ video: true, audio: false });
+        warm.getTracks().forEach((t) => t.stop());
+      } catch (e) {
+        lastErr = e;
+      }
+      list = (await md.enumerateDevices()).filter(
+        (d) => d.kind === "videoinput",
+      );
+    }
+    for (const cam of list) {
+      if (!cam.deviceId) continue;
+      for (const pick of [
+        { ideal: cam.deviceId } as const,
+        { exact: cam.deviceId } as const,
+      ]) {
+        try {
+          return await md.getUserMedia({
+            video: { deviceId: pick },
+            audio: false,
+          });
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+    }
+  } catch (e) {
+    lastErr = e;
+  }
+
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr ?? ""));
 }
 
@@ -655,7 +695,10 @@ function DistributorBarangPageContent() {
           stream = await getDistributorBarcodeCameraStream();
         } catch {
           setCameraScanNote(
-            "Tidak bisa membuka kamera (belum diizinkan / tidak ada kamera / perangkat hanya mendukung kamera belakang). Izinkan akses di ikon gembok bilah alamat atau coba webcam depan.",
+            [
+              "Kamera tidak bisa dibuka. Setelah deployment terbaru: muat ulang halaman sekali.",
+              "Periksa izin kamera (ikon gembok di bilah alamat). Brave: bisa perlu izinkan kamera / nonaktifkan Shields untuk situs ini.",
+            ].join(" "),
           );
           setBarcodeHint(
             "Akses kamera ditolak atau tidak tersedia. Pakai scanner USB.",
@@ -2634,15 +2677,15 @@ function DistributorBarangPageContent() {
         <div
           className={`fixed inset-0 ${UI_LAYERS.fullscreenOverlay} flex flex-col items-center justify-center bg-black/90 p-4`}
         >
-          <p className="text-[12px] mb-3 text-center max-w-sm text-cyan-200 dark:text-white/90">
-            Arahkan kamera ke barcode atau QR. Izinkan akses kamera bila diminta
-            (HTTPS atau localhost). Firefox/Safari bisa tidak mendukung —
-            gunakan Chrome/Edge atau scanner USB.
+          <p className="text-[11px] mb-2 text-center max-w-[min(320px,92vw)] leading-snug text-cyan-200 dark:text-white/90">
+            Arahkan kamera ke barcode (bidang memanjang). Izinkan akses kamera.
+            Di HP: gunakan Chrome/Brave terbaru; Brave kadang perlu matikan Shields
+            untuk situs ini.
           </p>
           {cameraScanNote ? (
             <p
               role="status"
-              className={`text-[12px] mb-3 max-w-md text-center leading-snug ${
+              className={`text-[11px] mb-2 max-w-[min(320px,92vw)] text-center leading-snug ${
                 cameraScanNote === "Mengaktifkan kamera…"
                   ? "text-cyan-100 dark:text-white"
                   : "text-amber-100 dark:text-white"
@@ -2653,14 +2696,14 @@ function DistributorBarangPageContent() {
           ) : null}
           <video
             ref={videoRef}
-            className="w-full max-w-[min(420px,calc(100vw-32px))] max-h-[min(70vh,calc(100vw-32px)*4/3)] rounded-2xl border-2 border-emerald-500/50 bg-black aspect-[3/4] object-cover shadow-[0_0_30px_rgba(16,185,129,0.3)]"
+            className="w-[min(280px,92vw)] aspect-[2.1/1] rounded-xl border-2 border-emerald-500/50 bg-black object-cover shadow-[0_0_24px_rgba(16,185,129,0.28)]"
             playsInline
             muted
             autoPlay
           />
           <button
             type="button"
-            className="mt-4 px-4 py-2 rounded-lg text-[12px] border border-slate-600 text-cyan-200 hover:bg-slate-900"
+            className="mt-3 px-4 py-2 rounded-lg text-[12px] border border-slate-600 text-cyan-200 dark:text-white/90 hover:bg-slate-900"
             onClick={() => setCameraScanOpen(false)}
           >
             Tutup kamera

@@ -4,6 +4,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -54,6 +55,7 @@ import {
   DISTRIBUTOR_STENT_DEFAULT_HARGA_JUAL,
 } from "@/lib/distributorCatalog";
 import { runDeduped } from "@/lib/api/runDeduped";
+import { UI_LAYERS } from "@/lib/ui/layers";
 
 type Row = {
   id: string;
@@ -125,6 +127,27 @@ function pickBarcodeDetectorFormats(): string[] {
   if (picked.length > 0) return picked;
   const minimal = ["qr_code", "code_128"].filter((f) => ok.has(f));
   return minimal.length > 0 ? minimal : ["qr_code", "code_128"];
+}
+
+async function getDistributorBarcodeCameraStream(): Promise<MediaStream> {
+  const md = navigator.mediaDevices;
+  if (!md?.getUserMedia) {
+    throw new Error("no-api");
+  }
+  const attempts: MediaStreamConstraints[] = [
+    { video: { facingMode: { ideal: "environment" } }, audio: false },
+    { video: { facingMode: "user" }, audio: false },
+    { video: true, audio: false },
+  ];
+  let lastErr: unknown;
+  for (const c of attempts) {
+    try {
+      return await md.getUserMedia(c);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr ?? ""));
 }
 
 function printDaftarBarang(
@@ -226,6 +249,8 @@ function DistributorBarangPageContent() {
   const [barcodeInput, setBarcodeInput] = useState("");
   const [barcodeHint, setBarcodeHint] = useState<string | null>(null);
   const [cameraScanOpen, setCameraScanOpen] = useState(false);
+  /** Pesan di overlay scanner (aksi kamera bergantung ke ref video — jangan gantung efek pada applyByBarcode). */
+  const [cameraScanNote, setCameraScanNote] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   /** Mode tambah: fokus ke Nama barang setelah modal terbuka. */
   const namaBarangBaruInputRef = useRef<HTMLInputElement | null>(null);
@@ -565,10 +590,24 @@ function DistributorBarangPageContent() {
     [applyBarcodeTemplateFields, formNamaMasterBaru],
   );
 
+  const applyByBarcodeRef = useRef(applyByBarcode);
   useEffect(() => {
-    if (!cameraScanOpen) return;
+    applyByBarcodeRef.current = applyByBarcode;
+  }, [applyByBarcode]);
+
+  useLayoutEffect(() => {
+    if (!cameraScanOpen) {
+      setCameraScanNote(null);
+      return;
+    }
+
     const video = videoRef.current;
-    if (!video) return;
+    if (!video) {
+      setCameraScanNote("Video belum siap. Tutup pemindaian lalu buka lagi.");
+      return;
+    }
+
+    setCameraScanNote("Mengaktifkan kamera…");
 
     let stream: MediaStream | null = null;
     let raf = 0;
@@ -579,6 +618,9 @@ function DistributorBarangPageContent() {
 
     void (async () => {
       if (!hasDetector) {
+        setCameraScanNote(
+          "Browser ini tidak mendukung BarcodeDetector. Gunakan Chrome atau Edge terbaru, atau scanner USB.",
+        );
         setBarcodeHint(
           "Browser tidak mendukung scan kamera untuk barcode/QR (Chrome/Edge disarankan). Gunakan scanner USB di kolom ini.",
         );
@@ -600,18 +642,40 @@ function DistributorBarangPageContent() {
           try {
             detector = new Detector({ formats: ["qr_code", "code_128"] });
           } catch {
+            setCameraScanNote(
+              "Tidak bisa menginisialisasi pemindaian barcode di kamera. Gunakan Chrome/Edge atau scanner USB.",
+            );
             setBarcodeHint(
               "Browser tidak bisa mengaktifkan pemindaian barcode/QR di kamera. Gunakan Chrome/Edge atau scanner USB.",
             );
             return;
           }
         }
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-        });
+        try {
+          stream = await getDistributorBarcodeCameraStream();
+        } catch {
+          setCameraScanNote(
+            "Tidak bisa membuka kamera (belum diizinkan / tidak ada kamera / perangkat hanya mendukung kamera belakang). Izinkan akses di ikon gembok bilah alamat atau coba webcam depan.",
+          );
+          setBarcodeHint(
+            "Akses kamera ditolak atau tidak tersedia. Pakai scanner USB.",
+          );
+          return;
+        }
         if (cancelled) return;
         video.srcObject = stream;
-        await video.play();
+        try {
+          await video.play();
+        } catch {
+          setCameraScanNote(
+            "Video tidak dapat diputar. Tutup pemindaian ini dan buka lagi.",
+          );
+          stream.getTracks().forEach((t) => t.stop());
+          stream = null;
+          video.srcObject = null;
+          return;
+        }
+        setCameraScanNote(null);
 
         const tick = async () => {
           if (cancelled) return;
@@ -629,7 +693,7 @@ function DistributorBarangPageContent() {
               video.srcObject = null;
               setCameraScanOpen(false);
               setBarcodeInput(raw);
-              await applyByBarcode(raw);
+              await applyByBarcodeRef.current(raw);
               return;
             }
           } catch {
@@ -639,6 +703,9 @@ function DistributorBarangPageContent() {
         };
         raf = requestAnimationFrame(() => void tick());
       } catch {
+        setCameraScanNote(
+          "Terjadi kesalahan mengaktifkan kamera. Coba lagi atau gunakan scanner USB.",
+        );
         setBarcodeHint(
           "Akses kamera ditolak atau tidak tersedia. Pakai scanner USB.",
         );
@@ -651,7 +718,7 @@ function DistributorBarangPageContent() {
       stream?.getTracks().forEach((t) => t.stop());
       if (video.srcObject) video.srcObject = null;
     };
-  }, [cameraScanOpen, applyByBarcode]);
+  }, [cameraScanOpen]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2564,17 +2631,32 @@ function DistributorBarangPageContent() {
       )}
 
       {cameraScanOpen ? (
-        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 p-4">
-          <p className="text-[12px] text-cyan-200 mb-3 text-center max-w-sm">
+        <div
+          className={`fixed inset-0 ${UI_LAYERS.fullscreenOverlay} flex flex-col items-center justify-center bg-black/90 p-4`}
+        >
+          <p className="text-[12px] mb-3 text-center max-w-sm text-cyan-200 dark:text-white/90">
             Arahkan kamera ke barcode atau QR. Izinkan akses kamera bila diminta
             (HTTPS atau localhost). Firefox/Safari bisa tidak mendukung —
             gunakan Chrome/Edge atau scanner USB.
           </p>
+          {cameraScanNote ? (
+            <p
+              role="status"
+              className={`text-[12px] mb-3 max-w-md text-center leading-snug ${
+                cameraScanNote === "Mengaktifkan kamera…"
+                  ? "text-cyan-100 dark:text-white"
+                  : "text-amber-100 dark:text-white"
+              }`}
+            >
+              {cameraScanNote}
+            </p>
+          ) : null}
           <video
             ref={videoRef}
-            className="w-full max-w-[280px] rounded-2xl border-2 border-emerald-500/50 bg-black aspect-[3/4] object-cover shadow-[0_0_30px_rgba(16,185,129,0.3)]"
+            className="w-full max-w-[min(420px,calc(100vw-32px))] max-h-[min(70vh,calc(100vw-32px)*4/3)] rounded-2xl border-2 border-emerald-500/50 bg-black aspect-[3/4] object-cover shadow-[0_0_30px_rgba(16,185,129,0.3)]"
             playsInline
             muted
+            autoPlay
           />
           <button
             type="button"

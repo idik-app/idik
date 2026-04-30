@@ -499,9 +499,7 @@ function IntensiveDashboardViewInner({
     sidebarFirstHeadline,
   ]);
 
-  const sheetDiagnosaText = String(
-    data["diagnosa"]?.["static"] ?? "",
-  ).trim();
+  const sheetDiagnosaText = String(data["diagnosa"]?.["static"] ?? "").trim();
 
   const headerDiagnosaDisplay = useMemo(() => {
     if (effectiveTindakanId) {
@@ -605,8 +603,7 @@ function IntensiveDashboardViewInner({
                 title={patientHeaderLineTitle}
               >
                 <span className="font-bold text-zinc-100 dark:text-white">
-                  {patientHonorificPrefix}{" "}
-                  {resolvedHeadline || "—"}
+                  {patientHonorificPrefix} {resolvedHeadline || "—"}
                   <span
                     className="mx-1.5 shrink-0 font-normal text-zinc-500 dark:text-white/70"
                     aria-hidden

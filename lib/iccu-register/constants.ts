@@ -1,3 +1,12 @@
+/**
+ * Nilai kolom `keterangan` pada baris dari migrasi demo rekapitulasi wireframe.
+ * Baris ini disembunyikan dari daftar REGISTER operasional (GET /api/iccu-register),
+ * tetapi tetap ada di DB agar Rekapitulasi / migrasi tes tidak terputus.
+ * Untuk menyertakan di daftar pas API, pasang query `includeWireframeSeed=true`.
+ */
+export const ICCU_WIREFRAME_REKAP_DEMO_KETERANGAN =
+  "__wireframe_seed_rekap_demo__";
+
 /** Kunci invasive disimpan di `invasive_procedures` (jsonb array). */
 export const ICCU_INVASIVE_KEYS = [
   "ventilator",

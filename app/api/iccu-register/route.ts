@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getServiceSupabaseAdmin } from "@/lib/auth/serviceSupabase";
 import { requireUnitAccess } from "@/lib/auth/guards";
+import {
+  ICCU_WIREFRAME_REKAP_DEMO_KETERANGAN,
+} from "@/lib/iccu-register/constants";
 import { iccuRegisterCreateSchema } from "@/lib/iccu-register/validation";
 import { mapFromSupabase, toPgDateFromForm } from "@/app/dashboard/pasien/data/pasienSchema";
 import { hitungUsia } from "@/app/dashboard/pasien/utils/formatUsia";
@@ -114,6 +117,16 @@ const listQuerySchema = z.object({
   q: z.string().max(200).optional(),
   /** active = REGISTER (default); archived = HISTORY PASIEN */
   listStatus: z.enum(["active", "archived"]).default("active"),
+  /** Sertakan baris seed wireframe rekapitulasi di daftar (default: tidak). */
+  includeWireframeSeed: z
+    .string()
+    .optional()
+    .transform((v) => {
+      const t = String(v ?? "")
+        .trim()
+        .toLowerCase();
+      return t === "1" || t === "true" || t === "yes";
+    }),
 });
 
 /** GET: daftar registrasi ICCU untuk satu unit */
@@ -131,13 +144,21 @@ export async function GET(request: Request) {
       dateTo: searchParams.get("dateTo") ?? undefined,
       q: searchParams.get("q") ?? undefined,
       listStatus: searchParams.get("listStatus") ?? undefined,
+      includeWireframeSeed: searchParams.get("includeWireframeSeed") ?? "",
     });
     if (!parsed.success) {
       return badRequest(parsed.error.message);
     }
 
-    const { page, pageSize, dateFrom, dateTo, q: searchQ, listStatus } =
-      parsed.data;
+    const {
+      page,
+      pageSize,
+      dateFrom,
+      dateTo,
+      q: searchQ,
+      listStatus,
+      includeWireframeSeed,
+    } = parsed.data;
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
@@ -157,6 +178,11 @@ export async function GET(request: Request) {
       q = q.is("archived_at", null);
     } else {
       q = q.not("archived_at", "is", null);
+    }
+
+    if (!includeWireframeSeed) {
+      const mark = ICCU_WIREFRAME_REKAP_DEMO_KETERANGAN;
+      q = q.or(`keterangan.is.null,keterangan.neq.${mark}`);
     }
 
     if (dateFrom) {
@@ -189,6 +215,10 @@ export async function GET(request: Request) {
         fq = fq.is("archived_at", null);
       } else {
         fq = fq.not("archived_at", "is", null);
+      }
+      if (!includeWireframeSeed) {
+        const mark = ICCU_WIREFRAME_REKAP_DEMO_KETERANGAN;
+        fq = fq.or(`keterangan.is.null,keterangan.neq.${mark}`);
       }
       const { data: fallback, error: err2, count: c2 } = await fq.range(
         from,

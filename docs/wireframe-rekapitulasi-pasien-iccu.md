@@ -12,16 +12,16 @@
 
 ## Kunci visual (mapping ke UI)
 
-| Elemen spreadsheet | Saran di aplikasi |
-|--------------------|-------------------|
-| Header judul + tahun | Judul terpusat; pemilih **tahun** di toolbar modal |
-| Baris header kolom (tan/gold) | Header tabel sticky; warna aksen netral atau mengikuti tema Intensive |
-| Bar subjudul seksi (biru muda) | Row pemisah / grup Section **A–D** — **dapat dilipat** (accordion) |
-| Header kolom bulan (pink/salmon di spreadsheet sumber) | Di UI: aksen lembut pada header **JAN–DES**; tetap kontras di dark mode |
-| Kolom TOTAL kanan (orange di spreadsheet sumber) | Kolom ringkasan tahun / jumlah horizontal — bedakan dari sel per bulan |
-| Baris **NON CARDIO** (hijau di spreadsheet sumber) | Opsional: satu baris dengan highlight ringan untuk diagnosis non-kardio |
-| **Ikon collapse per SECTION** | Header grup berisi kontrol **buka/tutup**: terbuka **▼**, tertutup **▶** (atau padanan aksesibel: `aria-expanded`, focus ring) |
-| Baris total Section A (kuning) | Row sum atau highlight ringan pada **JUMLAH TOTAL** — ikut tersembunyi jika Section A dilipat *(opsional: tetap tampil sebagai satu ringkas)* |
+| Elemen spreadsheet                                     | Saran di aplikasi                                                                                                                             |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Header judul + tahun                                   | Judul terpusat; pemilih **tahun** di toolbar modal                                                                                            |
+| Baris header kolom (tan/gold)                          | Header tabel sticky; warna aksen netral atau mengikuti tema Intensive                                                                         |
+| Bar subjudul seksi (biru muda)                         | Row pemisah / grup Section **A–D** — **dapat dilipat** (accordion)                                                                            |
+| Header kolom bulan (pink/salmon di spreadsheet sumber) | Di UI: aksen lembut pada header **JAN–DES**; tetap kontras di dark mode                                                                       |
+| Kolom TOTAL kanan (orange di spreadsheet sumber)       | Kolom ringkasan tahun / jumlah horizontal — bedakan dari sel per bulan                                                                        |
+| Baris **NON CARDIO** (hijau di spreadsheet sumber)     | Opsional: satu baris dengan highlight ringan untuk diagnosis non-kardio                                                                       |
+| **Ikon collapse per SECTION**                          | Header grup berisi kontrol **buka/tutup**: terbuka **▼**, tertutup **▶** (atau padanan aksesibel: `aria-expanded`, focus ring)                |
+| Baris total Section A (kuning)                         | Row sum atau highlight ringan pada **JUMLAH TOTAL** — ikut tersembunyi jika Section A dilipat _(opsional: tetap tampil sebagai satu ringkas)_ |
 
 ---
 
@@ -36,16 +36,16 @@
 +----------------------------------------------------------------------------------+
 ```
 
-*(Di modal web: bar opsional `[ ◀ 2025 ]   2026   [ 2027 ▶ ]` di kanan judul jika multi-tahun.)*
+_(Di modal web: bar opsional `[ ◀ 2025 ]   2026   [ 2027 ▶ ]` di kanan judul jika multi-tahun.)_
 
 ### Konvensi ikon SECTION (collapse / expand)
 
-| Ikon | Makna |
-|------|--------|
-| **▼** | SECTION **terbuka** — baris variabel di bawahnya ditampilkan |
+| Ikon  | Makna                                                                                                |
+| ----- | ---------------------------------------------------------------------------------------------------- |
+| **▼** | SECTION **terbuka** — baris variabel di bawahnya ditampilkan                                         |
 | **▶** | SECTION **tertutup** — baris variabel disembunyikan; header SECTION tetap terlihat untuk dibuka lagi |
 
-*(Implementasi UI bisa memakai ChevronDown/ChevronRight atau tombbol dengan label yang sama untuk pembaca layar.)*
+_(Implementasi UI bisa memakai ChevronDown/ChevronRight atau tombbol dengan label yang sama untuk pembaca layar.)_
 
 ---
 
@@ -55,7 +55,7 @@ Kolom: **NO** · **VARIABEL** · **JAN … DES** · **TOTAL**.
 
 Angka **Jan–Apr** di wireframe berikut adalah **demo statis** (Section A ringkas vertikal konsisten; lainnya realistis namun **fiktif** — **bukan** baris yang di-seed oleh migrasi SQL); sel **Mei–Des** sengaja kosong pada gambar ASCII di bawah.
 
-**Kebijakan produk (otomatis):** untuk bulan **Mei sampai Desember**, nilai per kolom pada implementasi diisi **otomatis** dengan **agregasi dari History pasien** ICCU — daftar pasien yang sudah berstatus **arsip** (mode *History pasien* di UI; API `GET /api/iccu-register` dengan `listStatus=archived`, data `iccu_register_entry`). Tiap baris variabel (pembayaran, mutu, diagnosis, dll.) dihitung dari rekaman tersebut sesuai definisi metrik. **Tanggal acuan** untuk menempatkan pasien ke bulan tertentu (mis. tanggal masuk History / tanggal keluar ICCU) ditetapkan satu kali saat implementasi backend agar konsisten dengan laporan RS.
+**Kebijakan produk (otomatis):** untuk bulan **Mei sampai Desember**, nilai per kolom pada implementasi diisi **otomatis** dengan **agregasi dari History pasien** ICCU — daftar pasien yang sudah berstatus **arsip** (mode _History pasien_ di UI; API `GET /api/iccu-register` dengan `listStatus=archived`, data `iccu_register_entry`). Tiap baris variabel (pembayaran, mutu, diagnosis, dll.) dihitung dari rekaman tersebut sesuai definisi metrik. **Tanggal acuan** untuk menempatkan pasien ke bulan tertentu (mis. tanggal masuk History / tanggal keluar ICCU) ditetapkan satu kali saat implementasi backend agar konsisten dengan laporan RS.
 
 Kolom **TOTAL** pada demo Jan–Apr: Section **A, B, D** dan bilangan bulat bermakna = **jumlah Jan–Apr** (YTD April). Section **C**: **BOR (%)** di TOTAL = **rata-rata bulat** Jan–Apr (bukan jumlah); **ALOS**, **NDR**, **GDR** TOTAL dikosongkan di demo ini.
 
@@ -156,7 +156,7 @@ Kolom **TOTAL** pada demo Jan–Apr: Section **A, B, D** dan bilangan bulat berm
 | 1  | JUMLAH PASIEN MENINGGAL                | …                                                               |
 ```
 
-*(Produk bisa memilih: saat Section A dilipat, baris **JUMLAH TOTAL** ikut hilang atau tetap satu baris ringkas — dokumentasikan dalam keputusan UX.)*
+_(Produk bisa memilih: saat Section A dilipat, baris **JUMLAH TOTAL** ikut hilang atau tetap satu baris ringkas — dokumentasikan dalam keputusan UX.)_
 
 ---
 
@@ -237,12 +237,12 @@ Wireframe ini mendeskripsikan laporan **REKAPITULASI JUMLAH PASIEN RUANG ICCU** 
 
 Implementasi referensi: [`components/intensive/iccu/IccuRekapReportModal.tsx`](components/intensive/iccu/IccuRekapReportModal.tsx) — modal dibuka dari menu Jarvis (laporan **monthly** / `action_value`: `laporan_iccu_rekap`, `iccu_rekap`, atau `rekap_iccu`).
 
-| SECTION | Jenis grafik (demo Jan–Apr) | Animasi |
-|--------|-----------------------------|---------|
-| **A — Pembayaran** | **Bar bertumpuk** per bulan (UMUM, BPJS, NPBI, RJKS, LAIN) | Recharts `animationDuration` / `animationBegin` bertahap per stack; lipat section **`AnimatePresence`** + animasi tinggi |
-| **B — Survey mutu** | **Line chart** tiga seri (meninggal, dirujuk, ventilator) | Garis & titik dengan delay bergilir |
-| **C — Indikator mutu** | **Line chart** BOR (%), TOI, BTO | Serupa Section B |
-| **D — Diagnosis** | **Bar horizontal** total kasus Jan–Apr (**NON CARDIO** di aksen hijau) | Bar entrance; warna lain palet cyan–ungu |
+| SECTION                | Jenis grafik (demo Jan–Apr)                                            | Animasi                                                                                                                  |
+| ---------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **A — Pembayaran**     | **Bar bertumpuk** per bulan (UMUM, BPJS, NPBI, RJKS, LAIN)             | Recharts `animationDuration` / `animationBegin` bertahap per stack; lipat section **`AnimatePresence`** + animasi tinggi |
+| **B — Survey mutu**    | **Line chart** tiga seri (meninggal, dirujuk, ventilator)              | Garis & titik dengan delay bergilir                                                                                      |
+| **C — Indikator mutu** | **Line chart** BOR (%), TOI, BTO                                       | Serupa Section B                                                                                                         |
+| **D — Diagnosis**      | **Bar horizontal** total kasus Jan–Apr (**NON CARDIO** di aksen hijau) | Bar entrance; warna lain palet cyan–ungu                                                                                 |
 
 **Gerakan layar:** backdrop modal (`motion`), panel (**scale** + **translateY**), stagger konten (**Framer Motion** `staggerChildren`). Tombol header tiap section mengisi/lipat grafik seperti accordion pada wireframe §3–§4.
 
@@ -408,17 +408,17 @@ where e.ruangan_id = (select id from public.ruangan where lower(trim(slug)) = lo
 
 ### 7.8 Kotak ASCII §63–136 — apa yang **ada** di DB?
 
-Angka di **grid wireframe** (Section A–D, Jan–Apr demo) **bukan** baris yang di-*seed* ke Postgres. Tidak ada tabel seperti `iccu_wireframe_demo` berisi 18 / 45 / … untuk kolom JAN.
+Angka di **grid wireframe** (Section A–D, Jan–Apr demo) **bukan** baris yang di-_seed_ ke Postgres. Tidak ada tabel seperti `iccu_wireframe_demo` berisi 18 / 45 / … untuk kolom JAN.
 
 **Yang ada di basis data:**
 
-| Konsep wireframe | Sumber DB nyata |
-|------------------|-----------------|
-| Section A (UMUM, BPJS, NPBI, …) | Agregasi dari **`jenis_pembiayaan`** per baris `iccu_register_entry`, via fungsi `iccu_register_payment_bucket` di RPC |
+| Konsep wireframe                                     | Sumber DB nyata                                                                                                                                                                                                                                           |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Section A (UMUM, BPJS, NPBI, …)                      | Agregasi dari **`jenis_pembiayaan`** per baris `iccu_register_entry`, via fungsi `iccu_register_payment_bucket` di RPC                                                                                                                                    |
 | Section B (meninggal, ventilator, `sum_los_hari`, …) | Kolom **`section_b`** di JSON hasil RPC — dihitung dari kolom tabel `iccu_register_entry` (`cara_keluar`, `invasive_procedures`, `los_hari`, dll.). Untuk demo §7.9 + **`20260501120000_*`**, nilai-nilai itu diisi sintetis agar Jan–Apr mengikuti ASCII |
-| Section C (BOR, ALOS, …) | Sebagian placeholder / **avg_los** dari LOS; NDR/GDR **belum** kolom RPC penuh |
-| NPBI 1 / 2 / 3 | Tetap agregat **`npbi`** di RPC; pecahan 1/2/3 **hanya** mode contoh wireframe di UI |
-| Section D diagnosis | **`diagnosa`** → bucket `iccu_register_diagnosa_bucket` |
+| Section C (BOR, ALOS, …)                             | Sebagian placeholder / **avg_los** dari LOS; NDR/GDR **belum** kolom RPC penuh                                                                                                                                                                            |
+| NPBI 1 / 2 / 3                                       | Tetap agregat **`npbi`** di RPC; pecahan 1/2/3 **hanya** mode contoh wireframe di UI                                                                                                                                                                      |
+| Section D diagnosis                                  | **`diagnosa`** → bucket `iccu_register_diagnosa_bucket`                                                                                                                                                                                                   |
 
 Untuk memastikan **skema** dan **isi mentah** registrasi:
 
@@ -480,4 +480,3 @@ Setelah **`supabase db push`** (atau jalankan SQL tersebut di editor):
 - Tahun/slug lain: salin migrasi dan ubah variabel `v_y` / syarat `slug` di dalam skrip.
 
 **Section C** (BOR %, TOI, BTO, NDR, GDR per sel ASCII): RPC masih hanya **`avg_los_hari`** + catatan placeholder; angka BOR/TOI/BTO/NDR/GDR seperti §2 **belum** dihitung dari baris registrasi — checkbox **Contoh wireframe** tetap dipakai jika Anda butuh grid identik ASCII untuk indikator itu.
-

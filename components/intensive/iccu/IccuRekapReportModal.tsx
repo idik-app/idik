@@ -837,6 +837,42 @@ export default function IccuRekapReportModal({
 
   const dataSourceLive = Boolean(payload && !fetchError);
 
+  /**
+   * Pola yang sering muncul bila migrasi lengkap §2 untuk seed demo belum dijalankan:
+   * `sum_los_hari` terisi tetapi field Section B/D belum ada di DB.
+   */
+  const rekapSurveyDiagnosisLikelyIncomplete = useMemo(() => {
+    if (!dataSourceLive || loading || !payload?.months?.length) return false;
+    let los = 0;
+    let surveyCore = 0;
+    let diagHits = false;
+    for (const m of payload.months) {
+      const b = m.section_b;
+      if (b) {
+        los += Number(b.sum_los_hari ?? 0);
+        surveyCore +=
+          Number(b.meninggal ?? 0) +
+          Number(b.ventilator ?? 0) +
+          Number(b.cvc ?? 0) +
+          Number(b.pdt ?? 0) +
+          Number(b.dca_ptca ?? 0) +
+          Number(b.dirujuk ?? 0) +
+          Number(b.krs ?? 0);
+      }
+      const d = m.section_d;
+      if (d && typeof d === "object") {
+        for (const v of Object.values(d)) {
+          if (Number(v) > 0) {
+            diagHits = true;
+            break;
+          }
+        }
+      }
+      if (diagHits) break;
+    }
+    return los > 0 && surveyCore === 0 && !diagHits;
+  }, [dataSourceLive, loading, payload]);
+
   const entryCountFromRpc = useMemo(() => {
     const n = payload?.entry_count_year;
     return typeof n === "number" && Number.isFinite(n) ? n : null;
@@ -963,6 +999,23 @@ export default function IccuRekapReportModal({
                               registrasi disimpan.
                             </>
                           ) : null}
+                        </p>
+                      ) : null}
+                      {dataSourceLive && !loading && rekapSurveyDiagnosisLikelyIncomplete ? (
+                        <p className="mt-2 rounded-lg border border-sky-500/35 bg-sky-950/30 px-3 py-2 text-[10px] leading-snug text-white dark:text-white">
+                          Section B mengandalkan{" "}
+                          <span className="font-mono text-cyan-100 dark:text-white">cara_keluar</span> dan{" "}
+                          <span className="font-mono text-cyan-100 dark:text-white">
+                            invasive_procedures
+                          </span>
+                          ; Section D mengandalkan{" "}
+                          <span className="font-mono text-cyan-100 dark:text-white">diagnosa</span>. Jumlah hari
+                          perawatan sudah terisi tetapi indikator lain masih nol. Jika menggunakan seed demo wireframe,
+                          jalankan migrasi Supabase berikut salah satu file:{" "}
+                          <span className="font-mono whitespace-nowrap">20260501120000</span>,{" "}
+                          <span className="font-mono whitespace-nowrap">20260502120000</span>{" "}
+                          (<span className="font-mono">ensure_iccu_wireframe_seed_section_b_d</span>). Untuk pasien nyata,
+                          lengkapi data di drawer detail REGISTER ICCU.
                         </p>
                       ) : null}
                     </div>

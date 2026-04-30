@@ -129,6 +129,26 @@ function pickBarcodeDetectorFormats(): string[] {
   return minimal.length > 0 ? minimal : ["qr_code", "code_128"];
 }
 
+/** Prefer rear lens when labels are exposed (Chrome/Android after permission). */
+function sortVideoInputsPreferRear(inputs: MediaDeviceInfo[]): MediaDeviceInfo[] {
+  const score = (d: MediaDeviceInfo) => {
+    const lab = (d.label ?? "").toLowerCase();
+    if (
+      /\b(back|rear|environment|world|rück|wide|utama)\b/i.test(lab) ||
+      /(camera|cam)\s*0\b/i.test(lab)
+    )
+      return 4;
+    if (/\b(ultra\s*wide|uw|telephoto|tele|macro)\b/i.test(lab))
+      return 2;
+    if (
+      /\b(front|user|selfie|depan|false|iris|infra| infrared)\b/i.test(lab)
+    )
+      return -4;
+    return 0;
+  };
+  return [...inputs].sort((a, b) => score(b) - score(a));
+}
+
 async function getDistributorBarcodeCameraStream(): Promise<MediaStream> {
   const md = navigator.mediaDevices;
   if (!md?.getUserMedia) {
@@ -136,11 +156,12 @@ async function getDistributorBarcodeCameraStream(): Promise<MediaStream> {
   }
 
   const attempts: MediaStreamConstraints[] = [
-    /** Di beberapa HP/Android urutan ini lebih besar peluang dibanding memaksa kamera belakang dulu. */
-    { video: true, audio: false },
     { video: { facingMode: { ideal: "environment" } }, audio: false },
-    { video: { facingMode: "user" }, audio: false },
+    { video: { facingMode: "environment" }, audio: false },
+    { video: { facingMode: { exact: "environment" } }, audio: false },
+    { video: true, audio: false },
     { video: { facingMode: { ideal: "user" } }, audio: false },
+    { video: { facingMode: "user" }, audio: false },
   ];
 
   let lastErr: unknown;
@@ -157,15 +178,24 @@ async function getDistributorBarcodeCameraStream(): Promise<MediaStream> {
       (d) => d.kind === "videoinput",
     );
     if (!list.some((d) => d.deviceId)) {
-      try {
-        const warm = await md.getUserMedia({ video: true, audio: false });
-        warm.getTracks().forEach((t) => t.stop());
-      } catch (e) {
-        lastErr = e;
+      const warmAttempts: MediaStreamConstraints[] = [
+        { video: { facingMode: { ideal: "environment" } }, audio: false },
+        { video: true, audio: false },
+      ];
+      for (const wc of warmAttempts) {
+        try {
+          const warm = await md.getUserMedia(wc);
+          warm.getTracks().forEach((t) => t.stop());
+          break;
+        } catch (e) {
+          lastErr = e;
+        }
       }
-      list = (await md.enumerateDevices()).filter(
-        (d) => d.kind === "videoinput",
+      list = sortVideoInputsPreferRear(
+        (await md.enumerateDevices()).filter((d) => d.kind === "videoinput"),
       );
+    } else {
+      list = sortVideoInputsPreferRear(list);
     }
     for (const cam of list) {
       if (!cam.deviceId) continue;
@@ -2678,9 +2708,8 @@ function DistributorBarangPageContent() {
           className={`fixed inset-0 ${UI_LAYERS.fullscreenOverlay} flex flex-col items-center justify-center bg-black/90 p-4`}
         >
           <p className="text-[11px] mb-2 text-center max-w-[min(320px,92vw)] leading-snug text-cyan-200 dark:text-white/90">
-            Arahkan kamera ke barcode (bidang memanjang). Izinkan akses kamera.
-            Di HP: gunakan Chrome/Brave terbaru; Brave kadang perlu matikan Shields
-            untuk situs ini.
+            Pemindaian memakai kamera belakang bila ada. Arahkan ke barcode memanjang;
+            izinkan akses kamera. Brave kadang perlu matikan Shields untuk situs ini.
           </p>
           {cameraScanNote ? (
             <p

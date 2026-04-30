@@ -20,8 +20,8 @@ export const dynamic = "force-dynamic";
 const POSTGREST_SAFE_CHUNK = 1000;
 
 const PROJECTIONS_LIST = [
-  "id, tanggal, dokter, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, ruangan, pasien_id, created_at, inserted_at, updated_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan",
-  "id, tanggal, dokter, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan",
+  "id, tanggal, dokter, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, ruangan, pasien_id, created_at, inserted_at, updated_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, jenis_kelamin",
+  "id, tanggal, dokter, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, jenis_kelamin",
 ];
 
 async function fetchTableOrderedInChunks(
@@ -29,7 +29,10 @@ async function fetchTableOrderedInChunks(
   table: "tindakan" | "tindakan_medik",
   projection: string,
   maxRows: number,
-): Promise<{ data: Record<string, unknown>[]; error: { message?: string } | null }> {
+): Promise<{
+  data: Record<string, unknown>[];
+  error: { message?: string } | null;
+}> {
   // 1. Cek validitas proyeksi pada chunk pertama (Fast Fail) agar tidak mubazir paralel jika kolom salah
   const firstRes = await supabase
     .from(table)
@@ -92,7 +95,8 @@ function mapLegacyTindakanMedikRow(
     dokter: toText(row.dokter) ?? toText(row.operator),
     nama_pasien: toText(row.nama_pasien) ?? toText(row.nama),
     no_rm: coalesceNoRm(row),
-    tindakan: toText(row.tindakan) ?? toText(row.jenis) ?? toText(row.alkes_utama),
+    tindakan:
+      toText(row.tindakan) ?? toText(row.jenis) ?? toText(row.alkes_utama),
     kategori: toText(row.kategori),
     status: toText(row.status),
     ruangan: toText(row.ruangan),
@@ -129,12 +133,14 @@ export async function GET(request: Request) {
     const dateFrom = searchParams.get("from")?.trim();
     const dateTo = searchParams.get("to")?.trim();
     const search = searchParams.get("search")?.trim();
-    const unitSlug = request.headers.get("x-unit-slug") || searchParams.get("unit")?.trim();
+    const unitSlug =
+      request.headers.get("x-unit-slug") || searchParams.get("unit")?.trim();
     /** Satu baris tindakan tepat (sinkron URL `?tindakanId=` dengan header). */
     const tindakanIdEq = searchParams.get("tindakanId")?.trim();
 
-    const { requireRole, requireUnitAccess } = await import("@/lib/auth/guards");
-    
+    const { requireRole, requireUnitAccess } =
+      await import("@/lib/auth/guards");
+
     // 1. Verifikasi Akses Unit jika unitSlug ada
     if (unitSlug) {
       const unitAuth = await requireUnitAccess(unitSlug);
@@ -150,8 +156,12 @@ export async function GET(request: Request) {
       if (!auth.ok) return auth.response;
     }
 
-    const projections = workingProjectionCache 
-      ? [workingProjectionCache, ...PROJECTIONS_LIST.filter(p => p !== workingProjectionCache), "*"]
+    const projections = workingProjectionCache
+      ? [
+          workingProjectionCache,
+          ...PROJECTIONS_LIST.filter((p) => p !== workingProjectionCache),
+          "*",
+        ]
       : [...PROJECTIONS_LIST, "*"];
 
     let data: Record<string, unknown>[] | null = null;
@@ -159,20 +169,55 @@ export async function GET(request: Request) {
 
     const supabase = getServiceSupabaseAdmin();
     if (!supabase) {
-      return NextResponse.json({ ok: false, error: "Supabase not configured" }, { status: 500 });
+      return NextResponse.json(
+        { ok: false, error: "Supabase not configured" },
+        { status: 500 },
+      );
     }
 
     const tarifMap = await fetchMasterTarifLookupMap(supabase);
 
     // List kolom aman untuk mencegah kebocoran data sensitif (PII) dari tabel tindakan
     const SAFE_TINDAKAN_COLUMNS = new Set([
-      "id", "tanggal", "dokter", "operator", "nama_pasien", "nama", "no_rm", "no_rekam_medis", 
-      "tindakan", "jenis", "alkes_utama", "kategori", "status", "ruangan", "pasien_id", 
-      "created_at", "inserted_at", "updated_at", "is_fast_track", "pasien_datang_igd", 
-      "door_to_balloon", "total_waktu_fast_track", "pci_report_link", "pemakaian", 
-      "kelas_pembiayaan", "asmed", "resume_erm", "sjp", "berkas_laporan", 
-      "consumable_kelengkapan", "billing_simrs", "pj_laporan", "operan_ranap", 
-      "rs_perujuk", "keterangan", "tarif_tindakan", "umur", "jenis_kelamin"
+      "id",
+      "tanggal",
+      "dokter",
+      "operator",
+      "nama_pasien",
+      "nama",
+      "no_rm",
+      "no_rekam_medis",
+      "tindakan",
+      "jenis",
+      "alkes_utama",
+      "kategori",
+      "status",
+      "ruangan",
+      "pasien_id",
+      "created_at",
+      "inserted_at",
+      "updated_at",
+      "is_fast_track",
+      "pasien_datang_igd",
+      "door_to_balloon",
+      "total_waktu_fast_track",
+      "pci_report_link",
+      "pemakaian",
+      "kelas_pembiayaan",
+      "asmed",
+      "resume_erm",
+      "sjp",
+      "berkas_laporan",
+      "consumable_kelengkapan",
+      "billing_simrs",
+      "pj_laporan",
+      "operan_ranap",
+      "rs_perujuk",
+      "keterangan",
+      "diagnosa",
+      "tarif_tindakan",
+      "umur",
+      "jenis_kelamin",
     ]);
 
     for (const projection of projections) {
@@ -191,7 +236,9 @@ export async function GET(request: Request) {
           q = q.or(`ruangan.ilike.%${unitSlug}%`);
         }
         if (search) {
-          q = q.or(`nama_pasien.ilike.%${search}%,no_rm.ilike.%${search}%,dokter.ilike.%${search}%`);
+          q = q.or(
+            `nama_pasien.ilike.%${search}%,no_rm.ilike.%${search}%,dokter.ilike.%${search}%`,
+          );
         }
         return q;
       };
@@ -206,7 +253,10 @@ export async function GET(request: Request) {
           : [];
 
         // 2. Ambil sisanya jika limit > 1000 dan chunk pertama penuh
-        if (allRawRows.length === POSTGREST_SAFE_CHUNK && limit > POSTGREST_SAFE_CHUNK) {
+        if (
+          allRawRows.length === POSTGREST_SAFE_CHUNK &&
+          limit > POSTGREST_SAFE_CHUNK
+        ) {
           const numChunks = Math.ceil(limit / POSTGREST_SAFE_CHUNK);
           const ranges = Array.from({ length: numChunks - 1 }, (_, i) => {
             const from = (i + 1) * POSTGREST_SAFE_CHUNK;
@@ -240,37 +290,64 @@ export async function GET(request: Request) {
           }
 
           // Inline some logic to avoid function call overhead in hot loop
-          const rawNoRm = filteredRow.no_rm || filteredRow.rm || filteredRow.no_rekam_medis || filteredRow.nomor_rm || filteredRow.no_rm_pasien;
-          const noRm = typeof rawNoRm === 'string' ? rawNoRm.trim() || null : (rawNoRm ? String(rawNoRm) : null);
-          
+          const rawNoRm =
+            filteredRow.no_rm ||
+            filteredRow.rm ||
+            filteredRow.no_rekam_medis ||
+            filteredRow.nomor_rm ||
+            filteredRow.no_rm_pasien;
+          const noRm =
+            typeof rawNoRm === "string"
+              ? rawNoRm.trim() || null
+              : rawNoRm
+                ? String(rawNoRm)
+                : null;
+
           const rawNama = filteredRow.nama_pasien || filteredRow.nama;
-          const nama_pasien = typeof rawNama === 'string' ? rawNama.trim() || null : (rawNama ? String(rawNama) : null);
-          
+          const nama_pasien =
+            typeof rawNama === "string"
+              ? rawNama.trim() || null
+              : rawNama
+                ? String(rawNama)
+                : null;
+
           const withApiFields = {
             ...filteredRow,
             nama_pasien,
             no_rm: noRm,
             ruangan: filteredRow.ruangan || null,
-            created_at: filteredRow.created_at || filteredRow.inserted_at || filteredRow.updated_at || null,
+            created_at:
+              filteredRow.created_at ||
+              filteredRow.inserted_at ||
+              filteredRow.updated_at ||
+              null,
             umur: filteredRow.umur || null,
             tgl_lahir: filteredRow.tgl_lahir || null,
           };
-          
+
           // Inline enrich logic for speed
           const dbTarif = filteredRow.tarif_tindakan;
-          if (dbTarif !== null && dbTarif !== undefined && dbTarif !== "" && Number.isFinite(Number(dbTarif))) {
+          if (
+            dbTarif !== null &&
+            dbTarif !== undefined &&
+            dbTarif !== "" &&
+            Number.isFinite(Number(dbTarif))
+          ) {
             return withApiFields;
           }
-          
+
           const tindakan = filteredRow.tindakan ?? filteredRow.jenis;
           if (tindakan && tarifMap.size > 0) {
-            const k = String(tindakan).trim().replace(/\s+/g, " ").toUpperCase();
+            const k = String(tindakan)
+              .trim()
+              .replace(/\s+/g, " ")
+              .toUpperCase();
             const hit = tarifMap.get(k);
             if (hit !== undefined) {
               (withApiFields as any).tarif_tindakan = hit;
             }
           }
-          
+
           return withApiFields;
         });
         lastError = null;
@@ -281,7 +358,11 @@ export async function GET(request: Request) {
 
     if (lastError) {
       return NextResponse.json(
-        { ok: false, error: String(lastError.message ?? "query error"), data: [] },
+        {
+          ok: false,
+          error: String(lastError.message ?? "query error"),
+          data: [],
+        },
         { status: 500 },
       );
     }

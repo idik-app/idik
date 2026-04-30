@@ -246,6 +246,8 @@ interface JarvisFloatingMenuProps {
   /** Item menu history pasien / arsip ICCU. */
   onHistoryPasien?: () => void;
   onOpenReports?: (type: "daily" | "weekly" | "monthly") => void;
+  /** Item menu `action_value` khusus rekap ICCU (`laporan_iccu_rekap` / `iccu_rekap`). */
+  onIccuRekap?: () => void;
   onOpenActionsTable?: () => void;
   /** Dipanggil setelah menu termuat: `nama` dari master `ruangan` (untuk judul modal register). */
   onRoomMeta?: (meta: { nama: string }) => void;
@@ -287,6 +289,7 @@ export default function JarvisFloatingMenu({
   onRegisterIccu,
   onHistoryPasien,
   onOpenReports,
+  onIccuRekap,
   onOpenActionsTable,
   onRoomMeta,
   onMenuAccessState,
@@ -457,6 +460,7 @@ export default function JarvisFloatingMenu({
       onRegisterIccu,
       onHistoryPasien,
       onOpenReports,
+      onIccuRekap,
       onOpenActionsTable,
     });
   };

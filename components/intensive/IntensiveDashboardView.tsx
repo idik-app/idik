@@ -33,6 +33,7 @@ import IntensivePatientSidebar, {
 } from "@/components/intensive/IntensivePatientSidebar";
 import JarvisFloatingMenu from "@/components/intensive/JarvisFloatingMenu";
 import IccuRegisterModal from "@/components/intensive/iccu/IccuRegisterModal";
+import IccuRekapReportModal from "@/components/intensive/iccu/IccuRekapReportModal";
 import { startOfDay, format, addMinutes } from "date-fns";
 import { cn } from "@/lib/utils";
 import { intensiveTimelineTotalWidthPx } from "@/lib/intensive/timelineLayout";
@@ -46,9 +47,27 @@ import {
   IDIK_JARVIS_FLOATING_CLOSE_EVENT,
   type IntensiveJarvisOrbitDetail,
 } from "@/lib/intensive/jarvisMenuModel";
+import {
+  normalizeJenisKelamin,
+  resolveJenisKelaminFromRow,
+  type JenisKelaminLp,
+} from "@/app/dashboard/layanan/tindakan/lib/displayTindakanRow";
 
-const DEFAULT_DEMO_HEADLINE = "Ny. Siti Aminah (65th) • RM: 123-45-67";
 const DEFAULT_BACK_HREF = "/dashboard/layanan/tindakan";
+
+function honorificTnNy(jk: JenisKelaminLp | null): string {
+  if (jk === "L") return "TN.";
+  if (jk === "P") return "NY.";
+  return "—";
+}
+
+/** Tombol kembali ke daftar tindakan: hanya untuk admin / cathlab (bukan akun operasional unit ruangan). */
+const INTENSIVE_BACK_TO_TINDAKAN_ROLES = new Set([
+  "admin",
+  "administrator",
+  "superadmin",
+  "cathlab",
+]);
 
 export type IntensiveDashboardViewProps = {
   patientHeadline?: string | null;
@@ -110,6 +129,12 @@ function IntensiveDashboardViewInner({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { username, role, setSession, resetSession } = useSession();
+  const showIntensiveBackToTindakan = useMemo(() => {
+    const r = String(role ?? "")
+      .trim()
+      .toLowerCase();
+    return INTENSIVE_BACK_TO_TINDAKAN_ROLES.has(r);
+  }, [role]);
   const [loggingOut, setLoggingOut] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -124,6 +149,7 @@ function IntensiveDashboardViewInner({
   const [hydratedForId, setHydratedForId] = useState<string | null>(null);
   const [iccuRegisterOpen, setIccuRegisterOpen] = useState(false);
   const [iccuHistoryOpen, setIccuHistoryOpen] = useState(false);
+  const [iccuRekapReportOpen, setIccuRekapReportOpen] = useState(false);
   const [jarvisRoomDisplayName, setJarvisRoomDisplayName] = useState<
     string | null
   >(null);
@@ -134,6 +160,12 @@ function IntensiveDashboardViewInner({
   const [iccuSidebarListNonce, setIccuSidebarListNonce] = useState(0);
   const bumpIccuSidebarPatientList = useCallback(() => {
     setIccuSidebarListNonce((n) => n + 1);
+  }, []);
+
+  const openIccuRekapModal = useCallback(() => {
+    setIccuRegisterOpen(false);
+    setIccuHistoryOpen(false);
+    setIccuRekapReportOpen(true);
   }, []);
 
   useEffect(() => {
@@ -211,13 +243,19 @@ function IntensiveDashboardViewInner({
           toast.info("Fitur Tambah Pasien Intensive dalam pengembangan"),
         onRegisterIccu: () => {
           setIccuHistoryOpen(false);
+          setIccuRekapReportOpen(false);
           setIccuRegisterOpen(true);
         },
         onHistoryPasien: () => {
           setIccuRegisterOpen(false);
+          setIccuRekapReportOpen(false);
           setIccuHistoryOpen(true);
         },
-        onOpenReports: (type) => toast.info(`Membuka Laporan ${type}...`),
+        onOpenReports: (type) => {
+          if (type === "monthly") openIccuRekapModal();
+          else toast.info(`Membuka Laporan ${type}...`);
+        },
+        onIccuRekap: openIccuRekapModal,
         onOpenActionsTable: () => toast.info("Membuka Tabel Tindakan..."),
       });
     };
@@ -230,14 +268,14 @@ function IntensiveDashboardViewInner({
         IDIK_INTENSIVE_JARVIS_ORBIT_EVENT,
         onOrbit as EventListener,
       );
-  }, [effectiveUnitSlug]);
+  }, [effectiveUnitSlug, openIccuRekapModal]);
 
   /** Modal ICCU/history di atas `jarvisAgent`; tutup orbital agen mengambang agar tidak menutupi / nyangkut. */
   useEffect(() => {
-    if (iccuRegisterOpen || iccuHistoryOpen) {
+    if (iccuRegisterOpen || iccuHistoryOpen || iccuRekapReportOpen) {
       window.dispatchEvent(new CustomEvent(IDIK_JARVIS_FLOATING_CLOSE_EVENT));
     }
-  }, [iccuRegisterOpen, iccuHistoryOpen]);
+  }, [iccuRegisterOpen, iccuHistoryOpen, iccuRekapReportOpen]);
 
   const handleLogout = useCallback(async () => {
     if (loggingOut) return;
@@ -269,6 +307,47 @@ function IntensiveDashboardViewInner({
   const [patientHeadlineState, setPatientHeadlineState] = useState<
     string | undefined
   >(() => patientHeadline?.trim() || undefined);
+  /** Headline baris pertama daftar sidebar — dipakai header bila belum ada `tindakanId` terpilih. */
+  const [sidebarFirstHeadline, setSidebarFirstHeadline] = useState<
+    string | null
+  >(null);
+  const [sidebarFirstMeta, setSidebarFirstMeta] = useState<{
+    diagnosa: string | null;
+    dokter: string | null;
+  } | null>(null);
+  const [caseDiagnosa, setCaseDiagnosa] = useState<string | null>(null);
+  const [caseDokter, setCaseDokter] = useState<string | null>(null);
+  const [caseJenisKelamin, setCaseJenisKelamin] =
+    useState<JenisKelaminLp | null>(null);
+  const [sidebarFirstJk, setSidebarFirstJk] = useState<JenisKelaminLp | null>(
+    null,
+  );
+
+  const handlePatientListSnapshot = useCallback(
+    (
+      items: {
+        headline: string;
+        tindakanId: string | null;
+        diagnosa: string | null;
+        dokter: string | null;
+        jenis_kelamin: JenisKelaminLp | null;
+      }[],
+    ) => {
+      const first = items[0];
+      const h = first?.headline?.trim();
+      setSidebarFirstHeadline(h ? h : null);
+      setSidebarFirstJk(first?.jenis_kelamin ?? null);
+      setSidebarFirstMeta(
+        first
+          ? {
+              diagnosa: first.diagnosa?.trim() || null,
+              dokter: first.dokter?.trim() || null,
+            }
+          : null,
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!embedded) return;
@@ -310,6 +389,10 @@ function IntensiveDashboardViewInner({
         replaceData({});
         outgoingIdRef.current = undefined;
         setHydratedForId(null);
+        if (!embedded) setPatientHeadlineState(undefined);
+        setCaseDiagnosa(null);
+        setCaseDokter(null);
+        setCaseJenisKelamin(null);
         return;
       }
 
@@ -339,16 +422,32 @@ function IntensiveDashboardViewInner({
           Record<string, unknown>;
         if (String(row.id ?? "").trim() === id) {
           setPatientHeadlineState(buildIntensivePatientHeadline(row));
+          setCaseJenisKelamin(
+            resolveJenisKelaminFromRow(row as Record<string, unknown>, null),
+          );
           const diag = row.diagnosa;
+          const dok = row.dokter;
+          setCaseDiagnosa(
+            diag != null && String(diag).trim() ? String(diag).trim() : null,
+          );
+          setCaseDokter(
+            dok != null && String(dok).trim() ? String(dok).trim() : null,
+          );
           if (diag != null && String(diag).trim()) {
             updateData("diagnosa", "static", String(diag).trim());
           }
         }
       } else if (!embedded) {
         setPatientHeadlineState(`Tindakan ID: ${id}`);
+        setCaseDiagnosa(null);
+        setCaseDokter(null);
+        setCaseJenisKelamin(null);
       } else {
         const h = patientHeadline?.trim();
         setPatientHeadlineState(h || `Tindakan ID: ${id}`);
+        setCaseDiagnosa(null);
+        setCaseDokter(null);
+        setCaseJenisKelamin(null);
       }
     })();
   }, [effectiveTindakanId, embedded, patientHeadline, replaceData, updateData]);
@@ -384,10 +483,57 @@ function IntensiveDashboardViewInner({
     [embedded, pathname, router],
   );
 
-  const resolvedHeadline =
-    (patientHeadlineState && patientHeadlineState.trim()) ||
-    (effectiveTindakanId ? `Tindakan ID: ${effectiveTindakanId}` : null) ||
-    DEFAULT_DEMO_HEADLINE;
+  const resolvedHeadline = useMemo(() => {
+    const trimmedState = patientHeadlineState?.trim();
+    if (effectiveTindakanId) {
+      return trimmedState || `Tindakan ID: ${effectiveTindakanId}`;
+    }
+    if (embedded) {
+      return trimmedState || sidebarFirstHeadline || "";
+    }
+    return sidebarFirstHeadline || "";
+  }, [
+    effectiveTindakanId,
+    embedded,
+    patientHeadlineState,
+    sidebarFirstHeadline,
+  ]);
+
+  const sheetDiagnosaText = String(
+    data["diagnosa"]?.["static"] ?? "",
+  ).trim();
+
+  const headerDiagnosaDisplay = useMemo(() => {
+    if (effectiveTindakanId) {
+      return caseDiagnosa?.trim() || sheetDiagnosaText || "";
+    }
+    return sidebarFirstMeta?.diagnosa?.trim() || sheetDiagnosaText || "";
+  }, [effectiveTindakanId, caseDiagnosa, sheetDiagnosaText, sidebarFirstMeta]);
+
+  const headerDokterDisplay = useMemo(() => {
+    if (effectiveTindakanId) {
+      return caseDokter?.trim() || "";
+    }
+    return sidebarFirstMeta?.dokter?.trim() || "";
+  }, [effectiveTindakanId, caseDokter, sidebarFirstMeta]);
+
+  const patientHonorificPrefix = useMemo(() => {
+    const jk = effectiveTindakanId ? caseJenisKelamin : sidebarFirstJk;
+    return honorificTnNy(jk);
+  }, [effectiveTindakanId, caseJenisKelamin, sidebarFirstJk]);
+
+  const patientHeaderLineTitle = useMemo(() => {
+    const p = patientHonorificPrefix;
+    const a = resolvedHeadline || "—";
+    const b = headerDiagnosaDisplay || "—";
+    const c = headerDokterDisplay || "—";
+    return `${p} ${a} | ${b} | ${c}`;
+  }, [
+    patientHonorificPrefix,
+    resolvedHeadline,
+    headerDiagnosaDisplay,
+    headerDokterDisplay,
+  ]);
 
   useEffect(() => {
     const trendScroll = document.getElementById("trend-scroll-container");
@@ -424,8 +570,8 @@ function IntensiveDashboardViewInner({
         isFullscreen && `fixed inset-0 ${UI_LAYERS.fullscreen}`,
       )}
     >
-      <header className="h-14 border-b border-zinc-800 flex items-center justify-between px-4 bg-zinc-950/50 backdrop-blur-md sticky top-0 z-50 shrink-0">
-        <div className="flex items-center gap-4 min-w-0">
+      <header className="flex h-14 min-h-14 shrink-0 items-center justify-between gap-2 border-b border-zinc-800 bg-zinc-950/50 px-3 backdrop-blur-md sm:gap-3 sm:px-4 sticky top-0 z-50">
+        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
           {onRequestClose ? (
             <Button
               variant="ghost"
@@ -437,7 +583,7 @@ function IntensiveDashboardViewInner({
             >
               <ChevronLeft className="w-5 h-5" />
             </Button>
-          ) : (
+          ) : showIntensiveBackToTindakan ? (
             <Button
               variant="ghost"
               size="icon"
@@ -448,32 +594,52 @@ function IntensiveDashboardViewInner({
                 <ChevronLeft className="w-5 h-5" />
               </Link>
             </Button>
-          )}
-          <div className="flex items-center gap-6 min-w-0">
-            <h1 className="text-sm font-bold tracking-tight text-white flex items-center gap-2 min-w-0 truncate">
-              <div className="flex items-center justify-center w-5 h-5 rounded-md bg-blue-500/20 border border-blue-500/30 shrink-0">
-                <Activity className="w-3 h-3 text-blue-400" />
+          ) : null}
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 md:gap-4 lg:gap-6">
+            <h1 className="flex min-w-0 flex-1 basis-0 items-center gap-2 text-sm font-bold tracking-tight">
+              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-blue-500/30 bg-blue-500/20">
+                <Activity className="h-3 w-3 text-blue-400" />
               </div>
-              <span className="truncate">Patient: {resolvedHeadline}</span>
+              <span
+                className="min-w-0 flex-1 truncate text-white dark:text-white"
+                title={patientHeaderLineTitle}
+              >
+                <span className="font-bold text-zinc-100 dark:text-white">
+                  {patientHonorificPrefix}{" "}
+                  {resolvedHeadline || "—"}
+                  <span
+                    className="mx-1.5 shrink-0 font-normal text-zinc-500 dark:text-white/70"
+                    aria-hidden
+                  >
+                    |
+                  </span>
+                  {headerDiagnosaDisplay || "—"}
+                  <span
+                    className="mx-1.5 shrink-0 font-normal text-zinc-500 dark:text-white/70"
+                    aria-hidden
+                  >
+                    |
+                  </span>
+                  {headerDokterDisplay || "—"}
+                </span>
+              </span>
             </h1>
 
-            <div className="h-8 w-[1px] bg-zinc-800 hidden lg:block shrink-0" />
+            <div
+              className="hidden h-8 w-px shrink-0 bg-zinc-800 md:block"
+              aria-hidden
+            />
 
-            <div className="hidden lg:flex items-center gap-6 shrink-0">
-              <div className="flex flex-col">
-                <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider">
+            <div className="hidden shrink-0 md:flex">
+              <div className="flex min-w-0 max-w-[min(28vw,7.5rem)] flex-col lg:max-w-[min(24vw,10rem)] xl:max-w-[12rem]">
+                <span className="text-[8px] font-bold uppercase tracking-wider text-zinc-500 dark:text-white/85">
                   DIIT
                 </span>
-                <span className="text-[10px] text-blue-400 font-bold uppercase">
+                <span
+                  className="truncate text-[10px] font-bold uppercase text-blue-400 dark:text-blue-400"
+                  title={String(data["diit"]?.["static"] ?? "Belum diisi")}
+                >
                   {data["diit"]?.["static"] || "Belum diisi"}
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider">
-                  Diagnosa Medis
-                </span>
-                <span className="text-[10px] text-blue-400 font-bold uppercase">
-                  {data["diagnosa"]?.["static"] || "Belum diisi"}
                 </span>
               </div>
             </div>
@@ -610,6 +776,7 @@ function IntensiveDashboardViewInner({
             onSelectPatient={handleSelectPatient}
             iccuActiveListRefreshNonce={iccuSidebarListNonce}
             fallbackUnitSlug={effectiveUnitSlug}
+            onPatientListSnapshot={handlePatientListSnapshot}
           />
         )}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden border-r border-zinc-800">
@@ -698,8 +865,8 @@ function IntensiveDashboardViewInner({
         </div>
       </footer>
 
-      {/* Sembunyikan FAB saat modal register terbuka (fixed bottom-right viewport → menumpuk kolom Aksi). */}
-      {!iccuRegisterOpen && !iccuHistoryOpen ? (
+      {/* Sembunyikan FAB saat modal register / laporan rekap terbuka — menghindari bentrok FAB dengan kolom Aksi / konten modal. */}
+      {!iccuRegisterOpen && !iccuHistoryOpen && !iccuRekapReportOpen ? (
         <JarvisFloatingMenu
           roomSlug={effectiveUnitSlug}
           autoOpenOnMount={!embedded && autoOpenJarvisMenu}
@@ -713,16 +880,29 @@ function IntensiveDashboardViewInner({
           }
           onRegisterIccu={() => {
             setIccuHistoryOpen(false);
+            setIccuRekapReportOpen(false);
             setIccuRegisterOpen(true);
           }}
           onHistoryPasien={() => {
             setIccuRegisterOpen(false);
+            setIccuRekapReportOpen(false);
             setIccuHistoryOpen(true);
           }}
-          onOpenReports={(type) => toast.info(`Membuka Laporan ${type}...`)}
+          onOpenReports={(type) => {
+            if (type === "monthly") openIccuRekapModal();
+            else toast.info(`Membuka Laporan ${type}...`);
+          }}
+          onIccuRekap={openIccuRekapModal}
           onOpenActionsTable={() => toast.info("Membuka Tabel Tindakan...")}
         />
       ) : null}
+
+      <IccuRekapReportModal
+        open={iccuRekapReportOpen}
+        onOpenChange={setIccuRekapReportOpen}
+        roomSlug={effectiveUnitSlug}
+        roomDisplayName={jarvisRoomDisplayName ?? undefined}
+      />
 
       <IccuRegisterModal
         open={iccuRegisterOpen}

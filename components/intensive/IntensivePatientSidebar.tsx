@@ -17,6 +17,11 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import {
+  normalizeJenisKelamin,
+  resolveJenisKelaminFromRow,
+  type JenisKelaminLp,
+} from "@/app/dashboard/layanan/tindakan/lib/displayTindakanRow";
 
 function useDebouncedValue<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -35,6 +40,10 @@ export type IntensiveTindakanListRow = {
   tanggal?: unknown;
   tindakan?: unknown;
   ruangan?: unknown;
+  diagnosa?: unknown;
+  dokter?: unknown;
+  jenis_kelamin?: unknown;
+  jk?: unknown;
 };
 
 export function buildIntensivePatientHeadline(
@@ -59,15 +68,18 @@ type IccuRegisterListRow = {
   periode_masuk?: unknown;
   created_at?: unknown;
   latest_tindakan_id?: unknown;
+  jenis_kelamin?: unknown;
 };
 
 function buildIccuRegisterSidebarHeadline(r: IccuRegisterListRow): string {
-  const nama = String(r.nama ?? "").trim().toUpperCase() || "—";
+  const nama =
+    String(r.nama ?? "")
+      .trim()
+      .toUpperCase() || "—";
   const rm = String(r.no_rm ?? "").trim();
   const bed = String(r.bed ?? "").trim();
   const base = rm ? `${nama} (${rm})` : nama;
-  // Contoh: NASRUN (922071) ICCU-8
-  return bed ? `${base} ${bed}` : base;
+  return bed ? `${base} · ${bed}` : base;
 }
 
 type PatientListItem = {
@@ -76,6 +88,9 @@ type PatientListItem = {
   headline: string;
   subline: string;
   allowOpen: boolean;
+  sidebarDiagnosa: string | null;
+  sidebarDokter: string | null;
+  sidebarJenisKelamin: JenisKelaminLp | null;
 };
 
 function tindakanRowsToListItems(
@@ -86,16 +101,22 @@ function tindakanRowsToListItems(
     const id = String(r.id ?? "").trim();
     if (!id) continue;
     const tind = String(r.tindakan ?? "").trim();
+    const dx = String(r.diagnosa ?? "").trim();
+    const dok = String(r.dokter ?? "").trim();
     out.push({
       listKey: `t:${id}`,
       tindakanId: id,
       headline: buildIntensivePatientHeadline(r),
       subline: `${formatTanggalRow(r.tanggal)}${
-        tind
-          ? ` · ${tind.length > 32 ? `${tind.slice(0, 32)}…` : tind}`
-          : ""
+        tind ? ` · ${tind.length > 32 ? `${tind.slice(0, 32)}…` : tind}` : ""
       }`,
       allowOpen: true,
+      sidebarDiagnosa: dx || null,
+      sidebarDokter: dok || null,
+      sidebarJenisKelamin: resolveJenisKelaminFromRow(
+        r as unknown as Record<string, unknown>,
+        null,
+      ),
     });
   }
   return out;
@@ -115,9 +136,7 @@ function iccuRowsToListItems(
       parts.push(dx.length > 20 ? `${dx.slice(0, 20)}…` : dx);
     }
     if (dpjp) {
-      parts.push(
-        `DPJP: ${dpjp.length > 14 ? `${dpjp.slice(0, 14)}…` : dpjp}`,
-      );
+      parts.push(`DPJP: ${dpjp.length > 14 ? `${dpjp.slice(0, 14)}…` : dpjp}`);
     }
     const sub = parts.filter((p) => p && p !== "—").join(" · ");
     return {
@@ -126,6 +145,9 @@ function iccuRowsToListItems(
       headline: buildIccuRegisterSidebarHeadline(r),
       subline: sub || "—",
       allowOpen: Boolean(tid),
+      sidebarDiagnosa: dx || null,
+      sidebarDokter: dpjp || null,
+      sidebarJenisKelamin: normalizeJenisKelamin(r.jenis_kelamin),
     };
   });
 }
@@ -154,6 +176,8 @@ export default function IntensivePatientSidebar({
   iccuActiveListRefreshNonce,
   /** Untuk rute tanpa `[room]` (mis. `/intensive/dashboard`) — samakan dengan unit Jarvis/register. */
   fallbackUnitSlug,
+  /** Dipanggil setiap `patientItems` berubah — untuk header default (baris pertama). */
+  onPatientListSnapshot,
 }: {
   selectedTindakanId: string | null | undefined;
   onSelectPatient: (tindakanId: string, patientHeadline: string) => void;
@@ -164,6 +188,15 @@ export default function IntensivePatientSidebar({
    */
   iccuActiveListRefreshNonce?: number;
   fallbackUnitSlug?: string;
+  onPatientListSnapshot?: (
+    items: {
+      headline: string;
+      tindakanId: string | null;
+      diagnosa: string | null;
+      dokter: string | null;
+      jenis_kelamin: JenisKelaminLp | null;
+    }[],
+  ) => void;
 }) {
   const params = useParams();
   const router = useRouter();
@@ -324,6 +357,19 @@ export default function IntensivePatientSidebar({
       cancelled = true;
     };
   }, [iccuActiveListRefreshNonce, iccuRegisterQueryKey, listFromRegister]);
+
+  useEffect(() => {
+    if (!onPatientListSnapshot) return;
+    onPatientListSnapshot(
+      patientItems.map((it) => ({
+        headline: it.headline,
+        tindakanId: it.tindakanId,
+        diagnosa: it.sidebarDiagnosa,
+        dokter: it.sidebarDokter,
+        jenis_kelamin: it.sidebarJenisKelamin,
+      })),
+    );
+  }, [patientItems, onPatientListSnapshot]);
 
   const sel = String(selectedTindakanId ?? "").trim();
 

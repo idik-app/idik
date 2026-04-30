@@ -1,0 +1,44 @@
+| 1  | UMUM / BAYAR                           | 18| 22| 19| 21|   |   |   |   |   |   |   |   |     80|
+| 2  | BPJS PBI                               | 45| 48| 52| 46|   |   |   |   |   |   |   |   |    191|
+|    | NPBI 1                                 | 12| 11| 13| 12|   |   |   |   |   |   |   |   |     48|
+|    | NPBI 2                                 |  8|  9|  7|  8|   |   |   |   |   |   |   |   |     32|
+|    | NPBI 3                                 |  5|  6|  5|  6|   |   |   |   |   |   |   |   |     22|
+| 3  | R / JKS                                | 14| 15| 13| 14|   |   |   |   |   |   |   |   |     56|
+| 4  | LAIN-LAIN / ASURANSI                   |  3|  4|  2|  3|   |   |   |   |   |   |   |   |     12|
+|    |                                        |105|115|111|110|   |   |   |   |   |   |   |   |    441|
+| 1  | JUMLAH PASIEN MENINGGAL                |  2|  3|  2|  4|   |   |   |   |   |   |   |   |     11|
+|    |     < 48 JAM                           |  1|  2|  1|  2|   |   |   |   |   |   |   |   |      6|
+|    |     > 48 JAM                           |  1|  1|  1|  2|   |   |   |   |   |   |   |   |      5|
+| 2  | JUMLAH PASIEN DIRUJUK                  |  5|  6|  5|  7|   |   |   |   |   |   |   |   |     23|
+| 3  | JUMLAH PASIEN PULANG PAKSA             |  1|  0|  1|  1|   |   |   |   |   |   |   |   |      3|
+| 4  | JUMLAH PASIEN DENGAN VENTILATOR        | 12| 14| 11| 13|   |   |   |   |   |   |   |   |     50|
+| 5  | JUMLAH PASIEN CVC                      | 18| 19| 17| 20|   |   |   |   |   |   |   |   |     74|
+| 6  | JUMLAH PASIEN PDT                      |  4|  5|  4|  5|   |   |   |   |   |   |   |   |     18|
+| 7  | JUMLAH PASIEN KRS                      |  9| 10|  8| 11|   |   |   |   |   |   |   |   |     38|
+| 8  | JUMLAH PASIEN PINDAH RUANGAN           |  3|  2|  4|  3|   |   |   |   |   |   |   |   |     12|
+| 9  | JUMLAH PASIEN KRS (SEMUA KONDISI)      | 11| 12| 10| 13|   |   |   |   |   |   |   |   |     46|
+| 10 | JUMLAH PASIEN MASIH DALAM PERAWATAN    |  8|  9|  8| 10|   |   |   |   |   |   |   |   |     35|
+| 11 | JUMLAH HARI PERAWATAN                  |142|156|148|162|   |   |   |   |   |   |   |   |    608|
+| 12 | JUMLAH PASIEN KEMBALI < 72 JAM         |  2|  1|  2|  2|   |   |   |   |   |   |   |   |      7|
+| 13 | JUMLAH PASIEN PERAWATAN > 7 HARI       | 15| 16| 14| 17|   |   |   |   |   |   |   |   |     62|
+| 14 | JUMLAH PASIEN DCA / PTCA               |  6|  7|  6|  8|   |   |   |   |   |   |   |   |     27|
+| 15 | JUMLAH PASIEN TROMBOLITIK              |  4|  3|  5|  4|   |   |   |   |   |   |   |   |     16|
+| 16 | JUMLAH PASIEN TPM                      |  2|  2|  3|  2|   |   |   |   |   |   |   |   |      9|
+| 17 | JUMLAH PASIEN PPM                      |  1|  1|  2|  1|   |   |   |   |   |   |   |   |      5|
+| 18 | JUMLAH PASIEN PERIKARDIOSENTESIS       |  0|  1|  0|  1|   |   |   |   |   |   |   |   |      2|
+| 19 | JUMLAH PASIEN ABLASI                   |  5|  6|  5|  7|   |   |   |   |   |   |   |   |     23|
+| 1  | BOR (%)                                | 85| 82| 79| 88|   |   |   |   |   |   |   |   |     83|
+| 2  | ALOS                                   |4.2|4.5|4.1|4.4|   |   |   |   |   |   |   |   |       |
+| 3  | TOI                                    | 15| 14| 16| 13|   |   |   |   |   |   |   |   |     58|
+| 4  | BTO                                    | 42| 38| 41| 40|   |   |   |   |   |   |   |   |    161|
+| 5  | NDR                                    |2.1|1.8|2.4|2.0|   |   |   |   |   |   |   |   |       |
+| 6  | GDR                                    |4.5|4.2|4.8|4.4|   |   |   |   |   |   |   |   |       |
+| 1  | STEMI                                  | 14| 16| 13| 15|   |   |   |   |   |   |   |   |     58|
+| 2  | NSTEMI                                 |  9| 11| 10| 12|   |   |   |   |   |   |   |   |     42|
+| 3  | UAP                                    |  7|  8|  6|  9|   |   |   |   |   |   |   |   |     30|
+| 4  | SVT                                    |  4|  5|  4|  6|   |   |   |   |   |   |   |   |     19|
+| 5  | DC                                     |  6|  7|  6|  8|   |   |   |   |   |   |   |   |     27|
+| 6  | HT                                     | 18| 19| 17| 20|   |   |   |   |   |   |   |   |     74|
+| 7  | AV BLOCK                               |  3|  4|  3|  5|   |   |   |   |   |   |   |   |     15|
+| 8  | AF                                     | 11| 12| 10| 13|   |   |   |   |   |   |   |   |     46|
+| 9  | NON CARDIO                             | 22| 21| 23| 24|   |   |   |   |   |   |   |   |     90|

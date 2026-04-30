@@ -3735,9 +3735,7 @@ export default function TindakanTable({
                                   {id && pemakaianOrderByTindakanId[id] ? (
                                     <button
                                       type="button"
-                                      onMouseDown={(e) =>
-                                        e.preventDefault()
-                                      }
+                                      onMouseDown={(e) => e.preventDefault()}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setPemakaianModalRow(rec);
@@ -3753,9 +3751,7 @@ export default function TindakanTable({
                                   ) : (
                                     <button
                                       type="button"
-                                      onMouseDown={(e) =>
-                                        e.preventDefault()
-                                      }
+                                      onMouseDown={(e) => e.preventDefault()}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setPemakaianModalRow(rec);

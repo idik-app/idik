@@ -90,6 +90,8 @@ export type IntensiveMenuActionHandlers = {
   onRegisterIccu?: () => void;
   onHistoryPasien?: () => void;
   onOpenReports?: (type: "daily" | "weekly" | "monthly") => void;
+  /** Rekapitulasi ICCU — grafik wireframe / laporan bulanan unit. */
+  onIccuRekap?: () => void;
   onOpenActionsTable?: () => void;
 };
 
@@ -118,7 +120,13 @@ export function runIntensiveJarvisMenuAction(
     case "function":
       if (avLower === "add_patient") handlers.onAddPatient?.();
       else if (avLower === "actions_table") handlers.onOpenActionsTable?.();
-      else if (item.action_value?.startsWith("report_")) {
+      else if (
+        avLower === "laporan_iccu_rekap" ||
+        avLower === "iccu_rekap" ||
+        avLower === "rekap_iccu"
+      ) {
+        handlers.onIccuRekap?.();
+      } else if (item.action_value?.startsWith("report_")) {
         const type = item.action_value.split("_")[1] as
           | "daily"
           | "weekly"

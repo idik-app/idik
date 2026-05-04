@@ -17,6 +17,8 @@ export interface TindakanJoinResult {
   kv: number | null;
   ma: number | null;
   dap_gy_cm2: number | null;
+  /** Kolom klinis DAP (mGy·cm); dipakai bila DB tidak punya `dap_gy_cm2`. */
+  dap_dose?: number | null;
   status_duplikat: string | null;
 
   no_rm: string | null;

@@ -20,8 +20,8 @@ export const dynamic = "force-dynamic";
 const POSTGREST_SAFE_CHUNK = 1000;
 
 const PROJECTIONS_LIST = [
-  "id, tanggal, dokter, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, ruangan, pasien_id, created_at, inserted_at, updated_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, jenis_kelamin",
-  "id, tanggal, dokter, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, jenis_kelamin",
+  "id, tanggal, dokter, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, ruangan, pasien_id, created_at, inserted_at, updated_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, jenis_kelamin, fluoro_time, dose, kv, ma, waktu, total_kontras, air_kerma, dap_dose",
+  "id, tanggal, dokter, nama_pasien, no_rm, tindakan, kategori, status, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, jenis_kelamin, fluoro_time, dose, kv, ma, waktu, total_kontras, air_kerma, dap_dose",
 ];
 
 async function fetchTableOrderedInChunks(
@@ -121,6 +121,10 @@ function mapLegacyTindakanMedikRow(
 /** Cache working projection to avoid re-testing on every request */
 let workingProjectionCache: string | null = null;
 
+function projectionHasFastTrackClockFields(projection: string | null): boolean {
+  return Boolean(projection?.includes("fast_track_time_out"));
+}
+
 /** Daftar tindakan untuk dashboard (server-side service role, tahan RLS). */
 export async function GET(request: Request) {
   try {
@@ -154,6 +158,13 @@ export async function GET(request: Request) {
         "superadmin",
       ]);
       if (!auth.ok) return auth.response;
+    }
+
+    if (
+      workingProjectionCache &&
+      !projectionHasFastTrackClockFields(workingProjectionCache)
+    ) {
+      workingProjectionCache = null;
     }
 
     const projections = workingProjectionCache
@@ -201,6 +212,9 @@ export async function GET(request: Request) {
       "pasien_datang_igd",
       "door_to_balloon",
       "total_waktu_fast_track",
+      "fast_track_sign_in",
+      "fast_track_time_out",
+      "fast_track_sign_out",
       "pci_report_link",
       "pemakaian",
       "kelas_pembiayaan",
@@ -218,6 +232,15 @@ export async function GET(request: Request) {
       "tarif_tindakan",
       "umur",
       "jenis_kelamin",
+      "fluoro_time",
+      "dose",
+      "kv",
+      "ma",
+      "waktu",
+      "total_kontras",
+      "air_kerma",
+      "dap_dose",
+      "dap_gy_cm2",
     ]);
 
     for (const projection of projections) {
@@ -333,7 +356,9 @@ export async function GET(request: Request) {
             dbTarif !== "" &&
             Number.isFinite(Number(dbTarif))
           ) {
-            return withApiFields;
+            return enrichTindakanRowForApi(
+              withApiFields as Record<string, unknown>,
+            );
           }
 
           const tindakan = filteredRow.tindakan ?? filteredRow.jenis;
@@ -348,7 +373,9 @@ export async function GET(request: Request) {
             }
           }
 
-          return withApiFields;
+          return enrichTindakanRowForApi(
+            withApiFields as Record<string, unknown>,
+          );
         });
         lastError = null;
         break;

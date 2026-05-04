@@ -87,10 +87,6 @@ const TindakanLaporanPemakaianModal = dynamic(
     ),
   { ssr: false, loading: () => null },
 );
-const PemakaianAlkesModal = dynamic(
-  () => import(/* webpackPrefetch: true */ "./PemakaianAlkesModal"),
-  { ssr: false, loading: () => null },
-);
 const IntensiveDashboardView = dynamic(
   () => import("@/components/intensive/IntensiveDashboardView"),
   { ssr: false, loading: () => null },
@@ -105,6 +101,7 @@ import {
 import type { TindakanFilteredSummary } from "./TindakanSummary";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import KeteranganField from "./KeteranganField";
+import PemakaianAlkesModal from "./PemakaianAlkesModal";
 import RsPerujukField from "./RsPerujukField";
 import {
   displayNamaPasien,
@@ -558,6 +555,7 @@ type PriorTindakanEntry = {
   kv?: number | null;
   ma?: number | null;
   dap_gy_cm2?: number | null;
+  dap_dose?: number | null;
   total_kontras?: string | null;
   // Fast Track
   is_fast_track?: boolean | null;
@@ -660,7 +658,8 @@ function buildPriorTindakanListForRow(
       dose: row.dose,
       kv: row.kv,
       ma: row.ma,
-      dap_gy_cm2: row.dap_gy_cm2,
+      dap_gy_cm2: row.dap_gy_cm2 ?? row.dap_dose ?? null,
+      dap_dose: row.dap_dose ?? null,
       total_kontras: row.total_kontras,
       // Fast Track
       is_fast_track: row.is_fast_track,
@@ -4910,7 +4909,9 @@ export default function TindakanTable({
                                                           DAP
                                                         </span>
                                                         <span className="font-bold">
-                                                          {e.dap_gy_cm2 ?? "—"}
+                                                          {e.dap_gy_cm2 ??
+                                                            e.dap_dose ??
+                                                            "—"}
                                                         </span>
                                                       </div>
                                                       <div>

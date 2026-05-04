@@ -54,6 +54,7 @@ export function useTindakanBridgeAdapter() {
     error = null,
     reload,
     removeLocalById,
+    patchLocalRow,
     isSyncing = false,
   } = useTindakanData(serverFilters);
 
@@ -86,10 +87,13 @@ export function useTindakanBridgeAdapter() {
   const saveEditor = useCallback(
     async (id: string, updatedData: unknown) => {
       await updateOne(id, updatedData);
+      if (updatedData && typeof updatedData === "object") {
+        patchLocalRow(id, updatedData as Record<string, unknown>);
+      }
       bridge.emitEdited({ id, updatedData });
       await reload({ silent: true });
     },
-    [bridge, reload, updateOne],
+    [bridge, reload, updateOne, patchLocalRow],
   );
 
   const createRecord = useCallback(

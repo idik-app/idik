@@ -254,6 +254,7 @@ export default function TindakanDashboard() {
         }
         onClose={adapter.closeDetailDrawer}
         onRecordPatch={adapter.refresh}
+        patchTindakanFields={adapter.saveEditor}
       />
 
       <TindakanHariIniModal

@@ -17,7 +17,7 @@ export type RadiologiFieldKey =
   | "fluoro_time"
   /** Label drawer / wireframe; nilai dari kolom `dose`, simpan ke `dose`. */
   | "air_kerma"
-  /** Label drawer / wireframe; nilai dari kolom `dap_gy_cm2`, simpan ke `dap_gy_cm2`. */
+  /** Label drawer / wireframe; nilai kolom `dap_dose` (mGy·cm) — selaras migrasi klinis. */
   | "dap_dose"
   | "kv"
   | "ma"
@@ -38,7 +38,6 @@ const FIELD_KIND: Record<
 /** Kunci body PATCH — selaras `getWireframeFieldValue` / kolom tindakan. */
 function patchBodyKey(field: RadiologiFieldKey): string {
   if (field === "air_kerma") return "dose";
-  if (field === "dap_dose") return "dap_gy_cm2";
   return field;
 }
 

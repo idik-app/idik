@@ -32,6 +32,7 @@ export function useTindakanData(params?: {
 
   const [tindakanList, setTindakanList] = useState<any[]>([]);
   const lastRealtimeReloadAtRef = useRef(0);
+  const lastTindakanRealtimeReloadAtRef = useRef(0);
 
   // Sync SWR data to local state for easier use with removeLocalById
   useEffect(() => {
@@ -56,11 +57,27 @@ export function useTindakanData(params?: {
     );
   }, []);
 
+  /** Gabungkan PATCH ke baris lokal agar UI (mis. kolom Time out) langsung ikut tanpa tunggu SWR. */
+  const patchLocalRow = useCallback(
+    (id: string, updates: Record<string, unknown>) => {
+      const idStr = String(id ?? "").trim();
+      if (!idStr || !updates || typeof updates !== "object") return;
+      setTindakanList((prev) =>
+        Array.isArray(prev)
+          ? prev.map((r) =>
+              String(r?.id ?? "").trim() === idStr ? { ...r, ...updates } : r,
+            )
+          : prev,
+      );
+    },
+    [],
+  );
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const ch = supabase
-      .channel("pasien-master-changes-for-tindakan")
+      .channel("tindakan-list-sync")
       .on(
         "postgres_changes",
         {
@@ -80,7 +97,21 @@ export function useTindakanData(params?: {
             if (document.hidden) return;
             void mutate();
           }, 2000);
-        }
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tindakan" },
+        () => {
+          const now = Date.now();
+          if (now - lastTindakanRealtimeReloadAtRef.current < 8000) return;
+          lastTindakanRealtimeReloadAtRef.current = now;
+          if (document.hidden) return;
+          window.setTimeout(() => {
+            if (document.hidden) return;
+            void mutate();
+          }, 1200);
+        },
       )
       .subscribe();
 
@@ -99,6 +130,7 @@ export function useTindakanData(params?: {
     error,
     reload,
     removeLocalById,
+    patchLocalRow,
     isSyncing: isValidating,
   };
 }

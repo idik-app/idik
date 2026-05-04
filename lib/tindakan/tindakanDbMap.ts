@@ -23,12 +23,22 @@ export function enrichTindakanRowForApi(
   row: Record<string, unknown>,
 ): Record<string, unknown> {
   const noRm = coalesceNoRm(row) ?? toText(row.no_rm);
+  /** UI/detail lama membaca `dap_gy_cm2`; banyak DB hanya punya `dap_dose`. */
+  const dapGy = row.dap_gy_cm2;
+  const dapLegacy = row.dap_dose;
+  const dapMerged =
+    dapGy !== null &&
+    dapGy !== undefined &&
+    String(dapGy).trim() !== ""
+      ? dapGy
+      : dapLegacy ?? null;
   return {
     ...row,
     nama_pasien: toText(row.nama_pasien) ?? toText(row.nama),
     no_rm: noRm ?? row.no_rm ?? null,
     ruangan: row.ruangan ?? null,
     created_at: row.created_at ?? row.inserted_at ?? null,
+    dap_gy_cm2: dapMerged,
   };
 }
 
@@ -199,7 +209,14 @@ export function mapTindakanRowToApiDetail(data: Record<string, unknown>) {
     selisih: toFiniteNumberOrNull(data.selisih),
     consumable: toFiniteNumberOrNull(data.consumable),
     air_kerma: toFiniteNumberOrNull(data.air_kerma),
-    dap_dose: toFiniteNumberOrNull(data.dap_dose),
+    /** Gabungan: instalasi dengan `dap_gy_cm2` saja vs `dap_dose` saja. */
+    dap_dose: toFiniteNumberOrNull(data.dap_dose ?? data.dap_gy_cm2),
+    fluoro_time: toFiniteNumberOrNull(data.fluoro_time),
+    dose: toFiniteNumberOrNull(data.dose),
+    kv: toFiniteNumberOrNull(data.kv),
+    ma: toFiniteNumberOrNull(data.ma),
+    waktu: toText(data.waktu),
+    dap_gy_cm2: toFiniteNumberOrNull(data.dap_gy_cm2 ?? data.dap_dose),
     pemakaian: toText(data.pemakaian),
     asmed: toText(data.asmed),
     resume_erm: toText(data.resume_erm),

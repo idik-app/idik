@@ -41,10 +41,24 @@ const FarmasiPlaceholder = dynamic(
   () => import(/* webpackPrefetch: true */ "@/components/farmasi/FarmasiModulePlaceholder")
 );
 const TindakanPage = dynamic(
-  () => import(/* webpackPrefetch: true */ "@/app/dashboard/layanan/tindakan/page")
+  () => import(/* webpackPrefetch: true */ "@/app/dashboard/layanan/tindakan/page"),
+  {
+    loading: () => (
+      <div className="flex min-h-[12rem] items-center justify-center text-sm text-cyan-400/90 dark:text-white">
+        Memuat modul Tindakan…
+      </div>
+    ),
+  },
 );
 const MasterTindakanPage = dynamic(
-  () => import(/* webpackPrefetch: true */ "@/app/dashboard/layanan/master-tindakan/page")
+  () => import(/* webpackPrefetch: true */ "@/app/dashboard/layanan/master-tindakan/page"),
+  {
+    loading: () => (
+      <div className="flex min-h-[12rem] items-center justify-center text-sm text-cyan-400/90 dark:text-white">
+        Memuat master tindakan…
+      </div>
+    ),
+  },
 );
 const LaporanPage = dynamic(() => import(/* webpackPrefetch: true */ "@/app/dashboard/laporan/page"));
 const MonitoringPage = dynamic(

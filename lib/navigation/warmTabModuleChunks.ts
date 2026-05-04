@@ -14,7 +14,7 @@ const CRITICAL_PARALLEL: readonly TabModuleLoader[] = [
 ];
 
 const REST_SEQUENTIAL: readonly TabModuleLoader[] = [
-  () => import("@/app/dashboard/layanan/tindakan/components/PemakaianAlkesModal"),
+  // No separate import() for PemakaianAlkesModal — TindakanTable already pulls it in; extra entry caused stale chunk errors in dev.
   () => import("@/app/dashboard/pemakaian/page"),
   () => import("@/app/dashboard/inventaris/page"),
   () => import("@/app/dashboard/farmasi/master-barang/page"),

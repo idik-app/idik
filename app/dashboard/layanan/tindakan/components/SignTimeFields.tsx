@@ -247,6 +247,11 @@ type Props = {
   timeOutValue: unknown;
   signOutValue: unknown;
   onSaved?: () => void;
+  /**
+   * Jika diset (mis. `saveEditor` dari bridge), PATCH + optimistic list sama seperti sel edit tabel.
+   * Jika tidak diset, komponen memanggil `/api/tindakan/:id` lokal + `onSaved`.
+   */
+  patchExecutor?: (body: Record<string, unknown>) => Promise<void>;
 };
 
 /** Sign in / Time out / Sign out (jam saja) — untuk tab Tindakan. */
@@ -256,10 +261,15 @@ export default function SignTimeFields({
   timeOutValue,
   signOutValue,
   onSaved,
+  patchExecutor,
 }: Props) {
   const canEdit = Boolean(tindakanId);
 
   const patchJson = async (body: Record<string, unknown>) => {
+    if (patchExecutor) {
+      await patchExecutor(body);
+      return;
+    }
     const res = await fetch(`/api/tindakan/${encodeURIComponent(tindakanId)}`, {
       method: "PATCH",
       credentials: "include",

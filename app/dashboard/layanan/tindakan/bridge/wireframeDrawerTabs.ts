@@ -217,7 +217,6 @@ export const FIELD_LABELS: Record<string, string> = {
 const WIREFRAME_FIELD_SOURCE: Partial<Record<string, string>> = {
   tanggal_tindakan: "tanggal",
   air_kerma: "dose",
-  dap_dose: "dap_gy_cm2",
 };
 
 export function getWireframeFieldValue(

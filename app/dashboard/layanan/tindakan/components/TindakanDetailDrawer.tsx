@@ -78,6 +78,14 @@ type Props = {
   onClose: () => void;
   /** Setelah kolom kasus di-patch dari drawer (mis. kategori), muat ulang daftar. */
   onRecordPatch?: () => void;
+  /**
+   * Simpan field tindakan lewat bridge (optimistic row + revalidate) — dipakai Sign in / Time out / Sign out
+   * agar kolom Time out di tabel langsung ikut.
+   */
+  patchTindakanFields?: (
+    id: string,
+    body: Record<string, unknown>,
+  ) => Promise<void>;
 };
 
 function isSamePatientTindakan(
@@ -416,6 +424,7 @@ function TindakanDetailDrawer({
   allTindakanRows = [],
   onClose,
   onRecordPatch,
+  patchTindakanFields,
 }: Props) {
   const [tab, setTab] = useState<WireframeTabId>("pasien");
   const lastIdRef = useRef<string | null>(null);
@@ -1595,7 +1604,20 @@ function TindakanDetailDrawer({
                                     >,
                                     "fast_track_sign_out",
                                   )}
-                                  onSaved={onRecordPatch}
+                                  patchExecutor={
+                                    patchTindakanFields
+                                      ? (body) =>
+                                          patchTindakanFields(
+                                            String(displayRecord.id ?? ""),
+                                            body,
+                                          )
+                                      : undefined
+                                  }
+                                  onSaved={
+                                    patchTindakanFields
+                                      ? undefined
+                                      : onRecordPatch
+                                  }
                                 />
                               </div>
                             ) : null}

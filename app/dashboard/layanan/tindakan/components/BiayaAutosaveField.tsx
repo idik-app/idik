@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const DEBOUNCE_MS = 550;
@@ -22,15 +23,19 @@ function stripLeadingRp(raw: string): string {
   return raw.trim().replace(/^rp\.?\s*/i, "").trim();
 }
 
+/** Format angka ke ribuan (14000000 -> 14.000.000) */
+function formatRibuan(val: string): string {
+  const numeric = val.replace(/\D/g, "");
+  if (!numeric) return "";
+  return Number(numeric).toLocaleString("id-ID");
+}
+
 function draftFromValue(field: BiayaAutosaveFieldKey, value: unknown): string {
   if (value === null || value === undefined || value === "") return "";
   if (field === "total" || field === "krs" || field === "consumable") {
-    if (typeof value === "number" && Number.isFinite(value)) return String(value);
-    const p = parseNumeric(String(value));
-    if (p.ok && p.v != null) return String(p.v);
-    return stripLeadingRp(String(value))
-      .replace(/\s/g, "")
-      .replace(/\./g, "");
+    const n = typeof value === "number" ? value : Number(String(value).replace(/\D/g, ""));
+    if (Number.isFinite(n)) return n.toLocaleString("id-ID");
+    return String(value);
   }
   return String(value);
 }
@@ -111,10 +116,7 @@ export default function BiayaAutosaveField({
   useEffect(() => {
     if (inputFocusedRef.current) return;
     const next = draftFromValue(field, value);
-    setDraft((prev) => {
-      if (next === "" && prev.trim() !== "") return prev;
-      return next;
-    });
+    setDraft(next);
   }, [value, field, tindakanId]);
 
   // Auto-sync untuk field pemakaian jika masih kosong
@@ -177,13 +179,15 @@ export default function BiayaAutosaveField({
     let payloadVal: unknown;
 
     if (NUMERIC.has(field)) {
-      const p = parseNumeric(draftNow);
-      if (!p.ok) return;
-      payloadVal = p.v;
-      if (numericEqual(p.v, valueAsNumber(value))) return;
+      const numericString = draftNow.replace(/\D/g, "");
+      const n = numericString === "" ? null : Number(numericString);
+      payloadVal = n;
+      
+      const currentVal = valueAsNumber(valueRef.current);
+      if (numericEqual(n, currentVal)) return;
     } else {
       payloadVal = normalizeTextPayload(draftNow);
-      if (textEqualServer(draftNow, value)) return;
+      if (textEqualServer(draftNow, valueRef.current)) return;
     }
 
     try {
@@ -264,11 +268,15 @@ export default function BiayaAutosaveField({
       blurTimerRef.current = null;
       inputFocusedRef.current = false;
       const next = draftFromValue(field, valueRef.current);
-      setDraft((prev) => {
-        if (next === "" && prev.trim() !== "") return prev;
-        return next;
-      });
+      setDraft(next);
     }, 800);
+  };
+
+  const handleClear = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDraft("");
+    void persist("");
   };
 
   if (field === "pemakaian") {
@@ -325,12 +333,23 @@ export default function BiayaAutosaveField({
           aria-label={`${aria} (angka)`}
           onFocus={handleFocus}
           onChange={(e) => {
-            const v = e.target.value;
-            setDraft(v);
-            schedulePersist(v);
+            const raw = e.target.value;
+            const formatted = formatRibuan(raw);
+            setDraft(formatted);
+            schedulePersist(raw.replace(/\D/g, ""));
           }}
           onBlur={handleBlur}
         />
+        {draft && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="shrink-0 rounded-full p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
+            title="Hapus"
+          >
+            <X size={14} />
+          </button>
+        )}
       </div>
     );
   }

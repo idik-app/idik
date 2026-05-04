@@ -239,7 +239,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
   }, [phase, reducedMotion, isMobile]);
 
   useEffect(() => {
-    ambientRef.current = new Audio("/sfx/ambient-soft.mp3");
+    ambientRef.current = new Audio("/sfx/ambient-sot.mp3");
     heartbeatRef.current = new Audio("/sfx/heartbeat-soft.mp3");
     const ambient = ambientRef.current;
     const heartbeat = heartbeatRef.current;
@@ -288,9 +288,9 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
      🔐 Login Event Handler
   --------------------------------------------------------- */
   const handleOpenLogin = useCallback(() => {
-    playSfx("/sfx/click.mp3", 1);
+    // playSfx("/sfx/click.mp3", 1);
     setPhase("login");
-  }, [playSfx]);
+  }, []);
 
   /* Enter di halaman root = buka form login (sama seperti klik tombol) */
   useEffect(() => {
@@ -307,7 +307,7 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
 
   const handleLoginFinish = useCallback((target?: string) => {
     const url = target || "/dashboard";
-    playSfx("/sfx/confirm.mp3", 1);
+    // playSfx("/sfx/confirm.mp3", 1);
 
     if (reducedMotion) {
       router.replace(url);
@@ -328,15 +328,15 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
       pendingLoginUrlRef.current = null;
       router.replace(next);
     }, 920);
-  }, [playSfx, reducedMotion, router]);
+  }, [reducedMotion, router]);
 
   const handleLoginError = useCallback(() => {
-    playSfx("/sfx/denied.mp3", 1);
+    // playSfx("/sfx/denied.mp3", 1);
     setPhase("accessDenied");
     deniedTimeoutRef.current = setTimeout(() => {
       setPhase("login");
     }, 2000);
-  }, [playSfx]);
+  }, []);
 
   useEffect(() => {
     return () => {

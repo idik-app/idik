@@ -40,7 +40,7 @@ function normalizeUnitSlug(slug: unknown): string | null {
  */
 export function getRedirectTargetForRole(
   role: unknown,
-  opts?: { ruanganSlug?: string | null }
+  opts?: { ruanganSlug?: string | null },
 ): string {
   const r = normalizeRole(role);
   const slug = normalizeUnitSlug(opts?.ruanganSlug ?? null);
@@ -58,7 +58,7 @@ export function getRedirectTargetForRole(
     cathlab: "/idik/dashboard",
     it: "/system",
     radiografer: "/dashboard/layanan/hasil",
-    casemix: "/dashboard/laporan",
+    casemix: "/casemix/dashboard",
     distributor: "/distributor/dashboard",
     vendor: "/distributor/dashboard", // legacy (pre-migration)
     depo_farmasi: "/depo/dashboard",
@@ -72,4 +72,3 @@ export function getRedirectTargetForRole(
 
   return routeMap[r] || "/dashboard";
 }
-

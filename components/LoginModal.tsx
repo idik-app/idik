@@ -150,9 +150,9 @@ export default function LoginModal({
   );
 
   const playErrorSound = () => {
-    const errorSound = new Audio("/sfx/error.mp3");
-    errorSound.volume = 0.4;
-    errorSound.play().catch(() => {});
+    // const errorSound = new Audio("/sfx/error.mp3");
+    // errorSound.volume = 0.4;
+    // errorSound.play().catch(() => {});
   };
 
   const triggerShake = () => {
@@ -209,9 +209,9 @@ export default function LoginModal({
       }
 
       if (res.ok && data.ok) {
-        const confirmSound = new Audio("/sfx/confirm.mp3");
-        confirmSound.volume = 0.3;
-        confirmSound.play().catch(() => {});
+        // const confirmSound = new Audio("/sfx/confirm.mp3");
+        // confirmSound.volume = 0.3;
+        // confirmSound.play().catch(() => {});
 
         const target = typeof data.target === "string" ? data.target : undefined;
         /* Jangan panggil onClose() di sini: onClose di parent meng-set phase "intro"

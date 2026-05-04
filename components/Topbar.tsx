@@ -208,9 +208,9 @@ export default function Topbar({
     }
 
     // efek JARVIS
-    const audio = new Audio("/sfx/shutdown.mp3");
-    audio.volume = 0.4;
-    audio.play().catch(() => {});
+    // const audio = new Audio("/sfx/shutdown.mp3");
+    // audio.volume = 0.4;
+    // audio.play().catch(() => {});
     navigator.vibrate?.([40, 60, 40]);
 
     localStorage.removeItem("idik_user");

@@ -65,7 +65,7 @@ function TindakanHeader({
             Beranda Perawat
           </Link>
           
-          <div className="md:hidden flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5">
             {onToggleCollapse && (
               <button
                 onClick={onToggleCollapse}
@@ -78,7 +78,8 @@ function TindakanHeader({
                 title={isCollapsed ? "Tampilkan statistik & info" : "Sembunyikan statistik & info"}
               >
                 <BarChart2 size={12} className={cn(!isCollapsed && "animate-pulse")} />
-                <span>{isCollapsed ? "Info" : "Tutup"}</span>
+                <span className="hidden sm:inline">{isCollapsed ? "Tampilkan KPI" : "Sembunyikan KPI"}</span>
+                <span className="sm:hidden">{isCollapsed ? "Info" : "Tutup"}</span>
                 {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
               </button>
             )}
@@ -95,7 +96,8 @@ function TindakanHeader({
                 title={isFilterCollapsed ? "Tampilkan filter pencarian" : "Sembunyikan filter pencarian"}
               >
                 <Sparkles size={12} className={cn(!isFilterCollapsed && "animate-pulse")} />
-                <span>{isFilterCollapsed ? "Filter" : "Tutup"}</span>
+                <span className="hidden sm:inline">{isFilterCollapsed ? "Tampilkan Filter" : "Sembunyikan Filter"}</span>
+                <span className="sm:hidden">{isFilterCollapsed ? "Filter" : "Tutup"}</span>
                 {isFilterCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
               </button>
             )}

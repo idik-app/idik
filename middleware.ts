@@ -102,13 +102,16 @@ export async function middleware(req: NextRequest) {
     const potentialRoom = pathSegments[0];
     
     // Daftar reserved paths yang bukan merupakan ID Unit
-    const RESERVED_PATHS = ["api", "dashboard", "system", "distributor", "depo", "unauthorized", "login", "auth"];
+    const RESERVED_PATHS = ["api", "dashboard", "system", "distributor", "depo", "unauthorized", "login", "auth", "casemix"];
     
     if (potentialRoom && !RESERVED_PATHS.includes(potentialRoom)) {
       // Rute unit dinamis: /iccu/dashboard, /idik/..., dll.
       // Selaraskan dengan `getRedirectTargetForRole` + `requireUnitAccess` (staff, radiografer, …).
       if (!UNIT_DYNAMIC_PATH_ALLOWED_ROLES.has(role)) {
-        return applySecurityHeaders(redirectToUnauthorized(req));
+        // Khusus API tindakan, allow casemix tanpa unit slug
+        if (!(isApi && pathname.startsWith("/api/tindakan") && role === "casemix")) {
+          return applySecurityHeaders(redirectToUnauthorized(req));
+        }
       }
 
       res.headers.set("x-unit-slug", potentialRoom);
@@ -148,6 +151,11 @@ export async function middleware(req: NextRequest) {
 
     // Admin-only Dashboard
     if (pathname.startsWith("/dashboard/admin") && !ADMIN_ROLES.includes(role)) {
+      return applySecurityHeaders(redirectToUnauthorized(req));
+    }
+
+    // Casemix-only Dashboard
+    if (pathname.startsWith("/casemix") && !["casemix", "perawat", ...ADMIN_ROLES].includes(role)) {
       return applySecurityHeaders(redirectToUnauthorized(req));
     }
 

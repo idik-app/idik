@@ -168,7 +168,13 @@ export default function KlinisAutosaveField({
     // Jika teks yang diinput sangat panjang (kemungkinan paste laporan), jalankan ekstraksi otomatis
     if (payloadVal && payloadVal.length > 100) {
       const extracted = extractDataFromText(payloadVal);
+      // Hanya masukkan kategori jika belum ada di extraData (hasil fetch-doc)
+      if (extracted.kategori && !patchData.kategori) {
+        // patchData.kategori = extracted.kategori;
+      }
       Object.assign(patchData, extracted as any);
+      // Hapus kategori agar tidak menimpa data yang sudah ada di UI (Kelompok Kasus)
+      delete patchData.kategori;
     }
 
     try {

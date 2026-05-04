@@ -74,7 +74,10 @@ export const extractDataFromText = (text: string): ExtractedReportData => {
     upper.includes("TRIPLE VESSEL") ||
     upper.includes("TVD") ||
     upper.includes("3VD") ||
-    upper.includes("ROTA")
+    upper.includes("ROTA") ||
+    upper.includes("PCI") ||
+    upper.includes("STENT") ||
+    upper.includes("PTCA")
   ) {
     data.kategori = "PCI";
   } else if (upper.includes("PACEMAKER") || upper.includes("PPM")) {

@@ -852,18 +852,7 @@ function TindakanDetailDrawer({
                               </dd>
                             </div>
                             <div>
-                              <dt className="text-[10px] font-medium uppercase tracking-[0.1em] text-slate-500/95">
-                                Kelompok Kasus (Grup)
-                              </dt>
-                              <dd className="mt-1">
-                                <span
-                                  className={cn(
-                                    "inline-flex items-center rounded-lg border border-indigo-200/60 bg-indigo-50/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-950/90",
-                                  )}
-                                >
-                                  {displayRecord.kategori || "—"}
-                                </span>
-                              </dd>
+                              {/* Kelompok Kasus (Grup) dikosongkan agar tidak mengisi otomatis */}
                             </div>
                           </div>
                           {displayRecord.kesimpulan_laporan && (

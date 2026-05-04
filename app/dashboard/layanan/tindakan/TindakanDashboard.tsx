@@ -41,13 +41,15 @@ export default function TindakanDashboard() {
   const adapter = useTindakanBridgeAdapter();
   const { isMobile } = useUI();
 
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(true);
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
 
-  // Auto-collapse on mobile on mount/resize, expand on desktop
+  // Auto-collapse on mobile on mount/resize
   useEffect(() => {
-    setIsHeaderCollapsed(isMobile);
-    setIsFilterCollapsed(isMobile);
+    if (isMobile) {
+      setIsHeaderCollapsed(true);
+      setIsFilterCollapsed(true);
+    }
   }, [isMobile]);
 
   const tableRef = useRef<HTMLDivElement | null>(null);
@@ -227,6 +229,7 @@ export default function TindakanDashboard() {
             UI_LAYERS.fab,
             "bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-500/25",
             "dark:bg-cyan-500 dark:hover:bg-cyan-400 dark:shadow-cyan-900/40",
+            "opacity-40 hover:opacity-100", // Transparan saat tidak disentuh
           )}
           title="Direktori Telepon Internal"
         >

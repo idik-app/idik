@@ -61,12 +61,12 @@ const PATCHABLE_TINDAKAN_KEYS = new Set([
   "berkas_laporan",
   "consumable_kelengkapan",
   "billing_simrs",
-      "pj_laporan",
-      "operan_ranap",
-      "rs_perujuk",
-      "keterangan",
-      "kelas_pembiayaan",
-    ]);
+  "pj_laporan",
+  "operan_ranap",
+  "rs_perujuk",
+  "keterangan",
+  "kelas_pembiayaan",
+]);
 
 function sanitizeTindakanPatch(body: unknown): Record<string, unknown> {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -82,7 +82,9 @@ function sanitizeTindakanPatch(body: unknown): Record<string, unknown> {
 }
 
 /** PostgREST: kolom belum ada di tabel / cache skema (instalasi lama / migrasi belum jalan). */
-function extractMissingColumnFromSchemaCacheError(message: string): string | null {
+function extractMissingColumnFromSchemaCacheError(
+  message: string,
+): string | null {
   const m = String(message ?? "").match(/could not find the '([^']+)' column/i);
   return m?.[1]?.trim() || null;
 }
@@ -92,7 +94,13 @@ function extractMissingColumnFromSchemaCacheError(message: string): string | nul
  */
 export async function GET(_req: Request, ctx: Params) {
   const { requireRole } = await import("@/lib/auth/guards");
-  const auth = await requireRole(["perawat", "admin", "administrator", "superadmin"]);
+  const auth = await requireRole([
+    "perawat",
+    "admin",
+    "administrator",
+    "superadmin",
+    "casemix",
+  ]);
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
@@ -104,11 +112,13 @@ export async function GET(_req: Request, ctx: Params) {
     );
   }
 
-  const [{ createAdminClient }, masterTarif, tindakanDbMap] = await Promise.all([
-    import("@/lib/supabase/admin"),
-    import("@/lib/tindakan/masterTarifTindakan"),
-    import("@/lib/tindakan/tindakanDbMap"),
-  ]);
+  const [{ createAdminClient }, masterTarif, tindakanDbMap] = await Promise.all(
+    [
+      import("@/lib/supabase/admin"),
+      import("@/lib/tindakan/masterTarifTindakan"),
+      import("@/lib/tindakan/tindakanDbMap"),
+    ],
+  );
 
   let supabase: ReturnType<typeof createAdminClient>;
   try {
@@ -159,7 +169,13 @@ export async function GET(_req: Request, ctx: Params) {
  */
 export async function PATCH(req: Request, ctx: Params) {
   const { requireRole } = await import("@/lib/auth/guards");
-  const auth = await requireRole(["perawat", "admin", "administrator", "superadmin"]);
+  const auth = await requireRole([
+    "perawat",
+    "admin",
+    "administrator",
+    "superadmin",
+    "casemix",
+  ]);
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;
@@ -181,11 +197,13 @@ export async function PATCH(req: Request, ctx: Params) {
     );
   }
 
-  const [{ createAdminClient }, masterTarif, tindakanDbMap] = await Promise.all([
-    import("@/lib/supabase/admin"),
-    import("@/lib/tindakan/masterTarifTindakan"),
-    import("@/lib/tindakan/tindakanDbMap"),
-  ]);
+  const [{ createAdminClient }, masterTarif, tindakanDbMap] = await Promise.all(
+    [
+      import("@/lib/supabase/admin"),
+      import("@/lib/tindakan/masterTarifTindakan"),
+      import("@/lib/tindakan/tindakanDbMap"),
+    ],
+  );
 
   const sanitized = sanitizeTindakanPatch(body);
   const patch = tindakanDbMap.finalizeTindakanPatchForSupabase(sanitized);
@@ -229,7 +247,8 @@ export async function PATCH(req: Request, ctx: Params) {
         {
           ok: false,
           message:
-            (lastMsg || "Tidak ada kolom yang bisa diperbarui untuk skema tindakan ini.") +
+            (lastMsg ||
+              "Tidak ada kolom yang bisa diperbarui untuk skema tindakan ini.") +
             hint,
         },
         { status: 500 },
@@ -278,7 +297,9 @@ export async function PATCH(req: Request, ctx: Params) {
   );
 }
 
-function isMissingRelationOrTableError(err: { message?: string } | null): boolean {
+function isMissingRelationOrTableError(
+  err: { message?: string } | null,
+): boolean {
   const msg = String(err?.message ?? "").toLowerCase();
   return (
     msg.includes("does not exist") ||
@@ -294,7 +315,13 @@ function isMissingRelationOrTableError(err: { message?: string } | null): boolea
  */
 export async function DELETE(_req: Request, ctx: Params) {
   const { requireRole } = await import("@/lib/auth/guards");
-  const auth = await requireRole(["perawat", "admin", "administrator", "superadmin"]);
+  const auth = await requireRole([
+    "perawat",
+    "admin",
+    "administrator",
+    "superadmin",
+    "casemix",
+  ]);
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;

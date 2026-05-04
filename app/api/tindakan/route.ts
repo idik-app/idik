@@ -156,6 +156,7 @@ export async function GET(request: Request) {
         "admin",
         "administrator",
         "superadmin",
+        "casemix",
       ]);
       if (!auth.ok) return auth.response;
     }
@@ -230,6 +231,7 @@ export async function GET(request: Request) {
       "keterangan",
       "diagnosa",
       "tarif_tindakan",
+      "total",
       "umur",
       "jenis_kelamin",
       "fluoro_time",

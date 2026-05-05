@@ -21,6 +21,7 @@ export type PasienOption = {
   kelas?: string | null;
   tgl_lahir?: string | null;
   umur?: number | null;
+  diagnosa?: string | null;
 };
 
 export function formatPasienLabel(

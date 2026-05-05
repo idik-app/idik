@@ -11,6 +11,7 @@ import { UI_LAYERS } from "@/lib/ui/layers";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import type { PasienOption } from "@/components/ui/pasien-combobox";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
+import type { WireframeTabId } from "../bridge/wireframeDrawerTabs";
 import ReportExportActionBar from "./ReportExportActionBar";
 import {
   aggregateMonthlyCaraBayar,
@@ -41,9 +42,21 @@ import {
 
 // --- Components ---
 
-/** Tampilan tabel mini (read-only) untuk tab Analisis Gabungan */
-const AnalisisTable = React.memo(({ rows }: { rows: readonly TindakanJoinResult[] }) => {
-  return (
+/** Tampilan tabel mini untuk tab Analisis Gabungan — baris bisa diklik untuk buka drawer detail. */
+const AnalisisTable = React.memo(
+  ({
+    rows,
+    onOpenDetail,
+  }: {
+    rows: readonly TindakanJoinResult[];
+    /** Tab awal drawer (default `klinis` agar diagnosa/autosave klinis langsung aktif). */
+    onOpenDetail?: (
+      row: TindakanJoinResult,
+      initialTab?: WireframeTabId,
+    ) => void;
+  }) => {
+    const openable = Boolean(onOpenDetail);
+    return (
     <div className="flex flex-col">
       <table className="w-full border-collapse text-[11px]">
         <thead className="sticky top-0 z-[2] bg-slate-100 dark:bg-zinc-900">
@@ -58,7 +71,17 @@ const AnalisisTable = React.memo(({ rows }: { rows: readonly TindakanJoinResult[
         <tbody>
           {rows.length > 0 ? (
             rows.map((r, idx) => (
-              <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-white/5">
+              <tr
+                key={r.id ? String(r.id) : idx}
+                className={cn(
+                  "hover:bg-slate-50 dark:hover:bg-white/5",
+                  openable && r.id && "cursor-pointer",
+                )}
+                onClick={() => {
+                  if (!onOpenDetail || !r.id) return;
+                  onOpenDetail(r, "klinis");
+                }}
+              >
                 <td className="border border-slate-300/70 px-2 py-1 dark:border-white/10">
                   <div className="text-[10px] font-medium text-slate-500 dark:text-white/40">
                     {r.tanggal ? new Intl.DateTimeFormat("id-ID", { weekday: 'long' }).format(new Date(r.tanggal)) : "-"}
@@ -146,8 +169,9 @@ const AnalisisTable = React.memo(({ rows }: { rows: readonly TindakanJoinResult[
         </tbody>
       </table>
     </div>
-  );
-});
+    );
+  },
+);
 AnalisisTable.displayName = "AnalisisTable";
 
 const TableRow = React.memo(
@@ -354,6 +378,7 @@ export default function TindakanLaporanModal({
   loading,
   filterSummaryLines,
   pasienOptions = [],
+  onOpenDetail,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -362,6 +387,11 @@ export default function TindakanLaporanModal({
   filterSummaryLines: readonly string[];
   /** Master pasien (compact) — laporan cara bayar memakai jenis + kelas dari sini bila baris terhubung. */
   pasienOptions?: readonly PasienOption[];
+  /** Buka drawer detail tindakan dari tabel Analisis (tab Klinis untuk isian diagnosa/dll). */
+  onOpenDetail?: (
+    row: TindakanJoinResult,
+    initialTab?: WireframeTabId,
+  ) => void;
 }) {
   const [tab, setTab] = useState<ReportTab>("jenis");
   const [monthYyyyMm, setMonthYyyyMm] = useState(currentMonthWibYyyyMm);
@@ -991,7 +1021,10 @@ export default function TindakanLaporanModal({
                     </div>
                   </div>
                 )}
-                <AnalisisTable rows={paginatedAnalisisRows} />
+                <AnalisisTable
+                  rows={paginatedAnalisisRows}
+                  onOpenDetail={onOpenDetail}
+                />
                 
                 {totalAnalisisPages > 1 && (
                   <div className="flex items-center justify-between border-t border-slate-200/60 p-2 dark:border-white/5">

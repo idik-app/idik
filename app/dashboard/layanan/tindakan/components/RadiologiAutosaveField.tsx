@@ -112,6 +112,11 @@ export default function RadiologiAutosaveField({
   const [draft, setDraft] = useState(() => draftFromValue(field, value));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
+  /** Sinkron untuk persist — instance tidak selalu di-remount saat ganti pasien/kasus di drawer */
+  const tindakanIdRef = useRef(tindakanId);
+  tindakanIdRef.current = tindakanId;
+  const fieldRef = useRef(field);
+  fieldRef.current = field;
   /** Saat true, jangan timpa draft dari props — hindari race refresh (field lain / data stale). */
   const inputFocusedRef = useRef(false);
   const blurUnfocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -133,6 +138,14 @@ export default function RadiologiAutosaveField({
     }
   }, [tindakanId]);
 
+  /** Ganti kasus → batalkan PATCH tertunda ke baris salah (drawer pakai reuse instance). */
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+  }, [tindakanId, field]);
+
   useEffect(() => {
     if (inputFocusedRef.current) return;
     const next = draftFromValue(field, value);
@@ -147,40 +160,51 @@ export default function RadiologiAutosaveField({
     () => () => {
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
-        void persist(draftRef.current);
+        debounceRef.current = null;
       }
-      if (blurUnfocusTimerRef.current) clearTimeout(blurUnfocusTimerRef.current);
+      if (blurUnfocusTimerRef.current)
+        clearTimeout(blurUnfocusTimerRef.current);
     },
     [],
   );
 
-  const persist = async (draftNow: string) => {
-    const kind = FIELD_KIND[field];
+  const persist = async (
+    draftNow: string,
+    snapshot?: { targetId: string; valueSnapshot: unknown; fieldSnap: RadiologiFieldKey },
+  ) => {
+    const targetId = String(
+      snapshot?.targetId ?? tindakanIdRef.current ?? "",
+    ).trim();
+    const fieldNow = snapshot?.fieldSnap ?? fieldRef.current;
+    const valBaseline = snapshot?.valueSnapshot ?? valueRef.current;
+    const kind = FIELD_KIND[fieldNow];
+    if (!targetId) return;
+
     let payloadVal: unknown;
 
-    if (field === "fluoro_time") {
+    if (fieldNow === "fluoro_time") {
       const p = parseFluoroHmsToSeconds(draftNow);
       if (!p.ok) return;
       payloadVal = p.seconds;
-      if (fluoroEqual(value, p.seconds)) return;
-    } else if (field === "waktu") {
-      if (waktuDisplayEquals(value, draftNow)) return;
+      if (fluoroEqual(valBaseline, p.seconds)) return;
+    } else if (fieldNow === "waktu") {
+      if (waktuDisplayEquals(valBaseline, draftNow)) return;
       payloadVal = formatWaktuForApi(draftNow);
     } else if (kind === "numeric") {
       const p = parseNumericLocal(draftNow);
       if (!p.ok) return;
       payloadVal = p.v;
-      if (numericEqual(p.v, valueAsNumber(value))) return;
+      if (numericEqual(p.v, valueAsNumber(valBaseline))) return;
     }
 
     try {
       const res = await fetch(
-        `/api/tindakan/${encodeURIComponent(tindakanId)}`,
+        `/api/tindakan/${encodeURIComponent(targetId)}`,
         {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ [patchBodyKey(field)]: payloadVal }),
+          body: JSON.stringify({ [patchBodyKey(fieldNow)]: payloadVal }),
         },
       );
       const json = (await res.json().catch(() => ({}))) as {
@@ -193,47 +217,68 @@ export default function RadiologiAutosaveField({
       onSaved?.();
     } catch (e) {
       if (process.env.NODE_ENV === "development") {
-        console.warn("[RadiologiAutosaveField]", field, e);
+        console.warn("[RadiologiAutosaveField]", fieldNow, e);
       }
       // Jangan reset ke `value` — bisa kosong/stale dan membuat isian user hilang.
     }
   };
 
   const schedulePersist = (nextDraft: string) => {
+    const capturedId = String(tindakanIdRef.current ?? "").trim();
+    const capturedField = fieldRef.current;
+    const capturedValue = valueRef.current;
+    if (!capturedId) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null;
-      void persist(nextDraft);
-    }, debounceMsForField(field));
+      if (
+        String(tindakanIdRef.current ?? "").trim() !== capturedId ||
+        fieldRef.current !== capturedField
+      ) {
+        return;
+      }
+      void persist(nextDraft, {
+        targetId: capturedId,
+        valueSnapshot: capturedValue,
+        fieldSnap: capturedField,
+      });
+    }, debounceMsForField(capturedField));
   };
 
   const flushBlur = () => {
+    const snap = {
+      targetId: String(tindakanIdRef.current ?? "").trim(),
+      valueSnapshot: valueRef.current,
+      fieldSnap: fieldRef.current as RadiologiFieldKey,
+    };
+    if (!snap.targetId) return;
+
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
     const d = draftRef.current;
-    const kind = FIELD_KIND[field];
-    if (field === "fluoro_time") {
+    const kind = FIELD_KIND[snap.fieldSnap];
+    if (snap.fieldSnap === "fluoro_time") {
       const p = parseFluoroHmsToSeconds(d);
       if (!p.ok) {
-        setDraft(draftFromValue(field, value));
+        setDraft(draftFromValue(snap.fieldSnap, snap.valueSnapshot));
         return;
       }
-      void persist(d);
+      void persist(d, snap);
       return;
     }
     if (kind === "numeric") {
       const p = parseNumericLocal(d);
       if (!p.ok) {
-        setDraft(draftFromValue(field, value));
+        setDraft(draftFromValue(snap.fieldSnap, snap.valueSnapshot));
         return;
       }
-      void persist(d);
+      void persist(d, snap);
       return;
     }
-    if (field === "waktu") {
-      void persist(d);
+    if (snap.fieldSnap === "waktu") {
+      void persist(d, snap);
       return;
     }
   };

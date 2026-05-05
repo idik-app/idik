@@ -12,6 +12,7 @@ import {
   resolveJenisKelaminFromRow,
   resolvePasienFromRow,
 } from "./displayTindakanRow";
+import { FIELD_LABELS } from "../bridge/wireframeDrawerTabs";
 import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
 import { parseFastTrackFotosUrls } from "./fastTrackFotos";
 import {
@@ -260,23 +261,55 @@ export function downloadPemakaianAlkesExcel(opts: {
   rows: readonly TindakanJoinResult[];
   filename: string;
   parsePemakaian: (txt: string) => {
-    STENT: string[];
-    BALLOON: string[];
+    KONSOLIDASI: string[];
+    NON_KONSOLIDASI: string[];
     ALKES_LAINNYA: string[];
   };
 }): void {
-  const data = opts.rows.map((rec, i) => {
+    const data = opts.rows.map((rec, i) => {
     const raw = rec as unknown as Record<string, unknown>;
     const parsed = opts.parsePemakaian(String(rec.pemakaian ?? ""));
+
+    // Logic Jenis Pembiayaan + Kelas Perawatan (selaras drawer detail)
+    const jp = (rec.pembiayaan || (rec as any).jenis_pembiayaan || "").trim();
+    const kls = (rec.kelas || (rec as any).kelas_perawatan || "").trim();
+    let displayBayar = (rec.kelas_pembiayaan || "").trim();
+    
+    if (!displayBayar) {
+      if (jp && kls) displayBayar = `${jp} - ${kls}`;
+      else displayBayar = jp || kls || "";
+    }
+    
+    const statusRaw = String(rec.status || "").trim();
+    const displayStatus = (statusRaw.toUpperCase() === "MENUNGGU" || !statusRaw)
+      ? (displayBayar || "—")
+      : (displayBayar || statusRaw || "—");
+
+    // Logic Kasus: CITO vs ELEKTIF
+    const timeOut = String(rec.fast_track_time_out || "").trim();
+    const tindakanNama = String(rec.tindakan || "").toUpperCase();
+    let displayKasus = "—";
+    if (timeOut) {
+      const hour = parseInt(timeOut.split(":")[0]);
+      const isOfficeHours = hour >= 7 && hour < 15;
+      displayKasus = isOfficeHours ? "ELEKTIF" : "CITO";
+    } else if (tindakanNama.includes("PPCI")) {
+      displayKasus = "CITO";
+    }
+
     return {
       No: i + 1,
       Tanggal: tanggalBarisKeYmdWib(rec.tanggal) || "—",
       RM: displayRm(raw),
       Nama: normalizeNamaPasien(displayNamaPasien(raw)),
-      Dokter: rec.dokter || "—",
-      STENT: parsed.STENT.join("\n"),
-      BALLOON: parsed.BALLOON.join("\n"),
-      "ALKES LAINNYA": parsed.ALKES_LAINNYA.join("\n"),
+      [FIELD_LABELS.diagnosa || "Diagnosa"]: String(rec.diagnosa || "").trim() || "—",
+      Status: displayStatus,
+      Kasus: displayKasus,
+      Operator: rec.dokter || "—",
+      KONSOLIDASI: parsed.KONSOLIDASI.join("\n"),
+      "Alasan Pakai Konsolidasi": parsed.KONSOLIDASI.length > 0 ? "STOK TERSEDIA" : "—",
+      "NON KONSOLIDASI": parsed.NON_KONSOLIDASI.join("\n"),
+      "Alasan Pakai non Konsolidasi": parsed.NON_KONSOLIDASI.length > 0 ? "Tidak ada ukuran yang lain" : "—",
     };
   });
 
@@ -295,8 +328,8 @@ export function buildPemakaianAlkesReportHtml(opts: {
   rows: readonly TindakanJoinResult[];
   subtitleLines: string[];
   parsePemakaian: (txt: string) => {
-    STENT: string[];
-    BALLOON: string[];
+    KONSOLIDASI: string[];
+    NON_KONSOLIDASI: string[];
     ALKES_LAINNYA: string[];
   };
 }): string {
@@ -307,6 +340,33 @@ export function buildPemakaianAlkesReportHtml(opts: {
       const rm = displayRm(raw);
       const rawPemakaian = String(rec.pemakaian ?? "");
       const parsed = opts.parsePemakaian(rawPemakaian);
+
+      // Logic Jenis Pembiayaan + Kelas Perawatan (selaras drawer detail)
+      const jp = (rec.pembiayaan || (rec as any).jenis_pembiayaan || "").trim();
+      const kls = (rec.kelas || (rec as any).kelas_perawatan || "").trim();
+      let displayBayar = (rec.kelas_pembiayaan || "").trim();
+      
+      if (!displayBayar) {
+        if (jp && kls) displayBayar = `${jp} - ${kls}`;
+        else displayBayar = jp || kls || "";
+      }
+      
+      const statusRaw = String(rec.status || "").trim();
+      const displayStatus = (statusRaw.toUpperCase() === "MENUNGGU" || !statusRaw)
+        ? (displayBayar || "—")
+        : (displayBayar || statusRaw || "—");
+
+      // Logic Kasus: CITO vs ELEKTIF
+      const timeOut = String(rec.fast_track_time_out || "").trim();
+      const tindakanNama = String(rec.tindakan || "").toUpperCase();
+      let displayKasus = "—";
+      if (timeOut) {
+        const hour = parseInt(timeOut.split(":")[0]);
+        const isOfficeHours = hour >= 7 && hour < 15;
+        displayKasus = isOfficeHours ? "ELEKTIF" : "CITO";
+      } else if (tindakanNama.includes("PPCI")) {
+        displayKasus = "CITO";
+      }
 
       const formatBlock = (blocks: string[]) =>
         blocks
@@ -325,10 +385,14 @@ export function buildPemakaianAlkesReportHtml(opts: {
         <td class="num">${i + 1}</td>
         <td class="num">${tanggalBarisKeYmdWib(rec.tanggal) || "—"}</td>
         <td><strong>${escapeHtml(nama)}</strong><br/><small>${escapeHtml(rm)}</small></td>
+        <td>${escapeHtml(String(rec.diagnosa || "").trim() || "—")}</td>
+        <td>${escapeHtml(displayStatus)}</td>
+        <td>${escapeHtml(displayKasus)}</td>
         <td>${escapeHtml(rec.dokter || "—")}</td>
-        <td style="white-space: pre-wrap;">${formatBlock(parsed.STENT) || "—"}</td>
-        <td style="white-space: pre-wrap;">${formatBlock(parsed.BALLOON) || "—"}</td>
-        <td style="white-space: pre-wrap;">${formatBlock(parsed.ALKES_LAINNYA) || "—"}</td>
+        <td style="white-space: pre-wrap;">${formatBlock(parsed.KONSOLIDASI) || "—"}</td>
+        <td>${parsed.KONSOLIDASI.length > 0 ? "STOK TERSEDIA" : "—"}</td>
+        <td style="white-space: pre-wrap;">${formatBlock(parsed.NON_KONSOLIDASI) || "—"}</td>
+        <td>${parsed.NON_KONSOLIDASI.length > 0 ? "Tidak ada ukuran yang lain" : "—"}</td>
       </tr>`;
     })
     .join("\n");
@@ -336,17 +400,21 @@ export function buildPemakaianAlkesReportHtml(opts: {
   const table = `<table>
     <thead>
       <tr>
-        <th style="width:40px">No</th>
-        <th style="width:100px">Tanggal</th>
-        <th style="width:180px">Pasien / RM</th>
-        <th style="width:150px">Dokter</th>
-        <th style="width:200px">STENT</th>
-        <th style="width:200px">BALLOON</th>
-        <th>ALKES LAINNYA</th>
+        <th style="width:30px">NO</th>
+        <th style="width:80px">TANGGAL</th>
+        <th style="width:150px">PASIEN</th>
+        <th style="width:100px">${(FIELD_LABELS.diagnosa || "DIAGNOSA").toUpperCase()}</th>
+        <th style="width:60px">STATUS</th>
+        <th style="width:60px">KASUS</th>
+        <th style="width:120px">OPERATOR</th>
+        <th style="width:150px">KONSOLIDASI</th>
+        <th style="width:100px">Alasan Pakai Konsolidasi</th>
+        <th style="width:150px">NON KONSOLIDASI</th>
+        <th style="width:100px">Alasan Pakai non Konsolidasi</th>
       </tr>
     </thead>
     <tbody>
-      ${bodyRows || '<tr><td colspan="7" class="num">Tidak ada data pemakaian.</td></tr>'}
+      ${bodyRows || '<tr><td colspan="11" class="num">Tidak ada data pemakaian.</td></tr>'}
     </tbody>
   </table>`;
 
@@ -361,8 +429,8 @@ export function buildPemakaianAlkesWhatsAppText(opts: {
   rows: readonly TindakanJoinResult[];
   subtitleLines: string[];
   parsePemakaian: (txt: string) => {
-    STENT: string[];
-    BALLOON: string[];
+    KONSOLIDASI: string[];
+    NON_KONSOLIDASI: string[];
     ALKES_LAINNYA: string[];
   };
 }): string {
@@ -380,8 +448,8 @@ export function buildPemakaianAlkesWhatsAppText(opts: {
     const tgl = ymd.length >= 10 ? ymd.slice(5, 10) : "—"; // MM-DD
     const parsed = opts.parsePemakaian(String(r.pemakaian ?? ""));
     const allItems = [
-      ...parsed.STENT,
-      ...parsed.BALLOON,
+      ...parsed.KONSOLIDASI,
+      ...parsed.NON_KONSOLIDASI,
       ...parsed.ALKES_LAINNYA,
     ];
     const pemakaian = allItems
@@ -723,7 +791,7 @@ export function buildAnalisisGabunganHtml(
         <th>Tindakan</th>
         <th>Kategori</th>
         <th>Dokter</th>
-        <th>Diagnosa</th>
+        <th>${FIELD_LABELS.diagnosa || "Diagnosa"}</th>
         <th>Status</th>
       </tr>
     </thead>
@@ -781,7 +849,7 @@ export function downloadAnalisisGabunganExcel(
       Keterangan: r.keterangan || "—",
       Kategori: r.kategori || "—",
       Dokter: r.dokter || "—",
-      Diagnosa: r.diagnosa || "—",
+      [FIELD_LABELS.diagnosa || "Diagnosa"]: r.diagnosa || "—",
       Status: r.status || "—",
       Ruangan: r.ruangan || "—",
       Cathlab: r.cath || "—",

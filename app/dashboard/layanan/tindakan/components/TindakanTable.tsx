@@ -2947,6 +2947,12 @@ export default function TindakanTable({
           loading={loading}
           filterSummaryLines={filterSummaryLines}
           pasienOptions={pasienOptions}
+          onOpenDetail={(rec, tab) => {
+            if (!rec.id) return;
+            // Tutup modal agar FocusScope Dialog tidak mencuri fokus dari drawer (portal).
+            setLaporanModalOpen(false);
+            openDetail(rec.id, tab);
+          }}
         />
 
         <TindakanLaporanPemakaianModal
@@ -2959,6 +2965,13 @@ export default function TindakanTable({
           initialFilterTanggalTo={filterTanggalTo}
           initialFilterDokter={filterDokter}
           initialSearchTerm={search}
+          pasienOptions={pasienOptions}
+          onOpenDetail={(rec, tab) => {
+            if (!rec.id) return;
+            // Tutup modal agar FocusScope Dialog tidak mencuri fokus dari drawer (portal).
+            setLaporanPemakaianModalOpen(false);
+            adapter.openDetail(rec.id, tab);
+          }}
         />
 
         <FastTrackListModal

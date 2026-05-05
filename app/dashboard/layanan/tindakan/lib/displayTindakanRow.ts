@@ -389,6 +389,22 @@ export function mergePasienMasterIntoRowForReport(
   if (p.no_rm != null && String(p.no_rm).trim() !== "") {
     next.no_rm = String(p.no_rm);
   }
+  if (!next.kelas_pembiayaan && (p.jenis_pembiayaan || p.pembiayaan)) {
+    const jp = (p.jenis_pembiayaan || p.pembiayaan || "").trim();
+    const kls = (p.kelas_perawatan || p.kelas || "").trim();
+    if (jp && kls) next.kelas_pembiayaan = `${jp} - ${kls}`;
+    else if (jp) next.kelas_pembiayaan = jp;
+    else if (kls) next.kelas_pembiayaan = kls;
+  }
+  if (!next.pembiayaan && (p.jenis_pembiayaan || p.pembiayaan)) {
+    next.pembiayaan = (p.jenis_pembiayaan || p.pembiayaan || "").trim();
+  }
+  if (!next.kelas && (p.kelas_perawatan || p.kelas)) {
+    next.kelas = (p.kelas_perawatan || p.kelas || "").trim();
+  }
+  if (!next.diagnosa && p.diagnosa) {
+    next.diagnosa = p.diagnosa.trim();
+  }
   return next;
 }
 

@@ -8,11 +8,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import type { PasienOption } from "@/components/ui/pasien-combobox";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
+import type { WireframeTabId } from "../bridge/wireframeDrawerTabs";
 import ReportExportActionBar from "./ReportExportActionBar";
-import { displayNamaPasien, displayRm } from "../lib/displayTindakanRow";
+import {
+  buildPasienReportLookup,
+  displayNamaPasien,
+  displayRm,
+  mergePasienMasterIntoRowForReport,
+} from "../lib/displayTindakanRow";
 import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
 import {
   buildPemakaianAlkesReportHtml,
@@ -91,6 +99,8 @@ export default function TindakanLaporanPemakaianModal({
   initialFilterTanggalTo,
   initialFilterDokter,
   initialSearchTerm,
+  pasienOptions = [],
+  onOpenDetail,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -101,6 +111,12 @@ export default function TindakanLaporanPemakaianModal({
   initialFilterTanggalTo?: string;
   initialFilterDokter?: string;
   initialSearchTerm?: string;
+  pasienOptions?: readonly PasienOption[];
+  /** Tab awal drawer — default `klinis` dari klik baris agar diagnosa mudah diedit. */
+  onOpenDetail?: (
+    record: TindakanJoinResult,
+    initialTab?: WireframeTabId,
+  ) => void;
 }) {
   const [filterKategori, setFilterKategori] = useState<string>("");
   const [filterTanggalFrom, setFilterTanggalFrom] = useState<string>(
@@ -117,9 +133,22 @@ export default function TindakanLaporanPemakaianModal({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  const pasienLookup = useMemo(
+    () => buildPasienReportLookup(pasienOptions),
+    [pasienOptions],
+  );
+
+  const reportRows = useMemo(
+    () =>
+      rows.map((r) =>
+        mergePasienMasterIntoRowForReport(r, pasienOptions, pasienLookup),
+      ),
+    [rows, pasienOptions, pasienLookup],
+  );
+
   const kategoriOptions = useMemo(() => {
     const set = new Set<string>();
-    rows.forEach((r) => {
+    reportRows.forEach((r) => {
       const txt = String(r.pemakaian ?? "").trim();
       if (!txt) return;
 
@@ -145,16 +174,16 @@ export default function TindakanLaporanPemakaianModal({
 
   const doctorOptions = useMemo(() => {
     const set = new Set<string>();
-    rows.forEach((r) => {
+    reportRows.forEach((r) => {
       const d = (r.dokter || "").trim();
       if (d) set.add(d);
     });
     return Array.from(set).sort();
-  }, [rows]);
+  }, [reportRows]);
 
   const filteredRows = useMemo(() => {
     // Filter hanya baris yang memiliki data pemakaian alkes
-    let result = rows.filter((r) => {
+    let result = reportRows.filter((r) => {
       const txt = String(r.pemakaian ?? "").trim();
       return txt !== "";
     });
@@ -212,17 +241,23 @@ export default function TindakanLaporanPemakaianModal({
         ).toLowerCase();
         const rm = displayRm(r as any).toLowerCase();
         const dokter = (r.dokter || "").toLowerCase();
+        const bayar = String(r.kelas_pembiayaan || r.pembiayaan || "").toLowerCase();
+        const diagnosa = String(r.diagnosa || "").toLowerCase();
+        const pemakaian = String(r.pemakaian || "").toLowerCase();
         return (
           nama.includes(lowerSearch) ||
           rm.includes(lowerSearch) ||
-          dokter.includes(lowerSearch)
+          dokter.includes(lowerSearch) ||
+          bayar.includes(lowerSearch) ||
+          diagnosa.includes(lowerSearch) ||
+          pemakaian.includes(lowerSearch)
         );
       });
     }
 
     return result;
   }, [
-    rows,
+    reportRows,
     filterKategori,
     filterTanggalFrom,
     filterTanggalTo,
@@ -233,11 +268,20 @@ export default function TindakanLaporanPemakaianModal({
 
   const paginatedRows = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredRows.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredRows, currentPage]);
+    const end = startIndex + itemsPerPage;
+    console.log('Pagination Debug:', {
+      currentPage,
+      itemsPerPage,
+      startIndex,
+      end,
+      totalFiltered: filteredRows.length,
+      paginatedCount: filteredRows.slice(startIndex, end).length
+    });
+    return filteredRows.slice(startIndex, end);
+  }, [filteredRows, currentPage, itemsPerPage]);
 
   const totalPages = Math.ceil(filteredRows.length / itemsPerPage);
-  
+
   // Sinkronkan filter dengan kondisi di tabel saat modal dibuka
   useEffect(() => {
     if (open) {
@@ -273,20 +317,20 @@ export default function TindakanLaporanPemakaianModal({
   const parsePemakaian = useCallback((txt: string) => {
     const lines = txt.split("\n");
     const result: {
-      STENT: string[];
-      BALLOON: string[];
+      KONSOLIDASI: string[];
+      NON_KONSOLIDASI: string[];
       ALKES_LAINNYA: string[];
+      STENT?: string[];
+      BALLOON?: string[];
     } = {
-      STENT: [],
-      BALLOON: [],
+      KONSOLIDASI: [],
+      NON_KONSOLIDASI: [],
       ALKES_LAINNYA: [],
     };
 
-    // Jika format tidak diawali bullet point, coba proses per baris secara langsung
     const hasBullets = txt.includes("•");
     const hasConsolidation = txt.toUpperCase().includes("KONSOLIDASI");
 
-    // Jika tidak ada bullet point, atau ada kata KONSOLIDASI, kita gunakan logika deteksi blok yang lebih agresif
     if (!hasBullets || hasConsolidation) {
       const processedLines = new Set<number>();
 
@@ -295,108 +339,56 @@ export default function TindakanLaporanPemakaianModal({
         if (!trimmed || processedLines.has(idx)) return;
         const upperLine = trimmed.toUpperCase();
 
-        // Cek apakah baris ini adalah awal dari blok pemakaian
         const isAlkesLine =
           upperLine.startsWith("•") ||
-          upperLine.includes("[STENT]") ||
-          upperLine.includes("[BALLOON]") ||
-          upperLine.includes("[BALLON]") ||
           upperLine.includes("[KONSOLIDASI]") ||
           upperLine.includes("[NON KONSOLIDASI]") ||
-          upperLine.includes("STENT") ||
-          upperLine.includes("BALLOON") ||
-          upperLine.includes("BALLON") ||
-          upperLine.includes("SUPRAFLEX") ||
-          upperLine.includes("GENOSS") ||
-          upperLine.includes("XIENCE") ||
-          upperLine.includes("ONYX") ||
-          upperLine.includes("PROMUS") ||
-          upperLine.includes("SYNERGY") ||
-          upperLine.includes("SAPPHIRE") ||
-          upperLine.includes("EMERGE") ||
-          upperLine.includes("TREK") ||
-          upperLine.includes("DIAGNOSA:") ||
-          upperLine.includes("NAMA_PASIEN:") ||
-          // Tambahan: Jika baris hanya berisi "KONSOLIDASI" atau "NON KONSOLIDASI" tanpa bullet
-          upperLine === "KONSOLIDASI" ||
-          upperLine === "NON KONSOLIDASI" ||
-          // Tambahan: Jika baris berisi LOT/Ukuran/ED (seringkali ini bagian dari blok yang terpisah)
+          upperLine.includes("KONSOLIDASI") ||
+          upperLine.includes("NON KONSOLIDASI") ||
+          DISTRIBUTOR_KONSOLIDASI_KEYWORDS.some((k) => upperLine.includes(k)) ||
+          DISTRIBUTOR_NON_KONSOLIDASI_KEYWORDS.some((k) =>
+            upperLine.includes(k),
+          ) ||
           upperLine.includes("LOT:") ||
           upperLine.includes("UKURAN:") ||
           upperLine.includes("ED:");
 
         if (isAlkesLine) {
-          let cat: "STENT" | "BALLOON" | "ALKES_LAINNYA" = "ALKES_LAINNYA";
+          let cat: "KONSOLIDASI" | "NON_KONSOLIDASI" | "ALKES_LAINNYA" =
+            "ALKES_LAINNYA";
 
-          // Cari brand di baris ini ATAU baris-baris sebelumnya (mencari header yang hilang)
           const findCategoryInContext = (startIdx: number) => {
-            // 1. Cek baris ini dulu
-            const currentLine = lines[startIdx].trim().toUpperCase();
-            if (
-              currentLine.includes("STENT") ||
-              currentLine.includes("XIENCE") ||
-              currentLine.includes("ONYX") ||
-              currentLine.includes("PROMUS")
-            )
-              return "STENT";
-            if (
-              currentLine.includes("BALLOON") ||
-              currentLine.includes("BALLON") ||
-              currentLine.includes("SAPPHIRE") ||
-              currentLine.includes("TREK")
-            )
-              return "BALLOON";
-
-            // 2. Cek ke atas (mencari nama barang yang mungkin ada di baris sebelumnya)
-            for (let k = startIdx - 1; k >= Math.max(0, startIdx - 3); k--) {
-              const prevLine = lines[k].trim().toUpperCase();
+            for (let k = startIdx; k >= Math.max(0, startIdx - 3); k--) {
+              const checkLine = lines[k].trim().toUpperCase();
               if (
-                prevLine.includes("STENT") ||
-                prevLine.includes("XIENCE") ||
-                prevLine.includes("ONYX") ||
-                prevLine.includes("PROMUS")
+                checkLine.includes("NON KONSOLIDASI") ||
+                checkLine.includes("[NON KONSOLIDASI]")
               )
-                return "STENT";
+                return "NON_KONSOLIDASI";
               if (
-                prevLine.includes("BALLOON") ||
-                prevLine.includes("BALLON") ||
-                prevLine.includes("SAPPHIRE") ||
-                prevLine.includes("TREK")
+                checkLine.includes("KONSOLIDASI") ||
+                checkLine.includes("[KONSOLIDASI]")
               )
-                return "BALLOON";
-              if (prevLine.startsWith("•")) break;
-            }
-
-            // 3. Cek ke bawah dalam blok ini
-            for (let k = startIdx + 1; k < lines.length; k++) {
-              const nextLine = lines[k].trim().toUpperCase();
+                return "KONSOLIDASI";
               if (
-                nextLine.startsWith("•") ||
-                nextLine.includes("[STENT]") ||
-                nextLine.includes("[BALLOON]")
+                DISTRIBUTOR_NON_KONSOLIDASI_KEYWORDS.some((kw) =>
+                  checkLine.includes(kw),
+                )
               )
-                break;
+                return "NON_KONSOLIDASI";
               if (
-                nextLine.includes("STENT") ||
-                nextLine.includes("XIENCE") ||
-                nextLine.includes("ONYX") ||
-                nextLine.includes("PROMUS")
+                DISTRIBUTOR_KONSOLIDASI_KEYWORDS.some((kw) =>
+                  checkLine.includes(kw),
+                )
               )
-                return "STENT";
-              if (
-                nextLine.includes("BALLOON") ||
-                nextLine.includes("BALLON") ||
-                nextLine.includes("SAPPHIRE") ||
-                nextLine.includes("TREK")
-              )
-                return "BALLOON";
+                return "KONSOLIDASI";
+              if (checkLine.startsWith("•") && k < startIdx) break;
             }
             return "ALKES_LAINNYA";
           };
 
           cat = findCategoryInContext(idx);
 
-          // Ambil baris ini dan baris-baris berikutnya sampai ketemu alkes baru atau baris kosong
           let block = [trimmed];
           processedLines.add(idx);
 
@@ -407,21 +399,16 @@ export default function TindakanLaporanPemakaianModal({
 
             const isNextAlkes =
               nextTrimmed.startsWith("•") ||
-              nextUpper.includes("[STENT]") ||
-              nextUpper.includes("[BALLOON]") ||
-              nextUpper.includes("[BALLON]") ||
               nextUpper.includes("[KONSOLIDASI]") ||
               nextUpper.includes("[NON KONSOLIDASI]") ||
-              nextUpper.includes("STENT") ||
-              nextUpper.includes("BALLOON") ||
-              nextUpper.includes("BALLON") ||
-              nextUpper.includes("XIENCE") ||
-              nextUpper.includes("ONYX") ||
-              nextUpper.includes("PROMUS") ||
-              nextUpper.includes("SYNERGY") ||
-              nextUpper.includes("SAPPHIRE") ||
-              nextUpper.includes("EMERGE") ||
-              nextUpper.includes("TREK");
+              nextUpper.includes("KONSOLIDASI") ||
+              nextUpper.includes("NON KONSOLIDASI") ||
+              DISTRIBUTOR_KONSOLIDASI_KEYWORDS.some((k) =>
+                nextUpper.includes(k),
+              ) ||
+              DISTRIBUTOR_NON_KONSOLIDASI_KEYWORDS.some((k) =>
+                nextUpper.includes(k),
+              );
 
             if (isNextAlkes) break;
 
@@ -433,7 +420,6 @@ export default function TindakanLaporanPemakaianModal({
         }
       });
 
-      // Jika ada baris yang belum terproses dan bukan baris kosong, masukkan ke ALKES_LAINNYA
       lines.forEach((line, idx) => {
         const trimmed = line.trim();
         if (trimmed && !processedLines.has(idx)) {
@@ -441,20 +427,28 @@ export default function TindakanLaporanPemakaianModal({
         }
       });
 
-      return result;
+      // Backward compatibility for report templates
+      result.STENT = result.KONSOLIDASI;
+      result.BALLOON = result.NON_KONSOLIDASI;
+
+      return result as any;
     }
 
-    let currentCategory: "STENT" | "BALLOON" | "ALKES_LAINNYA" | null = null;
+    let currentCategory:
+      | "KONSOLIDASI"
+      | "NON_KONSOLIDASI"
+      | "ALKES_LAINNYA"
+      | null = null;
     let currentBlock: string[] = [];
 
     const flush = () => {
       if (currentBlock.length > 0) {
         const blockText = currentBlock.join("\n").trim();
         if (blockText) {
-          if (currentCategory === "STENT") {
-            result.STENT.push(blockText);
-          } else if (currentCategory === "BALLOON") {
-            result.BALLOON.push(blockText);
+          if (currentCategory === "KONSOLIDASI") {
+            result.KONSOLIDASI.push(blockText);
+          } else if (currentCategory === "NON_KONSOLIDASI") {
+            result.NON_KONSOLIDASI.push(blockText);
           } else {
             result.ALKES_LAINNYA.push(blockText);
           }
@@ -468,46 +462,28 @@ export default function TindakanLaporanPemakaianModal({
       if (trimmed.startsWith("•")) {
         flush();
         const upperLine = trimmed.toUpperCase();
-        const catMatch = trimmed.match(
-          /\[(STENT|BALLOON|BALLON|CATHETER|WIRE|GUIDING|ALKES|KATETER)\]/i,
-        );
-        if (catMatch) {
-          const cat = catMatch[1].toUpperCase();
-          if (cat === "STENT") {
-            currentCategory = "STENT";
-          } else if (cat === "BALLOON" || cat === "BALLON") {
-            currentCategory = "BALLOON";
-          } else {
-            currentCategory = "ALKES_LAINNYA";
-          }
+        if (
+          upperLine.includes("NON KONSOLIDASI") ||
+          upperLine.includes("[NON KONSOLIDASI]")
+        ) {
+          currentCategory = "NON_KONSOLIDASI";
+        } else if (
+          upperLine.includes("KONSOLIDASI") ||
+          upperLine.includes("[KONSOLIDASI]")
+        ) {
+          currentCategory = "KONSOLIDASI";
+        } else if (
+          DISTRIBUTOR_NON_KONSOLIDASI_KEYWORDS.some((kw) =>
+            upperLine.includes(kw),
+          )
+        ) {
+          currentCategory = "NON_KONSOLIDASI";
+        } else if (
+          DISTRIBUTOR_KONSOLIDASI_KEYWORDS.some((kw) => upperLine.includes(kw))
+        ) {
+          currentCategory = "KONSOLIDASI";
         } else {
-          // Jika tidak ada tag kategori eksplisit, coba infer dari konten baris
-          if (
-            upperLine.includes("STENT") ||
-            upperLine.includes("SUPRAFLEX") ||
-            upperLine.includes("GENOSS") ||
-            upperLine.includes("XIENCE") ||
-            upperLine.includes("ONYX") ||
-            upperLine.includes("PROMUS") ||
-            upperLine.includes("SYNERGY")
-          ) {
-            // Khusus GENOSS, pastikan bukan BALLON
-            if (upperLine.includes("BALLOON") || upperLine.includes("BALLON")) {
-              currentCategory = "BALLOON";
-            } else {
-              currentCategory = "STENT";
-            }
-          } else if (
-            upperLine.includes("BALLOON") ||
-            upperLine.includes("BALLON") ||
-            upperLine.includes("SAPPHIRE") ||
-            upperLine.includes("EMERGE") ||
-            upperLine.includes("TREK")
-          ) {
-            currentCategory = "BALLOON";
-          } else {
-            currentCategory = "ALKES_LAINNYA";
-          }
+          currentCategory = "ALKES_LAINNYA";
         }
         currentBlock.push(line);
       } else if (trimmed !== "" || currentBlock.length > 0) {
@@ -516,7 +492,11 @@ export default function TindakanLaporanPemakaianModal({
     });
     flush();
 
-    return result;
+    // Backward compatibility for report templates
+    result.STENT = result.KONSOLIDASI;
+    result.BALLOON = result.NON_KONSOLIDASI;
+
+    return result as any;
   }, []);
 
   const formatBlockText = (text: string) => {
@@ -528,11 +508,16 @@ export default function TindakanLaporanPemakaianModal({
           const isHeader =
             line.startsWith("•") ||
             upperLine.includes("[KONSOLIDASI]") ||
+            upperLine.includes("[NON KONSOLIDASI]") ||
+            upperLine.trim() === "KONSOLIDASI" ||
             upperLine.trim() === "NON KONSOLIDASI";
+
           if (!isHeader) return <div key={j}>{line}</div>;
 
-          // Jika baris adalah murni "NON KONSOLIDASI" (baris baru)
-          if (upperLine.trim() === "NON KONSOLIDASI") {
+          if (
+            upperLine.trim() === "NON KONSOLIDASI" ||
+            upperLine.includes("[NON KONSOLIDASI]")
+          ) {
             return (
               <div key={j} className="mt-0.5">
                 <span className="inline-flex items-center rounded bg-blue-500/10 px-1 py-0.5 text-[9px] font-bold text-blue-600 dark:text-blue-400">
@@ -542,25 +527,20 @@ export default function TindakanLaporanPemakaianModal({
             );
           }
 
-          const parts = line.split(/(\[KONSOLIDASI\])/gi);
-          return (
-            <div key={j} className="flex flex-wrap items-center gap-1">
-              {parts.map((part, k) => {
-                const upper = part.toUpperCase();
-                if (upper === "[KONSOLIDASI]") {
-                  return (
-                    <span
-                      key={k}
-                      className="inline-flex items-center rounded bg-emerald-500/10 px-1 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400"
-                    >
-                      KONSOLIDASI
-                    </span>
-                  );
-                }
-                return <span key={k}>{part}</span>;
-              })}
-            </div>
-          );
+          if (
+            upperLine.trim() === "KONSOLIDASI" ||
+            upperLine.includes("[KONSOLIDASI]")
+          ) {
+            return (
+              <div key={j} className="mt-0.5">
+                <span className="inline-flex items-center rounded bg-emerald-500/10 px-1 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                  KONSOLIDASI
+                </span>
+              </div>
+            );
+          }
+
+          return <div key={j}>{line}</div>;
         })}
       </div>
     ));
@@ -645,14 +625,36 @@ export default function TindakanLaporanPemakaianModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        onInteractOutside={(e) => {
+          // Mencegah modal tertutup saat mengklik elemen di luar (seperti drawer detail)
+          // Radix UI menganggap klik pada portal lain (drawer) sebagai 'outside'
+          e.preventDefault();
+        }}
+        onEscapeKeyDown={(e) => {
+          // Mencegah modal tertutup saat menekan Escape
+          // Ini sering terjadi saat ingin menutup drawer tapi modal ikut tertutup
+          e.preventDefault();
+        }}
         overlayClassName={UI_LAYERS.dialogOverlayTop}
         className={cn(
           "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-          "h-[85vh] max-h-[85vh] w-[95vw] max-w-5xl overflow-hidden p-0 flex flex-col border-slate-300/60 bg-white dark:border-amber-500/35 dark:bg-black rounded-xl focus:outline-none",
+          "h-[90vh] w-[98vw] max-w-[1400px] overflow-hidden p-0 flex flex-col border-slate-300/60 bg-white dark:border-amber-500/35 dark:bg-black rounded-xl focus:outline-none",
           UI_LAYERS.dialogContentTop,
         )}
       >
-        <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-2 sm:p-3 text-slate-900 dark:text-white overflow-hidden bg-white dark:bg-black">
+        <DialogPrimitive.Close
+          className={cn(
+            "absolute right-4 top-4 rounded-full p-2 transition-all duration-200",
+            "hover:bg-slate-100 active:scale-95 dark:hover:bg-white/5",
+            "text-slate-400 hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50",
+            "z-[51]",
+          )}
+        >
+          <X size={20} strokeWidth={2.5} />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+        <div className="flex flex-col h-full p-2 sm:p-3 text-slate-900 dark:text-white bg-white dark:bg-black">
           <div className="flex shrink-0 flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between border-b pb-1.5 dark:border-white/10">
             <DialogHeader className="space-y-0 text-left sm:pr-2">
               <DialogTitle className="flex items-center gap-2 text-left text-sm font-bold tracking-wide">
@@ -799,7 +801,7 @@ export default function TindakanLaporanPemakaianModal({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200/80 dark:border-white/15">
+          <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200/80 dark:border-white/15 mb-2">
             {loading ? (
               <div className="p-3 text-center text-[11px] font-semibold text-slate-600 dark:text-white/85">
                 Memuat data…
@@ -809,31 +811,46 @@ export default function TindakanLaporanPemakaianModal({
                 Tidak ada data pemakaian alkes.
               </div>
             ) : (
-              <table className="w-full border-collapse text-[9px]">
+              <table className="w-full border-collapse text-[9px] table-fixed">
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-white/10">
                   <tr>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[70px]">
-                      Tanggal
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[30px] shrink-0">
+                      NO
                     </th>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[130px]">
-                      Pasien / RM
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[75px] shrink-0">
+                      TANGGAL
                     </th>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[100px]">
-                      Dokter
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[130px] shrink-0">
+                      PASIEN
                     </th>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20">
-                      STENT
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[110px] shrink-0">
+                      DIAGNOSA
                     </th>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20">
-                      BALLOON
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[90px] shrink-0">
+                      STATUS
                     </th>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20">
-                      ALKES LAINNYA
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[55px] shrink-0">
+                      KASUS
+                    </th>
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[130px] shrink-0">
+                      OPERATOR
+                    </th>
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[180px]">
+                      KONSOLIDASI
+                    </th>
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[90px] shrink-0">
+                      Alasan Pakai Konsolidasi
+                    </th>
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[180px]">
+                      NON KONSOLIDASI
+                    </th>
+                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[90px] shrink-0">
+                      Alasan Pakai non Konsolidasi
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-white/10">
-                  {paginatedRows.map((r) => {
+                  {paginatedRows.map((r, idx) => {
                     const rawPemakaian = String(r.pemakaian ?? "");
                     let finalPemakaian = rawPemakaian;
                     const upperPemakaian = rawPemakaian.toUpperCase();
@@ -881,33 +898,106 @@ export default function TindakanLaporanPemakaianModal({
                     }
 
                     const parsed = parsePemakaian(finalPemakaian);
+                    const diagnosa = String(r.diagnosa || "").trim();
+                    
+                    // Logic Jenis Pembiayaan + Kelas Perawatan (selaras drawer detail)
+                    const jp = (r.pembiayaan || (r as any).jenis_pembiayaan || "").trim();
+                    const kls = (r.kelas || (r as any).kelas_perawatan || "").trim();
+                    let displayBayar = (r.kelas_pembiayaan || "").trim();
+                    
+                    if (!displayBayar) {
+                      if (jp && kls) displayBayar = `${jp} - ${kls}`;
+                      else displayBayar = jp || kls || "";
+                    }
+                    
+                    const statusRaw = String(r.status || "").trim();
+                    const status = (statusRaw.toUpperCase() === "MENUNGGU" || !statusRaw)
+                      ? (displayBayar || "—")
+                      : (displayBayar || statusRaw || "—");
+                    
+                    // Logic Kasus: CITO vs ELEKTIF
+                    // CITO: PPCI atau di luar jam 07.00 - 15.00
+                    // ELEKTIF: PCI/PTCA/PPCI di jam 07.00 - 15.00
+                    const timeOut = String(r.fast_track_time_out || "").trim();
+                    const tindakanNama = String(r.tindakan || "").toUpperCase();
+                    let kasus = "—";
+                    
+                    if (timeOut) {
+                      const hour = parseInt(timeOut.split(":")[0]);
+                      const isOfficeHours = hour >= 7 && hour < 15;
+                      
+                      if (!isOfficeHours) {
+                        kasus = "CITO";
+                      } else {
+                        // Di jam kantor (07.00 - 15.00)
+                        if (tindakanNama.includes("PPCI") && !tindakanNama.includes("PCI") && !tindakanNama.includes("PTCA")) {
+                          // Jika murni PPCI tanpa embel-embel PCI/PTCA (opsional, mengikuti prompt "PPCI dan diluar jam 15.00")
+                          // Namun prompt kedua bilang PPCI di jam 07-15 adalah ELEKTIF.
+                          kasus = "ELEKTIF";
+                        } else {
+                          kasus = "ELEKTIF";
+                        }
+                      }
+                    } else if (tindakanNama.includes("PPCI")) {
+                      // Fallback jika jam tidak ada tapi tindakan PPCI
+                      kasus = "CITO";
+                    }
+                    
+                    // Gunakan data dari reportRows yang sudah di-merge dengan master pasien
+                    const rowData = r;
+                    const namaPasien = normalizeNamaPasien(displayNamaPasien(rowData as any));
+                    const rmPasien = displayRm(rowData as any);
+                    
                     return (
                       <tr
                         key={r.id}
-                        className="hover:bg-slate-50 dark:hover:bg-white/5"
+                        className={cn(
+                          "hover:bg-slate-50 dark:hover:bg-white/5",
+                          onOpenDetail && "cursor-pointer"
+                        )}
+                        onClick={() => onOpenDetail?.(r, "klinis")}
                       >
+                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 text-center">
+                          {(currentPage - 1) * itemsPerPage + idx + 1}
+                        </td>
                         <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20">
                           {tanggalBarisKeYmdWib(r.tanggal)}
                         </td>
                         <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20">
                           <div className="font-bold leading-tight">
-                            {normalizeNamaPasien(displayNamaPasien(r as any))}
+                            {namaPasien}
                           </div>
                           <div className="text-[8px] opacity-70">
-                            {displayRm(r as any)}
+                            ({rmPasien})
                           </div>
+                        </td>
+                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 leading-tight">
+                          {diagnosa || "—"}
+                        </td>
+                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 leading-tight break-words">
+                          {status || "—"}
+                        </td>
+                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 leading-tight">
+                          {kasus || "—"}
                         </td>
                         <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 leading-tight">
                           {r.dokter || "—"}
                         </td>
                         <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 whitespace-pre-wrap leading-tight text-[8px]">
-                          {formatBlockText(parsed.STENT.join("\n\n"))}
+                          {formatBlockText(parsed.KONSOLIDASI.join("\n\n"))}
+                        </td>
+                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 leading-tight">
+                          {parsed.KONSOLIDASI.length > 0
+                            ? "STOK TERSEDIA"
+                            : "—"}
                         </td>
                         <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 whitespace-pre-wrap leading-tight text-[8px]">
-                          {formatBlockText(parsed.BALLOON.join("\n\n"))}
+                          {formatBlockText(parsed.NON_KONSOLIDASI.join("\n\n"))}
                         </td>
-                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 whitespace-pre-wrap leading-tight text-[8px]">
-                          {formatBlockText(parsed.ALKES_LAINNYA.join("\n\n"))}
+                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 leading-tight">
+                          {parsed.NON_KONSOLIDASI.length > 0
+                            ? "Tidak ada ukuran yang lain"
+                            : "—"}
                         </td>
                       </tr>
                     );
@@ -943,11 +1033,18 @@ export default function TindakanLaporanPemakaianModal({
                   </span>
                   <select
                     value={itemsPerPage}
-                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
                     className="bg-transparent text-[9px] font-bold text-slate-700 dark:text-white focus:outline-none cursor-pointer"
                   >
                     {[10, 25, 50, 100, 250].map((v) => (
-                      <option key={v} value={v} className="bg-white dark:bg-black">
+                      <option
+                        key={v}
+                        value={v}
+                        className="bg-white dark:bg-black"
+                      >
                         {v}
                       </option>
                     ))}

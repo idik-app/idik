@@ -50,7 +50,7 @@ export const UI_LAYERS = {
   /** Popover standar */
   popover: "z-[85]",
   /** Portal untuk drawer */
-  drawerPortal: "z-[5000]",
+  drawerPortal: "z-[100050]",
   /** Picker melayang (date/time) */
   pickerFloating: "z-[5010]",
   /** Picker melayang paling atas */
@@ -124,4 +124,5 @@ export const Z_INDEX_VALUES = {
   intensiveIccuNestedModal: 100_221,
   intensiveIccuAlertBackdrop: 100_230,
   intensiveIccuAlert: 100_231,
+  drawerPortal: 100_050,
 } as const;

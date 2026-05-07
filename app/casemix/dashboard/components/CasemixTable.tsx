@@ -42,27 +42,29 @@ function CasemixTable({ data, isLoading, onRowClick, onBiayaSynced }: Props) {
     <div className="relative overflow-x-auto">
       <table className="w-full border-collapse text-left text-sm">
         <thead>
-          <tr className="sticky top-0 z-10 border-b border-slate-100 bg-white/95 text-[11px] font-bold uppercase tracking-[0.15em] text-slate-400 backdrop-blur-md">
+          <tr className="sticky top-0 z-10 border-b border-blue-100 bg-blue-50/50 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-400 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
             <th className="px-6 py-5">Tanggal</th>
             <th className="px-6 py-5 text-center">No. RM</th>
             <th className="px-6 py-5">Nama Pasien</th>
             <th className="px-6 py-5">Tindakan</th>
-            <th className="w-[300px] px-6 py-5">Perolehan BPJS</th>
+            <th className="w-[280px] px-6 py-5">Perolehan BPJS</th>
             <th className="w-[140px] px-6 py-5 text-center">Status</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-50">
+        <tbody className="divide-y divide-blue-50/50 dark:divide-slate-800/50">
           <AnimatePresence mode="popLayout">
             {data.length === 0 ? (
               <motion.tr
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-white"
+                className="bg-white/30 dark:bg-transparent"
               >
                 <td colSpan={6} className="px-6 py-24 text-center">
                   <div className="flex flex-col items-center gap-3">
-                    <span className="text-5xl text-slate-100">∅</span>
-                    <p className="text-sm font-bold text-slate-300 uppercase tracking-widest">Tidak ada data ditemukan</p>
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-200 dark:bg-slate-800 dark:text-slate-700">
+                      <Search size={32} />
+                    </div>
+                    <p className="font-bold text-blue-300">Data tidak ditemukan</p>
                   </div>
                 </td>
               </motion.tr>
@@ -70,11 +72,11 @@ function CasemixTable({ data, isLoading, onRowClick, onBiayaSynced }: Props) {
               data.map((row, idx) => (
                 <motion.tr
                   key={row.id || idx}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.02, ease: "easeOut" }}
-                  whileHover={{ backgroundColor: "rgba(241, 245, 249, 0.5)" }}
-                  className="group cursor-pointer bg-white transition-all hover:shadow-[0_4px_20px_rgba(0,0,0,0.02)]"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.03 }}
+                  whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.6)" }}
+                  className="group cursor-pointer bg-white transition-colors dark:bg-slate-900/20 dark:hover:bg-slate-800/40"
                   onClick={(e) => {
                     if (
                       e.target instanceof HTMLElement &&
@@ -90,23 +92,23 @@ function CasemixTable({ data, isLoading, onRowClick, onBiayaSynced }: Props) {
                   }}
                 >
                   <td className="px-6 py-5">
-                    <span className="font-mono text-xs font-bold tabular-nums text-slate-400">
+                    <span className="font-mono text-xs font-bold tabular-nums text-blue-400">
                       {formatTanggalDisplay(row.tanggal)}
                     </span>
                   </td>
                   <td className="px-6 py-5 text-center">
-                    <span className="inline-flex items-center rounded-xl bg-orange-50 px-3 py-1 text-xs font-extrabold tabular-nums text-orange-600 ring-1 ring-orange-200/50 shadow-sm shadow-orange-100">
+                    <span className="inline-flex items-center rounded-lg bg-blue-50 px-3 py-1 text-xs font-extrabold tabular-nums text-blue-600 ring-1 ring-blue-100 dark:bg-blue-950/30 dark:text-blue-400 dark:ring-blue-900/50">
                       {row.no_rm || "—"}
                     </span>
                   </td>
                   <td className="px-6 py-5">
-                    <p className="text-sm font-black text-slate-800 tracking-tight uppercase">
+                    <p className="font-extrabold text-slate-800 dark:text-slate-200">
                       {row.nama_pasien || "—"}
                     </p>
                   </td>
-                  <td className="px-6 py-5 text-slate-500">
+                  <td className="px-6 py-5">
                     <div
-                      className="max-w-[240px] truncate font-medium group-hover:text-slate-900 transition-colors"
+                      className="max-w-[220px] truncate text-slate-400 font-medium transition-colors group-hover:text-blue-600 dark:text-slate-400 dark:group-hover:text-slate-200"
                       title={row.tindakan || ""}
                     >
                       {row.tindakan || "—"}
@@ -117,7 +119,7 @@ function CasemixTable({ data, isLoading, onRowClick, onBiayaSynced }: Props) {
                     onClick={(e) => e.stopPropagation()}
                   >
                     {row.id && (
-                      <div className="max-w-[260px]">
+                      <div className="max-w-[240px]">
                         <BiayaAutosaveField
                           key={`casemix-total-${row.id}`}
                           tindakanId={row.id}
@@ -131,12 +133,12 @@ function CasemixTable({ data, isLoading, onRowClick, onBiayaSynced }: Props) {
                   </td>
                   <td className="px-6 py-5 text-center">
                     {row.total && Number(row.total) > 0 ? (
-                      <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-100 py-1.5 px-3 gap-2 font-bold shadow-sm shadow-emerald-50 ring-1 ring-emerald-200/30">
-                        <Check size={14} strokeWidth={3} />
+                      <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 px-3 py-1 gap-1.5 font-bold dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50">
+                        <Check size={12} strokeWidth={4} />
                         Verified
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="bg-slate-50 text-slate-400 border-transparent py-1.5 px-3 font-bold">
+                      <Badge variant="secondary" className="bg-slate-50 text-slate-300 border-transparent px-3 py-1 font-bold dark:bg-slate-800 dark:text-slate-500">
                         Pending
                       </Badge>
                     )}

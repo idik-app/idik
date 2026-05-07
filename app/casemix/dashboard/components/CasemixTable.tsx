@@ -42,27 +42,27 @@ function CasemixTable({ data, isLoading, onRowClick, onBiayaSynced }: Props) {
     <div className="relative overflow-x-auto">
       <table className="w-full border-collapse text-left text-sm">
         <thead>
-          <tr className="sticky top-0 z-10 border-b border-slate-100 bg-slate-50/80 text-xs font-bold uppercase tracking-widest text-slate-400 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
-            <th className="px-6 py-4">Tanggal</th>
-            <th className="px-6 py-4 text-center">No. RM</th>
-            <th className="px-6 py-4">Nama Pasien</th>
-            <th className="px-6 py-4">Tindakan</th>
-            <th className="w-[280px] px-6 py-4">Perolehan BPJS</th>
-            <th className="w-[140px] px-6 py-4 text-center">Status</th>
+          <tr className="sticky top-0 z-10 border-b border-slate-100 bg-white/95 text-[11px] font-bold uppercase tracking-[0.15em] text-slate-400 backdrop-blur-md">
+            <th className="px-6 py-5">Tanggal</th>
+            <th className="px-6 py-5 text-center">No. RM</th>
+            <th className="px-6 py-5">Nama Pasien</th>
+            <th className="px-6 py-5">Tindakan</th>
+            <th className="w-[300px] px-6 py-5">Perolehan BPJS</th>
+            <th className="w-[140px] px-6 py-5 text-center">Status</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
+        <tbody className="divide-y divide-slate-50">
           <AnimatePresence mode="popLayout">
             {data.length === 0 ? (
               <motion.tr
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-white/30 dark:bg-transparent"
+                className="bg-white"
               >
-                <td colSpan={6} className="px-6 py-20 text-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <span className="text-4xl text-slate-200 dark:text-slate-800">∅</span>
-                    <p className="font-medium text-slate-400">Tidak ada data ditemukan</p>
+                <td colSpan={6} className="px-6 py-24 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <span className="text-5xl text-slate-100">∅</span>
+                    <p className="text-sm font-bold text-slate-300 uppercase tracking-widest">Tidak ada data ditemukan</p>
                   </div>
                 </td>
               </motion.tr>
@@ -70,11 +70,11 @@ function CasemixTable({ data, isLoading, onRowClick, onBiayaSynced }: Props) {
               data.map((row, idx) => (
                 <motion.tr
                   key={row.id || idx}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.03 }}
-                  whileHover={{ backgroundColor: "rgba(248, 250, 252, 0.8)" }}
-                  className="group cursor-pointer bg-white transition-colors dark:bg-slate-900/20 dark:hover:bg-slate-800/40"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.02, ease: "easeOut" }}
+                  whileHover={{ backgroundColor: "rgba(241, 245, 249, 0.5)" }}
+                  className="group cursor-pointer bg-white transition-all hover:shadow-[0_4px_20px_rgba(0,0,0,0.02)]"
                   onClick={(e) => {
                     if (
                       e.target instanceof HTMLElement &&
@@ -89,35 +89,35 @@ function CasemixTable({ data, isLoading, onRowClick, onBiayaSynced }: Props) {
                     row.id && onRowClick(row.id);
                   }}
                 >
-                  <td className="px-6 py-4">
-                    <span className="font-mono text-xs font-semibold tabular-nums text-slate-500">
+                  <td className="px-6 py-5">
+                    <span className="font-mono text-xs font-bold tabular-nums text-slate-400">
                       {formatTanggalDisplay(row.tanggal)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className="inline-flex items-center rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-bold tabular-nums text-amber-700 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:ring-amber-900/50">
+                  <td className="px-6 py-5 text-center">
+                    <span className="inline-flex items-center rounded-xl bg-orange-50 px-3 py-1 text-xs font-extrabold tabular-nums text-orange-600 ring-1 ring-orange-200/50 shadow-sm shadow-orange-100">
                       {row.no_rm || "—"}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
-                    <p className="font-bold text-slate-800 dark:text-slate-200">
+                  <td className="px-6 py-5">
+                    <p className="text-sm font-black text-slate-800 tracking-tight uppercase">
                       {row.nama_pasien || "—"}
                     </p>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-5 text-slate-500">
                     <div
-                      className="max-w-[220px] truncate text-slate-500 transition-colors group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200"
+                      className="max-w-[240px] truncate font-medium group-hover:text-slate-900 transition-colors"
                       title={row.tindakan || ""}
                     >
                       {row.tindakan || "—"}
                     </div>
                   </td>
                   <td
-                    className="px-6 py-4"
+                    className="px-6 py-5"
                     onClick={(e) => e.stopPropagation()}
                   >
                     {row.id && (
-                      <div className="max-w-[240px]">
+                      <div className="max-w-[260px]">
                         <BiayaAutosaveField
                           key={`casemix-total-${row.id}`}
                           tindakanId={row.id}
@@ -129,14 +129,14 @@ function CasemixTable({ data, isLoading, onRowClick, onBiayaSynced }: Props) {
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-center">
+                  <td className="px-6 py-5 text-center">
                     {row.total && Number(row.total) > 0 ? (
-                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50">
-                        <Check size={12} strokeWidth={3} />
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-100 py-1.5 px-3 gap-2 font-bold shadow-sm shadow-emerald-50 ring-1 ring-emerald-200/30">
+                        <Check size={14} strokeWidth={3} />
                         Verified
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="bg-slate-100 text-slate-400 border-transparent dark:bg-slate-800 dark:text-slate-500">
+                      <Badge variant="secondary" className="bg-slate-50 text-slate-400 border-transparent py-1.5 px-3 font-bold">
                         Pending
                       </Badge>
                     )}

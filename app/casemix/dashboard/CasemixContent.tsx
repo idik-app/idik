@@ -112,21 +112,21 @@ export default function CasemixContent() {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, ease: "easeOut" }}
-      className="relative flex h-screen min-h-0 min-w-0 flex-col gap-4 overflow-hidden bg-[#F8FAFC] p-4 text-slate-900 [color-scheme:light] dark:bg-slate-950 dark:text-slate-100"
+      className="relative flex h-screen min-h-0 min-w-0 flex-col gap-4 overflow-hidden bg-gradient-to-br from-[#F0F7FF] via-[#FFFFFF] to-[#E8F1FF] p-4 text-slate-900 [color-scheme:light]"
     >
-      {/* 🚀 Header Casemix - Modern Glassmorphism */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/20 bg-white/70 px-5 py-4 shadow-xl shadow-slate-200/50 backdrop-blur-xl dark:border-slate-800/50 dark:bg-slate-900/80 dark:shadow-none">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none">
-            <Wallet size={24} strokeWidth={2} />
+      {/* 🚀 Header Casemix - Bright Modern Glassmorphism */}
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/80 bg-white/60 px-6 py-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-xl">
+        <div className="flex items-center gap-5">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#2563EB] to-[#3B82F6] text-white shadow-[0_10px_20px_rgba(37,99,235,0.2)]">
+            <Wallet size={28} strokeWidth={2} />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
               Casemix Dashboard
             </h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <p className="text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-2.5 mt-1">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] animate-pulse" />
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
                 Verifikasi & Input BPJS
               </p>
             </div>
@@ -134,29 +134,29 @@ export default function CasemixContent() {
         </div>
 
         {/* 👤 User Profile & Logout */}
-        <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50/50 p-1.5 pl-4 dark:border-slate-800 dark:bg-slate-800/50">
+        <div className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white/80 p-2 pl-5 shadow-sm">
           <div className="flex flex-col items-end">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Operator
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              Authorized Operator
             </span>
-            <span className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+            <span className="flex items-center gap-2 text-base font-bold text-slate-800">
               {username}
-              <div className="h-6 w-6 rounded-lg bg-slate-200 flex items-center justify-center dark:bg-slate-700">
-                <User size={14} className="text-slate-500 dark:text-slate-400" />
+              <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200/50">
+                <User size={16} className="text-slate-500" />
               </div>
             </span>
           </div>
-          <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
+          <div className="h-10 w-px bg-slate-100" />
           <button
             onClick={handleLogout}
             disabled={loggingOut}
-            className="group flex h-10 w-10 items-center justify-center rounded-lg bg-white text-slate-400 transition-all hover:bg-red-50 hover:text-red-500 hover:shadow-md dark:bg-slate-900 dark:hover:bg-red-950/30"
+            className="group flex h-11 w-11 items-center justify-center rounded-xl bg-white text-slate-400 transition-all hover:bg-red-50 hover:text-red-500 hover:shadow-lg hover:shadow-red-100"
             title="Logout"
           >
             {loggingOut ? (
-              <Loader2 size={18} className="animate-spin shrink-0" />
+              <Loader2 size={20} className="animate-spin shrink-0" />
             ) : (
-              <LogOut size={18} className="shrink-0 transition-transform group-hover:translate-x-0.5" />
+              <LogOut size={20} className="shrink-0 transition-transform group-hover:translate-x-1" />
             )}
           </button>
         </div>
@@ -171,7 +171,7 @@ export default function CasemixContent() {
       />
 
       {/* 📋 Tabel Tindakan */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/40 bg-white/50 text-slate-900 shadow-xl shadow-slate-200/40 backdrop-blur-md [color-scheme:light] dark:border-slate-800/50 dark:bg-slate-900/50 dark:text-slate-100 dark:shadow-none">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white bg-white/80 text-slate-900 shadow-[0_15px_40px_rgba(0,0,0,0.05)] backdrop-blur-md [color-scheme:light]">
         <div className="min-h-0 flex-1 overflow-y-auto">
           <CasemixTable 
             data={paginatedData}
@@ -182,7 +182,7 @@ export default function CasemixContent() {
         </div>
         
         {/* 🔢 Pagination */}
-        <div className="shrink-0 border-t border-slate-100 bg-white/40 px-2 dark:border-slate-800/50 dark:bg-slate-900/40">
+        <div className="shrink-0 border-t border-slate-50 bg-white/90 px-4 py-2">
           <TablePagination
             variant="enterprise"
             currentPage={currentPage}

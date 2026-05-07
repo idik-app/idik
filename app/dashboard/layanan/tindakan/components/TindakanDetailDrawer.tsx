@@ -39,6 +39,7 @@ import MasterPerawatTimField, {
   type TimPerawatFieldKey,
 } from "./MasterPerawatTimField";
 import MasterDokterField from "./MasterDokterField";
+import DokterAnestesiField from "./DokterAnestesiField";
 import MasterJenisTindakanField from "./MasterJenisTindakanField";
 import RadiologiAutosaveField, {
   type RadiologiFieldKey,
@@ -48,6 +49,7 @@ import KlinisAutosaveField, {
 } from "./KlinisAutosaveField";
 import BiayaAutosaveField, {
   type BiayaAutosaveFieldKey,
+  type BiayaAutosaveSyncedInfo,
 } from "./BiayaAutosaveField";
 import KelasPembiayaanBiayaField from "./KelasPembiayaanBiayaField";
 import FastTrackBlock from "./FastTrackBlock";
@@ -77,8 +79,8 @@ type Props = {
   /** Snapshot daftar tindakan (untuk tab Resume: riwayat pasien yang sama). */
   allTindakanRows?: TindakanJoinResult[];
   onClose: () => void;
-  /** Setelah kolom kasus di-patch dari drawer (mis. kategori), muat ulang daftar. */
-  onRecordPatch?: () => void;
+  /** Setelah kolom/autosave sukses: refresh list atau patch optimistik (`BiayaAutosaveField` mengirim `BiayaAutosaveSyncedInfo`). */
+  onRecordPatch?: (info?: BiayaAutosaveSyncedInfo) => void;
   /**
    * Simpan field tindakan lewat bridge (optimistic row + revalidate) — dipakai Sign in / Time out / Sign out
    * agar kolom Time out di tabel langsung ikut.
@@ -1382,6 +1384,10 @@ function TindakanDetailDrawer({
                                       key === "billing_simrs" ||
                                       key === "pj_laporan") &&
                                     Boolean(tindakanId);
+                                  const isDokterAnestesiEditable =
+                                    def.id === "tim" &&
+                                    key === "dokter_anestesi" &&
+                                    Boolean(tindakanId);
                                   const isDokterEditable =
                                     def.id === "tim" &&
                                     key === "dokter" &&
@@ -1566,6 +1572,18 @@ function TindakanDetailDrawer({
                                             tindakanId={tindakanId}
                                             field={key as BiayaAutosaveFieldKey}
                                             value={rawVal}
+                                            onSaved={onRecordPatch}
+                                          />
+                                        ) : isDokterAnestesiEditable ? (
+                                          <DokterAnestesiField
+                                            tindakanId={tindakanId}
+                                            variant="drawer"
+                                            value={
+                                              rawVal === null ||
+                                              rawVal === undefined
+                                                ? null
+                                                : String(rawVal)
+                                            }
                                             onSaved={onRecordPatch}
                                           />
                                         ) : isDokterEditable ? (

@@ -256,7 +256,7 @@ export default function TindakanDashboard() {
             : []
         }
         onClose={adapter.closeDetailDrawer}
-        onRecordPatch={adapter.refresh}
+        onRecordPatch={adapter.syncListAfterAutosave}
         patchTindakanFields={adapter.saveEditor}
       />
 
@@ -271,7 +271,7 @@ export default function TindakanDashboard() {
         }
         loading={Boolean(adapter.loading)}
         themeTone={themeTone}
-        onRecordPatch={adapter.refresh}
+        onRecordPatch={adapter.syncListAfterAutosave}
       />
 
       <FastTrackListModal
@@ -285,7 +285,7 @@ export default function TindakanDashboard() {
         }
         loading={Boolean(adapter.loading)}
         doctorOptionsMaster={[]} // Will be loaded inside if needed or pass from context
-        onRecordPatch={adapter.refresh}
+        onRecordPatch={adapter.syncListAfterAutosave}
       />
 
       <TindakanWeeklyPpciModal
@@ -298,7 +298,7 @@ export default function TindakanDashboard() {
             : [])
         }
         loading={Boolean(adapter.loading)}
-        onRecordPatch={adapter.refresh}
+        onRecordPatch={adapter.syncListAfterAutosave}
       />
 
       <TindakanDashboardModal

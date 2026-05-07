@@ -48,7 +48,7 @@ export const UI_LAYERS = {
   /** Dialog konfirmasi tingkat tinggi */
   confirmDialogHigh: "z-[600]",
   /** Popover standar */
-  popover: "z-[85]",
+  popover: "z-[100]",
   /** Portal untuk drawer */
   drawerPortal: "z-[100050]",
   /** Picker melayang (date/time) */

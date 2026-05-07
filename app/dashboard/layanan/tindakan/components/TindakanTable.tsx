@@ -101,6 +101,7 @@ import {
 import type { TindakanFilteredSummary } from "./TindakanSummary";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import KeteranganField from "./KeteranganField";
+import DokterAnestesiField from "./DokterAnestesiField";
 import PemakaianAlkesModal from "./PemakaianAlkesModal";
 import RsPerujukField from "./RsPerujukField";
 import {
@@ -1344,10 +1345,47 @@ export default function TindakanTable({
     setArcMenuRowKey(null);
   }, []);
 
+  /** Ikon anestesi (arc): muncul saat hover area kolom dokter — selaras arc menu nama pasien. */
+  const [anestesiArcRowKey, setAnestesiArcRowKey] = useState<string | null>(
+    null,
+  );
+  const anestesiArcCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
+  const openAnestesiArc = useCallback((rowKey: string) => {
+    if (anestesiArcCloseTimerRef.current != null) {
+      clearTimeout(anestesiArcCloseTimerRef.current);
+      anestesiArcCloseTimerRef.current = null;
+    }
+    setAnestesiArcRowKey(rowKey);
+  }, []);
+
+  const scheduleCloseAnestesiArc = useCallback(() => {
+    if (anestesiArcCloseTimerRef.current != null) {
+      clearTimeout(anestesiArcCloseTimerRef.current);
+    }
+    anestesiArcCloseTimerRef.current = setTimeout(() => {
+      setAnestesiArcRowKey(null);
+      anestesiArcCloseTimerRef.current = null;
+    }, 700);
+  }, []);
+
+  const closeAnestesiArcImmediate = useCallback(() => {
+    if (anestesiArcCloseTimerRef.current != null) {
+      clearTimeout(anestesiArcCloseTimerRef.current);
+      anestesiArcCloseTimerRef.current = null;
+    }
+    setAnestesiArcRowKey(null);
+  }, []);
+
   useEffect(() => {
     return () => {
       if (arcMenuCloseTimerRef.current != null) {
         clearTimeout(arcMenuCloseTimerRef.current);
+      }
+      if (anestesiArcCloseTimerRef.current != null) {
+        clearTimeout(anestesiArcCloseTimerRef.current);
       }
     };
   }, []);
@@ -3038,6 +3076,7 @@ export default function TindakanTable({
                 onPointerDownCapture={(e) => {
                   const t = e.target;
                   if (!(t instanceof Element)) return;
+                  if (t.closest('[data-anestesi-field="true"]')) return;
                   const tr = t.closest("tr[data-arc-row-key]");
                   if (!(tr instanceof HTMLElement)) return;
                   const clickedKey = tr.dataset.arcRowKey ?? "";
@@ -3047,6 +3086,13 @@ export default function TindakanTable({
                     clickedKey !== arcMenuRowKey
                   ) {
                     closeArcMenuImmediate();
+                  }
+                  if (
+                    anestesiArcRowKey &&
+                    clickedKey &&
+                    clickedKey !== anestesiArcRowKey
+                  ) {
+                    closeAnestesiArcImmediate();
                   }
                 }}
                 className="w-full min-w-[1200px] text-sm font-semibold border-collapse border border-amber-200/65 dark:border-amber-800/50"
@@ -3134,7 +3180,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[12rem]",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
@@ -4108,127 +4154,184 @@ export default function TindakanTable({
                               )}
                             </td>
                             <td
-                              {...cellSelection.getTdProps(i, TCol.DOKTER)}
-                              data-no-row-click="true"
-                              onClick={(e) => e.stopPropagation()}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              className={cn(
-                                TINDAKAN_SHEET_CELL,
-                                ZOOM_CELL_CLASSES,
-                                "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
-                                "text-amber-800 dark:text-slate-100",
-                                cellSelection.isCellSelected(i, TCol.DOKTER) &&
-                                  TINDAKAN_CELL_SELECTION_CLASS,
-                              )}
-                            >
-                              <div
+                               {...cellSelection.getTdProps(i, TCol.DOKTER)}
+                               data-no-row-click="true"
+                               onClick={(e) => e.stopPropagation()}
+                               onMouseDown={(e) => e.stopPropagation()}
+                               onMouseEnter={() => openAnestesiArc(key)}
+                               onMouseLeave={() => scheduleCloseAnestesiArc()}
+                               className={cn(
+                                 TINDAKAN_SHEET_CELL,
+                                 ZOOM_CELL_CLASSES,
+                                 "px-2 sm:px-2.5 py-1 max-w-[18rem] min-w-[12rem] text-center align-middle overflow-visible",
+                                 "text-amber-800 dark:text-slate-100",
+                                 anestesiArcRowKey === key &&
+                                   cn("relative", UI_LAYERS.tableZoomedCell),
+                                 cellSelection.isCellSelected(i, TCol.DOKTER) &&
+                                   TINDAKAN_CELL_SELECTION_CLASS,
+                               )}
+                             >
+                               <div className="relative mx-auto flex h-full items-center justify-center">
+                                 <div
+                                   data-no-row-click="true"
+                                   onMouseDown={(e) => e.stopPropagation()}
+                                   onClick={(e) => e.stopPropagation()}
+                                   className={cn(
+                                     "relative mx-auto flex min-w-[11.5rem] max-w-[17.5rem] items-center justify-center sm:min-w-[12.5rem]",
+                                     ZOOM_INNER_CLASSES,
+                                   )}
+                                   title={
+                                     doctorError ||
+                                     canonicalDoctorDisplayValue(
+                                       doctorOptionsMaster,
+                                       String(rec.dokter ?? ""),
+                                     )
+                                   }
+                                 >
+                                   <div
+                                     className={cn(
+                                       "flex min-h-[2.25rem] w-full min-w-0 items-stretch",
+                                       ZOOM_INNER_CLASSES,
+                                     )}
+                                   >
+                                     <div className="min-w-0 flex-1">
+                                       <div className="relative">
+                                         <DoctorCombobox
+                                           listboxId={`tindakan-row-${key}-doctor`}
+                                           value={
+                                             doctorLabelByRowId[stateKey] ??
+                                             canonicalDoctorDisplayValue(
+                                               doctorOptionsMaster,
+                                               String(rec.dokter ?? ""),
+                                             )
+                                           }
+                                           onChange={(label) => {
+                                             setDoctorLabelByRowId((p) => ({
+                                               ...p,
+                                               [stateKey]: label,
+                                             }));
+                                           }}
+                                           onInputBlur={(finalText) => {
+                                             if (!id) return;
+                                             const m = doctorOptionsMaster;
+                                             const resolved = m.length
+                                               ? resolveDoctorFromLooseInput(
+                                                   m,
+                                                   finalText,
+                                                 )
+                                               : null;
+                                             const persisted = resolved
+                                               ? String(
+                                                   resolved.nama_dokter,
+                                                 ).trim()
+                                               : finalText.trim();
+                                             const display = resolved
+                                               ? formatDoctorLabel(resolved)
+                                               : finalText.trim();
+                                             const cur = String(
+                                               rec.dokter ?? "",
+                                             ).trim();
+                                             setDoctorLabelByRowId((p) => ({
+                                               ...p,
+                                               [stateKey]: display,
+                                             }));
+                                             if (persisted !== cur) {
+                                               void patchRowField(id, {
+                                                 dokter: persisted || null,
+                                               });
+                                             }
+                                           }}
+                                           onSelectOption={(picked) => {
+                                             const canonical =
+                                               formatDoctorLabel(picked);
+                                             setDoctorLabelByRowId((p) => ({
+                                               ...p,
+                                               [stateKey]: canonical,
+                                             }));
+                                             if (!id) return;
+                                             void patchRowField(id, {
+                                               dokter: picked.nama_dokter || null,
+                                             });
+                                           }}
+                                           options={
+                                             doctorOptionsMaster.length
+                                               ? doctorOptionsMaster
+                                               : dokterOptions.map(
+                                                   (nama, idx) => ({
+                                                     id: `local:${idx}`,
+                                                     nama_dokter: nama,
+                                                     spesialis: null,
+                                                     aktif: true,
+                                                   }),
+                                                 )
+                                           }
+                                           loading={doctorLoading}
+                                           className={cn(
+                                             "max-w-none w-full",
+                                             "[&_input]:pr-2",
+                                           )}
+                                           inputClassName={
+                                             TINDAKAN_TABLE_PRIMARY_COL_INPUT
+                                           }
+                                         />
+                                       </div>
+                                       {!doctorLoading &&
+                                       doctorOptionsMaster.length === 0 &&
+                                       i === 0 ? (
+                                         <p
+                                           className={cn(
+                                             "mt-0.5 text-[9px] leading-tight",
+                                             "text-cyan-700/80 dark:text-slate-300/80",
+                                         )}
+                                       >
+                                         {doctorError
+                                           ? "Gagal memuat master dokter."
+                                           : "Belum ada dokter di master."}
+                                       </p>
+                                     ) : null}
+                                   </div>
+                                 </div>
+                               </div>
+
+                               {/* Anesthesia icon OUTSIDE the zoom container but INSIDE the TD */}
+                               <div
+                                 className={cn(
+                                   "pointer-events-auto absolute right-1.5 top-1/2 z-[110] -translate-y-1/2",
+                                   "transition-all duration-200",
+                                   anestesiArcRowKey === key || !!rec.dokter_anestesi
+                                     ? "opacity-100 scale-100"
+                                     : "opacity-0 scale-50 pointer-events-none",
+                                 )}
+                                 data-no-row-click="true"
+                               >
+                                 <DokterAnestesiField
+                                   variant="tableIcon"
+                                   arcOpen={anestesiArcRowKey === key}
+                                   tindakanId={id}
+                                   value={rec.dokter_anestesi ?? null}
+                                   options={doctorOptionsMaster}
+                                   loading={doctorLoading}
+                                   error={doctorError}
+                                   onCommit={
+                                     id
+                                       ? (next) =>
+                                           patchRowField(id, {
+                                             dokter_anestesi: next,
+                                           })
+                                       : undefined
+                                   }
+                                 />
+                               </div>
+                             </div>
+                           </td>
+                              <td
+                                {...cellSelection.getTdProps(i, TCol.TINDAKAN)}
                                 data-no-row-click="true"
-                                onMouseDown={(e) => e.stopPropagation()}
                                 onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
                                 className={cn(
-                                  "mx-auto min-w-[10rem] sm:min-w-[12rem] max-w-[14rem]",
-                                  ZOOM_INNER_CLASSES,
-                                )}
-                                title={
-                                  doctorError ||
-                                  canonicalDoctorDisplayValue(
-                                    doctorOptionsMaster,
-                                    String(rec.dokter ?? ""),
-                                  )
-                                }
-                              >
-                                <DoctorCombobox
-                                  listboxId={`tindakan-row-${key}-doctor`}
-                                  value={
-                                    doctorLabelByRowId[stateKey] ??
-                                    canonicalDoctorDisplayValue(
-                                      doctorOptionsMaster,
-                                      String(rec.dokter ?? ""),
-                                    )
-                                  }
-                                  onChange={(label) => {
-                                    setDoctorLabelByRowId((p) => ({
-                                      ...p,
-                                      [stateKey]: label,
-                                    }));
-                                  }}
-                                  onInputBlur={(finalText) => {
-                                    if (!id) return;
-                                    const m = doctorOptionsMaster;
-                                    const resolved = m.length
-                                      ? resolveDoctorFromLooseInput(
-                                          m,
-                                          finalText,
-                                        )
-                                      : null;
-                                    const persisted = resolved
-                                      ? String(resolved.nama_dokter).trim()
-                                      : finalText.trim();
-                                    const display = resolved
-                                      ? formatDoctorLabel(resolved)
-                                      : finalText.trim();
-                                    const cur = String(rec.dokter ?? "").trim();
-                                    setDoctorLabelByRowId((p) => ({
-                                      ...p,
-                                      [stateKey]: display,
-                                    }));
-                                    if (persisted !== cur) {
-                                      void patchRowField(id, {
-                                        dokter: persisted || null,
-                                      });
-                                    }
-                                  }}
-                                  onSelectOption={(picked) => {
-                                    const canonical = formatDoctorLabel(picked);
-                                    setDoctorLabelByRowId((p) => ({
-                                      ...p,
-                                      [stateKey]: canonical,
-                                    }));
-                                    if (!id) return;
-                                    void patchRowField(id, {
-                                      dokter: picked.nama_dokter || null,
-                                    });
-                                  }}
-                                  options={
-                                    doctorOptionsMaster.length
-                                      ? doctorOptionsMaster
-                                      : dokterOptions.map((nama, idx) => ({
-                                          id: `local:${idx}`,
-                                          nama_dokter: nama,
-                                          spesialis: null,
-                                          aktif: true,
-                                        }))
-                                  }
-                                  loading={doctorLoading}
-                                  className="max-w-[14rem]"
-                                  inputClassName={
-                                    TINDAKAN_TABLE_PRIMARY_COL_INPUT
-                                  }
-                                />
-                                {!doctorLoading &&
-                                doctorOptionsMaster.length === 0 &&
-                                i === 0 ? (
-                                  <p
-                                    className={cn(
-                                      "mt-0.5 text-[9px] leading-tight",
-                                      "text-cyan-700/80 dark:text-slate-300/80",
-                                    )}
-                                  >
-                                    {doctorError
-                                      ? "Gagal memuat master dokter."
-                                      : "Belum ada dokter di master."}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </td>
-                            <td
-                              {...cellSelection.getTdProps(i, TCol.TINDAKAN)}
-                              data-no-row-click="true"
-                              onClick={(e) => e.stopPropagation()}
-                              onMouseDown={(e) => e.stopPropagation()}
-                              className={cn(
-                                TINDAKAN_SHEET_CELL,
-                                ZOOM_CELL_CLASSES,
+                                  TINDAKAN_SHEET_CELL,
+                                  ZOOM_CELL_CLASSES,
                                 "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
                                 "text-amber-800 dark:text-white",
                                 cellSelection.isCellSelected(
@@ -4411,7 +4514,7 @@ export default function TindakanTable({
                               )}
                             >
                               <td
-                                colSpan={11}
+                                colSpan={12}
                                 className={cn(
                                   TINDAKAN_SHEET_CELL,
                                   "px-4 py-3 align-top text-left",
@@ -5002,7 +5105,7 @@ export default function TindakanTable({
                                   )}
                                 </div>
                               </td>
-                            </tr>
+                             </tr>
                           ) : null}
                         </Fragment>
                       );

@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { X, Loader2 } from "lucide-react";
 import { UI_LAYERS } from "@/lib/ui/layers";
+import { useDokter } from "../contexts/DokterContext";
 
 interface Props {
   onClose: () => void;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function ModalTambahDokter({ onClose, onSuccess }: Props) {
+  const { spesialisOptions } = useDokter();
   const [mounted, setMounted] = useState(false);
   const [nama, setNama] = useState("");
   const [spesialis, setSpesialis] = useState("");
@@ -108,11 +110,17 @@ export default function ModalTambahDokter({ onClose, onSuccess }: Props) {
             </label>
             <input
               type="text"
+              list="spesialis-list"
               value={spesialis}
               onChange={(e) => setSpesialis(e.target.value)}
               placeholder="Contoh: Kardiologi"
               className="w-full bg-gray-800/60 border border-cyan-700/40 rounded-lg px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
             />
+            <datalist id="spesialis-list">
+              {spesialisOptions.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
           </div>
 
           <div>

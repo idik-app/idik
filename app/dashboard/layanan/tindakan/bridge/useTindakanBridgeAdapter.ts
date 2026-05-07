@@ -121,6 +121,25 @@ export function useTindakanBridgeAdapter() {
 
   const refresh = useCallback(() => reload({ silent: true }), [reload]);
 
+  /** Sesudah autosave (Biaya, dll.): patch baris di memori dulu agar tabel/drawer respons cepat, lalu SWR silent. */
+  const syncListAfterAutosave = useCallback(
+    (info?: { tindakanId: string; field: string; value: unknown }) => {
+      if (
+        info &&
+        typeof info.tindakanId === "string" &&
+        typeof info.field === "string"
+      ) {
+        const id = info.tindakanId.trim();
+        const field = info.field.trim();
+        if (id && field) {
+          patchLocalRow(id, { [field]: info.value });
+        }
+      }
+      void reload({ silent: true });
+    },
+    [patchLocalRow, reload],
+  );
+
   // --------------------------------------------------------------------
   // LISTENER: REFRESH SIGNAL
   // --------------------------------------------------------------------
@@ -193,6 +212,8 @@ export function useTindakanBridgeAdapter() {
     deleteRecord,
     /** Muat ulang data di latar tanpa layar loading (polling / sinkron). */
     refresh,
+    /** PATCH biaya/autosave: optimistik ke list + revalidate silent (kolom Perolehan BPJS ↔ drawer). */
+    syncListAfterAutosave,
 
     // mapping
     getDetailView,

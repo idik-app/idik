@@ -12,6 +12,13 @@ export type BiayaAutosaveFieldKey =
   | "consumable"
   | "pemakaian";
 
+/** Untuk sinkron list / kolom tabel segera setelah PATCH sukses (tanpa tunggu SWR). */
+export type BiayaAutosaveSyncedInfo = {
+  tindakanId: string;
+  field: BiayaAutosaveFieldKey;
+  value: unknown;
+};
+
 const NUMERIC: Set<BiayaAutosaveFieldKey> = new Set([
   "total",
   "krs",
@@ -81,7 +88,10 @@ type Props = {
   tindakanId: string;
   field: BiayaAutosaveFieldKey;
   value: unknown;
-  onSaved?: () => void;
+  /** Tanpa argumen: refresh generik. Dengan info: parent bisa patch baris lokal + revalidate. */
+  onSaved?: (info?: BiayaAutosaveSyncedInfo) => void;
+  /** Gaya input padat / border abu seperti grid HIS klasik (Casemix). */
+  uiVariant?: "default" | "enterprise";
 };
 
 export default function BiayaAutosaveField({
@@ -89,13 +99,25 @@ export default function BiayaAutosaveField({
   field,
   value,
   onSaved,
+  uiVariant = "default",
 }: Props) {
+  const ent = uiVariant === "enterprise";
   const [draft, setDraft] = useState(() => draftFromValue(field, value));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
   const inputFocusedRef = useRef(false);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const valueRef = useRef(value);
+  const tindakanIdRef = useRef(tindakanId);
+  const fieldRef = useRef(field);
+
+  useEffect(() => {
+    tindakanIdRef.current = tindakanId;
+  }, [tindakanId]);
+
+  useEffect(() => {
+    fieldRef.current = field;
+  }, [field]);
 
   useEffect(() => {
     valueRef.current = value;
@@ -164,21 +186,14 @@ export default function BiayaAutosaveField({
     void autoSync();
   }, [field, value, tindakanId]);
 
-  useEffect(
-    () => () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-        void persist(draftRef.current);
-      }
-      if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
-    },
-    [],
-  );
-
   const persist = async (draftNow: string) => {
+    const tid = String(tindakanIdRef.current ?? "").trim();
+    const f = fieldRef.current;
+    if (!tid || !f) return;
+
     let payloadVal: unknown;
 
-    if (NUMERIC.has(field)) {
+    if (NUMERIC.has(f)) {
       const numericString = draftNow.replace(/\D/g, "");
       const n = numericString === "" ? null : Number(numericString);
       payloadVal = n;
@@ -192,12 +207,12 @@ export default function BiayaAutosaveField({
 
     try {
       const res = await fetch(
-        `/api/tindakan/${encodeURIComponent(tindakanId)}`,
+        `/api/tindakan/${encodeURIComponent(tid)}`,
         {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ [field]: payloadVal }),
+          body: JSON.stringify({ [f]: payloadVal }),
         },
       );
       const json = (await res.json().catch(() => ({}))) as {
@@ -207,11 +222,14 @@ export default function BiayaAutosaveField({
       if (!res.ok || !json.ok) {
         throw new Error(json.message || res.statusText);
       }
-      onSaved?.();
+      onSaved?.({ tindakanId: tid, field: f, value: payloadVal });
     } catch (e) {
       if (process.env.NODE_ENV === "development") {
-        console.warn("[BiayaAutosaveField]", field, e);
+        console.warn("[BiayaAutosaveField]", fieldRef.current, e);
       }
+      const revert = draftFromValue(fieldRef.current, valueRef.current);
+      draftRef.current = revert;
+      setDraft(revert);
     }
   };
 
@@ -222,6 +240,31 @@ export default function BiayaAutosaveField({
       void persist(nextDraft);
     }, DEBOUNCE_MS);
   };
+
+  useEffect(
+    () => () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+        void persist(draftRef.current);
+      }
+      if (blurTimerRef.current) clearTimeout(blurTimerRef.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState !== "hidden") return;
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+        void persist(draftRef.current);
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
 
   const flushBlur = () => {
     if (debounceRef.current) {
@@ -241,8 +284,10 @@ export default function BiayaAutosaveField({
   };
 
   const inputClass = cn(
-    "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",
-    "border-cyan-400/55 bg-white text-slate-950 placeholder:text-slate-500 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
+    "mt-0.5 w-full border px-2 font-semibold focus:outline-none",
+    ent
+      ? "rounded-sm border-[#A3B8CC] bg-white py-1.5 text-sm text-[#333333] placeholder:text-neutral-500 focus:border-[#003366] focus:ring-1 focus:ring-[#003366]/35 dark:border-[#A3B8CC] dark:bg-white dark:text-neutral-900 dark:placeholder:text-white/90"
+      : "rounded-md border-cyan-400/55 bg-white py-1.5 text-sm text-slate-950 placeholder:text-slate-500 focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 dark:border-cyan-900/50 dark:bg-black/40 dark:text-white dark:placeholder:text-white/90",
   );
   const aria =
     field === "total"
@@ -267,14 +312,16 @@ export default function BiayaAutosaveField({
     blurTimerRef.current = setTimeout(() => {
       blurTimerRef.current = null;
       inputFocusedRef.current = false;
-      const next = draftFromValue(field, valueRef.current);
-      setDraft(next);
-    }, 800);
+      // Jangan setDraft dari valueRef di sini: PATCH + patchLocalRow bisa belum tiba,
+      // sehingga snapshot lawas mengembalikan nominal yang baru dikosongkan.
+      // Sinkronisasi dari server lewat useEffect([value]) setelah props mutakhir.
+    }, 0);
   };
 
   const handleClear = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    draftRef.current = "";
     setDraft("");
     void persist("");
   };
@@ -286,7 +333,7 @@ export default function BiayaAutosaveField({
         autoComplete="off"
         className={cn(
           inputClass,
-          "min-h-[10rem] resize-y font-mono text-[11px] leading-relaxed whitespace-pre-wrap",
+          "min-h-[10rem] resize-y font-mono text-sm leading-relaxed whitespace-pre-wrap",
         )}
         placeholder="—"
         value={draft}
@@ -294,6 +341,7 @@ export default function BiayaAutosaveField({
         onFocus={handleFocus}
         onChange={(e) => {
           const v = e.target.value;
+          draftRef.current = v;
           setDraft(v);
           schedulePersist(v);
         }}
@@ -306,16 +354,20 @@ export default function BiayaAutosaveField({
     return (
       <div
         className={cn(
-          "mt-0.5 flex max-w-[min(100%,18rem)] items-center gap-1.5 rounded-md border px-2 py-1.5 focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/30",
-          "border-cyan-400/55 bg-white dark:border-cyan-900/50 dark:bg-black/40",
+          "mt-0.5 flex max-w-[min(100%,18rem)] overflow-hidden border focus-within:outline-none",
+          ent
+            ? "items-center rounded-sm border-[#A3B8CC] bg-white focus-within:border-[#003366] focus-within:ring-1 focus-within:ring-[#003366]/35 dark:border-[#A3B8CC]"
+            : "items-center gap-1.5 rounded-md border-cyan-400/55 bg-white px-2 py-1.5 focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/30 dark:border-cyan-900/50 dark:bg-black/40",
         )}
         role="group"
         aria-label={aria}
       >
         <span
           className={cn(
-            "shrink-0 text-sm font-semibold",
-            "text-cyan-700 dark:text-cyan-500/90",
+            "flex shrink-0 items-center font-semibold",
+            ent
+              ? "border-r border-[#A3B8CC] bg-[#E8E8E8] px-2 py-1 text-[11px] text-[#333333] dark:bg-neutral-200 dark:text-neutral-900"
+              : "text-sm text-cyan-700 dark:text-cyan-500/90",
           )}
         >
           Rp
@@ -325,8 +377,10 @@ export default function BiayaAutosaveField({
           inputMode="decimal"
           autoComplete="off"
           className={cn(
-            "min-w-0 flex-1 border-0 bg-transparent p-0 font-mono text-sm font-semibold focus:outline-none focus:ring-0",
-            "text-slate-950 placeholder:text-slate-500 dark:text-white dark:placeholder:text-white/90",
+            "min-w-0 flex-1 border-0 bg-transparent font-mono font-semibold focus:outline-none focus:ring-0",
+            ent
+              ? "px-2 py-1.5 text-sm text-[#333333] placeholder:text-neutral-500 dark:text-neutral-900 dark:placeholder:text-white/90"
+              : "p-0 text-sm text-slate-950 placeholder:text-slate-500 dark:text-white dark:placeholder:text-white/90",
           )}
           placeholder="0"
           value={draft}
@@ -335,6 +389,7 @@ export default function BiayaAutosaveField({
           onChange={(e) => {
             const raw = e.target.value;
             const formatted = formatRibuan(raw);
+            draftRef.current = formatted;
             setDraft(formatted);
             schedulePersist(raw.replace(/\D/g, ""));
           }}
@@ -344,10 +399,15 @@ export default function BiayaAutosaveField({
           <button
             type="button"
             onClick={handleClear}
-            className="shrink-0 rounded-full p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white"
+            className={cn(
+              "shrink-0 p-0.5",
+              ent
+                ? "mr-0.5 rounded-sm text-[#555555] hover:bg-neutral-100 hover:text-[#003366] dark:text-neutral-700 dark:hover:bg-neutral-100 dark:hover:text-[#003366]"
+                : "rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white",
+            )}
             title="Hapus"
           >
-            <X size={14} />
+            <X size={16} />
           </button>
         )}
       </div>

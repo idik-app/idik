@@ -33,6 +33,8 @@ export interface TindakanJoinResult {
   ruangan: string | null;
   cath: string | null;
   dokter: string | null;
+  /** Dokter anestesi (teks bebas), kolom `dokter_anestesi` di DB */
+  dokter_anestesi?: string | null;
   tindakan: string | null;
   kategori: string | null;
   temuan_pembuluh: string | null;

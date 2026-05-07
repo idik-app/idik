@@ -68,9 +68,6 @@ export default function CasemixContent() {
   const filteredData = useMemo(() => {
     let list = (adapter.tindakanList as TindakanJoinResult[]) || [];
     
-    // Debug log untuk melihat data mentah dari adapter
-    console.log("[Casemix] Data dari adapter:", list.length);
-
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(r => 
@@ -93,7 +90,6 @@ export default function CasemixContent() {
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     const end = start + pageSize;
-    console.log(`[Casemix] Pagination: page=${currentPage}, size=${pageSize}, start=${start}, end=${end}, total=${filteredData.length}`);
     return filteredData.slice(start, end);
   }, [filteredData, currentPage, pageSize]);
 
@@ -113,49 +109,54 @@ export default function CasemixContent() {
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
-      className="relative flex h-screen min-h-0 min-w-0 flex-col gap-4 overflow-hidden bg-gradient-to-br from-black via-gray-900 to-cyan-950 p-4"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8, ease: "easeOut" }}
+      className="relative flex h-screen min-h-0 min-w-0 flex-col gap-4 overflow-hidden bg-[#F8FAFC] p-4 text-slate-900 [color-scheme:light] dark:bg-slate-950 dark:text-slate-100"
     >
-      {/* 🚀 Header Casemix */}
-      <div className="flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]">
-            <Wallet size={24} />
+      {/* 🚀 Header Casemix - Modern Glassmorphism */}
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/20 bg-white/70 px-5 py-4 shadow-xl shadow-slate-200/50 backdrop-blur-xl dark:border-slate-800/50 dark:bg-slate-900/80 dark:shadow-none">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none">
+            <Wallet size={24} strokeWidth={2} />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-white">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
               Casemix Dashboard
             </h1>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-500/70">
-              Verifikasi & Input Perolehan BPJS
-            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <p className="text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                Verifikasi & Input BPJS
+              </p>
+            </div>
           </div>
         </div>
 
         {/* 👤 User Profile & Logout */}
-        <div className="flex items-center gap-4 rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-2 backdrop-blur-sm">
+        <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-slate-50/50 p-1.5 pl-4 dark:border-slate-800 dark:bg-slate-800/50">
           <div className="flex flex-col items-end">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-500/50">
-              Logged in as
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Operator
             </span>
-            <span className="text-sm font-bold text-white flex items-center gap-2">
-              <User size={14} className="text-cyan-400" />
+            <span className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
               {username}
+              <div className="h-6 w-6 rounded-lg bg-slate-200 flex items-center justify-center dark:bg-slate-700">
+                <User size={14} className="text-slate-500 dark:text-slate-400" />
+              </div>
             </span>
           </div>
-          <div className="h-8 w-[1px] bg-white/10" />
+          <div className="h-8 w-px bg-slate-200 dark:bg-slate-700" />
           <button
             onClick={handleLogout}
             disabled={loggingOut}
-            className="group flex h-9 w-9 items-center justify-center rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-400 transition-all hover:bg-rose-500/20 active:scale-95 disabled:opacity-50"
+            className="group flex h-10 w-10 items-center justify-center rounded-lg bg-white text-slate-400 transition-all hover:bg-red-50 hover:text-red-500 hover:shadow-md dark:bg-slate-900 dark:hover:bg-red-950/30"
             title="Logout"
           >
             {loggingOut ? (
-              <Loader2 size={18} className="animate-spin" />
+              <Loader2 size={18} className="animate-spin shrink-0" />
             ) : (
-              <LogOut size={18} className="transition-transform group-hover:translate-x-0.5" />
+              <LogOut size={18} className="shrink-0 transition-transform group-hover:translate-x-0.5" />
             )}
           </button>
         </div>
@@ -170,18 +171,20 @@ export default function CasemixContent() {
       />
 
       {/* 📋 Tabel Tindakan */}
-      <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/5 bg-black/40 shadow-2xl backdrop-blur-md overflow-hidden">
-        <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/40 bg-white/50 text-slate-900 shadow-xl shadow-slate-200/40 backdrop-blur-md [color-scheme:light] dark:border-slate-800/50 dark:bg-slate-900/50 dark:text-slate-100 dark:shadow-none">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           <CasemixTable 
             data={paginatedData}
             isLoading={adapter.loading}
             onRowClick={(id) => adapter.openDetail(id)}
+            onBiayaSynced={adapter.syncListAfterAutosave}
           />
         </div>
         
         {/* 🔢 Pagination */}
-        <div className="shrink-0 border-t border-white/5 bg-white/[0.02] px-2">
+        <div className="shrink-0 border-t border-slate-100 bg-white/40 px-2 dark:border-slate-800/50 dark:bg-slate-900/40">
           <TablePagination
+            variant="enterprise"
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={filteredData.length}
@@ -194,8 +197,8 @@ export default function CasemixContent() {
       </div>
 
       {/* 🧠 Diagnostics HUD */}
-      <div className="shrink-0 opacity-40 hover:opacity-100 transition-opacity duration-300">
-        <DiagnosticsHUD module="Casemix" />
+      <div className="shrink-0 opacity-75 transition-opacity duration-300 hover:opacity-100">
+        <DiagnosticsHUD module="Casemix" variant="soft" />
       </div>
 
       {/* 🔍 Detail Drawer (Reuse from Tindakan) */}
@@ -204,7 +207,7 @@ export default function CasemixContent() {
         initialTab="biaya"
         record={adapter.selectedRecord as TindakanJoinResult}
         onClose={adapter.closeDetailDrawer}
-        onRecordPatch={adapter.refresh}
+        onRecordPatch={adapter.syncListAfterAutosave}
       />
     </motion.div>
   );

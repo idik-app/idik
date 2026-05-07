@@ -12,13 +12,8 @@ import ConfirmDialog from "./ConfirmDialog";
 import DokterStatusBadge from "./DokterStatusBadge";
 import ExportReportDokter from "./ExportReportDokter";
 
-const ModalTambahDokter = dynamic(() => import("./ModalTambahDokter"), {
-  ssr: false,
-});
-
-const ModalEditDokter = dynamic(() => import("./ModalEditDokter"), {
-  ssr: false,
-});
+import ModalTambahDokter from "./ModalTambahDokter";
+import ModalEditDokter from "./ModalEditDokter";
 
 type ErrorType = "network" | "missing_table" | "unknown" | null;
 

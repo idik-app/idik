@@ -14,6 +14,8 @@ interface Props {
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
   pageSizeOptions?: number[];
+  /** Gaya pagination untuk dashboard Casemix (warna grid HIS). */
+  variant?: "default" | "enterprise";
 }
 
 function TablePagination({
@@ -24,7 +26,9 @@ function TablePagination({
   onPageChange,
   onPageSizeChange,
   pageSizeOptions = DEFAULT_SIZES,
+  variant = "default",
 }: Props) {
+  const ent = variant === "enterprise";
   const sizeChoices = useMemo(() => {
     const s = new Set([...pageSizeOptions, pageSize]);
     return [...s].sort((a, b) => a - b);
@@ -42,14 +46,14 @@ function TablePagination({
       <p
         className={cn(
           "text-center sm:text-left text-[11px] sm:text-xs font-semibold",
-          "text-slate-800 dark:text-white/90",
+          ent ? "text-[#333333] dark:text-white/90" : "text-slate-800 dark:text-white/90",
         )}
       >
         Menampilkan{" "}
         <span
           className={cn(
             "font-mono font-bold tabular-nums",
-            "text-slate-950 dark:text-white",
+            ent ? "text-black dark:text-white" : "text-slate-950 dark:text-white",
           )}
         >
           {start}–{end}
@@ -58,7 +62,7 @@ function TablePagination({
         <span
           className={cn(
             "font-mono font-bold tabular-nums",
-            "text-slate-950 dark:text-white",
+            ent ? "text-black dark:text-white" : "text-slate-950 dark:text-white",
           )}
         >
           {totalItems.toLocaleString("id-ID")}
@@ -68,7 +72,7 @@ function TablePagination({
         <label
           className={cn(
             "flex items-center gap-2 text-[11px] sm:text-xs font-bold",
-            "text-cyan-950 dark:text-white/90",
+            ent ? "text-[#333333] dark:text-white/90" : "text-cyan-950 dark:text-white/90",
           )}
         >
           <span className="whitespace-nowrap">Baris / halaman</span>
@@ -76,8 +80,10 @@ function TablePagination({
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
             className={cn(
-              "rounded-md border px-2 py-1.5 text-xs font-bold focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/45",
-              "border-cyan-500/45 bg-white text-slate-950 [color-scheme:light] dark:border-cyan-700/50 dark:bg-black/60 dark:text-white dark:[color-scheme:dark]",
+              "border px-2 py-1 text-[11px] font-bold focus:outline-none [color-scheme:light]",
+              ent
+                ? "rounded-sm border-[#A3B8CC] bg-white text-[#333333] focus-visible:ring-1 focus-visible:ring-[#003366]/40 dark:border-[#A3B8CC] dark:bg-white dark:text-neutral-900 dark:[color-scheme:light]"
+                : "rounded-md border-cyan-500/45 bg-white py-1.5 text-xs text-slate-950 focus-visible:ring-2 focus-visible:ring-cyan-500/45 dark:border-cyan-700/50 dark:bg-black/60 dark:text-white dark:[color-scheme:dark]",
             )}
           >
             {sizeChoices.map((n) => (
@@ -93,8 +99,10 @@ function TablePagination({
             disabled={currentPage <= 1}
             onClick={() => onPageChange(currentPage - 1)}
             className={cn(
-              "p-2 rounded-md border disabled:opacity-30 disabled:cursor-not-allowed transition",
-              "border-cyan-500/40 hover:bg-cyan-100 text-cyan-900 dark:border-cyan-700/40 dark:hover:bg-cyan-900/40 dark:text-white",
+              "border p-1.5 disabled:cursor-not-allowed disabled:opacity-30 transition",
+              ent
+                ? "rounded-sm border-[#A3B8CC] bg-white text-[#003366] hover:bg-[#E8F1FB] dark:border-[#A3B8CC] dark:bg-white dark:text-white dark:hover:bg-neutral-800"
+                : "rounded-md border-cyan-500/40 p-2 text-cyan-900 hover:bg-cyan-100 dark:border-cyan-700/40 dark:hover:bg-cyan-900/40 dark:text-white",
             )}
             aria-label="Halaman sebelumnya"
           >
@@ -102,8 +110,8 @@ function TablePagination({
           </button>
           <span
             className={cn(
-              "text-xs sm:text-sm font-bold whitespace-nowrap min-w-[7.5rem] text-center tabular-nums",
-              "text-slate-950 dark:text-white",
+              "min-w-[7.5rem] whitespace-nowrap text-center text-xs font-bold tabular-nums sm:text-sm",
+              ent ? "text-[#333333] dark:text-white" : "text-slate-950 dark:text-white",
             )}
           >
             Halaman {currentPage} / {totalPages}
@@ -113,8 +121,10 @@ function TablePagination({
             disabled={currentPage >= totalPages}
             onClick={() => onPageChange(currentPage + 1)}
             className={cn(
-              "p-2 rounded-md border disabled:opacity-30 disabled:cursor-not-allowed transition",
-              "border-cyan-500/40 hover:bg-cyan-100 text-cyan-900 dark:border-cyan-700/40 dark:hover:bg-cyan-900/40 dark:text-white",
+              "border p-1.5 disabled:cursor-not-allowed disabled:opacity-30 transition",
+              ent
+                ? "rounded-sm border-[#A3B8CC] bg-white text-[#003366] hover:bg-[#E8F1FB] dark:border-[#A3B8CC] dark:bg-white dark:text-white dark:hover:bg-neutral-800"
+                : "rounded-md border-cyan-500/40 p-2 text-cyan-900 hover:bg-cyan-100 dark:border-cyan-700/40 dark:hover:bg-cyan-900/40 dark:text-white",
             )}
             aria-label="Halaman berikutnya"
           >

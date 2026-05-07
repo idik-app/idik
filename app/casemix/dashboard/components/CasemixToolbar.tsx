@@ -28,45 +28,45 @@ function CasemixToolbar({ onRefresh, isLoading, onSearch, onFilter }: Props) {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white bg-white/60 p-3 shadow-xl shadow-blue-100/30 backdrop-blur-md dark:border-slate-800/50 dark:bg-slate-900/40 dark:shadow-none">
+    <div className="flex flex-wrap items-center gap-2 rounded-sm border border-[#A3B8CC] bg-[#F0F5FA] p-2 dark:border-[#A3B8CC] dark:bg-neutral-900/40">
       {/* 🔍 Search */}
-      <div className="relative min-w-[240px] flex-1 group">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-300 transition-colors group-focus-within:text-blue-500 dark:text-slate-500" />
+      <div className="relative min-w-[200px] flex-1">
+        <Search size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-[#003366]/70 dark:text-white/70" />
         <input
           type="text"
           value={searchValue}
           onChange={(e) => handleSearch(e.target.value)}
           placeholder="Cari No. RM atau Nama Pasien..."
-          className="h-10 w-full rounded-xl border border-blue-50 bg-white px-10 py-2 text-sm font-semibold text-blue-900 transition-all placeholder:text-blue-200 focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-200 dark:placeholder:text-slate-600 dark:focus:border-blue-500"
+          className="h-8 w-full rounded-sm border border-[#A3B8CC] bg-white py-1 pl-8 pr-8 text-[11px] font-medium text-[#333333] shadow-none placeholder:text-[#888888] focus:border-[#003366] focus:outline-none focus:ring-1 focus:ring-[#003366]/35 dark:border-[#A3B8CC] dark:bg-white dark:text-neutral-900 dark:placeholder:text-white/90"
         />
         {searchValue && (
           <button
             type="button"
             onClick={() => handleSearch("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-200 transition-colors hover:text-blue-500 dark:hover:text-slate-200"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[#666666] transition-colors hover:text-black dark:text-white/70 dark:hover:text-white"
           >
-            <X size={16} />
+            <X size={14} />
           </button>
         )}
       </div>
 
       {/* 📅 Date Filter */}
-      <div className="flex items-center gap-2 rounded-xl border border-blue-50 bg-white p-1 dark:border-slate-800 dark:bg-slate-900/50">
+      <div className="flex flex-wrap items-center gap-1.5">
         <div className="relative">
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => handleDateChange(e.target.value, dateTo)}
-            className="h-8 rounded-lg border-none bg-transparent px-3 text-xs font-bold text-blue-600 focus:outline-none focus:ring-0 dark:text-slate-300"
+            className="h-8 rounded-sm border border-[#A3B8CC] bg-white px-2 py-0 text-[11px] font-medium text-[#333333] [color-scheme:light] focus:border-[#003366] focus:outline-none focus:ring-1 focus:ring-[#003366]/35 dark:border-[#A3B8CC] dark:bg-white dark:text-neutral-900"
           />
         </div>
-        <span className="font-bold text-blue-100 dark:text-slate-700">—</span>
+        <span className="text-[11px] text-[#666666] dark:text-white/70">—</span>
         <div className="relative">
           <input
             type="date"
             value={dateTo}
             onChange={(e) => handleDateChange(dateFrom, e.target.value)}
-            className="h-8 rounded-lg border-none bg-transparent px-3 text-xs font-bold text-blue-600 focus:outline-none focus:ring-0 dark:text-slate-300"
+            className="h-8 rounded-sm border border-[#A3B8CC] bg-white px-2 py-0 text-[11px] font-medium text-[#333333] shadow-sm [color-scheme:light] focus:border-[#003366] focus:outline-none focus:ring-1 focus:ring-[#003366]/35 dark:border-[#A3B8CC] dark:bg-white dark:text-neutral-900"
           />
         </div>
       </div>
@@ -77,12 +77,12 @@ function CasemixToolbar({ onRefresh, isLoading, onSearch, onFilter }: Props) {
         onClick={onRefresh}
         disabled={isLoading}
         className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-50 bg-white text-blue-400 shadow-sm transition-all hover:bg-blue-50 hover:text-blue-600 active:scale-95 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800",
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-[#A3B8CC] bg-white text-[#003366] shadow-none transition-colors hover:bg-[#E8F1FB] disabled:opacity-50 dark:border-[#A3B8CC] dark:bg-white dark:text-[#003366] dark:hover:bg-[#E8F1FB]",
           isLoading && "animate-pulse",
         )}
         title="Refresh Data"
       >
-        <RefreshCw size={18} className={cn(isLoading && "animate-spin")} />
+        <RefreshCw size={16} className={cn(isLoading && "animate-spin")} />
       </button>
     </div>
   );

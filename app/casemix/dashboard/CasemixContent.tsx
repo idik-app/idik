@@ -109,54 +109,49 @@ export default function CasemixContent() {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, ease: "easeOut" }}
-      className="relative flex h-screen min-h-0 min-w-0 flex-col gap-4 overflow-hidden bg-[#F0F7FF] p-4 text-slate-900 [color-scheme:light] dark:bg-slate-950 dark:text-slate-100"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+      className="relative flex h-screen min-h-0 min-w-0 flex-col gap-3 overflow-hidden bg-[#E6EEF7] p-3 text-[#333333] [color-scheme:light] dark:bg-neutral-950 dark:text-neutral-200"
     >
-      {/* 🚀 Header Casemix - Bright & Clean */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 rounded-2xl border border-white bg-white/90 px-6 py-5 shadow-xl shadow-blue-100/50 backdrop-blur-xl dark:border-slate-800/50 dark:bg-slate-900/80 dark:shadow-none">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-sky-400 text-white shadow-lg shadow-blue-200 dark:shadow-none">
-            <Wallet size={24} strokeWidth={2} />
+      {/* 🚀 Header Casemix - Classic Hospital Theme */}
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-sm border border-[#A3B8CC] bg-[#003366] px-3 py-2.5 text-white shadow-sm dark:border-[#A3B8CC]">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border border-white/25 bg-white/10">
+            <Wallet size={18} strokeWidth={2} className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-extrabold tracking-tight text-blue-900 dark:text-white">
-              Casemix Dashboard
+            <h1 className="text-lg font-bold leading-tight tracking-tight text-white dark:text-white">
+              Sistem Informasi RSUD DR. M. SOEWANDHIE - Casemix
             </h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-400 dark:text-blue-300">
-                Medical Verification System
-              </p>
-            </div>
+            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D0E0F0] dark:text-white/85">
+              Verifikasi & Input BPJS / JKN
+            </p>
           </div>
         </div>
 
         {/* 👤 User Profile & Logout */}
-        <div className="flex items-center gap-4 rounded-xl border border-blue-50 bg-blue-50/30 p-1.5 pl-4 dark:border-slate-800 dark:bg-slate-800/50">
+        <div className="flex items-center gap-3 rounded-sm border border-[#A3B8CC] bg-[#F0F5FA] px-3 py-2 text-[#333333] dark:border-[#A3B8CC] dark:bg-neutral-900 dark:text-white">
           <div className="flex flex-col items-end">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-300 dark:text-slate-500">
-              Active User
+            <span className="text-[9px] font-bold uppercase tracking-widest text-[#555555] dark:text-white/85">
+              Logged in as
             </span>
-            <span className="flex items-center gap-2 text-sm font-extrabold text-blue-900 dark:text-slate-200">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold text-black dark:text-white">
+              <User size={13} className="text-[#003366] dark:text-[#7EB8FF]" />
               {username}
-              <div className="h-6 w-6 rounded-lg bg-blue-100 flex items-center justify-center dark:bg-slate-700">
-                <User size={14} className="text-blue-500 dark:text-slate-400" />
-              </div>
             </span>
           </div>
-          <div className="h-8 w-px bg-blue-100 dark:bg-slate-700" />
+          <div className="h-7 w-px bg-[#A3B8CC] dark:bg-neutral-600" />
           <button
             onClick={handleLogout}
             disabled={loggingOut}
-            className="group flex h-10 w-10 items-center justify-center rounded-lg bg-white text-slate-300 transition-all hover:bg-red-50 hover:text-red-500 hover:shadow-md dark:bg-slate-900 dark:hover:bg-red-950/30"
+            className="flex h-8 w-8 items-center justify-center rounded-sm border border-[#C62828]/45 bg-white text-[#C62828] transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-500/50 dark:bg-neutral-800 dark:text-red-300 dark:hover:bg-neutral-700"
             title="Logout"
           >
             {loggingOut ? (
-              <Loader2 size={18} className="animate-spin shrink-0" />
+              <Loader2 size={16} className="animate-spin shrink-0" />
             ) : (
-              <LogOut size={18} className="shrink-0 transition-transform group-hover:translate-x-0.5" />
+              <LogOut size={16} className="shrink-0" />
             )}
           </button>
         </div>
@@ -171,7 +166,7 @@ export default function CasemixContent() {
       />
 
       {/* 📋 Tabel Tindakan */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white bg-white/80 text-slate-900 shadow-2xl shadow-blue-100/40 backdrop-blur-md [color-scheme:light] dark:border-slate-800/50 dark:bg-slate-900/50 dark:text-slate-100 dark:shadow-none">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-sm border border-[#A3B8CC] bg-white text-neutral-900 shadow-sm [color-scheme:light] dark:border-[#A3B8CC] dark:bg-white dark:text-neutral-900">
         <div className="min-h-0 flex-1 overflow-y-auto">
           <CasemixTable 
             data={paginatedData}
@@ -182,7 +177,7 @@ export default function CasemixContent() {
         </div>
         
         {/* 🔢 Pagination */}
-        <div className="shrink-0 border-t border-blue-50 bg-white/60 px-2 dark:border-slate-800/50 dark:bg-slate-900/40">
+        <div className="shrink-0 border-t border-[#A3B8CC] bg-[#F0F5FA] px-2 dark:border-[#A3B8CC] dark:bg-neutral-900">
           <TablePagination
             variant="enterprise"
             currentPage={currentPage}

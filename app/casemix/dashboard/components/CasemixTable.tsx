@@ -1,13 +1,12 @@
 "use client";
 
 import { memo } from "react";
-import { Check, Search } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Badge } from "@/components/ui/badge";
+import { Check } from "lucide-react";
 import BiayaAutosaveField, {
   type BiayaAutosaveSyncedInfo,
 } from "@/app/dashboard/layanan/tindakan/components/BiayaAutosaveField";
 import { TindakanJoinResult } from "@/app/dashboard/layanan/tindakan/bridge/mapping.types";
+import { cn } from "@/lib/utils";
 
 /** Format YYYY-MM-DD ke DD-MM-YYYY */
 function formatTanggalDisplay(dateStr: string | null | undefined): string {
@@ -39,114 +38,101 @@ function CasemixTable({ data, isLoading, onRowClick, onBiayaSynced }: Props) {
   }
 
   return (
-    <div className="relative overflow-x-auto">
-      <table className="w-full border-collapse text-left text-sm">
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-left text-sm text-neutral-900">
         <thead>
-          <tr className="sticky top-0 z-10 border-b border-blue-100 bg-blue-50/50 text-[10px] font-bold uppercase tracking-[0.2em] text-blue-400 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/80">
-            <th className="px-6 py-5">Tanggal</th>
-            <th className="px-6 py-5 text-center">No. RM</th>
-            <th className="px-6 py-5">Nama Pasien</th>
-            <th className="px-6 py-5">Tindakan</th>
-            <th className="w-[280px] px-6 py-5">Perolehan BPJS</th>
-            <th className="w-[140px] px-6 py-5 text-center">Status</th>
+          <tr className="sticky top-0 z-10 border-b border-[#A3B8CC] bg-[#E0E0E0] text-sm font-bold uppercase tracking-wide text-neutral-950">
+            <th className="px-3 py-2 text-left">Tanggal</th>
+            <th className="min-w-[5.5rem] px-3 py-2 text-center align-middle text-neutral-950">
+              No. RM
+            </th>
+            <th className="px-3 py-2 text-left">Nama Pasien</th>
+            <th className="px-3 py-2 text-left">Tindakan</th>
+            <th className="w-[240px] px-3 py-2 text-left">Perolehan BPJS</th>
+            <th className="w-[112px] min-w-[104px] px-2 py-2.5 text-center align-middle text-neutral-700">
+              Status
+            </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-blue-50/50 dark:divide-slate-800/50">
-          <AnimatePresence mode="popLayout">
-            {data.length === 0 ? (
-              <motion.tr
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="bg-white/30 dark:bg-transparent"
+        <tbody>
+          {data.length === 0 ? (
+            <tr className="bg-white">
+              <td colSpan={6} className="px-3 py-10 text-center text-neutral-600">
+                Tidak ada data tindakan ditemukan.
+              </td>
+            </tr>
+          ) : (
+            data.map((row, idx) => (
+              <tr
+                key={row.id || idx}
+                className={cn(
+                  "cursor-pointer border-b border-[#E6EEF7] transition-colors hover:bg-[#E8F1FB]",
+                  idx % 2 === 0 ? "bg-white" : "bg-[#F5F5F5]",
+                )}
+                onClick={(e) => {
+                  if (
+                    e.target instanceof HTMLElement &&
+                    (e.target.closest("input") || e.target.closest("button"))
+                  ) {
+                    return;
+                  }
+                  const selection = window.getSelection();
+                  if (selection && selection.toString().length > 0) {
+                    return;
+                  }
+                  row.id && onRowClick(row.id);
+                }}
               >
-                <td colSpan={6} className="px-6 py-24 text-center">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-200 dark:bg-slate-800 dark:text-slate-700">
-                      <Search size={32} />
-                    </div>
-                    <p className="font-bold text-blue-300">Data tidak ditemukan</p>
+                <td className="px-3 py-2 font-mono tabular-nums text-neutral-900">
+                  {formatTanggalDisplay(row.tanggal)}
+                </td>
+                <td className="px-3 py-2 text-center align-middle">
+                  <span className="inline-flex min-w-[4.25rem] justify-center rounded-sm bg-[#FFF9E8] px-2 py-0.5 font-semibold tabular-nums text-[#6E5A16] ring-1 ring-amber-300/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] dark:bg-amber-100 dark:text-amber-950 dark:ring-amber-400/45">
+                    {row.no_rm || "—"}
+                  </span>
+                </td>
+                <td className="px-3 py-2 font-medium text-neutral-950">
+                  {row.nama_pasien || "—"}
+                </td>
+                <td className="px-3 py-2 text-neutral-900">
+                  <div
+                    className="max-w-[200px] truncate"
+                    title={row.tindakan || ""}
+                  >
+                    {row.tindakan || "—"}
                   </div>
                 </td>
-              </motion.tr>
-            ) : (
-              data.map((row, idx) => (
-                <motion.tr
-                  key={row.id || idx}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.03 }}
-                  whileHover={{ backgroundColor: "rgba(239, 246, 255, 0.6)" }}
-                  className="group cursor-pointer bg-white transition-colors dark:bg-slate-900/20 dark:hover:bg-slate-800/40"
-                  onClick={(e) => {
-                    if (
-                      e.target instanceof HTMLElement &&
-                      (e.target.closest("input") || e.target.closest("button"))
-                    ) {
-                      return;
-                    }
-                    const selection = window.getSelection();
-                    if (selection && selection.toString().length > 0) {
-                      return;
-                    }
-                    row.id && onRowClick(row.id);
-                  }}
+                <td
+                  className="px-3 py-2"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <td className="px-6 py-5">
-                    <span className="font-mono text-xs font-bold tabular-nums text-blue-400">
-                      {formatTanggalDisplay(row.tanggal)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-5 text-center">
-                    <span className="inline-flex items-center rounded-lg bg-blue-50 px-3 py-1 text-xs font-extrabold tabular-nums text-blue-600 ring-1 ring-blue-100 dark:bg-blue-950/30 dark:text-blue-400 dark:ring-blue-900/50">
-                      {row.no_rm || "—"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-5">
-                    <p className="font-extrabold text-slate-800 dark:text-slate-200">
-                      {row.nama_pasien || "—"}
-                    </p>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div
-                      className="max-w-[220px] truncate text-slate-400 font-medium transition-colors group-hover:text-blue-600 dark:text-slate-400 dark:group-hover:text-slate-200"
-                      title={row.tindakan || ""}
-                    >
-                      {row.tindakan || "—"}
-                    </div>
-                  </td>
-                  <td
-                    className="px-6 py-5"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {row.id && (
-                      <div className="max-w-[240px]">
-                        <BiayaAutosaveField
-                          key={`casemix-total-${row.id}`}
-                          tindakanId={row.id}
-                          field="total"
-                          value={row.total}
-                          onSaved={onBiayaSynced}
-                          uiVariant="modern"
-                        />
+                  {row.id && (
+                    <BiayaAutosaveField
+                      key={`casemix-total-${row.id}`}
+                      tindakanId={row.id}
+                      field="total"
+                      value={row.total}
+                      onSaved={onBiayaSynced}
+                      uiVariant="enterprise"
+                    />
+                  )}
+                </td>
+                <td className="px-3 py-3 text-center align-middle">
+                  {row.total && Number(row.total) > 0 ? (
+                    <div className="flex justify-center">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[3px] border border-[#A3B8CC] bg-white text-[#003366] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]" title="Sudah diisi">
+                        <Check size={17} strokeWidth={2.75} />
                       </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-5 text-center">
-                    {row.total && Number(row.total) > 0 ? (
-                      <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200 px-3 py-1 gap-1.5 font-bold dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50">
-                        <Check size={12} strokeWidth={4} />
-                        Verified
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="bg-slate-50 text-slate-300 border-transparent px-3 py-1 font-bold dark:bg-slate-800 dark:text-slate-500">
-                        Pending
-                      </Badge>
-                    )}
-                  </td>
-                </motion.tr>
-              ))
-            )}
-          </AnimatePresence>
+                    </div>
+                  ) : (
+                    <span className="inline-block text-sm font-bold uppercase tracking-[0.1em] text-neutral-500">
+                      Belum isi
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>

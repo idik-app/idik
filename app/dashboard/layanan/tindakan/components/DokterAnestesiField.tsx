@@ -12,6 +12,8 @@ import {
   resolveDoctorFromLooseInput,
   type DoctorOption,
 } from "@/components/ui/doctor-combobox";
+import { useMasterDoctors } from "@/app/hooks/useMasterData";
+import { useMemo } from "react";
 
 type Props = {
   tindakanId: string;
@@ -50,6 +52,28 @@ export default function DokterAnestesiField({
 }: Props) {
   const { show } = useNotification();
   const uid = useId();
+  const { doctors: rawDoctors, isLoading: doctorsLoading } = useMasterDoctors();
+
+  const allOptions = useMemo(() => {
+    // Priority: use the prop options if they are provided (e.g. from table), 
+    // otherwise use the fetched doctors (e.g. for drawer).
+    const source = (options && options.length > 0)
+      ? options
+      : (rawDoctors || []).map((r: any) => ({
+          id: r.id,
+          nama_dokter: r.nama_dokter,
+          spesialis: r.spesialis,
+          aktif: r.aktif,
+        }) as DoctorOption);
+
+    // Only show doctors with "Anestesi" specialty
+    return source.filter((d) =>
+      d.spesialis?.toLowerCase().includes("anestesi")
+    );
+  }, [options, rawDoctors]);
+
+  const combinedLoading = loading || (options.length === 0 && doctorsLoading);
+
   const [draft, setDraft] = useState(() => norm(String(value ?? "")));
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -141,13 +165,13 @@ export default function DokterAnestesiField({
         <DoctorCombobox
           listboxId={`${uid}-dokter-anestesi-drawer`}
           value={draft}
-          disabled={saving || loading}
-          loading={loading}
+          disabled={saving || combinedLoading}
+          loading={combinedLoading}
           placeholder="Nama dokter anestesi…"
-          options={options}
+          options={allOptions}
           onChange={setDraft}
           onInputBlur={async (finalText) => {
-            const m = options;
+            const m = allOptions;
             const resolved = m.length
               ? resolveDoctorFromLooseInput(m, finalText)
               : null;
@@ -261,13 +285,13 @@ export default function DokterAnestesiField({
             <DoctorCombobox
               listboxId={`${uid}-popover-anestesi-combobox`}
               value={draft}
-              disabled={saving || loading}
-              loading={loading}
+              disabled={saving || combinedLoading}
+              loading={combinedLoading}
               placeholder="Nama dokter…"
-              options={options}
+              options={allOptions}
               onChange={setDraft}
               onInputBlur={async (finalText) => {
-                const m = options;
+                const m = allOptions;
                 const resolved = m.length
                   ? resolveDoctorFromLooseInput(m, finalText)
                   : null;

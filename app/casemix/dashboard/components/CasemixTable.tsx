@@ -19,11 +19,10 @@ function formatTanggalDisplay(dateStr: string | null | undefined): string {
 interface Props {
   data: TindakanJoinResult[];
   isLoading: boolean;
-  onRowClick: (id: string) => void;
   onBiayaSynced?: (info?: BiayaAutosaveSyncedInfo) => void;
 }
 
-function CasemixTable({ data, isLoading, onRowClick, onBiayaSynced }: Props) {
+function CasemixTable({ data, isLoading, onBiayaSynced }: Props) {
   if (isLoading && data.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center bg-white/50 backdrop-blur-sm">
@@ -66,22 +65,9 @@ function CasemixTable({ data, isLoading, onRowClick, onBiayaSynced }: Props) {
               <tr
                 key={row.id || idx}
                 className={cn(
-                  "cursor-pointer border-b border-[#E6EEF7] transition-colors hover:bg-[#E8F1FB]",
+                  "border-b border-[#E6EEF7] transition-colors hover:bg-[#E8F1FB]",
                   idx % 2 === 0 ? "bg-white" : "bg-[#F5F5F5]",
                 )}
-                onClick={(e) => {
-                  if (
-                    e.target instanceof HTMLElement &&
-                    (e.target.closest("input") || e.target.closest("button"))
-                  ) {
-                    return;
-                  }
-                  const selection = window.getSelection();
-                  if (selection && selection.toString().length > 0) {
-                    return;
-                  }
-                  row.id && onRowClick(row.id);
-                }}
               >
                 <td className="px-3 py-2 font-mono tabular-nums text-neutral-900">
                   {formatTanggalDisplay(row.tanggal)}

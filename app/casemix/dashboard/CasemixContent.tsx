@@ -8,7 +8,6 @@ import { Wallet, LogOut, User, Loader2 } from "lucide-react";
 import CasemixToolbar from "./components/CasemixToolbar";
 import CasemixTable from "./components/CasemixTable";
 import TablePagination from "@/app/dashboard/layanan/tindakan/components/TablePagination";
-import TindakanDetailDrawer from "@/app/dashboard/layanan/tindakan/components/TindakanDetailDrawer";
 import { TindakanJoinResult } from "@/app/dashboard/layanan/tindakan/bridge/mapping.types";
 import { useSession } from "@/app/contexts/SessionContext";
 
@@ -171,7 +170,6 @@ export default function CasemixContent() {
           <CasemixTable 
             data={paginatedData}
             isLoading={adapter.loading}
-            onRowClick={(id) => adapter.openDetail(id)}
             onBiayaSynced={adapter.syncListAfterAutosave}
           />
         </div>
@@ -196,14 +194,6 @@ export default function CasemixContent() {
         <DiagnosticsHUD module="Casemix" variant="soft" />
       </div>
 
-      {/* 🔍 Detail Drawer (Reuse from Tindakan) */}
-      <TindakanDetailDrawer
-        open={Boolean(adapter.detailOpenId)}
-        initialTab="biaya"
-        record={adapter.selectedRecord as TindakanJoinResult}
-        onClose={adapter.closeDetailDrawer}
-        onRecordPatch={adapter.syncListAfterAutosave}
-      />
     </motion.div>
   );
 }

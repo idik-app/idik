@@ -219,25 +219,6 @@ export default function TindakanDashboard() {
             isFilterCollapsed={isFilterCollapsed}
           />
         </section>
-
-        {/* Floating Speed Dial for Phone Directory */}
-        <button
-          type="button"
-          onClick={() => setPhoneDirectoryOpen(true)}
-          className={cn(
-            "fixed bottom-20 right-6 flex h-14 w-14 items-center justify-center rounded-full shadow-2xl transition-all active:scale-95 group",
-            UI_LAYERS.fab,
-            "bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-500/25",
-            "dark:bg-cyan-500 dark:hover:bg-cyan-400 dark:shadow-cyan-900/40",
-            "opacity-40 hover:opacity-100", // Transparan saat tidak disentuh
-          )}
-          title="Direktori Telepon Internal"
-        >
-          <Phone className="h-6 w-6 group-hover:animate-pulse" />
-          <span className="absolute right-full mr-3 whitespace-nowrap rounded-lg bg-slate-900 px-2 py-1 text-xs font-bold text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-slate-800">
-            Direktori Telepon
-          </span>
-        </button>
       </main>
 
       <TindakanDetailDrawer

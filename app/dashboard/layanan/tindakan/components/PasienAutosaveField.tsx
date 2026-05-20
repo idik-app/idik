@@ -227,6 +227,8 @@ export default function PasienAutosaveField({
   const rawRef = useRef(rawValue);
   const tglLahirPickerRef = useRef<HTMLInputElement>(null);
 
+  const lastPasienIdRef = useRef(pasienId);
+
   useEffect(() => {
     rawRef.current = rawValue;
   }, [rawValue]);
@@ -236,16 +238,21 @@ export default function PasienAutosaveField({
   }, [draft]);
 
   useEffect(() => {
-    inputFocusedRef.current = false;
-    if (blurUnfocusTimerRef.current) {
-      clearTimeout(blurUnfocusTimerRef.current);
-      blurUnfocusTimerRef.current = null;
-    }
-  }, [pasienId]);
-
-  useEffect(() => {
-    if (inputFocusedRef.current) return;
     const next = draftFromWireframe(wireframeKey, rawValue);
+    const idChanged = lastPasienIdRef.current !== pasienId;
+
+    if (idChanged) {
+      lastPasienIdRef.current = pasienId;
+      inputFocusedRef.current = false;
+      if (blurUnfocusTimerRef.current) {
+        clearTimeout(blurUnfocusTimerRef.current);
+        blurUnfocusTimerRef.current = null;
+      }
+      setDraft(next);
+      return;
+    }
+
+    if (inputFocusedRef.current) return;
     setDraft((prev) => {
       if (next === "" && prev.trim() !== "") return prev;
       return next;

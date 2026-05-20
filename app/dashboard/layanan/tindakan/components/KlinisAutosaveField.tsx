@@ -93,6 +93,8 @@ export default function KlinisAutosaveField({
   const blurUnfocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const valueRef = useRef(value);
 
+  const lastTindakanIdRef = useRef(tindakanId);
+
   useEffect(() => {
     valueRef.current = value;
   }, [value]);
@@ -102,16 +104,21 @@ export default function KlinisAutosaveField({
   }, [draft]);
 
   useEffect(() => {
-    inputFocusedRef.current = false;
-    if (blurUnfocusTimerRef.current) {
-      clearTimeout(blurUnfocusTimerRef.current);
-      blurUnfocusTimerRef.current = null;
-    }
-  }, [tindakanId]);
-
-  useEffect(() => {
-    if (inputFocusedRef.current) return;
     const next = draftFromValue(value);
+    const idChanged = lastTindakanIdRef.current !== tindakanId;
+
+    if (idChanged) {
+      lastTindakanIdRef.current = tindakanId;
+      inputFocusedRef.current = false;
+      if (blurUnfocusTimerRef.current) {
+        clearTimeout(blurUnfocusTimerRef.current);
+        blurUnfocusTimerRef.current = null;
+      }
+      setDraft(next);
+      return;
+    }
+
+    if (inputFocusedRef.current) return;
     setDraft((prev) => {
       if (next === "" && prev.trim() !== "") return prev;
       return next;

@@ -122,6 +122,8 @@ export default function RadiologiAutosaveField({
   const blurUnfocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const valueRef = useRef(value);
 
+  const lastTindakanIdRef = useRef(tindakanId);
+
   useEffect(() => {
     valueRef.current = value;
   }, [value]);
@@ -129,14 +131,6 @@ export default function RadiologiAutosaveField({
   useEffect(() => {
     draftRef.current = draft;
   }, [draft]);
-
-  useEffect(() => {
-    inputFocusedRef.current = false;
-    if (blurUnfocusTimerRef.current) {
-      clearTimeout(blurUnfocusTimerRef.current);
-      blurUnfocusTimerRef.current = null;
-    }
-  }, [tindakanId]);
 
   /** Ganti kasus → batalkan PATCH tertunda ke baris salah (drawer pakai reuse instance). */
   useEffect(() => {
@@ -147,8 +141,21 @@ export default function RadiologiAutosaveField({
   }, [tindakanId, field]);
 
   useEffect(() => {
-    if (inputFocusedRef.current) return;
     const next = draftFromValue(field, value);
+    const idChanged = lastTindakanIdRef.current !== tindakanId;
+
+    if (idChanged) {
+      lastTindakanIdRef.current = tindakanId;
+      inputFocusedRef.current = false;
+      if (blurUnfocusTimerRef.current) {
+        clearTimeout(blurUnfocusTimerRef.current);
+        blurUnfocusTimerRef.current = null;
+      }
+      setDraft(next);
+      return;
+    }
+
+    if (inputFocusedRef.current) return;
     setDraft((prev) => {
       // Jangan hapus teks yang sudah diketik hanya karena snapshot list belum keburu ter-update.
       if (next === "" && prev.trim() !== "") return prev;

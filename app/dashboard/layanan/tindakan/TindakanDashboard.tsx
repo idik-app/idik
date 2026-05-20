@@ -225,7 +225,7 @@ export default function TindakanDashboard() {
           type="button"
           onClick={() => setPhoneDirectoryOpen(true)}
           className={cn(
-            "fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full shadow-2xl transition-all active:scale-95 group",
+            "fixed bottom-20 right-6 flex h-14 w-14 items-center justify-center rounded-full shadow-2xl transition-all active:scale-95 group",
             UI_LAYERS.fab,
             "bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-500/25",
             "dark:bg-cyan-500 dark:hover:bg-cyan-400 dark:shadow-cyan-900/40",

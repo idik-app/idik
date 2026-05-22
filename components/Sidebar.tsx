@@ -129,23 +129,7 @@ export default function Sidebar() {
     navigator.vibrate?.([10, 25]);
   };
 
-  /* Desktop: mouse masuk sidebar → expand; mouse keluar → collapse (delay) */
-  const handleSidebarMouseEnter = () => {
-    if (collapseTimeoutRef.current) {
-      clearTimeout(collapseTimeoutRef.current);
-      collapseTimeoutRef.current = null;
-    }
-    if (!isMobile) setCollapsed(false);
-  };
-  const handleSidebarMouseLeave = () => {
-    if (isMobile) return;
-    collapseTimeoutRef.current = setTimeout(() => setCollapsed(true), 380);
-  };
-  useEffect(() => {
-    return () => {
-      if (collapseTimeoutRef.current) clearTimeout(collapseTimeoutRef.current);
-    };
-  }, []);
+  // Mouse enter/leave effects have been removed to keep sidebar auto-collapsed
 
   const handleMenuClick = (item: MenuItem) => {
     // skipActivate: hindari setActiveTab (loading + FX) — aktivasi lewat URL sync setelah navigate
@@ -270,8 +254,6 @@ export default function Sidebar() {
               duration: prefersReducedMotion ? 0 : 0.45,
               ease: [0.4, 0, 0.2, 1],
             }}
-            onMouseEnter={handleSidebarMouseEnter}
-            onMouseLeave={handleSidebarMouseLeave}
             className={cn(
               "relative z-[40] h-full flex flex-col justify-between backdrop-blur-2xl border-r transition-colors duration-500",
               lightMode

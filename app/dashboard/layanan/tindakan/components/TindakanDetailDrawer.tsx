@@ -640,7 +640,9 @@ function TindakanDetailDrawer({
     const rmStr = String(displayRecord.no_rm ?? "").trim();
     const namaStr = String(displayRecord.nama_pasien ?? "").trim() || "—";
     const tinStr = String(displayRecord.tindakan ?? "").trim();
-    return `${hariTanggal} ${rmStr || "—"} ${namaStr} ${tinStr || "—"}`;
+    const dokterStr = String(displayRecord.dokter ?? "").split(",")[0].trim();
+    const ruanganStr = String(displayRecord.ruangan ?? "").trim();
+    return `${hariTanggal} ${rmStr || "—"} ${namaStr} ${tinStr || "—"} ${dokterStr} ${ruanganStr}`.trim();
   }, [displayRecord]);
 
   const title = useMemo(() => {
@@ -653,6 +655,8 @@ function TindakanDetailDrawer({
     const rmStr = String(displayRecord.no_rm ?? "").trim();
     const namaStr = String(displayRecord.nama_pasien ?? "").trim() || "—";
     const tinStr = String(displayRecord.tindakan ?? "").trim();
+    const dokterStr = String(displayRecord.dokter ?? "").split(",")[0].trim();
+    const ruanganStr = String(displayRecord.ruangan ?? "").trim();
 
     return (
       <div className="flex min-w-0 flex-1 cursor-default select-text items-center gap-2 overflow-hidden whitespace-nowrap">
@@ -690,6 +694,10 @@ function TindakanDetailDrawer({
             {titleCopied ? <Check size={10} /> : <Copy size={10} />}
           </button>
         )}
+        <div className="flex select-text items-center gap-2 overflow-hidden whitespace-nowrap">
+          {dokterStr && <span className="font-medium text-slate-200">{dokterStr}</span>}
+          {ruanganStr && <span className="font-medium text-slate-300">{ruanganStr}</span>}
+        </div>
       </div>
     );
   }, [displayRecord, fullTitleText, titleCopied]);

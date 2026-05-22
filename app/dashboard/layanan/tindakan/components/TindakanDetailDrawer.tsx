@@ -456,8 +456,6 @@ function TindakanDetailDrawer({
   const [mobileTabMenuOpen, setMobileTabMenuOpen] = useState(false);
   /** Desktop sidebar toggle: jika true, sidebar kiri (nav) disembunyikan. */
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
-  /** Hover state untuk mini sidebar agar bisa mengembang sementara. */
-  const [sidebarHovered, setSidebarHovered] = useState(false);
 
   // SWR hooks for master data
   const { pasien: pasienMaster, mutate: mutatePasien } = usePasienDetail(
@@ -839,12 +837,6 @@ function TindakanDetailDrawer({
               )}
               <nav
                 id="tindakan-drawer-tabnav"
-                onMouseEnter={() => {
-                  if (sidebarCollapsed) setSidebarHovered(true);
-                }}
-                onMouseLeave={() => {
-                  setSidebarHovered(false);
-                }}
                 className={cn(
                   "relative z-10 flex shrink-0 flex-col gap-1 overflow-y-auto border-r py-3 pl-2 pr-1.5 transition-all duration-300 sm:w-[15rem] sm:pl-3 sm:pr-2",
                   "border-slate-300 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] scrollbar-thin scrollbar-thumb-slate-400",
@@ -852,8 +844,7 @@ function TindakanDetailDrawer({
                   "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out",
                   !mobileTabMenuOpen &&
                     "max-sm:pointer-events-none max-sm:-translate-x-full",
-                  sidebarCollapsed && !sidebarHovered && "sm:w-14 sm:px-1.5",
-                  sidebarCollapsed && sidebarHovered && "sm:w-[15rem] sm:shadow-[8px_0_24px_rgba(0,0,0,0.1)]",
+                  sidebarCollapsed && "sm:w-14 sm:px-1.5"
                 )}
                 role="tablist"
                 aria-label="Bagian detail tindakan"
@@ -882,7 +873,7 @@ function TindakanDetailDrawer({
                         t={t}
                         isActive={tab === t.id}
                         hasData={hasData}
-                        collapsed={sidebarCollapsed && !sidebarHovered}
+                        collapsed={sidebarCollapsed}
                         onClick={() => {
                           setTab(t.id);
                           setMobileTabMenuOpen(false);
@@ -899,7 +890,7 @@ function TindakanDetailDrawer({
                       className={cn(
                         "group relative flex w-full cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.12em] transition-all duration-200 sm:text-xs",
                         "border border-rose-200/50 bg-rose-50/50 text-rose-700 hover:border-rose-300 hover:bg-rose-100 shadow-sm",
-                        sidebarCollapsed && !sidebarHovered && "justify-center px-0"
+                        sidebarCollapsed && "justify-center px-0"
                       )}
                       title="Tutup Detail"
                     >
@@ -907,16 +898,17 @@ function TindakanDetailDrawer({
                         size={15}
                         className={cn(
                           "shrink-0 transition-colors duration-200 text-rose-600 group-hover:text-rose-700",
-                          sidebarCollapsed && !sidebarHovered && "mt-0"
+                          sidebarCollapsed && "mt-0"
                         )}
                       />
-                      {(!sidebarCollapsed || sidebarHovered) && (
+                      {!sidebarCollapsed && (
                         <span className="min-w-0 flex-1 select-none leading-snug">
                           Tutup
                         </span>
                       )}
                     </button>
                   </div>
+              </nav>   </div>
                 </nav>
 
                 <div

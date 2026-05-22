@@ -908,8 +908,7 @@ function TindakanDetailDrawer({
                       )}
                     </button>
                   </div>
-              </nav>   </div>
-                </nav>
+              </nav>
 
                 <div
                   className={cn(

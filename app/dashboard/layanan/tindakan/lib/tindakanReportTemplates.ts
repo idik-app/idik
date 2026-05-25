@@ -734,31 +734,20 @@ export function buildBulananMatrixWhatsAppText(
   matrix: MonthlyMatrixAgg,
   subtitleLines: string[],
 ): string {
-  const bulan = formatBulanTahunId(matrix.year, matrix.month1to12);
+  const bulan = formatBulanTahunId(matrix.year, matrix.month1to12).toUpperCase();
   const lines = [
-    `*${reportTitle}*`,
-    "",
-    `BULAN : ${bulan}`,
-    ...subtitleLines,
-    "",
+    bulan,
   ];
-  const dayHdr = Array.from({ length: matrix.daysInMonth }, (_, i) =>
-    String(i + 1),
-  ).join("\t");
-  lines.push(`\t${dayHdr}\tJUMLAH`);
   for (let r = 0; r < matrix.rowLabels.length; r += 1) {
-    const row = matrix.data[r] ?? [];
-    const cells = row.map((c) => (c === 0 ? "-" : String(c))).join("\t");
-    lines.push(
-      `${matrix.rowLabels[r]}\t${cells}\t${matrix.rowTotals[r] ?? 0}`,
-    );
+    const total = matrix.rowTotals[r] ?? 0;
+    if (total > 0) {
+      lines.push(`${matrix.rowLabels[r]} = ${total} px`);
+    }
   }
-  const jum = matrix.colTotals
-    .map((c) => (c === 0 ? "-" : String(c)))
-    .join("\t");
-  lines.push(`JUMLAH\t${jum}\t${matrix.grandTotal}`);
+  lines.push("", `TOTAL= ${matrix.grandTotal} px`);
   return lines.join("\n");
 }
+
 
 export function buildAnalisisGabunganHtml(
   rows: readonly TindakanJoinResult[],

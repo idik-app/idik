@@ -1027,7 +1027,7 @@ export default function TindakanLaporanModal({
                   </div>
                 )}
                 
-                <div className="flex-1 min-h-0 overflow-auto rounded border border-slate-200/60 dark:border-white/5">
+                <div className="h-[38vh] overflow-auto rounded border border-slate-200/60 dark:border-white/5">
                   <AnalisisTable
                     rows={paginatedAnalisisRows}
                     onOpenDetail={onOpenDetail}

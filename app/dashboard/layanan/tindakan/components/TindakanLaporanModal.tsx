@@ -736,7 +736,7 @@ export default function TindakanLaporanModal({
       <DialogContent
         overlayClassName={cn("bg-black/40 backdrop-blur-sm", UI_LAYERS.dialogOverlayTop)}
         className={cn(
-          "max-h-[95vh] w-[min(100vw-1rem,96vw)] max-w-[min(96vw,92rem)] overflow-hidden p-0 flex flex-col",
+          "h-[82vh] max-h-[82vh] w-[min(100vw-1rem,96vw)] max-w-[min(96vw,92rem)] overflow-hidden p-0 flex flex-col",
           "border-slate-300/60 bg-white dark:border-white/10 dark:bg-zinc-950",
           UI_LAYERS.dialogContentTop
         )}

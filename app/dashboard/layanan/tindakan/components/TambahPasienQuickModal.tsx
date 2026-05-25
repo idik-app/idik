@@ -95,15 +95,17 @@ async function fetchPasienByNoRm(rm: string): Promise<Pasien | null> {
   return json.data;
 }
 
-/** Fetch dari API SIMRS eksternal (via server proxy untuk menghindari CORS) */
+/** Fetch dari API SIMRS eksternal (via server proxy dengan fallback ke fetch langsung jika di Vercel/cloud) */
 async function fetchPasienSimrs(rm: string): Promise<any | null> {
+  let proxyErrorMsg = "";
   try {
     const res = await fetch(
       `/api/pasien/simrs?noRm=${encodeURIComponent(rm)}`,
     );
     if (!res.ok) {
       const errJson = await res.json().catch(() => ({}));
-      throw new Error(errJson.error || `HTTP ${res.status}`);
+      proxyErrorMsg = errJson.error || `HTTP ${res.status}`;
+      throw new Error(proxyErrorMsg);
     }
     const json = (await res.json()) as {
       ok?: boolean;
@@ -111,9 +113,49 @@ async function fetchPasienSimrs(rm: string): Promise<any | null> {
       data?: any;
     };
     if (json?.ok && json?.status === "Ok" && json.data) return json.data;
-  } catch (e) {
-    console.warn("SIMRS Fetch Error:", e);
-    throw e;
+  } catch (e: any) {
+    console.warn("Proxy SIMRS Fetch failed or timed out, trying direct browser fetch fallback:", e);
+    
+    // Tangkap pesan error dari proxy
+    proxyErrorMsg = e.message || String(e);
+
+    // Fallback: Ambil langsung dari browser (Client-side Fetch)
+    // Ini sangat berguna jika aplikasi di-deploy di cloud/Vercel (tidak punya akses ke IP lokal RS 10.250.10.107),
+    // tetapi komputer/browser pengguna berada di dalam Jaringan RS (Intranet) dan dapat mengakses IP tersebut.
+    try {
+      const directUrl = `http://10.250.10.107/apibdrs/apibdrs/getPasien/${encodeURIComponent(rm)}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // timeout 3 detik untuk respon langsung
+      
+      const directRes = await fetch(directUrl, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      
+      if (directRes.ok) {
+        const json = await directRes.json();
+        if (json && json.status === "Ok" && json.data) {
+          console.log("%c✅ Direct Browser SIMRS Fetch Success!", "color: lime; font-weight: bold", json.data.nama);
+          return json.data;
+        }
+      }
+    } catch (directErr: any) {
+      console.error("Direct browser fetch fallback also failed:", directErr);
+      
+      // Jika proxy timeout dan direct fetch juga gagal, berikan penjelasan komprehensif ke pengguna
+      if (proxyErrorMsg.includes("timeout") || proxyErrorMsg.includes("504") || proxyErrorMsg.includes("Gateway Timeout")) {
+        throw new Error(
+          "Koneksi ke SIMRS timeout (5 detik).\n\n" +
+          "💡 Penyebab:\n" +
+          "Server cloud Vercel tidak dapat mengakses IP lokal RS (10.250.10.107).\n\n" +
+          "🔧 Solusi:\n" +
+          "1. Gunakan aplikasi versi lokal (localhost:3000) yang terhubung ke Jaringan RS.\n" +
+          "2. Jika tetap memakai Vercel, izinkan 'Insecure Content' (Mixed Content) pada browser Anda (klik ikon setelan/gembok di kiri URL -> Site Settings -> Insecure Content -> ubah ke Allow) agar browser bisa memanggil IP lokal RS secara langsung."
+        );
+      }
+      
+      throw new Error(proxyErrorMsg);
+    }
   }
   return null;
 }

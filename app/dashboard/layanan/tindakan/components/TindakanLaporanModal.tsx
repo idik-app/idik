@@ -962,7 +962,12 @@ export default function TindakanLaporanModal({
             </ul>
           ) : null}
 
-          <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200/80 dark:border-white/10">
+          <div
+            className={cn(
+              "min-h-0 flex-1 rounded-lg border border-slate-200/80 dark:border-white/10 flex flex-col",
+              tab !== "analisis" ? "overflow-auto" : "overflow-hidden"
+            )}
+          >
             {loading ? (
               <div className="p-6 text-center text-sm font-semibold text-slate-600 dark:text-white/60">
                 Memuat data…
@@ -972,9 +977,9 @@ export default function TindakanLaporanModal({
                 Pilih bulan yang valid.
               </div>
             ) : tab === "analisis" ? (
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 h-full min-h-0 p-3">
                 {analisisStats && (
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 shrink-0">
                     <div className="flex flex-col gap-1 rounded-lg border border-slate-200/60 bg-slate-50/50 p-2 dark:border-white/5 dark:bg-white/5">
                       <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">
                         <Users size={12} className="text-emerald-600 dark:text-emerald-400" />
@@ -1021,13 +1026,16 @@ export default function TindakanLaporanModal({
                     </div>
                   </div>
                 )}
-                <AnalisisTable
-                  rows={paginatedAnalisisRows}
-                  onOpenDetail={onOpenDetail}
-                />
+                
+                <div className="flex-1 min-h-0 overflow-auto rounded border border-slate-200/60 dark:border-white/5">
+                  <AnalisisTable
+                    rows={paginatedAnalisisRows}
+                    onOpenDetail={onOpenDetail}
+                  />
+                </div>
                 
                 {totalAnalisisPages > 1 && (
-                  <div className="flex items-center justify-between border-t border-slate-200/60 p-2 dark:border-white/5">
+                  <div className="flex items-center justify-between border-t border-slate-200/60 p-2 dark:border-white/5 shrink-0">
                     <div className="text-[10px] font-medium text-slate-500 dark:text-white/40">
                       Menampilkan {((analisisPage - 1) * ANALISIS_PAGE_SIZE) + 1} - {Math.min(analisisPage * ANALISIS_PAGE_SIZE, filteredAnalisisRows.length)} dari {filteredAnalisisRows.length} data
                     </div>

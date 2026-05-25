@@ -120,10 +120,12 @@ async function fetchPasienSimrs(rm: string): Promise<any | null> {
     proxyErrorMsg = e.message || String(e);
 
     // Fallback: Ambil langsung dari browser (Client-side Fetch)
-    // Ini sangat berguna jika aplikasi di-deploy di cloud/Vercel (tidak punya akses ke IP lokal RS 10.250.10.107),
+    // Ini sangat berguna jika aplikasi di-deploy di cloud/Vercel (tidak punya akses ke IP lokal RS),
     // tetapi komputer/browser pengguna berada di dalam Jaringan RS (Intranet) dan dapat mengakses IP tersebut.
+    const baseUrl = process.env.NEXT_PUBLIC_SIMRS_API_URL || "http://10.250.10.107/apibdrs/apibdrs/getPasien";
+    const cleanBaseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
     try {
-      const directUrl = `http://10.250.10.107/apibdrs/apibdrs/getPasien/${encodeURIComponent(rm)}`;
+      const directUrl = `${cleanBaseUrl}/${encodeURIComponent(rm)}`;
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000); // timeout 3 detik untuk respon langsung
       
@@ -147,7 +149,7 @@ async function fetchPasienSimrs(rm: string): Promise<any | null> {
         throw new Error(
           "Koneksi ke SIMRS timeout (5 detik).\n\n" +
           "💡 Penyebab:\n" +
-          "Server cloud Vercel tidak dapat mengakses IP lokal RS (10.250.10.107).\n\n" +
+          `Server cloud Vercel tidak dapat mengakses alamat/IP lokal RS (${cleanBaseUrl}).\n\n` +
           "🔧 Solusi:\n" +
           "1. Gunakan aplikasi versi lokal (localhost:3000) yang terhubung ke Jaringan RS.\n" +
           "2. Jika tetap memakai Vercel, izinkan 'Insecure Content' (Mixed Content) pada browser Anda (klik ikon setelan/gembok di kiri URL -> Site Settings -> Insecure Content -> ubah ke Allow) agar browser bisa memanggil IP lokal RS secara langsung."
@@ -802,7 +804,7 @@ export default function TambahPasienQuickModal({
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={loading || rmChecking}
                 className={cn(
                   "w-full shrink-0 rounded-lg border border-cyan-400/50 bg-cyan-600/60 px-4 py-2.5 shadow-[0_0_15px_rgba(0,255,255,0.5)] transition-all hover:bg-cyan-500/80 hover:shadow-[0_0_20px_rgba(0,255,255,0.8)] disabled:opacity-60 sm:w-auto sm:px-6 sm:py-2",
                   isDark ? "text-white" : "text-black",

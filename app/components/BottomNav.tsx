@@ -25,6 +25,7 @@ export default function BottomNav() {
           <li key={item.href} className="nav-item">
             <Link
               href={item.href}
+              prefetch={false}
               className={`nav-link d-flex flex-column align-items-center ${
                 pathname === item.href ? "text-primary fw-semibold" : "text-secondary"
               }`}

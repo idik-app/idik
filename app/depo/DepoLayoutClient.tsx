@@ -131,6 +131,7 @@ export default function DepoLayoutClient({
                 <Link
                   key={i.href}
                   href={i.href}
+                  prefetch={false}
                   title={i.label}
                   className={[
                     "flex items-center gap-2 rounded-xl text-[12px] transition-colors duration-150",

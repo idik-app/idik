@@ -67,6 +67,7 @@ export default function Sidebar() {
         <li className="nav-item mb-1">
           <Link
             href={getLink("/dashboard")}
+            prefetch={false}
             className={`nav-link d-flex align-items-center gap-2 ${
               isActive("/dashboard") ? "active" : "text-dark"
             }`}
@@ -81,6 +82,7 @@ export default function Sidebar() {
           <li className="nav-item mb-1">
             <Link
               href={getLink("/patients")}
+              prefetch={false}
               className={`nav-link d-flex align-items-center gap-2 ${
                 isActive("/patients") ? "active" : "text-dark"
               }`}
@@ -104,6 +106,7 @@ export default function Sidebar() {
               <li className="nav-item">
                 <Link
                   href={getLink("/team/doctors")}
+                  prefetch={false}
                   className={`nav-link d-flex align-items-center gap-2 py-1 ${
                     isActive("/team/doctors") ? "text-primary fw-bold" : "text-secondary"
                   }`}
@@ -115,6 +118,7 @@ export default function Sidebar() {
               <li className="nav-item">
                 <Link
                   href={getLink("/team/nurses")}
+                  prefetch={false}
                   className={`nav-link d-flex align-items-center gap-2 py-1 ${
                     isActive("/team/nurses") ? "text-primary fw-bold" : "text-secondary"
                   }`}
@@ -131,6 +135,7 @@ export default function Sidebar() {
         <li className="nav-item mb-1">
           <Link
             href={getLink("/inventory")}
+            prefetch={false}
             className={`nav-link d-flex align-items-center gap-2 ${
               isActive("/inventory") ? "active" : "text-dark"
             }`}
@@ -152,7 +157,7 @@ export default function Sidebar() {
             {openMonitoring && (
               <ul className="nav flex-column ms-4 mt-1">
                 <li className="nav-item">
-                  <Link href={getLink("/monitoring/active")} className="nav-link text-secondary py-1" style={{ fontSize: "0.85rem" }}>
+                  <Link href={getLink("/monitoring/active")} prefetch={false} className="nav-link text-secondary py-1" style={{ fontSize: "0.85rem" }}>
                     Live Status
                   </Link>
                 </li>
@@ -174,12 +179,12 @@ export default function Sidebar() {
           {openSettings && (
             <ul className="nav flex-column ms-4 mt-1">
               <li className="nav-item">
-                <Link href={getLink("/settings/unit")} className="nav-link text-secondary py-1" style={{ fontSize: "0.85rem" }}>
+                <Link href={getLink("/settings/unit")} prefetch={false} className="nav-link text-secondary py-1" style={{ fontSize: "0.85rem" }}>
                   Unit Config
                 </Link>
               </li>
               <li className="nav-item">
-                <Link href="/settings/logs" className="nav-link text-secondary py-1" style={{ fontSize: "0.85rem" }}>
+                <Link href="/settings/logs" prefetch={false} className="nav-link text-secondary py-1" style={{ fontSize: "0.85rem" }}>
                   System Logs
                 </Link>
               </li>

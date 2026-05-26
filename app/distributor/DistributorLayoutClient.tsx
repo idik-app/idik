@@ -180,6 +180,7 @@ export default function DistributorLayoutClient({
             </div>
             <Link
               href="/"
+              prefetch={false}
               className="px-4 py-1.5 rounded-full text-[12px] bg-slate-900/70 border border-cyan-800/70 hover:bg-slate-900 transition-colors"
             >
               Login
@@ -350,6 +351,7 @@ export default function DistributorLayoutClient({
                 <Link
                   key={`${i.href}-${i.queryExtra ?? ""}`}
                   href={href}
+                  prefetch={false}
                   title={i.label}
                   className={[
                     "flex items-center gap-2 rounded-xl text-[12px] transition-colors duration-150",

@@ -22,6 +22,8 @@ export default function TarifModal({
   const [isLoading, setIsLoading] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
+  const [activeTimeout, setActiveTimeout] = useState<any>(null);
+
   const fetchTarif = async () => {
     setIsLoading(true);
     try {
@@ -41,9 +43,12 @@ export default function TarifModal({
     if (open) {
       fetchTarif();
     }
+    return () => {
+      if (activeTimeout) clearTimeout(activeTimeout);
+    };
   }, [open]);
 
-  const handleUpdateField = async (
+  const handleUpdateField = (
     index: number,
     field: string,
     value: any,
@@ -60,23 +65,31 @@ export default function TarifModal({
     newTarif[index] = updatedItem;
     setTarif(newTarif);
 
-    // Save to DB
-    setIsSaving(true);
-    try {
-      const res = await fetch("/api/master-tarif-tindakan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedItem),
-      });
-      const data = await res.json();
-      if (data.ok) {
-        setLastSaved(new Date());
-      }
-    } catch (err) {
-      console.error("Failed to save tarif", err);
-    } finally {
-      setIsSaving(false);
+    if (activeTimeout) {
+      clearTimeout(activeTimeout);
     }
+
+    setIsSaving(true);
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/master-tarif-tindakan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedItem),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          setLastSaved(new Date());
+        }
+      } catch (err) {
+        console.error("Failed to save tarif", err);
+      } finally {
+        setIsSaving(false);
+      }
+    }, 800);
+
+    setActiveTimeout(timeoutId);
   };
 
   const filteredTarif = tarif.filter(

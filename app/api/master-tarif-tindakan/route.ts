@@ -40,8 +40,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const admin = await requireAdmin();
-  if (!admin.ok) return admin.response;
+  const user = await requireUser();
+  if (!user.ok) return user.response;
 
   try {
     const body = await req.json();

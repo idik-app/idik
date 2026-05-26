@@ -164,7 +164,12 @@ export default function TarifModal({
   if (!open) return null;
 
   return (
-    <ModalWrapper onClose={onClose} zIndex={130} isWide>
+    <ModalWrapper
+      onClose={onClose}
+      zIndex={130}
+      isWide
+      className="max-w-4xl bg-transparent border-transparent shadow-none p-0 sm:p-0"
+    >
       <div
         className={`relative w-full max-w-4xl mx-auto ${UI_LAYERS.floatingCard}`}
       >

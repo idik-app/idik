@@ -69,7 +69,7 @@ export async function POST(req: Request) {
           aktif: aktif !== false,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "nama_cari" },
+        { onConflict: "id" },
       )
       .select()
       .single();

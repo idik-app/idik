@@ -54,9 +54,13 @@ export default function DiagnosaModal({
   const [search, setSearch] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setIsLoaded(false);
+      return;
+    }
     const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (stored) {
       try {
@@ -67,7 +71,21 @@ export default function DiagnosaModal({
     } else {
       setData(INITIAL_DIAGNOSA);
     }
+    setIsLoaded(true);
   }, [open]);
+
+  useEffect(() => {
+    if (!isLoaded || data.length === 0) return;
+
+    setIsSaving(true);
+    const handler = setTimeout(() => {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+      setIsSaving(false);
+      setLastSaved(new Date());
+    }, 800);
+
+    return () => clearTimeout(handler);
+  }, [data, isLoaded]);
 
   const handleUpdateField = (
     index: number,
@@ -77,41 +95,15 @@ export default function DiagnosaModal({
     const newData = [...data];
     newData[index] = { ...newData[index], [field]: value };
     setData(newData);
-
-    // Autosave silent
-    setIsSaving(true);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newData));
-    setTimeout(() => {
-      setIsSaving(false);
-      setLastSaved(new Date());
-    }, 500);
   };
 
   const handleCreateItem = () => {
     const newItem: DiagnosaItem = { diagnosa: "Diagnosa Baru", icd10: "-" };
-    const newData = [newItem, ...data];
-    setData(newData);
-
-    // Save silent
-    setIsSaving(true);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newData));
-    setTimeout(() => {
-      setIsSaving(false);
-      setLastSaved(new Date());
-    }, 500);
+    setData([newItem, ...data]);
   };
 
   const handleDeleteItem = (index: number) => {
-    const newData = data.filter((_, i) => i !== index);
-    setData(newData);
-
-    // Save silent
-    setIsSaving(true);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newData));
-    setTimeout(() => {
-      setIsSaving(false);
-      setLastSaved(new Date());
-    }, 500);
+    setData(data.filter((_, i) => i !== index));
   };
 
   const filteredData = data
@@ -219,7 +211,7 @@ export default function DiagnosaModal({
                 const originalIndex = item.originalIndex;
                 return (
                   <div
-                    key={`${item.diagnosa}-${idx}`}
+                    key={originalIndex}
                     className={cn(
                       "grid grid-cols-[3rem_1fr_8rem_2.5rem] gap-2 items-center p-2 rounded-lg border transition-all",
                       isDark

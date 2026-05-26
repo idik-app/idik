@@ -1126,6 +1126,7 @@ export default function TindakanTable({
   filterRm = "",
   onFilteredSummaryChange,
   isFilterCollapsed = false,
+  onPhoneDirectoryOpen,
 }: {
   adapter: Adapter;
   filterPasienId?: string;
@@ -1133,6 +1134,7 @@ export default function TindakanTable({
   /** Sinkronkan jumlah & ringkasan filter ke ringkasan header */
   onFilteredSummaryChange?: (summary: TindakanFilteredSummary) => void;
   isFilterCollapsed?: boolean;
+  onPhoneDirectoryOpen?: () => void;
 }) {
   const {
     tindakanList,
@@ -2969,6 +2971,7 @@ export default function TindakanTable({
             setLaporanPemakaianModalOpen(true);
             void refresh();
           }}
+          onPhoneDirectoryOpen={onPhoneDirectoryOpen}
         />
 
         <TindakanLaporanModal

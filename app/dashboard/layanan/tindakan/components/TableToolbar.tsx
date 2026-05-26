@@ -16,6 +16,7 @@ import {
   CalendarDays,
   Package,
   Filter,
+  Phone,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,7 @@ interface Props {
   onOpenLaporan?: () => void;
   /** Buka modal laporan pemakaian alkes. */
   onOpenLaporanPemakaian?: () => void;
+  onPhoneDirectoryOpen?: () => void;
   /** Status collapse untuk menghemat ruang vertikal di HP */
   isCollapsed?: boolean;
 }
@@ -606,6 +608,31 @@ function TableToolbar({
                     Jadwal Cath
                   </span>
                 </button>
+
+                {onPhoneDirectoryOpen && (
+                  <button
+                    type="button"
+                    onClick={onPhoneDirectoryOpen}
+                    className={cn(
+                      "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-amber-800 bg-amber-700 px-3 text-xs font-black shadow-lg shadow-amber-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500",
+                      "text-white",
+                      "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
+                    )}
+                    title="Buka direktori nomor telepon rumah sakit"
+                  >
+                    <Phone
+                      size={16}
+                      strokeWidth={3}
+                      className={cn(
+                        "shrink-0 motion-safe:transition-transform group-hover:scale-110",
+                        "text-white",
+                      )}
+                    />
+                    <span className={cn("tracking-wide text-white uppercase")}>
+                      Daftar Telp
+                    </span>
+                  </button>
+                )}
               </div>
 
               <div

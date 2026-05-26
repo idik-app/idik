@@ -217,6 +217,7 @@ export default function TindakanDashboard() {
             adapter={adapter}
             onFilteredSummaryChange={onFilteredSummaryChange}
             isFilterCollapsed={isFilterCollapsed}
+            onPhoneDirectoryOpen={() => setPhoneDirectoryOpen(true)}
           />
         </section>
       </main>

@@ -144,17 +144,6 @@ function TindakanHeader({
                   ) : null}
                 </div>
                 <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end lg:shrink-0 min-w-0">
-                  <button
-                    type="button"
-                    onClick={onPhoneDirectoryOpen}
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-xl border px-2 py-1 text-[11px] font-bold transition",
-                      "border-amber-500/45 bg-amber-100/90 text-amber-900 hover:border-amber-600/55 dark:border-amber-700/50 dark:bg-black dark:text-white dark:hover:border-amber-500/55",
-                    )}
-                  >
-                    <Phone className="h-3.5 w-3.5 shrink-0 opacity-95 dark:opacity-100" />
-                    Daftar Telp
-                  </button>
                   <div
                     className={cn(
                       "inline-flex items-center gap-1 rounded-xl border p-0.5",

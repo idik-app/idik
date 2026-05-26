@@ -94,6 +94,7 @@ function TableToolbar({
   onOpenTindakanTerbanyakLab,
   onOpenLaporan,
   onOpenLaporanPemakaian,
+  onPhoneDirectoryOpen,
   isCollapsed = false,
 }: Props) {
   const [dokter, setDokter] = useState("");

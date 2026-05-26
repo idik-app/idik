@@ -5,7 +5,7 @@ import ModalWrapper from "@/components/global/ModalWrapper";
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
-import { X, Search, CheckCircle2, Loader2, ClipboardList } from "lucide-react";
+import { X, Search, CheckCircle2, Loader2, ClipboardList, Plus, Trash2 } from "lucide-react";
 
 const LOCAL_STORAGE_KEY = "idik_daftar_diagnosa";
 
@@ -87,11 +87,40 @@ export default function DiagnosaModal({
     }, 500);
   };
 
-  const filteredData = data.filter(
-    (item) =>
-      item.diagnosa.toLowerCase().includes(search.toLowerCase()) ||
-      item.icd10.toLowerCase().includes(search.toLowerCase()),
-  );
+  const handleCreateItem = () => {
+    const newItem: DiagnosaItem = { diagnosa: "Diagnosa Baru", icd10: "-" };
+    const newData = [newItem, ...data];
+    setData(newData);
+
+    // Save silent
+    setIsSaving(true);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newData));
+    setTimeout(() => {
+      setIsSaving(false);
+      setLastSaved(new Date());
+    }, 500);
+  };
+
+  const handleDeleteItem = (index: number) => {
+    const newData = data.filter((_, i) => i !== index);
+    setData(newData);
+
+    // Save silent
+    setIsSaving(true);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newData));
+    setTimeout(() => {
+      setIsSaving(false);
+      setLastSaved(new Date());
+    }, 500);
+  };
+
+  const filteredData = data
+    .map((item, index) => ({ ...item, originalIndex: index }))
+    .filter(
+      (item) =>
+        item.diagnosa.toLowerCase().includes(search.toLowerCase()) ||
+        item.icd10.toLowerCase().includes(search.toLowerCase()),
+    );
 
   if (!open) return null;
 
@@ -131,32 +160,48 @@ export default function DiagnosaModal({
             </button>
           </div>
 
-          <div className="mb-4 relative">
-            <Search
-              size={18}
+          <div className="mb-4 flex gap-2">
+            <div className="relative flex-1">
+              <Search
+                size={18}
+                className={cn(
+                  "absolute left-3 top-1/2 -translate-y-1/2 opacity-60",
+                  isDark ? "text-emerald-300" : "text-emerald-700",
+                )}
+              />
+              <input
+                type="text"
+                placeholder="Cari diagnosa atau ICD 10..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className={cn(
+                  "w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all",
+                  isDark
+                    ? "bg-black/40 border-emerald-500/30 text-white placeholder:text-white/40"
+                    : "bg-white border-emerald-500/30 text-slate-900 placeholder:text-slate-400",
+                )}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleCreateItem}
               className={cn(
-                "absolute left-3 top-1/2 -translate-y-1/2 opacity-60",
-                isDark ? "text-emerald-300" : "text-emerald-700",
-              )}
-            />
-            <input
-              type="text"
-              placeholder="Cari diagnosa atau ICD 10..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className={cn(
-                "w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all",
+                "px-4 py-2 rounded-lg font-bold text-sm transition-all border flex items-center gap-1.5 shrink-0",
                 isDark
-                  ? "bg-black/40 border-emerald-500/30 text-white placeholder:text-white/40"
-                  : "bg-white border-emerald-500/30 text-slate-900 placeholder:text-slate-400",
+                  ? "bg-emerald-600/20 border-emerald-500/50 text-emerald-100 hover:bg-emerald-600/40"
+                  : "bg-emerald-50 border-emerald-500/30 text-emerald-900 hover:bg-emerald-100",
               )}
-            />
+            >
+              <Plus size={16} />
+              <span className="hidden sm:inline">Tambah Diagnosa</span>
+              <span className="sm:hidden">Tambah</span>
+            </button>
           </div>
 
           {/* Table Header */}
           <div
             className={cn(
-              "grid grid-cols-[3rem_1fr_8rem] gap-2 px-3 py-2 mb-2 rounded-lg text-[10px] font-black uppercase tracking-widest",
+              "grid grid-cols-[3rem_1fr_8rem_2.5rem] gap-2 px-3 py-2 mb-2 rounded-lg text-[10px] font-black uppercase tracking-widest items-center",
               isDark
                 ? "bg-emerald-500/20 text-emerald-300"
                 : "bg-emerald-100 text-emerald-800",
@@ -165,19 +210,18 @@ export default function DiagnosaModal({
             <span>No.</span>
             <span>DIAGNOSA</span>
             <span className="text-center">ICD 10</span>
+            <span className="text-center">Aksi</span>
           </div>
 
           <div className="max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
             <div className="grid grid-cols-1 gap-1.5">
               {filteredData.map((item, idx) => {
-                const originalIndex = data.findIndex(
-                  (d) => d.diagnosa === item.diagnosa,
-                );
+                const originalIndex = item.originalIndex;
                 return (
                   <div
                     key={`${item.diagnosa}-${idx}`}
                     className={cn(
-                      "grid grid-cols-[3rem_1fr_8rem] gap-2 items-center p-2 rounded-lg border transition-all",
+                      "grid grid-cols-[3rem_1fr_8rem_2.5rem] gap-2 items-center p-2 rounded-lg border transition-all",
                       isDark
                         ? "bg-black/20 border-white/5 hover:border-emerald-500/40"
                         : "bg-white border-slate-100 hover:border-emerald-500/40 shadow-sm",
@@ -202,7 +246,7 @@ export default function DiagnosaModal({
                         )
                       }
                       className={cn(
-                        "px-2 py-1 text-sm font-bold rounded-md border border-transparent focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-all bg-transparent",
+                        "px-2 py-1 text-sm font-bold rounded-md border border-transparent focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-all bg-transparent w-full",
                         isDark ? "text-white" : "text-slate-900",
                       )}
                     />
@@ -217,10 +261,23 @@ export default function DiagnosaModal({
                         )
                       }
                       className={cn(
-                        "px-2 py-1 text-center font-mono text-xs font-black rounded-md border border-transparent focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-all bg-transparent uppercase",
+                        "px-2 py-1 text-center font-mono text-xs font-black rounded-md border border-transparent focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-all bg-transparent uppercase w-full",
                         isDark ? "text-emerald-300" : "text-emerald-700",
                       )}
                     />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteItem(originalIndex)}
+                      className={cn(
+                        "p-1.5 rounded-lg transition-colors flex items-center justify-center",
+                        isDark
+                          ? "hover:bg-red-500/20 text-red-400 hover:text-red-300"
+                          : "hover:bg-red-50 text-red-600 hover:text-red-700",
+                      )}
+                      title="Hapus diagnosa"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 );
               })}

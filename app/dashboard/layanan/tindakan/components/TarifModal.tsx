@@ -210,7 +210,7 @@ export default function TarifModal({
             <button
               type="button"
               onClick={handleCreateItem}
-              className="px-4 py-2 rounded-lg font-bold text-sm transition-all border border-cyan-600 bg-cyan-600 text-white hover:bg-cyan-700 hover:border-cyan-700 shadow-sm flex items-center gap-1.5 shrink-0"
+              className="px-4 py-2 rounded-lg font-bold text-sm transition-all border !border-cyan-600 !bg-cyan-600 !text-white hover:!bg-cyan-700 hover:!border-cyan-700 shadow-sm flex items-center gap-1.5 shrink-0"
             >
               <Plus size={16} />
               <span className="hidden sm:inline">Tambah Tarif</span>

@@ -85,3 +85,35 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export async function DELETE(req: Request) {
+  const user = await requireUser();
+  if (!user.ok) return user.response;
+
+  try {
+    const { id } = await req.json();
+
+    if (!id) {
+      return NextResponse.json(
+        { ok: false, message: "ID wajib disertakan" },
+        { status: 400 },
+      );
+    }
+
+    const supabase = createAdminClient();
+    const { error } = await supabase
+      .from("master_tarif_tindakan")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+
+    return NextResponse.json({ ok: true });
+  } catch (err: any) {
+    console.error("[DELETE /api/master-tarif-tindakan]", err);
+    return NextResponse.json(
+      { ok: false, message: err.message },
+      { status: 500 },
+    );
+  }
+}

@@ -174,20 +174,10 @@ export default function TarifModal({
         className={`relative w-full max-w-4xl mx-auto ${UI_LAYERS.floatingCard}`}
       >
         <div
-          className={cn(
-            "animate-in fade-in zoom-in-95 duration-200 rounded-xl border p-4 sm:rounded-2xl sm:p-6",
-            isDark
-              ? "border-cyan-500/45 bg-gradient-to-br from-cyan-950 via-slate-950 to-black text-white shadow-lg shadow-cyan-900/25"
-              : "border-cyan-500/35 bg-gradient-to-br from-white via-cyan-50 to-cyan-100/50 text-slate-800 shadow-lg shadow-cyan-900/10",
-          )}
+          className="animate-in fade-in zoom-in-95 duration-200 rounded-xl border border-cyan-300/65 bg-gradient-to-br from-white via-cyan-50/50 to-white text-slate-800 shadow-2xl shadow-cyan-900/10 p-4 sm:rounded-2xl sm:p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <h3
-              className={cn(
-                "text-lg font-bold sm:text-2xl",
-                isDark ? "text-cyan-100" : "text-cyan-900",
-              )}
-            >
+            <h3 className="text-lg font-bold sm:text-2xl text-cyan-950 flex items-center gap-2">
               📋 Daftar Tarif Tindakan
             </h3>
             <div className="flex items-center gap-2">
@@ -196,12 +186,7 @@ export default function TarifModal({
               )}
               <button
                 onClick={onClose}
-                className={cn(
-                  "p-1.5 rounded-full transition-colors",
-                  isDark
-                    ? "hover:bg-white/10 text-white"
-                    : "hover:bg-black/5 text-slate-600",
-                )}
+                className="p-1.5 rounded-full transition-colors hover:bg-slate-100 text-slate-500"
               >
                 <X size={20} />
               </button>
@@ -212,33 +197,20 @@ export default function TarifModal({
             <div className="relative flex-1">
               <Search
                 size={18}
-                className={cn(
-                  "absolute left-3 top-1/2 -translate-y-1/2 opacity-60",
-                  isDark ? "text-cyan-300" : "text-cyan-700",
-                )}
+                className="absolute left-3 top-1/2 -translate-y-1/2 opacity-60 text-cyan-700"
               />
               <input
                 type="text"
                 placeholder="Cari nama tindakan..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className={cn(
-                  "w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-cyan-500 focus:outline-none transition-all",
-                  isDark
-                    ? "bg-black/40 border-cyan-500/30 text-white placeholder:text-white/40"
-                    : "bg-white border-cyan-500/30 text-slate-900 placeholder:text-slate-400",
-                )}
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-cyan-500/20 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition-all shadow-sm"
               />
             </div>
             <button
               type="button"
               onClick={handleCreateItem}
-              className={cn(
-                "px-4 py-2 rounded-lg font-bold text-sm transition-all border flex items-center gap-1.5 shrink-0",
-                isDark
-                  ? "bg-cyan-600/20 border-cyan-500/50 text-cyan-100 hover:bg-cyan-600/40"
-                  : "bg-cyan-50 border-cyan-500/30 text-cyan-900 hover:bg-cyan-100",
-              )}
+              className="px-4 py-2 rounded-lg font-bold text-sm transition-all border border-cyan-600 bg-cyan-600 text-white hover:bg-cyan-700 hover:border-cyan-700 shadow-sm flex items-center gap-1.5 shrink-0"
             >
               <Plus size={16} />
               <span className="hidden sm:inline">Tambah Tarif</span>
@@ -253,12 +225,7 @@ export default function TarifModal({
                 return (
                   <div
                     key={item.id}
-                    className={cn(
-                      "flex items-center justify-between p-2 rounded-lg border transition-all",
-                      isDark
-                        ? "bg-black/20 border-white/10 hover:border-cyan-500/40"
-                        : "bg-white border-slate-200 hover:border-cyan-500/40 shadow-sm",
-                    )}
+                    className="flex items-center justify-between p-2 rounded-lg border border-slate-100 bg-white hover:border-cyan-500/40 shadow-sm transition-all"
                   >
                     <div className="flex-1 min-w-0 mr-3">
                       <input
@@ -271,10 +238,7 @@ export default function TarifModal({
                             e.target.value,
                           )
                         }
-                        className={cn(
-                          "px-2 py-1 text-sm font-bold rounded-md border border-transparent focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500 focus:outline-none transition-all bg-transparent w-full",
-                          isDark ? "text-white" : "text-slate-900",
-                        )}
+                        className="px-2 py-1 text-sm font-bold rounded-md border border-transparent focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500 focus:outline-none transition-all bg-transparent w-full text-slate-800"
                       />
                     </div>
                     <div className="flex items-center gap-2">
@@ -289,15 +253,10 @@ export default function TarifModal({
                             e.target.value,
                           )
                         }
-                        className={cn(
-                          "px-2 py-1 w-28 text-center font-mono text-xs font-bold rounded-md border focus:ring-2 focus:ring-cyan-500 focus:outline-none transition-all uppercase bg-transparent",
-                          isDark
-                            ? "border-cyan-500/20 text-cyan-300 placeholder:text-white/20"
-                            : "border-slate-200 text-cyan-700 placeholder:text-slate-300",
-                        )}
+                        className="px-2 py-1 w-28 text-center font-mono text-xs font-bold rounded-md border border-slate-200 bg-slate-50/50 text-cyan-800 placeholder:text-slate-300 focus:ring-2 focus:ring-cyan-500 focus:outline-none transition-all uppercase"
                       />
                       <div className="relative">
-                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold opacity-50">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold opacity-50 text-slate-500">
                           Rp
                         </span>
                         <input
@@ -312,23 +271,13 @@ export default function TarifModal({
                               e.target.value,
                             )
                           }
-                          className={cn(
-                            "pl-8 pr-2 py-1 w-28 text-right font-mono text-sm font-bold rounded-md border focus:ring-2 focus:ring-cyan-500 focus:outline-none transition-all bg-transparent",
-                            isDark
-                              ? "border-cyan-500/30 text-white"
-                              : "border-slate-300 text-slate-900",
-                          )}
+                          className="pl-8 pr-2 py-1 w-28 text-right font-mono text-sm font-bold rounded-md border border-slate-200 bg-slate-50/50 text-slate-800 focus:ring-2 focus:ring-cyan-500 focus:outline-none transition-all"
                         />
                       </div>
                       <button
                         type="button"
                         onClick={() => handleDeleteItem(originalIndex)}
-                        className={cn(
-                          "p-1.5 rounded-lg transition-colors flex items-center justify-center ml-1",
-                          isDark
-                            ? "hover:bg-red-500/20 text-red-400 hover:text-red-300"
-                            : "hover:bg-red-50 text-red-600 hover:text-red-700",
-                        )}
+                        className="p-1.5 rounded-lg transition-colors flex items-center justify-center ml-1 hover:bg-red-50 text-red-600 hover:text-red-700"
                         title="Hapus tarif"
                       >
                         <Trash2 size={14} />
@@ -338,7 +287,7 @@ export default function TarifModal({
                 );
               })}
               {!isLoading && filteredTarif.length === 0 && (
-                <div className="text-center py-8 opacity-50 italic">
+                <div className="text-center py-8 opacity-50 italic text-slate-500">
                   Tindakan tidak ditemukan
                 </div>
               )}
@@ -349,15 +298,15 @@ export default function TarifModal({
             <div className="flex items-center gap-2 text-xs">
               {isSaving ? (
                 <>
-                  <Loader2 size={14} className="animate-spin text-cyan-400" />
-                  <span className={isDark ? "text-cyan-400" : "text-cyan-600"}>
+                  <Loader2 size={14} className="animate-spin text-cyan-500" />
+                  <span className="text-cyan-600 font-medium">
                     Menyimpan otomatis...
                   </span>
                 </>
               ) : lastSaved ? (
                 <>
-                  <CheckCircle2 size={14} className="text-emerald-400" />
-                  <span className={isDark ? "text-white/60" : "text-slate-500"}>
+                  <CheckCircle2 size={14} className="text-emerald-500" />
+                  <span className="text-slate-500">
                     Tersimpan{" "}
                     {lastSaved.toLocaleTimeString([], {
                       hour: "2-digit",
@@ -366,21 +315,14 @@ export default function TarifModal({
                   </span>
                 </>
               ) : (
-                <span
-                  className={isDark ? "text-white/40" : "text-slate-400 italic"}
-                >
+                <span className="text-slate-400 italic">
                   Perubahan akan disimpan otomatis
                 </span>
               )}
             </div>
             <button
               onClick={onClose}
-              className={cn(
-                "px-6 py-2 rounded-lg font-bold transition-all border",
-                isDark
-                  ? "bg-cyan-600/20 border-cyan-500/50 text-cyan-100 hover:bg-cyan-600/40"
-                  : "bg-cyan-50 border-cyan-500/30 text-cyan-900 hover:bg-cyan-100",
-              )}
+              className="px-6 py-2 rounded-lg font-bold transition-all border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700"
             >
               Tutup
             </button>

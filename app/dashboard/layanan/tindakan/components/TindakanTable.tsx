@@ -2952,12 +2952,8 @@ export default function TindakanTable({
             setFilterTanggalTo(tx);
             setFilterPciOnly(Boolean(pci));
 
-            // Sync ke server via adapter
-            adapter.setServerFilters((prev) => ({
-              ...prev,
-              from: f || undefined,
-              to: tx || undefined,
-            }));
+            // Note: We perform date filtering 100% locally on the 10,000 rows already fetched,
+            // which is instant and eliminates slow database queries and loading screens.
           }}
           dokterOptions={dokterOptions}
           ruanganOptions={ruanganFilterOptions}

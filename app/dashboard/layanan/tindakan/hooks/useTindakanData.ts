@@ -1,6 +1,6 @@
 "use client";
 
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -96,6 +96,7 @@ export function useTindakanData(params?: {
           window.setTimeout(() => {
             if (document.hidden) return;
             void mutate();
+            void globalMutate("/api/pasien?compact=1&limit=5000&force=1");
           }, 2000);
         },
       )

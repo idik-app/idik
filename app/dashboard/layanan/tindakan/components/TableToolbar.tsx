@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, memo } from "react";
+import { mutate } from "swr";
 import {
   Search,
   Activity,
@@ -148,6 +149,8 @@ function TableToolbar({
     if (typeof onCreateDraftForPasien === "function") {
       await onCreateDraftForPasien({ pasienId, rm, nama });
     }
+    // Update the master patient list SWR cache immediately
+    void mutate("/api/pasien?compact=1&limit=5000&force=1");
     await Promise.resolve(
       typeof onRefresh === "function" ? onRefresh() : undefined,
     );

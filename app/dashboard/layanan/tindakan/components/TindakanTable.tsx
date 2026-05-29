@@ -1428,15 +1428,31 @@ export default function TindakanTable({
             master.length > 0 ? canonicalDoctorStoredValue(master, d) : d,
           );
         const rx = String(r.ruangan ?? "").trim();
-        if (rx) rSet.add(rx);
+        if (rx) {
+          const rxLower = rx.toLowerCase();
+          if (rxLower === "belum diisi" || rxLower === "—") {
+            rSet.add("Belum diisi");
+          } else if (rxLower.includes("belum")) {
+            // Skip corrupted placeholder values
+          } else {
+            const matchedMaster = ruanganMaster.find(opt => {
+              const label = formatRuanganLabel(opt).trim();
+              const nama = String(opt.nama ?? "").trim();
+              return rx === label || rx === nama;
+            });
+            if (matchedMaster) {
+              rSet.add(formatRuanganLabel(matchedMaster).trim());
+            } else {
+              rSet.add(rx);
+            }
+          }
+        }
         const tx = String(r.tindakan ?? "").trim();
         if (tx) tSet.add(tx);
       }
       for (const opt of ruanganMaster) {
         const label = formatRuanganLabel(opt).trim();
         if (label) rSet.add(label);
-        const nama = String(opt.nama ?? "").trim();
-        if (nama) rSet.add(nama);
       }
       return {
         dokterOptions: Array.from(dSet).sort((a, b) =>

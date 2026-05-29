@@ -4863,6 +4863,16 @@ export default function TindakanTable({
                                                       </span>
                                                     </div>
                                                   )}
+                                                  {e.kesimpulan_laporan && (
+                                                    <div>
+                                                      <span className="text-[9px] font-mono uppercase text-amber-500/70 leading-tight block mb-1">
+                                                        Hasil Akhir (Temuan Medis)
+                                                      </span>
+                                                      <span className="text-xs leading-relaxed text-amber-950 dark:text-amber-100/95 font-bold italic">
+                                                        {e.kesimpulan_laporan}
+                                                      </span>
+                                                    </div>
+                                                  )}
                                                   <div className="flex gap-6">
                                                     {e.severity_level && (
                                                       <div>
@@ -4901,16 +4911,6 @@ export default function TindakanTable({
                                                       </span>
                                                       <span className="text-xs leading-relaxed text-amber-950 dark:text-amber-100/85 italic">
                                                         {e.temuan_pembuluh}
-                                                      </span>
-                                                    </div>
-                                                  )}
-                                                  {e.kesimpulan_laporan && (
-                                                    <div>
-                                                      <span className="text-[9px] font-mono uppercase text-amber-500/70 leading-tight block mb-1">
-                                                        Kesimpulan
-                                                      </span>
-                                                      <span className="text-xs leading-relaxed text-amber-950 dark:text-amber-100/95 font-bold">
-                                                        {e.kesimpulan_laporan}
                                                       </span>
                                                     </div>
                                                   )}

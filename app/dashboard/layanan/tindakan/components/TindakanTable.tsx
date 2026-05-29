@@ -1821,9 +1821,27 @@ export default function TindakanTable({
       if (!hasA) return 0;
       const byDate = tb.localeCompare(ta);
       if (byDate !== 0) return byDate;
+
+      // Urutkan berdasarkan waktu input terbaru (created_at) di atas
+      const ca = String(a.created_at ?? "").trim();
+      const cb = String(b.created_at ?? "").trim();
+      if (ca && cb) {
+        const byCreated = cb.localeCompare(ca);
+        if (byCreated !== 0) return byCreated;
+      }
+
       const wa = String(a.waktu ?? "").trim();
       const wb = String(b.waktu ?? "").trim();
-      if (wa || wb) return wb.localeCompare(wa);
+      if (wa || wb) {
+        const byTime = wb.localeCompare(wa);
+        if (byTime !== 0) return byTime;
+      }
+
+      const idA = Number(a.id);
+      const idB = Number(b.id);
+      if (Number.isFinite(idA) && Number.isFinite(idB)) {
+        return idB - idA;
+      }
       return String(b.id ?? "").localeCompare(String(a.id ?? ""));
     });
   }, [

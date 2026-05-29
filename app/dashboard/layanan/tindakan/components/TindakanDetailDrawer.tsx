@@ -8,6 +8,7 @@ import {
   Check,
   ClipboardList,
   Copy,
+  FileText,
   History,
   type LucideIcon,
   MapPin,
@@ -1213,6 +1214,19 @@ function TindakanDetailDrawer({
                                         {r.ruangan?.trim() || "—"}
                                       </span>
                                     </div>
+                                    {r.pci_report_link && (
+                                      <div className="mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-200/20">
+                                        <a
+                                          href={r.pci_report_link}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 rounded bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                                        >
+                                          <FileText size={11} className="mr-1 inline" />
+                                          LIHAT PDF
+                                        </a>
+                                      </div>
+                                    )}
                                   </li>
                                 );
                               })}

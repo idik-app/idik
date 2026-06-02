@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, memo, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import {
   Activity,
   Check,
@@ -442,6 +442,7 @@ function TindakanDetailDrawer({
   patchTindakanFields,
 }: Props) {
   const [tab, setTab] = useState<WireframeTabId>("pasien");
+  const dragControls = useDragControls();
   const lastIdRef = useRef<string | null>(null);
 
   // Sync tab with initialTab when drawer opens or initialTab changes
@@ -753,6 +754,12 @@ function TindakanDetailDrawer({
               role="dialog"
               aria-modal="false"
               aria-labelledby="tindakan-detail-modal-title"
+              drag
+              dragControls={dragControls}
+              dragListener={false}
+              dragMomentum={false}
+              dragElastic={0.1}
+              dragConstraints={{ left: -800, right: 800, top: -400, bottom: 400 }}
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -770,8 +777,22 @@ function TindakanDetailDrawer({
               onClick={(e) => e.stopPropagation()}
             >
               <div
+                onPointerDown={(e) => {
+                  const target = e.target as HTMLElement;
+                  if (
+                    target.closest("button") ||
+                    target.closest("input") ||
+                    target.closest("select") ||
+                    target.closest("textarea") ||
+                    target.closest("a") ||
+                    target.closest("[role='button']")
+                  ) {
+                    return;
+                  }
+                  dragControls.start(e);
+                }}
                 className={cn(
-                  "shrink-0 border-b px-3 py-2.5 sm:px-4",
+                  "shrink-0 border-b px-3 py-2.5 sm:px-4 cursor-grab active:cursor-grabbing select-none",
                   "border-white/10 bg-gradient-to-r from-[#1B2B44] to-[#2D4A6E] shadow-[0_1px_0_rgba(255,255,255,0.08)_inset]",
                 )}
               >

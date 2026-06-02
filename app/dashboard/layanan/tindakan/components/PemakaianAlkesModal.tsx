@@ -36,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { motion, useDragControls } from "framer-motion";
 
 import {
   BarangVariantCombobox,
@@ -674,6 +675,7 @@ export default function PemakaianAlkesModal({
   onSaved,
 }: PemakaianAlkesModalProps) {
   const { alert: appAlert, confirm: appConfirm } = useAppDialog();
+  const dragControls = useDragControls();
 
   // SWR hooks for master data
   const { ruangan: ruanganList, isLoading: ruanganListLoading } =
@@ -2355,12 +2357,34 @@ export default function PemakaianAlkesModal({
           aria-label="Tutup form"
           onClick={() => (!drawerSaving ? onClose() : undefined)}
         />
-        <div
+        <motion.div
+          drag
+          dragControls={dragControls}
+          dragListener={false}
+          dragMomentum={false}
+          dragElastic={0.1}
+          dragConstraints={{ left: -800, right: 800, top: -400, bottom: 400 }}
           onClick={(e) => e.stopPropagation()}
           className="relative z-10 w-full max-w-[min(42rem,calc(100vw-1rem))] lg:max-w-6xl max-h-[min(92dvh,calc(100vh-1rem))] sm:max-h-[95dvh] bg-[#0f172a] border border-slate-700 rounded-t-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col min-h-0 animate-in fade-in slide-in-from-bottom-6 duration-200"
         >
           {/* Header Section */}
-          <div className="px-5 py-4 border-b border-slate-800 bg-[#1e293b] flex items-center justify-between shrink-0 min-w-0">
+          <div
+            onPointerDown={(e) => {
+              const target = e.target as HTMLElement;
+              if (
+                target.closest("button") ||
+                target.closest("input") ||
+                target.closest("select") ||
+                target.closest("textarea") ||
+                target.closest("a") ||
+                target.closest("[role='button']")
+              ) {
+                return;
+              }
+              dragControls.start(e);
+            }}
+            className="px-5 py-4 border-b border-slate-800 bg-[#1e293b] flex items-center justify-between shrink-0 min-w-0 cursor-grab active:cursor-grabbing select-none"
+          >
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 bg-emerald-600/20 rounded-xl flex items-center justify-center border border-emerald-500/30 shadow-lg shrink-0">
                 {existingOrderId ? (
@@ -3166,7 +3190,7 @@ export default function PemakaianAlkesModal({
               </button>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {barangPickerOpen ? (

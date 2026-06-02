@@ -765,12 +765,12 @@ function TindakanDetailDrawer({
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ 
                 type: "spring", 
-                damping: 25, 
-                stiffness: 300,
-                opacity: { duration: 0.3 }
+                damping: 20, 
+                stiffness: 400,
+                opacity: { duration: 0.15 }
               }}
               className={cn(
-                "pointer-events-auto flex h-[85vh] max-h-[85vh] min-w-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl border antialiased [text-rendering:optimizeLegibility] transition-all duration-500 ease-in-out",
+                "pointer-events-auto flex h-[85vh] max-h-[85vh] min-w-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl border antialiased [text-rendering:optimizeLegibility]",
                 "border-slate-200/90 bg-slate-50/90 shadow-[0_24px_56px_rgba(15,23,42,0.15),0_0_1px_rgba(15,23,42,0.1)]",
                 "font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
               )}

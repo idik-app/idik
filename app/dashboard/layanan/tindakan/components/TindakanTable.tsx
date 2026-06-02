@@ -3004,62 +3004,70 @@ export default function TindakanTable({
           onPhoneDirectoryOpen={onPhoneDirectoryOpen}
         />
 
-        <TindakanLaporanModal
-          open={laporanModalOpen}
-          onOpenChange={(next) => {
-            setLaporanModalOpen(next);
-            if (next) {
-              /* Paralel: total waktu ≈ max(API tindakan, API pasien); modal memakai useDeferredValue agar UI tetap responsif. */
-              void refresh();
-              void mutatePasien();
-            }
-          }}
-          rows={filteredRecords}
-          loading={loading}
-          filterSummaryLines={filterSummaryLines}
-          pasienOptions={pasienOptions}
-          onOpenDetail={(rec, tab) => {
-            if (!rec.id) return;
-            // Tutup modal agar FocusScope Dialog tidak mencuri fokus dari drawer (portal).
-            setLaporanModalOpen(false);
-            openDetail(rec.id, tab);
-          }}
-        />
+        {laporanModalOpen && (
+          <TindakanLaporanModal
+            open={laporanModalOpen}
+            onOpenChange={(next) => {
+              setLaporanModalOpen(next);
+              if (next) {
+                /* Paralel: total waktu ≈ max(API tindakan, API pasien); modal memakai useDeferredValue agar UI tetap responsif. */
+                void refresh();
+                void mutatePasien();
+              }
+            }}
+            rows={filteredRecords}
+            loading={loading}
+            filterSummaryLines={filterSummaryLines}
+            pasienOptions={pasienOptions}
+            onOpenDetail={(rec, tab) => {
+              if (!rec.id) return;
+              // Tutup modal agar FocusScope Dialog tidak mencuri fokus dari drawer (portal).
+              setLaporanModalOpen(false);
+              openDetail(rec.id, tab);
+            }}
+          />
+        )}
 
-        <TindakanLaporanPemakaianModal
-          open={laporanPemakaianModalOpen}
-          onOpenChange={setLaporanPemakaianModalOpen}
-          rows={rowsForPemakaianLink}
-          loading={loading || isSyncing}
-          filterSummaryLines={filterSummaryLines}
-          initialFilterTanggalFrom={filterTanggalFrom}
-          initialFilterTanggalTo={filterTanggalTo}
-          initialFilterDokter={filterDokter}
-          initialSearchTerm={search}
-          pasienOptions={pasienOptions}
-          onOpenDetail={(rec, tab) => {
-            if (!rec.id) return;
-            // Tutup modal agar FocusScope Dialog tidak mencuri fokus dari drawer (portal).
-            setLaporanPemakaianModalOpen(false);
-            adapter.openDetail(rec.id, tab);
-          }}
-        />
+        {laporanPemakaianModalOpen && (
+          <TindakanLaporanPemakaianModal
+            open={laporanPemakaianModalOpen}
+            onOpenChange={setLaporanPemakaianModalOpen}
+            rows={rowsForPemakaianLink}
+            loading={loading || isSyncing}
+            filterSummaryLines={filterSummaryLines}
+            initialFilterTanggalFrom={filterTanggalFrom}
+            initialFilterTanggalTo={filterTanggalTo}
+            initialFilterDokter={filterDokter}
+            initialSearchTerm={search}
+            pasienOptions={pasienOptions}
+            onOpenDetail={(rec, tab) => {
+              if (!rec.id) return;
+              // Tutup modal agar FocusScope Dialog tidak mencuri fokus dari drawer (portal).
+              setLaporanPemakaianModalOpen(false);
+              adapter.openDetail(rec.id, tab);
+            }}
+          />
+        )}
 
-        <FastTrackListModal
-          open={fastTrackModalOpen}
-          onOpenChange={setFastTrackModalOpen}
-          rows={rowsForPemakaianLink}
-          loading={loading}
-          doctorOptionsMaster={doctorOptionsMaster}
-        />
+        {fastTrackModalOpen && (
+          <FastTrackListModal
+            open={fastTrackModalOpen}
+            onOpenChange={setFastTrackModalOpen}
+            rows={rowsForPemakaianLink}
+            loading={loading}
+            doctorOptionsMaster={doctorOptionsMaster}
+          />
+        )}
 
-        <TindakanTerbanyakLabModal
-          open={tindakanTerbanyakLabOpen}
-          onOpenChange={setTindakanTerbanyakLabOpen}
-          rows={rowsForPemakaianLink}
-          loading={loading}
-          doctorOptionsMaster={doctorOptionsMaster}
-        />
+        {tindakanTerbanyakLabOpen && (
+          <TindakanTerbanyakLabModal
+            open={tindakanTerbanyakLabOpen}
+            onOpenChange={setTindakanTerbanyakLabOpen}
+            rows={rowsForPemakaianLink}
+            loading={loading}
+            doctorOptionsMaster={doctorOptionsMaster}
+          />
+        )}
 
         {error ? (
           <div

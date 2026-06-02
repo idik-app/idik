@@ -965,11 +965,8 @@ function TindakanDetailDrawer({
                   <>
                     {/* Tab: History (Resume) */}
                     <div className={cn(tab !== "history" && "hidden")}>
-                      {/*
-                        Tab Resume: latar panel (gradien slate terang) tetap terang bahkan saat dark mode global.
-                        Pakai permukaan & teks “paper” (slate) saja — hindari dark:text-white di atas kartu terang.
-                      */}
-                      <div className="space-y-4 text-slate-800">
+                      {tab === "history" && (
+                        <div className="space-y-4 text-slate-800">
                         <div>
                           <h3 className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-800">
                             Resume
@@ -1266,7 +1263,8 @@ function TindakanDetailDrawer({
                             </ul>
                           )}
                         </section>
-                      </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Other Tabs */}
@@ -1276,10 +1274,12 @@ function TindakanDetailDrawer({
                           key={def.id}
                           className={cn("space-y-3", tab !== def.id && "hidden")}
                         >
-                          <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-800/95">
-                            {def.label}
-                          </h3>
-                          {def.id === "fast_track" ? (
+                          {tab === def.id && (
+                            <>
+                              <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-800/95">
+                                {def.label}
+                              </h3>
+                              {def.id === "fast_track" ? (
                             <div className="rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none">
                               <FastTrackBlock
                                 tindakanId={String(displayRecord.id ?? "").trim()}
@@ -1802,6 +1802,8 @@ function TindakanDetailDrawer({
                                 </div>
                               )}
                             </>
+                          )}
+                          </>
                           )}
                         </div>
                       ),

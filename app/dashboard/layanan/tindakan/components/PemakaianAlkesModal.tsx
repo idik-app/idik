@@ -2418,6 +2418,10 @@ export default function PemakaianAlkesModal({
                 suppressHydrationWarning
                 type="button"
                 disabled={drawerSaving}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onClose();
+                }}
                 onClick={onClose}
                 className="group relative flex h-9 items-center gap-2 overflow-hidden rounded-full bg-slate-800/50 pl-3 pr-4 transition-all hover:bg-red-500/10 hover:ring-1 hover:ring-red-500/30 disabled:opacity-50"
                 aria-label="Tutup"

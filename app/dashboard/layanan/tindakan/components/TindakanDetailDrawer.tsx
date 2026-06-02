@@ -743,6 +743,10 @@ function TindakanDetailDrawer({
               "absolute inset-0 sm:hidden", 
               "bg-[#2D3748]/45 pointer-events-auto"
             )}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              onClose();
+            }}
             onClick={onClose}
           />
           {/* Flex center (bukan translate -50%) agar teks tidak blur di subpiksel / Windows */}
@@ -834,6 +838,10 @@ function TindakanDetailDrawer({
                   </div>
                   <button
                     type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      onClose();
+                    }}
                     onClick={onClose}
                     className={cn(
                       "shrink-0 rounded-lg border p-1.5 transition-all duration-300",
@@ -908,6 +916,10 @@ function TindakanDetailDrawer({
                   <div className="mt-auto pt-4 sm:block hidden">
                     <button
                       type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        onClose();
+                      }}
                       onClick={onClose}
                       className={cn(
                         "group relative flex w-full cursor-pointer items-center gap-2 rounded-xl px-2.5 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.12em] transition-all duration-200 sm:text-xs",

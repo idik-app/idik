@@ -867,7 +867,7 @@ function EditableTimeCell({
   return (
     <input
       type="text"
-      disabled={saving}
+      readOnly={saving}
       value={draft}
       placeholder={placeholder}
       onChange={(e) => setDraft(e.target.value)}
@@ -921,7 +921,7 @@ function EditableTextCell({
   return (
     <input
       type="text"
-      disabled={saving}
+      readOnly={saving}
       value={draft}
       placeholder={placeholder}
       onChange={(e) => setDraft(e.target.value)}
@@ -982,7 +982,7 @@ function EditableDateCell({
   return (
     <input
       type="date"
-      disabled={saving}
+      readOnly={saving}
       value={draft}
       min="1900-01-01"
       onChange={(e) => setDraft(e.target.value)}

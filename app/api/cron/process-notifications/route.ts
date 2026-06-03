@@ -59,6 +59,7 @@ export async function GET(request: Request) {
         // Fetch settings
         const { data: settings } = await supabase
           .from("distributor_notification_settings")
+          .select("*")
           .eq("distributor_id", distId)
           .maybeSingle();
 

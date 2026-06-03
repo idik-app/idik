@@ -1435,7 +1435,7 @@ export default function TindakanTable({
           } else if (rxLower.includes("belum")) {
             // Skip corrupted placeholder values
           } else {
-            const matchedMaster = ruanganMaster.find(opt => {
+            const matchedMaster = ruanganMaster.find((opt: RuanganOption) => {
               const label = formatRuanganLabel(opt).trim();
               const nama = String(opt.nama ?? "").trim();
               return rx === label || rx === nama;

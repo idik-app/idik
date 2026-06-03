@@ -67,7 +67,7 @@ export default function DokterAnestesiField({
         }) as DoctorOption);
 
     // Only show doctors with "Anestesi" specialty
-    return source.filter((d) =>
+    return source.filter((d: DoctorOption) =>
       d.spesialis?.toLowerCase().includes("anestesi")
     );
   }, [options, rawDoctors]);

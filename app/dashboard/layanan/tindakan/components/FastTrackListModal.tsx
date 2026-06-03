@@ -295,13 +295,17 @@ export default function FastTrackListModal({
   const parsePemakaian = useCallback((txt: string) => {
     const lines = txt.split("\n");
     const result: {
-      STENT: string[];
-      BALLOON: string[];
+      KONSOLIDASI: string[];
+      NON_KONSOLIDASI: string[];
       ALKES_LAINNYA: string[];
+      STENT?: string[];
+      BALLOON?: string[];
     } = {
+      KONSOLIDASI: [],
+      NON_KONSOLIDASI: [],
+      ALKES_LAINNYA: [],
       STENT: [],
       BALLOON: [],
-      ALKES_LAINNYA: [],
     };
 
     let currentCategory: "STENT" | "BALLOON" | "ALKES_LAINNYA" | null = null;
@@ -312,9 +316,11 @@ export default function FastTrackListModal({
         const blockText = currentBlock.join("\n").trim();
         if (blockText) {
           if (currentCategory === "STENT") {
-            result.STENT.push(blockText);
+            result.STENT?.push(blockText);
+            result.KONSOLIDASI.push(blockText);
           } else if (currentCategory === "BALLOON") {
-            result.BALLOON.push(blockText);
+            result.BALLOON?.push(blockText);
+            result.NON_KONSOLIDASI.push(blockText);
           } else {
             result.ALKES_LAINNYA.push(blockText);
           }

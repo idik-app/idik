@@ -175,6 +175,8 @@ export function DoctorCombobox({
   loading,
   className,
   inputClassName,
+  disabled,
+  placeholder,
   /** Unik per instance jika beberapa combobox di satu halaman (a11y). */
   listboxId = "pemakaian-doctor-listbox",
 }: {
@@ -188,6 +190,8 @@ export function DoctorCombobox({
   loading?: boolean;
   className?: string;
   inputClassName?: string;
+  disabled?: boolean;
+  placeholder?: string;
   listboxId?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -220,9 +224,12 @@ export function DoctorCombobox({
       <div className="relative">
         <input
           value={value}
+          readOnly={disabled}
           onChange={(e) => {
-            onChange(e.target.value);
-            setOpen(true);
+            if (!disabled) {
+              onChange(e.target.value);
+              setOpen(true);
+            }
           }}
           onBlur={() => {
             if (skipBlurRef.current) {
@@ -231,10 +238,12 @@ export function DoctorCombobox({
             }
             onInputBlur?.(value.trim());
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            if (!disabled) setOpen(true);
+          }}
           autoComplete="off"
           placeholder={
-            loading ? "Memuat daftar dokter…" : "Cari / pilih dokter…"
+            placeholder || (loading ? "Memuat daftar dokter…" : "Cari / pilih dokter…")
           }
           className={cn(
             "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40",

@@ -164,3 +164,18 @@ Berikut pemetaan **alur bisnis yang Anda inginkan** ke **komponen teknis** sekar
 ### Ringkasan satu kalimat
 
 **Saran pamungkas:** jadikan **`inventaris_stok_mutasi`** sumber kebenaran untuk **stok + histori kuantitas**; tambah **log peristiwa bisnis** (atau trigger) untuk **produk dibuat/dihapus**; hubungkan ke **`distributor_notification_settings`** lewat **job terjadwal + outbox** agar retur, pemakaian, kirim barang, dan CRUD produk semua memicu **notifikasi konsisten** tanpa menggandakan logika di setiap halaman React.
+
+---
+
+## ⚡ Optimasi Performa & Rendering (Lightning-Fast UI)
+
+Tiga pilar utama untuk menjaga antarmuka tetap responsif, bebas lag, dan teroptimasi seiring pertumbuhan data di tabel tindakan:
+
+1. **Gate-Render Pattern untuk Modals & Drawers**  
+   Hindari menyembunyikan modal/drawer besar yang mengolah ribuan baris data hanya menggunakan class CSS `hidden` atau `display: none`. Gunakan gerbang rendering kondisional `{isOpen && <Component />}` agar React sepenuhnya melakukan unmount pada DOM yang tidak aktif. Ini akan membebaskan CPU dan RAM browser untuk interaksi tabel utama (filter cepat, search bar, dsb.).
+
+2. **Snappy Spring & Penghapusan CSS Transition Bentrok**  
+   Ketika mendesain modal yang bisa digeser (*draggable*) atau dianimasikan via Framer Motion, pastikan kelas CSS `transition-all duration-...` bawaan Tailwind dihilangkan dari element `<motion.div>`. Transisi CSS bawaan akan bentrok dengan kalkulasi posisi realtime JavaScript, menyebabkan gerakan terasa lambat dan mengambang. Gunakan konfigurasi spring fisik yang cepat (`stiffness: 400`, `damping: 20`, `opacity: { duration: 0.15 }`).
+
+3. **Stateless UI dengan SWR Cache & Autosave**  
+   Guna memastikan tidak ada data yang hilang (*Zero State Loss*) saat komponen di-unmount oleh rendering kondisional, manfaatkan API SWR global (`useTindakanDetail`, `usePasienDetail`) untuk memuat ulang data terupdate secara instan pada saat mount. Sinergikan ini dengan form input bermodel autosave (`onBlur` / `onChange` langsung tersimpan ke Supabase), sehingga komponen UI bisa tetap stateless dan ringan.

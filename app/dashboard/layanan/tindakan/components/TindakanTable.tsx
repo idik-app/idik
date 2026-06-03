@@ -857,11 +857,11 @@ function EditableTimeCell({
       setDraft(cur);
       return;
     }
+    setDraft(formatted);
     setSaving(true);
     const ok = await onCommit(formatted);
     setSaving(false);
     if (!ok) setDraft(cur);
-    else setDraft(formatted);
   }, [draft, value, onCommit, saving]);
 
   return (
@@ -912,10 +912,11 @@ function EditableTextCell({
     if (saving) return;
     const next = draft.trim();
     if (next === value.trim()) return;
+    setDraft(next);
     setSaving(true);
     const ok = await onCommit(next);
-    if (!ok) setDraft(value.trim());
     setSaving(false);
+    if (!ok) setDraft(value.trim());
   }, [draft, onCommit, saving, value]);
 
   return (
@@ -973,6 +974,7 @@ function EditableDateCell({
       setDraft(normalizedValue);
       return;
     }
+    setDraft(next);
     setSaving(true);
     const ok = await onCommit(next);
     setSaving(false);
@@ -2469,16 +2471,16 @@ export default function TindakanTable({
   const patchRowField = useCallback(
     async (id: string, updates: Record<string, unknown>) => {
       if (!id) return false;
+      // Update local fallback rows immediately so changes reflect without re-fetching
+      setCathlabFallbackRows((prev) =>
+        prev.map((r) =>
+          String(r.id ?? "").trim() === String(id).trim()
+            ? { ...r, ...updates }
+            : r,
+        ),
+      );
       try {
         await saveEditor(id, updates);
-        // Update local fallback rows immediately so changes reflect without re-fetching
-        setCathlabFallbackRows((prev) =>
-          prev.map((r) =>
-            String(r.id ?? "").trim() === String(id).trim()
-              ? { ...r, ...updates }
-              : r,
-          ),
-        );
         return true;
       } catch (e) {
         notify({

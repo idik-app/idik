@@ -3678,11 +3678,11 @@ export default function TindakanTable({
                                     )}
                                     <span>{finalRm}</span>
                                     {String(rec.status ?? "").toLowerCase() === "meninggal" && (
-                                      <span
-                                        className="ml-1 inline-flex items-center justify-center rounded-full bg-red-600/20 p-0.5 text-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse"
-                                        title="DOT (Dead on Table)"
-                                      >
-                                        <Skull size={10} className="fill-red-500" />
+                                      <span title="DOT (Dead on Table)" className="inline-flex shrink-0">
+                                        <Skull
+                                          size={14}
+                                          className="ml-1 text-red-500 animate-pulse"
+                                        />
                                       </span>
                                     )}
                                   </div>
@@ -4138,11 +4138,11 @@ export default function TindakanTable({
                                   )}
                                 />
                                 {String(rec.status ?? "").toLowerCase() === "meninggal" && (
-                                  <span
-                                    className="ml-1 shrink-0 inline-flex items-center justify-center rounded-full bg-red-600/20 p-1 text-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse"
-                                    title="DOT (Dead on Table)"
-                                  >
-                                    <Skull size={12} className="fill-red-500" />
+                                  <span title="DOT (Dead on Table)" className="inline-flex shrink-0">
+                                    <Skull
+                                      size={16}
+                                      className="ml-1 text-red-500 animate-pulse"
+                                    />
                                   </span>
                                 )}
                                 {!pasienLoading &&

@@ -1285,6 +1285,13 @@ export default function TindakanTable({
 
   const [search, setSearch] = useState("");
   const debouncedSearchTrim = useDebouncedValue(search.trim(), 280);
+
+  useEffect(() => {
+    adapter.setServerFilters((prev) => {
+      if (prev.search === debouncedSearchTrim) return prev;
+      return { ...prev, search: debouncedSearchTrim };
+    });
+  }, [debouncedSearchTrim, adapter]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [hoveredLabel, setHoveredLabel] = useState<string | null>(null);
   const [hoveredRowKey, setHoveredRowKey] = useState<string | null>(null);
@@ -2975,8 +2982,6 @@ export default function TindakanTable({
           isCollapsed={isFilterCollapsed}
           onSearch={(val) => {
             setSearch(val);
-            // Trigger server-side search for better performance on large datasets
-            adapter.setServerFilters((prev) => ({ ...prev, search: val }));
           }}
           onRefresh={refresh}
           onCreateDraftForPasien={createDraftForPasien}

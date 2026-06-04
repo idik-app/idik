@@ -788,6 +788,7 @@ function EditableMasterTindakanCell({
     const cur = value.trim();
     const next = nextRaw.trim();
     if (next === cur || saving) return;
+    setDraft(next);
     setSaving(true);
     const ok = await onCommit(next);
     setSaving(false);
@@ -1038,6 +1039,7 @@ function EditableRuanganCell({
     const cur = value.trim();
     const next = nextRaw.trim();
     if (next === cur || saving) return;
+    setDraft(next);
     setSaving(true);
     const ok = await onCommit(next);
     setSaving(false);
@@ -1081,7 +1083,6 @@ function EditableDokterCell({
 
   return (
     <select
-      disabled={saving}
       value={draft}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
@@ -1089,6 +1090,7 @@ function EditableDokterCell({
         const cur = value.trim();
         const next = draft.trim();
         if (next === cur || saving) return;
+        setDraft(next);
         setSaving(true);
         const ok = await onCommit(next);
         setSaving(false);
@@ -1106,6 +1108,7 @@ function EditableDokterCell({
       className={cn(
         "w-full rounded border px-2 py-1 text-xs font-semibold focus:outline-none",
         "border-cyan-400/55 bg-white text-amber-800 [color-scheme:light] dark:border-cyan-700/50 dark:bg-black/40 dark:text-slate-100",
+        saving && "pointer-events-none opacity-60",
       )}
     >
       {!draft ? <option value="">Pilih dokter</option> : null}

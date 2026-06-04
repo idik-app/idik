@@ -26,7 +26,6 @@ import {
   Users,
   Wallet,
   Zap,
-  Skull,
 } from "lucide-react";
 
 import { useNotification } from "@/app/contexts/NotificationContext";
@@ -3678,11 +3677,11 @@ export default function TindakanTable({
                                     )}
                                     <span>{finalRm}</span>
                                     {String(rec.status ?? "").toLowerCase() === "meninggal" && (
-                                      <span title="DOT (Dead on Table)" className="inline-flex shrink-0">
-                                        <Skull
-                                          size={14}
-                                          className="ml-1 text-red-500 animate-pulse"
-                                        />
+                                      <span
+                                        className="ml-1 text-xs animate-pulse select-none shrink-0"
+                                        title="DOT (Dead on Table)"
+                                      >
+                                        💀
                                       </span>
                                     )}
                                   </div>
@@ -4138,11 +4137,11 @@ export default function TindakanTable({
                                   )}
                                 />
                                 {String(rec.status ?? "").toLowerCase() === "meninggal" && (
-                                  <span title="DOT (Dead on Table)" className="inline-flex shrink-0">
-                                    <Skull
-                                      size={16}
-                                      className="ml-1 text-red-500 animate-pulse"
-                                    />
+                                  <span
+                                    className="ml-1 text-sm animate-pulse select-none shrink-0"
+                                    title="DOT (Dead on Table)"
+                                  >
+                                    💀
                                   </span>
                                 )}
                                 {!pasienLoading &&

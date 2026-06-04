@@ -212,48 +212,60 @@ export function resolvePasienFromLabel(
   return null;
 }
 
+const resolvePasienCacheMap = new WeakMap<object, { result: PasienOption | null; optionsRef: PasienOption[] }>();
+
 export function resolvePasienFromRow(
   options: PasienOption[],
   raw: Record<string, unknown>,
 ): PasienOption | null {
-  const pid = String(raw.pasien_id ?? "").trim();
-  if (pid) {
-    const hit = options.find((p) => String(p.id) === pid);
-    if (hit) return hit;
+  const cached = resolvePasienCacheMap.get(raw);
+  if (cached && cached.optionsRef === options) {
+    return cached.result;
   }
-  const label = buildPasienLabelFromRow(raw);
-  if (label) {
-    const byLabel = resolvePasienFromLabel(options, label);
-    if (byLabel) return byLabel;
-  }
-  const namaFull = pickFirstString(raw, ["nama_pasien", "nama", "pasien_nama"]);
-  const { baseNama, rmDalamKurung } = splitNamaDanRmDalamKurung(namaFull);
-  const namaForMatch = normalizeNamaPasien((baseNama || namaFull).trim());
-  const rowRmDigits =
-    normalizeDigitsOnly(pickFirstString(raw, [...RM_FIELD_KEYS])) ||
-    normalizeDigitsOnly(rmDalamKurung);
-  if (namaForMatch) {
-    const hits = options.filter(
-      (p) => normalizeNamaPasien(p.nama ?? "") === namaForMatch,
-    );
-    if (hits.length === 1) return hits[0]!;
-    if (hits.length > 1 && rowRmDigits.length >= 3) {
-      const byRm = hits.filter(
+
+  const result = (() => {
+    const pid = String(raw.pasien_id ?? "").trim();
+    if (pid) {
+      const hit = options.find((p) => String(p.id) === pid);
+      if (hit) return hit;
+    }
+    const label = buildPasienLabelFromRow(raw);
+    if (label) {
+      const byLabel = resolvePasienFromLabel(options, label);
+      if (byLabel) return byLabel;
+    }
+    const namaFull = pickFirstString(raw, ["nama_pasien", "nama", "pasien_nama"]);
+    const { baseNama, rmDalamKurung } = splitNamaDanRmDalamKurung(namaFull);
+    const namaForMatch = normalizeNamaPasien((baseNama || namaFull).trim());
+    const rowRmDigits =
+      normalizeDigitsOnly(pickFirstString(raw, [...RM_FIELD_KEYS])) ||
+      normalizeDigitsOnly(rmDalamKurung);
+    if (namaForMatch) {
+      const hits = options.filter(
+        (p) => normalizeNamaPasien(p.nama ?? "") === namaForMatch,
+      );
+      if (hits.length === 1) return hits[0]!;
+      if (hits.length > 1 && rowRmDigits.length >= 3) {
+        const byRm = hits.filter(
+          (p) => normalizeDigitsOnly(p.no_rm ?? "") === rowRmDigits,
+        );
+        if (byRm.length === 1) return byRm[0]!;
+      }
+    }
+
+    // Fallback penting untuk data legacy: jika `pasien_id` belum tersimpan konsisten
+    // atau nama di tindakan sudah berubah casing/format, tetap coba resolve via RM.
+    if (rowRmDigits.length >= 3) {
+      const byRm = options.filter(
         (p) => normalizeDigitsOnly(p.no_rm ?? "") === rowRmDigits,
       );
       if (byRm.length === 1) return byRm[0]!;
     }
-  }
+    return null;
+  })();
 
-  // Fallback penting untuk data legacy: jika `pasien_id` belum tersimpan konsisten
-  // atau nama di tindakan sudah berubah casing/format, tetap coba resolve via RM.
-  if (rowRmDigits.length >= 3) {
-    const byRm = options.filter(
-      (p) => normalizeDigitsOnly(p.no_rm ?? "") === rowRmDigits,
-    );
-    if (byRm.length === 1) return byRm[0]!;
-  }
-  return null;
+  resolvePasienCacheMap.set(raw, { result, optionsRef: options });
+  return result;
 }
 
 /**

@@ -101,6 +101,23 @@ import {
 import type { TindakanFilteredSummary } from "./TindakanSummary";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import KeteranganField from "./KeteranganField";
+const rowCacheMap = new WeakMap<object, {
+  _idik_row_key: string;
+  normalizedRm: string;
+}>();
+
+const haystackCacheMap = new WeakMap<object, {
+  haystack: string;
+  label: string;
+  doctor: string;
+}>();
+
+const rmCacheMap = new WeakMap<object, {
+  digits: string;
+  display: string;
+  label: string;
+}>();
+
 import DokterAnestesiField from "./DokterAnestesiField";
 import PemakaianAlkesModal from "./PemakaianAlkesModal";
 import RsPerujukField from "./RsPerujukField";
@@ -307,15 +324,20 @@ function rowSearchHaystack(
   doctorOptions?: DoctorOption[],
   indexKey?: string,
 ): string {
+  const id = String(r.id ?? "").trim();
+  const stateKey = id || indexKey || "";
+  const resolvedLabel = pasienLabelByRowId[stateKey] ?? "";
+  const doctorVal = String(r.dokter ?? "");
+
+  const cached = haystackCacheMap.get(r);
+  if (cached && cached.label === resolvedLabel && cached.doctor === doctorVal) {
+    return cached.haystack;
+  }
+
   const base = recordSearchHaystack(r);
   const raw = r as unknown as Record<string, unknown>;
   const p = resolvePasienFromRow(pasienOptions, raw);
   const jk = resolveJenisKelaminFromRow(raw, p);
-
-  // Ambil label Pasien yang sudah di-resolve (jika ada)
-  const id = String(r.id ?? "").trim();
-  const stateKey = id || indexKey || "";
-  const resolvedLabel = (pasienLabelByRowId[stateKey] ?? "").toLowerCase();
 
   let extra = "";
   if (jk === "L") extra = " laki-laki laki l";
@@ -324,11 +346,19 @@ function rowSearchHaystack(
   if (doctorOptions?.length) {
     const canon = canonicalDoctorDisplayValue(
       doctorOptions,
-      String(r.dokter ?? ""),
+      doctorVal,
     );
     if (canon) docCanon = ` ${canon.toLowerCase()}`;
   }
-  return (base + docCanon + extra + " " + resolvedLabel).toLowerCase();
+  const result = (base + docCanon + extra + " " + resolvedLabel).toLowerCase();
+  
+  haystackCacheMap.set(r, {
+    haystack: result,
+    label: resolvedLabel,
+    doctor: doctorVal,
+  });
+
+  return result;
 }
 
 function normalizeIdikToken(v: unknown): string {
@@ -459,16 +489,27 @@ function resolveShownRmForRow(
   const raw = rec as unknown as Record<string, unknown>;
   const id = String(raw.id ?? "").trim();
   const stateKey = id || indexKey || "";
-  const labelRm = stateKey
-    ? extractRmFromLabel(pasienLabelByRowId[stateKey] ?? "")
-    : "";
+  const label = pasienLabelByRowId[stateKey] ?? "";
+
+  const cached = rmCacheMap.get(rec);
+  if (cached && cached.label === label) {
+    return cached;
+  }
+
+  const labelRm = stateKey ? extractRmFromLabel(label) : "";
   const p = resolvePasienFromRow(pasienOptions, raw);
   const rmFromOpt = String(p?.no_rm ?? "").trim();
   const rowRmDisp = displayRm(raw);
   const rowRm = rowRmDisp === "—" ? "" : rowRmDisp;
   const display = (labelRm || rmFromOpt || rowRm).trim() || "—";
   const digits = normalizeDigitsOnly(display);
-  return { digits: digits.length >= 3 ? digits : "", display };
+  const result = {
+    digits: digits.length >= 3 ? digits : "",
+    display,
+    label,
+  };
+  rmCacheMap.set(rec, result);
+  return result;
 }
 
 /** RM + nama untuk dialog hapus — selaras dengan kolom tabel / combobox. */

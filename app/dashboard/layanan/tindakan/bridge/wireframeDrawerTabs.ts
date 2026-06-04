@@ -63,6 +63,7 @@ export const WIREFRAME_DRAWER_TABS: {
       "tanggal_tindakan",
       "tindakan",
       "kategori",
+      "status",
       "temuan_pembuluh",
       "kesimpulan_laporan",
       "plan_medis",

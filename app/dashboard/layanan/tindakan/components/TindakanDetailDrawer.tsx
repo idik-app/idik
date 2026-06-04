@@ -60,6 +60,7 @@ import PasienAutosaveField, {
 } from "./PasienAutosaveField";
 import RsPerujukField from "./RsPerujukField";
 import RuanganTindakanField from "./RuanganTindakanField";
+import StatusTindakanField from "./StatusTindakanField";
 import SignTimeFields from "./SignTimeFields";
 import TindakanTanggalDrawerField from "./TindakanTanggalDrawerField";
 import { buildResumeWhatsAppText } from "../lib/buildResumeWhatsAppText";
@@ -1443,6 +1444,10 @@ function TindakanDetailDrawer({
                                     def.id === "tindakan" &&
                                     key === "kategori" &&
                                     Boolean(tindakanId);
+                                  const isStatusEditable =
+                                    def.id === "tindakan" &&
+                                    key === "status" &&
+                                    Boolean(tindakanId);
                                   const isRuanganEditable =
                                     def.id === "lokasi" &&
                                     key === "ruangan" &&
@@ -1742,6 +1747,17 @@ function TindakanDetailDrawer({
                                                 ? "drawerCharcoal"
                                                 : "default"
                                             }
+                                          />
+                                        ) : isStatusEditable ? (
+                                          <StatusTindakanField
+                                            tindakanId={tindakanId}
+                                            value={
+                                              rawVal === null ||
+                                              rawVal === undefined
+                                                ? null
+                                                : String(rawVal)
+                                            }
+                                            onSaved={handleRecordPatch}
                                           />
                                         ) : isTanggalTindakanEditable ? (
                                           <TindakanTanggalDrawerField

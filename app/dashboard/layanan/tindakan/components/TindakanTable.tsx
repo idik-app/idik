@@ -26,6 +26,7 @@ import {
   Users,
   Wallet,
   Zap,
+  Skull,
 } from "lucide-react";
 
 import { useNotification } from "@/app/contexts/NotificationContext";
@@ -3504,7 +3505,10 @@ export default function TindakanTable({
                                 const isToday = isoDate === todayWibYmd();
 
                                 let indicatorClass = "";
-                                if (
+                                if (s.includes("meninggal")) {
+                                  indicatorClass =
+                                    "bg-rose-600 shadow-[0_0_8px_rgba(225,29,72,0.5)]";
+                                } else if (
                                   s.includes("cito") ||
                                   s.includes("emergency") ||
                                   t.includes("ppci")
@@ -3673,6 +3677,14 @@ export default function TindakanTable({
                                       </div>
                                     )}
                                     <span>{finalRm}</span>
+                                    {String(rec.status ?? "").toLowerCase() === "meninggal" && (
+                                      <span
+                                        className="ml-1 inline-flex items-center justify-center rounded-full bg-red-600/20 p-0.5 text-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse"
+                                        title="DOT (Dead on Table)"
+                                      >
+                                        <Skull size={10} className="fill-red-500" />
+                                      </span>
+                                    )}
                                   </div>
                                 );
                               })()}
@@ -4125,6 +4137,14 @@ export default function TindakanTable({
                                     "rounded-sm",
                                   )}
                                 />
+                                {String(rec.status ?? "").toLowerCase() === "meninggal" && (
+                                  <span
+                                    className="ml-1 shrink-0 inline-flex items-center justify-center rounded-full bg-red-600/20 p-1 text-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)] animate-pulse"
+                                    title="DOT (Dead on Table)"
+                                  >
+                                    <Skull size={12} className="fill-red-500" />
+                                  </span>
+                                )}
                                 {!pasienLoading &&
                                 pasienOptions.length === 0 &&
                                 i === 0 ? (

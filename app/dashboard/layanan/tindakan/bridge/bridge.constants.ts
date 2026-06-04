@@ -30,7 +30,7 @@ export const PEMBIAYAAN_TYPES = ["BPJS", "UMUM", "Asuransi", "Karyawan"];
 // -------------------------------------------------------------
 // 🏥 4. Status Tindakan
 // -------------------------------------------------------------
-export const TINDAKAN_STATUS = ["Selesai", "Proses", "Pending", "Dibatalkan"];
+export const TINDAKAN_STATUS = ["Selesai", "Proses", "Pending", "Dibatalkan", "Meninggal"];
 
 // -------------------------------------------------------------
 // 🗂 5. MASTER SCHEMA — 38 KOLUM (FINAL IDIK)
@@ -174,4 +174,5 @@ export const STATUS_COLORS = {
   Proses: "text-cyan-400",
   Pending: "text-yellow-400",
   Dibatalkan: "text-red-500",
+  Meninggal: "text-rose-500 animate-pulse font-black",
 };

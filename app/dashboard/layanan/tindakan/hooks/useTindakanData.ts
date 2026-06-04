@@ -62,6 +62,7 @@ export function useTindakanData(params?: {
     (id: string, updates: Record<string, unknown>) => {
       const idStr = String(id ?? "").trim();
       if (!idStr || !updates || typeof updates !== "object") return;
+      
       setTindakanList((prev) =>
         Array.isArray(prev)
           ? prev.map((r) =>
@@ -69,8 +70,22 @@ export function useTindakanData(params?: {
             )
           : prev,
       );
+
+      // Mutate SWR cache directly without calling the server
+      void mutate(
+        (current: any) => {
+          if (!current || !Array.isArray(current.data)) return current;
+          return {
+            ...current,
+            data: current.data.map((r: any) =>
+              String(r?.id ?? "").trim() === idStr ? { ...r, ...updates } : r,
+            ),
+          };
+        },
+        { revalidate: false }
+      );
     },
-    [],
+    [mutate],
   );
 
   useEffect(() => {

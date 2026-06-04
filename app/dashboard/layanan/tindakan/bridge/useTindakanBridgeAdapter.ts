@@ -92,9 +92,8 @@ export function useTindakanBridgeAdapter() {
       bridge.emitEdited({ id, updatedData });
       
       await updateOne(id, updatedData);
-      await reload({ silent: true });
     },
-    [bridge, reload, updateOne, patchLocalRow],
+    [bridge, updateOne, patchLocalRow],
   );
 
   const createRecord = useCallback(
@@ -115,9 +114,8 @@ export function useTindakanBridgeAdapter() {
       await deleteOne(id);
       removeLocalById(id);
       bridge.emitEdited({ id, deleted: true });
-      await reload({ silent: true });
     },
-    [bridge, deleteOne, reload, removeLocalById],
+    [bridge, deleteOne, removeLocalById],
   );
 
   const refresh = useCallback(() => reload({ silent: true }), [reload]);

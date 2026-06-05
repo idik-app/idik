@@ -235,5 +235,6 @@ export function useTindakanBridgeAdapter() {
     // Server-side filtering
     serverFilters,
     setServerFilters,
+    patchLocalRow,
   };
 }

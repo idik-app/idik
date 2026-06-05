@@ -1108,57 +1108,81 @@ function EditableRuanganCell({
 
 function EditableDokterCell({
   value,
-  options,
+  doctorOptionsMaster,
+  dokterOptions,
+  loading,
+  listboxId,
   onCommit,
 }: {
   value: string;
-  options: string[];
+  doctorOptionsMaster: DoctorOption[];
+  dokterOptions: string[];
+  loading: boolean;
+  listboxId: string;
   onCommit: (next: string) => Promise<boolean>;
 }) {
   const [draft, setDraft] = useState(value.trim());
   const [saving, setSaving] = useState(false);
+  const draftRef = useRef(draft);
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
 
   useEffect(() => {
     if (!saving) setDraft(value.trim());
   }, [value, saving]);
 
+  const tryCommit = async (nextRaw: string) => {
+    const curDisplay = value.trim();
+    const nextText = nextRaw.trim();
+    
+    // Resolve display value immediately in draft
+    const m = doctorOptionsMaster;
+    const resolved = m.length
+      ? resolveDoctorFromLooseInput(m, nextText)
+      : null;
+    const display = resolved
+      ? formatDoctorLabel(resolved)
+      : nextText;
+      
+    if (display === curDisplay || saving) {
+      setDraft(display);
+      return;
+    }
+    
+    setDraft(display);
+    setSaving(true);
+    const ok = await onCommit(nextText);
+    setSaving(false);
+    if (!ok) setDraft(curDisplay);
+  };
+
   return (
-    <select
+    <DoctorCombobox
+      listboxId={listboxId}
       value={draft}
-      onMouseDown={(e) => e.stopPropagation()}
-      onClick={(e) => e.stopPropagation()}
-      onBlur={async () => {
-        const cur = value.trim();
-        const next = draft.trim();
-        if (next === cur || saving) return;
-        setDraft(next);
-        setSaving(true);
-        const ok = await onCommit(next);
-        setSaving(false);
-        if (!ok) setDraft(cur);
+      onChange={setDraft}
+      onSelectOption={(picked) => {
+        void tryCommit(formatDoctorLabel(picked));
       }}
-      onChange={async (e) => {
-        const next = e.target.value.trim();
-        setDraft(next);
-        if (saving) return;
-        setSaving(true);
-        const ok = await onCommit(next);
-        setSaving(false);
-        if (!ok) setDraft(value.trim());
+      onInputBlur={() => {
+        void tryCommit(draftRef.current);
       }}
-      className={cn(
-        "w-full rounded border px-2 py-1 text-xs font-semibold focus:outline-none",
-        "border-cyan-400/55 bg-white text-amber-800 [color-scheme:light] dark:border-cyan-700/50 dark:bg-black/40 dark:text-slate-100",
-        saving && "pointer-events-none opacity-60",
-      )}
-    >
-      {!draft ? <option value="">Pilih dokter</option> : null}
-      {options.map((d) => (
-        <option key={d} value={d}>
-          {d}
-        </option>
-      ))}
-    </select>
+      options={
+        doctorOptionsMaster.length
+          ? doctorOptionsMaster
+          : dokterOptions.map((nama, idx) => ({
+              id: `local:${idx}`,
+              nama_dokter: nama,
+              spesialis: null,
+              aktif: true,
+            }))
+      }
+      loading={loading || saving}
+      className="max-w-none w-full [&_input]:pr-2"
+      inputClassName={TINDAKAN_TABLE_PRIMARY_COL_INPUT}
+    />
   );
 }
 
@@ -2610,6 +2634,32 @@ export default function TindakanTable({
       await patchRowField(idStr, { nama_pasien: namaOnly });
     },
     [pasienOptions, patchRowField],
+  );
+
+  const commitDoctorForRow = useCallback(
+    async (id: string, stateKey: string, nextText: string) => {
+      const m = doctorOptionsMaster;
+      const resolved = m.length
+        ? resolveDoctorFromLooseInput(m, nextText)
+        : null;
+      const persisted = resolved
+        ? String(resolved.nama_dokter).trim()
+        : nextText.trim();
+      const display = resolved
+        ? formatDoctorLabel(resolved)
+        : nextText.trim();
+      
+      setDoctorLabelByRowId((p) => ({
+        ...p,
+        [stateKey]: display,
+      }));
+
+      if (!id) return true;
+      return await patchRowField(id, {
+        dokter: persisted || null,
+      });
+    },
+    [doctorOptionsMaster, patchRowField],
   );
 
   const commitRuanganForRow = useCallback(
@@ -4307,7 +4357,7 @@ export default function TindakanTable({
                                    >
                                      <div className="min-w-0 flex-1">
                                        <div className="relative">
-                                         <DoctorCombobox
+                                         <EditableDokterCell
                                            listboxId={`tindakan-row-${key}-doctor`}
                                            value={
                                              doctorLabelByRowId[stateKey] ??
@@ -4316,73 +4366,11 @@ export default function TindakanTable({
                                                String(rec.dokter ?? ""),
                                              )
                                            }
-                                           onChange={(label) => {
-                                             setDoctorLabelByRowId((p) => ({
-                                               ...p,
-                                               [stateKey]: label,
-                                             }));
-                                           }}
-                                           onInputBlur={(finalText) => {
-                                             if (!id) return;
-                                             const m = doctorOptionsMaster;
-                                             const resolved = m.length
-                                               ? resolveDoctorFromLooseInput(
-                                                   m,
-                                                   finalText,
-                                                 )
-                                               : null;
-                                             const persisted = resolved
-                                               ? String(
-                                                   resolved.nama_dokter,
-                                                 ).trim()
-                                               : finalText.trim();
-                                             const display = resolved
-                                               ? formatDoctorLabel(resolved)
-                                               : finalText.trim();
-                                             const cur = String(
-                                               rec.dokter ?? "",
-                                             ).trim();
-                                             setDoctorLabelByRowId((p) => ({
-                                               ...p,
-                                               [stateKey]: display,
-                                             }));
-                                             if (persisted !== cur) {
-                                               void patchRowField(id, {
-                                                 dokter: persisted || null,
-                                               });
-                                             }
-                                           }}
-                                           onSelectOption={(picked) => {
-                                             const canonical =
-                                               formatDoctorLabel(picked);
-                                             setDoctorLabelByRowId((p) => ({
-                                               ...p,
-                                               [stateKey]: canonical,
-                                             }));
-                                             if (!id) return;
-                                             void patchRowField(id, {
-                                               dokter: picked.nama_dokter || null,
-                                             });
-                                           }}
-                                           options={
-                                             doctorOptionsMaster.length
-                                               ? doctorOptionsMaster
-                                               : dokterOptions.map(
-                                                   (nama, idx) => ({
-                                                     id: `local:${idx}`,
-                                                     nama_dokter: nama,
-                                                     spesialis: null,
-                                                     aktif: true,
-                                                   }),
-                                                 )
-                                           }
+                                           doctorOptionsMaster={doctorOptionsMaster}
+                                           dokterOptions={dokterOptions}
                                            loading={doctorLoading}
-                                           className={cn(
-                                             "max-w-none w-full",
-                                             "[&_input]:pr-2",
-                                           )}
-                                           inputClassName={
-                                             TINDAKAN_TABLE_PRIMARY_COL_INPUT
+                                           onCommit={(next) =>
+                                             commitDoctorForRow(id, stateKey, next)
                                            }
                                          />
                                        </div>

@@ -54,6 +54,7 @@ export function useTindakanBridgeAdapter() {
     error = null,
     reload,
     removeLocalById,
+    addLocalRow,
     patchLocalRow,
     isSyncing = false,
   } = useTindakanData(serverFilters);
@@ -99,14 +100,22 @@ export function useTindakanBridgeAdapter() {
   const createRecord = useCallback(
     async (payload: unknown) => {
       const created = await createOne(payload as Record<string, unknown>);
+      const id = String((created as { id?: string } | null)?.id ?? "");
       bridge.emitEdited({
-        id: String((created as { id?: string } | null)?.id ?? ""),
+        id,
         created: true,
       });
+      if (id) {
+        addLocalRow({
+          id,
+          ...(payload as Record<string, unknown>),
+          created_at: new Date().toISOString(),
+        });
+      }
       await reload({ silent: true });
       return created;
     },
-    [bridge, createOne, reload],
+    [bridge, createOne, addLocalRow, reload],
   );
 
   const deleteRecord = useCallback(

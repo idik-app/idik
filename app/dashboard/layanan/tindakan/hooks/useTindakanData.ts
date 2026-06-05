@@ -57,6 +57,27 @@ export function useTindakanData(params?: {
     );
   }, []);
 
+  /** Tambahkan baris baru ke local state dan SWR cache secara instant */
+  const addLocalRow = useCallback(
+    (newRow: any) => {
+      if (!newRow) return;
+      setTindakanList((prev) => [newRow, ...prev]);
+
+      // Mutate SWR cache langsung tanpa request server
+      void mutate(
+        (current: any) => {
+          if (!current || !Array.isArray(current.data)) return current;
+          return {
+            ...current,
+            data: [newRow, ...current.data],
+          };
+        },
+        { revalidate: false }
+      );
+    },
+    [mutate],
+  );
+
   /** Gabungkan PATCH ke baris lokal agar UI (mis. kolom Time out) langsung ikut tanpa tunggu SWR. */
   const patchLocalRow = useCallback(
     (id: string, updates: Record<string, unknown>) => {
@@ -146,6 +167,7 @@ export function useTindakanData(params?: {
     error,
     reload,
     removeLocalById,
+    addLocalRow,
     patchLocalRow,
     isSyncing: isValidating,
   };

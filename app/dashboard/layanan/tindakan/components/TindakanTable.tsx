@@ -1216,6 +1216,7 @@ export default function TindakanTable({
     createRecord,
     error,
     isSyncing,
+    patchLocalRow,
   } = adapter;
   const { theme } = useTheme();
   const lightMode = theme === "light";
@@ -2554,6 +2555,10 @@ export default function TindakanTable({
             : r,
         ),
       );
+      // Instantly update the main SWR list cache
+      if (adapter.patchLocalRow) {
+        adapter.patchLocalRow(id, updates);
+      }
       try {
         await saveEditor(id, updates);
         return true;
@@ -2566,7 +2571,7 @@ export default function TindakanTable({
         return false;
       }
     },
-    [notify, saveEditor],
+    [notify, saveEditor, adapter],
   );
 
   /**

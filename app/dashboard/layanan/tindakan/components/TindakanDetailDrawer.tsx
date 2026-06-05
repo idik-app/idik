@@ -506,7 +506,7 @@ function TindakanDetailDrawer({
 
   // Jika record di-sync (mis. pci_report_link masuk dari drive), UI harus refresh
   useEffect(() => {
-    if (!open || !record?.id) return;
+    if (!open || !record?.id || record?.pci_report_link || tindakanDetail?.pci_report_link) return;
 
     // Polling kecil jika record sedang ditunggu (Background Sync HUD aktif)
     // Ini memastikan jika user sedang buka drawer, link yang baru masuk
@@ -516,7 +516,7 @@ function TindakanDetailDrawer({
     }, 10000); // 10 detik polling saat drawer terbuka
 
     return () => clearInterval(interval);
-  }, [open, record?.id]);
+  }, [open, record?.id, record?.pci_report_link, tindakanDetail?.pci_report_link, mutateTindakan]);
 
   const detailTarifFromApi = useMemo(() => {
     if (!tindakanDetail) return null;
@@ -583,17 +583,17 @@ function TindakanDetailDrawer({
   }, [displayRecord, pasienMaster?.id]);
 
   const riwayatPasienRows = useMemo(() => {
-    if (!displayRecord) return [];
+    if (!displayRecord || tab !== "history") return [];
     const peers = allTindakanRows.filter((r) =>
       isSamePatientTindakan(displayRecord, r),
     );
     return sortTindakanByTanggalDesc(peers);
-  }, [allTindakanRows, displayRecord]);
+  }, [allTindakanRows, displayRecord, tab]);
 
   const resumeWhatsAppText = useMemo(() => {
-    if (!displayRecord) return "";
+    if (!displayRecord || tab !== "history") return "";
     return buildResumeWhatsAppText(displayRecord, riwayatPasienRows);
-  }, [displayRecord, riwayatPasienRows]);
+  }, [displayRecord, riwayatPasienRows, tab]);
 
   useEffect(() => {
     setWaCopied(false);

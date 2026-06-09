@@ -580,14 +580,8 @@ export default function TambahPasienQuickModal({
                 role="status"
               >
                 <div>
-                  No. RM ini sudah ada di master pasien —{" "}
-                  {riwayatTindakan.length > 0 ? (
-                    <span className="font-bold">
-                      Riwayat tindakan lain ({riwayatTindakan.length})
-                    </span>
-                  ) : (
-                    "formulir diisi otomatis."
-                  )}
+                  No. RM ini sudah ada di master pasien
+                  {riwayatTindakan.length === 0 && " — formulir diisi otomatis."}
                 </div>
 
                 {riwayatTindakan.length > 0 && (

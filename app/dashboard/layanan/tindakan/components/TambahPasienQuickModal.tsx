@@ -603,19 +603,6 @@ export default function TambahPasienQuickModal({
                     </ol>
                   </div>
                 )}
-
-                <div className="text-[11px] opacity-90 mt-1">
-                  Anda boleh melengkapi atau mengoreksi data sebelum menyimpan; perubahan akan disimpan ke master pasien. Untuk kunjungan atau jenis tindakan baru, gunakan{" "}
-                  <span
-                    className={cn(
-                      "font-semibold",
-                      isDark ? "text-amber-100" : "text-amber-900",
-                    )}
-                  >
-                    Tambah kasus tindakan
-                  </span>{" "}
-                  (tidak membuat pasien ganda).
-                </div>
               </div>
             ) : null}
 

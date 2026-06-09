@@ -83,6 +83,24 @@ function patientToFormFields(p: Pasien): Omit<Pasien, "id"> {
   };
 }
 
+function formatTanggalIndo(dateStr: string) {
+  if (!dateStr) return "";
+  const parts = dateStr.split("-");
+  if (parts.length === 3) {
+    if (parts[0].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+  }
+  return dateStr;
+}
+
+function formatDokter(dokter?: string) {
+  if (!dokter) return "";
+  const clean = dokter.trim();
+  if (/^dr\b/i.test(clean)) return clean;
+  return `dr. ${clean}`;
+}
+
 async function fetchPasienByNoRm(rm: string): Promise<Pasien | null> {
   const res = await fetch(`/api/pasien?noRm=${encodeURIComponent(rm)}`, {
     credentials: "include",
@@ -181,6 +199,7 @@ export default function TambahPasienQuickModal({
   const [rmChecking, setRmChecking] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [riwayatTindakan, setRiwayatTindakan] = useState<any[]>([]);
 
   const noRmInputRef = useRef<HTMLInputElement>(null);
   const rmInputRef = useRef("");
@@ -196,6 +215,7 @@ export default function TambahPasienQuickModal({
       setError("");
       setRmChecking(false);
       setLoading(false);
+      setRiwayatTindakan([]);
       rmInputRef.current = "";
       // Autofokus kursor ke input No. RM
       setTimeout(() => {
@@ -229,12 +249,14 @@ export default function TambahPasienQuickModal({
       setMatchedPatient(null);
       setSimrsMatched(false);
       setRmChecking(false);
+      setRiwayatTindakan([]);
       return;
     }
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     setRmChecking(true);
+    setRiwayatTindakan([]);
     debounceRef.current = setTimeout(() => {
       const lookupRm = formData.noRM.trim();
       if (!lookupRm) {
@@ -264,6 +286,20 @@ export default function TambahPasienQuickModal({
               }
               return prev;
             });
+
+            // Ambil riwayat tindakan dari lokal
+            try {
+              const resHistory = await fetch(`/api/tindakan?search=${encodeURIComponent(lookupRm)}`);
+              if (resHistory.ok) {
+                const jsonHistory = await resHistory.json();
+                if (jsonHistory && jsonHistory.ok && Array.isArray(jsonHistory.data)) {
+                  const filtered = jsonHistory.data.filter((t: any) => rmEquivalent(t.no_rm || t.noRM || "", lookupRm));
+                  setRiwayatTindakan(filtered);
+                }
+              }
+            } catch (historyErr) {
+              console.error("Gagal mengambil riwayat tindakan:", historyErr);
+            }
           } else {
             // 2. Cek SIMRS
             console.log("%c📡 Checking SIMRS...", "color: orange");
@@ -533,30 +569,55 @@ export default function TambahPasienQuickModal({
             </DialogPrimitive.Description>
 
             {matchedPatient ? (
-              <p
+              <div
                 className={cn(
-                  "text-xs mb-3 rounded-lg border px-3 py-2 leading-relaxed",
+                  "text-xs mb-3 rounded-lg border px-3 py-2 leading-relaxed space-y-1",
                   isDark
                     ? "text-white border-amber-400/65 bg-amber-950/60"
                     : "text-amber-950 border-amber-400/45 bg-amber-50",
                 )}
                 role="status"
               >
-                No. RM ini sudah ada di master pasien — formulir diisi otomatis.
-                Anda boleh melengkapi atau mengoreksi data (misalnya No. HP,
-                alamat) sebelum menyimpan; perubahan akan disimpan ke master
-                pasien. Untuk kunjungan atau jenis tindakan baru, gunakan{" "}
-                <span
-                  className={cn(
-                    "font-medium",
-                    isDark ? "text-amber-100" : "text-amber-900",
+                <div>
+                  No. RM ini sudah ada di master pasien —{" "}
+                  {riwayatTindakan.length > 0 ? (
+                    <span className="font-bold">
+                      Riwayat tindakan lain ({riwayatTindakan.length})
+                    </span>
+                  ) : (
+                    "formulir diisi otomatis."
                   )}
-                >
-                Tambah kasus tindakan
-              </span>{" "}
-              (tidak membuat pasien ganda).
-            </p>
-          ) : null}
+                </div>
+
+                {riwayatTindakan.length > 0 && (
+                  <div className="mt-1 border-t border-amber-400/30 pt-1">
+                    <p className="font-medium mb-0.5">- Pernah dilakukan:</p>
+                    <ol className="list-decimal pl-4 space-y-0.5">
+                      {riwayatTindakan.map((t, i) => (
+                        <li key={t.id || i}>
+                          <span className="font-semibold">{t.tindakan || "Tindakan"}</span>{" "}
+                          {t.tanggal ? formatTanggalIndo(t.tanggal) : ""}{" "}
+                          {t.dokter ? formatDokter(t.dokter) : ""}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                <div className="text-[11px] opacity-90 mt-1">
+                  Anda boleh melengkapi atau mengoreksi data sebelum menyimpan; perubahan akan disimpan ke master pasien. Untuk kunjungan atau jenis tindakan baru, gunakan{" "}
+                  <span
+                    className={cn(
+                      "font-semibold",
+                      isDark ? "text-amber-100" : "text-amber-900",
+                    )}
+                  >
+                    Tambah kasus tindakan
+                  </span>{" "}
+                  (tidak membuat pasien ganda).
+                </div>
+              </div>
+            ) : null}
 
           {simrsMatched ? (
             <p

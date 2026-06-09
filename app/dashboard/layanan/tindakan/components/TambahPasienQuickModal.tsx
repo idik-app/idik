@@ -550,6 +550,7 @@ export default function TambahPasienQuickModal({
           <div
             className={cn(
               "animate-in fade-in zoom-in-95 duration-200 rounded-xl border p-3 sm:rounded-2xl sm:p-6",
+              "max-h-[90vh] overflow-y-auto",
               isDark
                 ? "border-cyan-500/45 bg-slate-950 text-white shadow-2xl shadow-cyan-900/50"
                 : "border-cyan-500/35 bg-white text-slate-800 shadow-2xl shadow-cyan-900/20",

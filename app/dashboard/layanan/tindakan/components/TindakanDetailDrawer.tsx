@@ -1508,6 +1508,7 @@ function TindakanDetailDrawer({
                                     isBiayaAutosaveField &&
                                     canPatchTindakan &&
                                     (key === "total" ||
+                                      key === "krs" ||
                                       isBiayaWireframeEmpty(key, rawVal));
                                   const isPasienMasterEditable =
                                     def.id === "pasien" &&

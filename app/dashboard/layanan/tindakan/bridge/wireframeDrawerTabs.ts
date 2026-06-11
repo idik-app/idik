@@ -80,7 +80,7 @@ export const WIREFRAME_DRAWER_TABS: {
     label: "Dokter & tim",
     short: "Tim",
     /** `dokter`: combobox master (`MasterDokterField`), autofill nama kanonik, simpan PATCH + refresh list tanpa toast sukses. */
-    fields: ["dokter", "dokter_anestesi", "asisten", "sirkuler", "logger"],
+    fields: ["dokter", "dokter_anestesi", "ppds", "asisten", "sirkuler", "logger"],
   },
   {
     id: "kelengkapan",
@@ -174,6 +174,7 @@ export const FIELD_LABELS: Record<string, string> = {
   cath: "Cathlab",
   dokter: "Dokter",
   dokter_anestesi: "Dokter anestesi",
+  ppds: "PPDS",
   tindakan: "Prosedur Utama (Detail)",
   tanggal_tindakan: "Tanggal tindakan",
   kategori: "Kelompok Kasus (Grup)",

@@ -40,6 +40,7 @@ import MasterPerawatTimField, {
   type TimPerawatFieldKey,
 } from "./MasterPerawatTimField";
 import MasterDokterField from "./MasterDokterField";
+import PpdsField from "./PpdsField";
 import DokterAnestesiField from "./DokterAnestesiField";
 import MasterJenisTindakanField from "./MasterJenisTindakanField";
 import RadiologiAutosaveField, {
@@ -1473,6 +1474,10 @@ function TindakanDetailDrawer({
                                     def.id === "tim" &&
                                     key === "dokter_anestesi" &&
                                     Boolean(tindakanId);
+                                  const isPpdsEditable =
+                                    def.id === "tim" &&
+                                    key === "ppds" &&
+                                    Boolean(tindakanId);
                                   const isDokterEditable =
                                     def.id === "tim" &&
                                     key === "dokter" &&
@@ -1661,6 +1666,17 @@ function TindakanDetailDrawer({
                                           <DokterAnestesiField
                                             tindakanId={tindakanId}
                                             variant="drawer"
+                                            value={
+                                              rawVal === null ||
+                                              rawVal === undefined
+                                                ? null
+                                                : String(rawVal)
+                                            }
+                                            onSaved={handleRecordPatch}
+                                          />
+                                        ) : isPpdsEditable ? (
+                                          <PpdsField
+                                            tindakanId={tindakanId}
                                             value={
                                               rawVal === null ||
                                               rawVal === undefined

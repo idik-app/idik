@@ -96,6 +96,7 @@ export function finalizeTindakanPatchForSupabase(
   for (const key of [
     "dokter",
     "dokter_anestesi",
+    "ppds",
     "tindakan",
     "status",
     "tanggal",
@@ -178,6 +179,7 @@ export function mapTindakanRowToApiDetail(data: Record<string, unknown>) {
     tanggal: (data.tanggal as string | null) ?? null,
     dokter: (data.dokter as string | null) ?? null,
     dokter_anestesi: toText(data.dokter_anestesi),
+    ppds: toText(data.ppds),
     ruangan: (data.ruangan as string | null) ?? null,
     cath: toText(data.cath),
     tindakan: (data.tindakan as string | null) ?? null,

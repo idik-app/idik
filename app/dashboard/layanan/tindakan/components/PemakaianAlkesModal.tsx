@@ -685,6 +685,8 @@ export default function PemakaianAlkesModal({
   const { perawat: perawatList, isLoading: perawatListLoading } =
     useMasterPerawat();
 
+  const { tindakan: tindakanDetail } = useTindakanDetail(open ? tindakanId : null);
+
   /** Order pemakaian terbaru (global): dipakai untuk saran nama barang yang pernah dipakai. */
   const { data: pemakaianOrdersHistoryJson } = useSWR<{
     ok?: boolean;
@@ -2408,9 +2410,18 @@ export default function PemakaianAlkesModal({
                     ? "Edit Pemakaian Alkes"
                     : "Input Pemakaian Alkes"}
                 </h3>
-                <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest mt-0.5 truncate">
-                  {drawerRuangan || "Pilih Ruangan"}
-                </p>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 min-w-0">
+                  {tindakanDetail?.tindakan && (
+                    <span className="text-[11px] text-amber-200 font-semibold uppercase truncate max-w-xs sm:max-w-md md:max-w-lg">
+                      {tindakanDetail.tindakan}
+                      {tindakanDetail.kelas_pembiayaan ? ` - ${tindakanDetail.kelas_pembiayaan}` : ''}
+                    </span>
+                  )}
+                  {tindakanDetail?.tindakan && <span className="text-slate-600 text-[10px]">•</span>}
+                  <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest truncate">
+                    {drawerRuangan || "Pilih Ruangan"}
+                  </p>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3">

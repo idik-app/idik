@@ -2424,7 +2424,8 @@ export default function PemakaianAlkesModal({
                 target.closest("select") ||
                 target.closest("textarea") ||
                 target.closest("a") ||
-                target.closest("[role='button']")
+                target.closest("[role='button']") ||
+                target.closest(".select-text")
               ) {
                 return;
               }
@@ -2441,12 +2442,12 @@ export default function PemakaianAlkesModal({
                 )}
               </div>
               <div className="min-w-0">
-                <h3 className="text-base font-bold text-slate-100 leading-tight truncate">
+                <h3 className="text-base font-bold text-slate-100 leading-tight truncate select-text cursor-text">
                   {existingOrderId
                     ? "Edit Pemakaian Alkes"
                     : "Input Pemakaian Alkes"}
                 </h3>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 min-w-0">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 min-w-0 select-text cursor-text">
                   {tindakanDetail?.tindakan && (
                     <span className="text-[11px] text-amber-200 font-bold uppercase truncate">
                       {tindakanDetail.tindakan}
@@ -2459,7 +2460,7 @@ export default function PemakaianAlkesModal({
                   )}
                   {diagnosa && (
                     <>
-                      <span className="text-slate-600 text-[10px]">•</span>
+                      <span className="text-slate-600 text-[10px] select-none">•</span>
                       <span className="text-[11px] text-slate-300 font-medium uppercase truncate max-w-xs sm:max-w-md">
                         {diagnosa}
                       </span>

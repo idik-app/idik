@@ -88,7 +88,9 @@ import {
   useMasterVariants,
   useTindakanDetail,
   useMasterPerawat,
+  usePasienDetail,
 } from "@/app/hooks/useMasterData";
+import { formatKelasPerawatanDisplay } from "@/app/dashboard/pasien/utils/formatKelasPerawatan";
 import { runDeduped } from "@/lib/api/runDeduped";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import {
@@ -686,6 +688,30 @@ export default function PemakaianAlkesModal({
     useMasterPerawat();
 
   const { tindakan: tindakanDetail } = useTindakanDetail(open ? tindakanId : null);
+
+  const { pasien: pasienMaster } = usePasienDetail(
+    open ? tindakanDetail?.pasien_id : null,
+    open ? tindakanDetail?.no_rm : null,
+    open ? (tindakanDetail?.nama_pasien || tindakanDetail?.nama) : null,
+  );
+
+  const kelasPembiayaan = useMemo(() => {
+    if (!tindakanDetail) return "";
+    const kp = String(tindakanDetail.kelas_pembiayaan ?? "").trim();
+    if (kp) return kp;
+
+    const pem = String(tindakanDetail.pembiayaan ?? "").trim();
+    if (pem) return pem;
+
+    if (!pasienMaster) return "";
+    const jp = pasienMaster.jenisPembiayaan?.trim() || "";
+    const kelasShort = formatKelasPerawatanDisplay(pasienMaster.kelasPerawatan);
+    const hasKelas = kelasShort !== "—" && kelasShort !== "";
+    if (jp && hasKelas) return `${jp}-${kelasShort}`;
+    if (jp) return jp;
+    if (hasKelas) return kelasShort;
+    return "";
+  }, [tindakanDetail, pasienMaster]);
 
   /** Order pemakaian terbaru (global): dipakai untuk saran nama barang yang pernah dipakai. */
   const { data: pemakaianOrdersHistoryJson } = useSWR<{
@@ -2414,7 +2440,7 @@ export default function PemakaianAlkesModal({
                   {tindakanDetail?.tindakan && (
                     <span className="text-[11px] text-amber-200 font-semibold uppercase truncate max-w-xs sm:max-w-md md:max-w-lg">
                       {tindakanDetail.tindakan}
-                      {tindakanDetail.kelas_pembiayaan ? ` - ${tindakanDetail.kelas_pembiayaan}` : ''}
+                      {kelasPembiayaan ? ` ${kelasPembiayaan}` : ''}
                     </span>
                   )}
                   {tindakanDetail?.tindakan && <span className="text-slate-600 text-[10px]">•</span>}

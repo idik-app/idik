@@ -713,6 +713,16 @@ export default function PemakaianAlkesModal({
     return "";
   }, [tindakanDetail, pasienMaster]);
 
+  const diagnosa = useMemo(() => {
+    if (tindakanDetail?.diagnosa?.trim()) {
+      return tindakanDetail.diagnosa.trim();
+    }
+    if (pasienMaster?.diagnosa?.trim()) {
+      return pasienMaster.diagnosa.trim();
+    }
+    return "";
+  }, [tindakanDetail, pasienMaster]);
+
   /** Order pemakaian terbaru (global): dipakai untuk saran nama barang yang pernah dipakai. */
   const { data: pemakaianOrdersHistoryJson } = useSWR<{
     ok?: boolean;
@@ -2438,15 +2448,23 @@ export default function PemakaianAlkesModal({
                 </h3>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 min-w-0">
                   {tindakanDetail?.tindakan && (
-                    <span className="text-[11px] text-amber-200 font-semibold uppercase truncate max-w-xs sm:max-w-md md:max-w-lg">
+                    <span className="text-[11px] text-amber-200 font-bold uppercase truncate">
                       {tindakanDetail.tindakan}
-                      {kelasPembiayaan ? ` ${kelasPembiayaan}` : ''}
                     </span>
                   )}
-                  {tindakanDetail?.tindakan && <span className="text-slate-600 text-[10px]">•</span>}
-                  <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest truncate">
-                    {drawerRuangan || "Pilih Ruangan"}
-                  </p>
+                  {kelasPembiayaan && (
+                    <span className="text-[11px] text-cyan-400 font-extrabold uppercase">
+                      {kelasPembiayaan}
+                    </span>
+                  )}
+                  {diagnosa && (
+                    <>
+                      <span className="text-slate-600 text-[10px]">•</span>
+                      <span className="text-[11px] text-slate-300 font-medium uppercase truncate max-w-xs sm:max-w-md">
+                        {diagnosa}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

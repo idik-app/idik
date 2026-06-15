@@ -52,6 +52,35 @@ export default function TindakanDashboard() {
     }
   }, [isMobile]);
 
+  // Silent auto-refresh if there is no user activity (mouse/keyboard) for 30 seconds
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let lastActivity = Date.now();
+    const handleActivity = () => {
+      lastActivity = Date.now();
+    };
+
+    const events = ["mousemove", "mousedown", "keydown", "scroll", "touchstart"];
+    events.forEach((evt) => {
+      window.addEventListener(evt, handleActivity, { passive: true });
+    });
+
+    const interval = setInterval(() => {
+      const inactiveMs = Date.now() - lastActivity;
+      if (inactiveMs >= 30000) {
+        adapter.refresh();
+      }
+    }, 30000);
+
+    return () => {
+      events.forEach((evt) => {
+        window.removeEventListener(evt, handleActivity);
+      });
+      clearInterval(interval);
+    };
+  }, [adapter]);
+
   const tableRef = useRef<HTMLDivElement | null>(null);
   const themeTone = "cyan" as const;
   const [todayModalOpen, setTodayModalOpen] = useState(false);

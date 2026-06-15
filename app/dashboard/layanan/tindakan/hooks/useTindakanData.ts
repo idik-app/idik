@@ -26,8 +26,7 @@ export function useTindakanData(params?: {
     fetcher,
     {
       revalidateOnFocus: false,
-      dedupingInterval: 2000,
-      refreshInterval: 15000, // Auto refresh silent setiap 15 detik
+      dedupingInterval: 30000, // 30 detik
     },
   );
 

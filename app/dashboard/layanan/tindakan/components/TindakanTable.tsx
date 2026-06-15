@@ -1064,7 +1064,7 @@ function EditableRuanganCell({
   listboxId: string;
   onCommit: (next: string) => Promise<boolean>;
 }) {
-  const [draft, setDraft] = useState(value.trim());
+  const [draft, setDraft] = useState(value.trim().toUpperCase());
   const [saving, setSaving] = useState(false);
   const draftRef = useRef(draft);
 
@@ -1073,12 +1073,12 @@ function EditableRuanganCell({
   }, [draft]);
 
   useEffect(() => {
-    if (!saving) setDraft(value.trim());
+    if (!saving) setDraft(value.trim().toUpperCase());
   }, [value, saving]);
 
   const tryCommit = async (nextRaw: string) => {
-    const cur = value.trim();
-    const next = nextRaw.trim();
+    const cur = value.trim().toUpperCase();
+    const next = nextRaw.trim().toUpperCase();
     if (next === cur || saving) return;
     setDraft(next);
     setSaving(true);
@@ -1505,7 +1505,7 @@ export default function TindakanTable({
           dSet.add(
             master.length > 0 ? canonicalDoctorStoredValue(master, d) : d,
           );
-        const rx = String(r.ruangan ?? "").trim();
+        const rx = String(r.ruangan ?? "").trim().toUpperCase();
         if (rx) {
           const rxLower = rx.toLowerCase();
           if (rxLower === "belum diisi" || rxLower === "—") {
@@ -1514,12 +1514,12 @@ export default function TindakanTable({
             // Skip corrupted placeholder values
           } else {
             const matchedMaster = ruanganMaster.find((opt: RuanganOption) => {
-              const label = formatRuanganLabel(opt).trim();
-              const nama = String(opt.nama ?? "").trim();
+              const label = formatRuanganLabel(opt).trim().toUpperCase();
+              const nama = String(opt.nama ?? "").trim().toUpperCase();
               return rx === label || rx === nama;
             });
             if (matchedMaster) {
-              rSet.add(formatRuanganLabel(matchedMaster).trim());
+              rSet.add(formatRuanganLabel(matchedMaster).trim().toUpperCase());
             } else {
               rSet.add(rx);
             }

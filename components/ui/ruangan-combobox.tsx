@@ -19,8 +19,8 @@ export type RuanganOption = {
 export function formatRuanganLabel(
   r: Pick<RuanganOption, "nama" | "kode">,
 ): string {
-  const nama = (r.nama ?? "").trim();
-  const kode = (r.kode ?? "").trim();
+  const nama = (r.nama ?? "").trim().toUpperCase();
+  const kode = (r.kode ?? "").trim().toUpperCase();
   if (nama && kode) return `${nama} (${kode})`;
   return nama || kode;
 }
@@ -85,7 +85,7 @@ export function RuanganCombobox({
         <input
           value={value}
           onChange={(e) => {
-            onChange(e.target.value);
+            onChange(e.target.value.toUpperCase());
             setOpen(true);
           }}
           onBlur={() => {
@@ -101,7 +101,7 @@ export function RuanganCombobox({
             loading ? "Memuat daftar ruangan…" : "Cari / pilih ruangan…"
           }
           className={cn(
-            "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40",
+            "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40 uppercase",
             inputClassName,
           )}
           aria-autocomplete="list"
@@ -144,7 +144,7 @@ export function RuanganCombobox({
                   }}
                 >
                   <span className="block font-medium text-white/95">
-                    {r.nama.trim() || label}
+                    {r.nama.trim().toUpperCase() || label}
                     {r.aktif === false ? (
                       <span className="ml-1 font-normal text-amber-200/80">
                         (nonaktif)

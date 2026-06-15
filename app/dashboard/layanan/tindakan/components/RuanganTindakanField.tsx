@@ -23,7 +23,7 @@ export default function RuanganTindakanField({
   const { show } = useNotification();
   const { ruangan: ruanganMaster, isLoading: ruanganLoading } =
     useMasterRuangan();
-  const normalized = String(value ?? "").trim();
+  const normalized = String(value ?? "").trim().toUpperCase();
   const [draft, setDraft] = useState(normalized);
   const [saving, setSaving] = useState(false);
   const draftRef = useRef(draft);
@@ -34,11 +34,11 @@ export default function RuanganTindakanField({
 
   useEffect(() => {
     if (!saving) setDraft(normalized);
-  }, [value, saving, tindakanId]);
+  }, [value, saving, tindakanId, normalized]);
 
   const persist = async (nextRaw: string) => {
-    const next = nextRaw.trim();
-    if (next === normalized || saving) return;
+    const next = nextRaw.trim().toUpperCase();
+    if (next === normalized.toUpperCase() || saving) return;
     setSaving(true);
     try {
       const res = await fetch(

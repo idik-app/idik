@@ -707,7 +707,7 @@ export const TindakanTableRow = memo(function TindakanTableRow({
                               |
                             </span>
                             <span className="font-medium text-slate-700 dark:text-zinc-300">
-                              {e.ruangan || "—"}
+                              {e.ruangan?.toUpperCase() || "—"}
                             </span>
                           </div>
                           <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-600 break-all">

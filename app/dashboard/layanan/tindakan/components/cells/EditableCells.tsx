@@ -321,7 +321,7 @@ export function EditableRuanganCell({
   onCommit: (next: string) => Promise<boolean>;
   recordId?: string;
 }) {
-  const [draft, setDraft] = useState(value.trim());
+  const [draft, setDraft] = useState(value.trim().toUpperCase());
   const [saving, setSaving] = useState(false);
   const draftRef = useRef(draft);
 
@@ -330,12 +330,12 @@ export function EditableRuanganCell({
   }, [draft]);
 
   useEffect(() => {
-    if (!saving) setDraft(value.trim());
+    if (!saving) setDraft(value.trim().toUpperCase());
   }, [value, saving]);
 
   const tryCommit = async (nextRaw: string) => {
-    const cur = value.trim();
-    const next = nextRaw.trim();
+    const cur = value.trim().toUpperCase();
+    const next = nextRaw.trim().toUpperCase();
     if (next === cur || saving) return;
     setDraft(next);
     setSaving(true);

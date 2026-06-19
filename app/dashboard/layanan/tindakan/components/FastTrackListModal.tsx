@@ -57,7 +57,11 @@ function currentMonthYyyyMmWib(): string {
 function parseEpochMs(raw: unknown): number | null {
   const t = String(raw ?? "").trim();
   if (!t) return null;
-  const d = Date.parse(t);
+  let normalizedT = t;
+  if (t.includes("T") && !t.includes("Z") && !t.includes("+") && !t.match(/-\d{2}:\d{2}$/)) {
+    normalizedT = t.replace("T", " ");
+  }
+  const d = Date.parse(normalizedT);
   return Number.isFinite(d) ? d : null;
 }
 
@@ -78,16 +82,27 @@ function tanggalYyyyMm(raw: unknown): string {
 function normalizeDatetimeLocalInput(raw: string): string {
   const t = raw.trim();
   if (!t) return "";
-  const d = Date.parse(t);
+  
+  const match = t.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}`;
+  }
+
+  let normalizedT = t;
+  if (t.includes("T") && !t.includes("Z") && !t.includes("+") && !t.match(/-\d{2}:\d{2}$/)) {
+    normalizedT = t.replace("T", " ");
+  }
+
+  const d = Date.parse(normalizedT);
   if (!Number.isFinite(d)) return "";
   const dt = new Date(d);
   const pad = (n: number) => String(n).padStart(2, "0");
   const y = dt.getFullYear();
   const mo = pad(dt.getMonth() + 1);
   const da = pad(dt.getDate());
-  const h = pad(dt.getHours());
-  const mi = pad(dt.getMinutes());
-  return `${y}-${mo}-${da}T${h}:${mi}`;
+  const h = dt.getHours();
+  const mi = dt.getMinutes();
+  return `${y}-${mo}-${da}T${pad(h)}:${pad(mi)}`;
 }
 
 export default function FastTrackListModal({
@@ -151,10 +166,10 @@ export default function FastTrackListModal({
     return [...set].sort((a, b) => a.localeCompare(b, "id"));
   }, [rows]);
 
-  const igdFromMs = igdFrom.trim() ? Date.parse(igdFrom) : null;
-  const igdToMs = igdTo.trim() ? Date.parse(igdTo) : null;
-  const d2bFromMs = d2bFrom.trim() ? Date.parse(d2bFrom) : null;
-  const d2bToMs = d2bTo.trim() ? Date.parse(d2bTo) : null;
+  const igdFromMs = parseEpochMs(igdFrom);
+  const igdToMs = parseEpochMs(igdTo);
+  const d2bFromMs = parseEpochMs(d2bFrom);
+  const d2bToMs = parseEpochMs(d2bTo);
 
   const filteredRows = useMemo(() => {
     const master = doctorOptionsMaster;
@@ -437,9 +452,9 @@ export default function FastTrackListModal({
         field === "door_to_balloon" ? payload : otherVal || null;
 
       if (t0 && t1) {
-        const ms0 = Date.parse(t0);
-        const ms1 = Date.parse(t1);
-        if (Number.isFinite(ms0) && Number.isFinite(ms1) && ms1 >= ms0) {
+        const ms0 = parseEpochMs(t0);
+        const ms1 = parseEpochMs(t1);
+        if (ms0 != null && ms1 != null && ms1 >= ms0) {
           const mins = Math.round((ms1 - ms0) / 60_000);
           const nextTotal = String(mins);
           if (nextTotal !== String(currentRow.total_waktu_fast_track ?? "")) {

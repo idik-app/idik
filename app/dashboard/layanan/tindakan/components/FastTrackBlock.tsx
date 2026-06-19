@@ -29,22 +29,40 @@ function serverString(value: unknown): string | null {
 function normalizeDatetimeLocalInput(raw: string): string {
   const t = raw.trim();
   if (!t) return "";
-  const d = Date.parse(t);
+  
+  // Jika formatnya sudah YYYY-MM-DDTHH:mm atau YYYY-MM-DD HH:mm, normalisasi separator T langsung
+  const match = t.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  if (match) {
+    return `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}`;
+  }
+
+  // Ganti 'T' dengan spasi untuk string tanpa zona waktu (tidak berakhiran Z / offset +/-)
+  // guna memaksa browser menginterpretasikan waktu sebagai waktu lokal client.
+  let normalizedT = t;
+  if (t.includes("T") && !t.includes("Z") && !t.includes("+") && !t.match(/-\d{2}:\d{2}$/)) {
+    normalizedT = t.replace("T", " ");
+  }
+
+  const d = Date.parse(normalizedT);
   if (!Number.isFinite(d)) return "";
   const dt = new Date(d);
   const pad = (n: number) => String(n).padStart(2, "0");
   const y = dt.getFullYear();
   const mo = pad(dt.getMonth() + 1);
   const da = pad(dt.getDate());
-  const h = pad(dt.getHours());
-  const mi = pad(dt.getMinutes());
-  return `${y}-${mo}-${da}T${h}:${mi}`;
+  const h = dt.getHours();
+  const mi = dt.getMinutes();
+  return `${y}-${mo}-${da}T${pad(h)}:${pad(mi)}`;
 }
 
 function parseToEpochMs(raw: string): number | null {
   const t = raw.trim();
   if (!t) return null;
-  const d = Date.parse(t);
+  let normalizedT = t;
+  if (t.includes("T") && !t.includes("Z") && !t.includes("+") && !t.match(/-\d{2}:\d{2}$/)) {
+    normalizedT = t.replace("T", " ");
+  }
+  const d = Date.parse(normalizedT);
   return Number.isFinite(d) ? d : null;
 }
 

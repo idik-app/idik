@@ -6,6 +6,7 @@ import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { FIELD_LABELS } from "../bridge/wireframeDrawerTabs";
 import FastTrackPhotoDropzone from "./FastTrackPhotoDropzone";
+import { DatetimeLocalPicker } from "@/components/ui/datetime-local-picker";
 
 const DEBOUNCE_MS = 550;
 
@@ -354,17 +355,15 @@ export default function FastTrackBlock({
             </dt>
             <dd className="mt-0.5 overflow-visible">
               {canEdit ? (
-                <input
-                  type="datetime-local"
-                  step={60}
+                <DatetimeLocalPicker
                   value={igdDraft}
-                  onChange={(e) => {
-                    const v = e.target.value;
+                  onChange={(v) => {
                     setIgdDraft(v);
                     scheduleIgd(v);
                   }}
-                  className={nativeDatetimeClass}
-                  aria-label={FIELD_LABELS.pasien_datang_igd ?? "Waktu pasien tiba di IGD"}
+                  appearance="drawer"
+                  triggerClassName="w-full rounded-xl border border-white/12 bg-[#5C6573] px-2 py-1.5 text-left text-[12px] font-semibold text-white shadow-none outline-none transition-colors hover:bg-[#545C6A] focus:ring-2 focus:ring-[#2C3E50]/35"
+                  triggerIconClassName="text-white/80"
                 />
               ) : (
                 <span className="text-[13px] font-semibold text-[#1a202c]">
@@ -380,19 +379,15 @@ export default function FastTrackBlock({
             </dt>
             <dd className="mt-0.5 overflow-visible">
               {canEdit ? (
-                <input
-                  type="datetime-local"
-                  step={60}
+                <DatetimeLocalPicker
                   value={d2bDraft}
-                  onChange={(e) => {
-                    const v = e.target.value;
+                  onChange={(v) => {
                     setD2bDraft(v);
                     scheduleD2b(v);
                   }}
-                  className={nativeDatetimeClass}
-                  aria-label={
-                    FIELD_LABELS.door_to_balloon ?? "Waktu door-to-balloon (cathlab)"
-                  }
+                  appearance="drawer"
+                  triggerClassName="w-full rounded-xl border border-white/12 bg-[#5C6573] px-2 py-1.5 text-left text-[12px] font-semibold text-white shadow-none outline-none transition-colors hover:bg-[#545C6A] focus:ring-2 focus:ring-[#2C3E50]/35"
+                  triggerIconClassName="text-white/80"
                 />
               ) : (
                 <span className="text-[13px] font-semibold text-[#1a202c]">

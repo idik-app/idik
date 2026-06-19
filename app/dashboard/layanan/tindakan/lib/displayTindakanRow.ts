@@ -195,7 +195,7 @@ export function buildPasienLabelFromRow(raw: Record<string, unknown>): string {
   const rmCol = pickFirstString(raw, [...RM_FIELD_KEYS]);
   const { baseNama, rmDalamKurung } = splitNamaDanRmDalamKurung(namaFull);
   const nama = (baseNama || namaFull).trim();
-  const rm = rmCol || rmDalamKurung;
+  const rm = rmDalamKurung || rmCol;
   if (nama || rm) return formatPasienLabel({ nama, no_rm: rm || null });
   return "";
 }

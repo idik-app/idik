@@ -328,6 +328,20 @@ export function endOfWeekWibYmd(): string {
   return new Intl.DateTimeFormat("en-CA").format(jkt);
 }
 
+export function buildPasienLabelFromRow(raw: Record<string, unknown>): string {
+  const namaFull = displayNamaPasien(raw);
+  const rmCol = displayRm(raw);
+  const namaVal = namaFull === "—" ? "" : namaFull;
+  const rmColVal = rmCol === "—" ? "" : rmCol;
+  
+  const { baseNama, rmDalamKurung } = splitNamaDanRmDalamKurung(namaVal);
+  const nama = (baseNama || namaVal).trim();
+  const rm = rmDalamKurung || rmColVal;
+  
+  if (nama && rm) return `${nama} (${rm})`;
+  return nama || rm || "";
+}
+
 export function resolveShownRmForRow(
   rec: TindakanJoinResult,
   pasienLabelByRowId: Record<string, string>,
@@ -337,7 +351,7 @@ export function resolveShownRmForRow(
   const raw = rec as unknown as Record<string, unknown>;
   const id = String(raw.id ?? "").trim();
   const stateKey = id || indexKey || "";
-  const label = pasienLabelByRowId[stateKey] ?? "";
+  const label = pasienLabelByRowId[stateKey] ?? buildPasienLabelFromRow(raw);
 
   const cached = rmCacheMap.get(rec);
   if (cached && cached.label === label) {
@@ -367,7 +381,7 @@ export function resolveShownPasienForDeleteDialog(
 ): { noRm: string; nama: string } {
   const raw = rec as unknown as Record<string, unknown>;
   const stateKey = String(raw.id ?? "").trim();
-  const label = (pasienLabelByRowId[stateKey] ?? "").trim();
+  const label = (pasienLabelByRowId[stateKey] ?? buildPasienLabelFromRow(raw)).trim();
   const labelRm = extractRmFromLabel(label);
   const { baseNama } = splitNamaDanRmDalamKurung(label);
   const namaFromLabel = label ? (baseNama || label).trim() : "";

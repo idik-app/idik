@@ -489,7 +489,7 @@ function resolveShownRmForRow(
   const raw = rec as unknown as Record<string, unknown>;
   const id = String(raw.id ?? "").trim();
   const stateKey = id || indexKey || "";
-  const label = pasienLabelByRowId[stateKey] ?? "";
+  const label = pasienLabelByRowId[stateKey] ?? buildPasienLabelFromRow(raw);
 
   const cached = rmCacheMap.get(rec);
   if (cached && cached.label === label) {
@@ -520,7 +520,7 @@ function resolveShownPasienForDeleteDialog(
 ): { noRm: string; nama: string } {
   const raw = rec as unknown as Record<string, unknown>;
   const stateKey = String(raw.id ?? "").trim();
-  const label = (pasienLabelByRowId[stateKey] ?? "").trim();
+  const label = (pasienLabelByRowId[stateKey] ?? buildPasienLabelFromRow(raw)).trim();
   const labelRm = extractRmFromLabel(label);
   const { baseNama } = splitNamaDanRmDalamKurung(label);
   const namaFromLabel = label ? (baseNama || label).trim() : "";

@@ -3518,32 +3518,6 @@ export default function TindakanTable({
                                   TINDAKAN_CELL_SELECTION_CLASS,
                               )}
                             >
-                              {/* Row Expand Toggle */}
-                              <button
-                                type="button"
-                                data-no-row-click="true"
-                                data-no-spreadsheet-select
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setRowExpandedByKey((p) => ({
-                                    ...p,
-                                    [key]: !p[key],
-                                  }));
-                                }}
-                                className={cn(
-                                  "absolute left-0.5 top-1/2 -translate-y-1/2 p-0.5 rounded transition-all duration-200 z-[10]",
-                                  "text-slate-400 hover:bg-cyan-100/80 hover:text-cyan-700 dark:text-slate-500 dark:hover:bg-cyan-900/40 dark:hover:text-cyan-300",
-                                  rowExpandedByKey[key] &&
-                                    "rotate-90 text-cyan-600 dark:text-cyan-400",
-                                )}
-                                title={
-                                  rowExpandedByKey[key]
-                                    ? "Sembunyikan detail"
-                                    : "Tampilkan detail"
-                                }
-                              >
-                                <ChevronRight size={14} strokeWidth={2.5} />
-                              </button>
                               {/* Status Indicator Line */}
                               {(() => {
                                 const s = String(
@@ -4601,20 +4575,12 @@ export default function TindakanTable({
                               </div>
                             </td>
                           </tr>
-                          {/* Unified Expansion Row — Combined rich details and history */}
-                          {rowExpandedByKey[key] ||
-                          (isDuplicateRm && priorList.length > 0) ? (
+                          {/* Unified Expansion Row — Prior procedure history if duplicate RM found */}
+                          {isDuplicateRm && priorList.length > 0 ? (
                             <tr
                               className={cn(
                                 "border-b transition-all duration-300",
-                                isDuplicateRm && !rowExpandedByKey[key]
-                                  ? "border-amber-300/50 bg-amber-50/80 dark:border-amber-900/30 dark:bg-amber-950/15"
-                                  : "border-cyan-200/50 bg-cyan-50/40 dark:border-cyan-900/30 dark:bg-cyan-950/10",
-                                // Jika tidak ada history dan tidak sedang diekspansi manual, sembunyikan baris
-                                !(
-                                  rowExpandedByKey[key] ||
-                                  (isDuplicateRm && priorList.length > 0)
-                                ) && "hidden",
+                                "border-amber-300/50 bg-amber-50/80 dark:border-amber-900/30 dark:bg-amber-950/15",
                               )}
                             >
                               <td
@@ -4626,199 +4592,6 @@ export default function TindakanTable({
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <div className="space-y-4">
-                                  {/* Part 1: Rich Details (Manual Expansion) */}
-                                  {rowExpandedByKey[key] && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-[11px] leading-relaxed">
-                                      {/* Section 1: Pasien & Klinis */}
-                                      <div className="space-y-1.5 border-r border-cyan-100/50 pr-4 dark:border-white/5">
-                                        <div className="font-mono text-[10px] uppercase tracking-wider text-cyan-600 dark:text-cyan-400 font-bold flex items-center gap-1.5">
-                                          <User size={12} /> Pasien & Klinis
-                                        </div>
-                                        <div className="font-black text-[13px] text-emerald-700 dark:text-emerald-400">
-                                          {namaForKet}
-                                        </div>
-                                        <div className="font-mono opacity-70">
-                                          RM: {rmLine}
-                                        </div>
-                                        <div className="mt-2 pt-1.5 border-t border-cyan-100/50 dark:border-white/5">
-                                          <span className="font-bold text-slate-500 dark:text-white/50">
-                                            Diag:{" "}
-                                          </span>
-                                          <span className="font-bold text-slate-900 dark:text-white">
-                                            {rec.diagnosa || "—"}
-                                          </span>
-                                        </div>
-                                        {rec.faktor_risiko && (
-                                          <div className="text-[10px] text-slate-500 dark:text-white/40 italic">
-                                            FR: {rec.faktor_risiko}
-                                          </div>
-                                        )}
-                                        {rec.hasil_lab_ppm && (
-                                          <div className="mt-1 text-[10px]">
-                                            <span className="font-medium opacity-60">
-                                              Lab:{" "}
-                                            </span>
-                                            <span className="font-mono">
-                                              {rec.hasil_lab_ppm}
-                                            </span>
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      {/* Section 2: Prosedur & Laporan */}
-                                      <div className="space-y-1.5 border-r border-cyan-100/50 pr-4 dark:border-white/5">
-                                        <div className="font-mono text-[10px] uppercase tracking-wider text-cyan-600 dark:text-cyan-400 font-bold flex items-center gap-1.5">
-                                          <Stethoscope size={12} /> Prosedur &
-                                          Laporan
-                                        </div>
-                                        <div className="font-black text-slate-900 dark:text-white">
-                                          {rec.tindakan || "—"}
-                                        </div>
-                                        <div className="flex flex-wrap gap-1 mt-1">
-                                          <span className="rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-bold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">
-                                            {rec.kategori || "TANPA KATEGORI"}
-                                          </span>
-                                          {rec.severity_level && (
-                                            <span className="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-bold text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
-                                              Sev: {rec.severity_level}
-                                            </span>
-                                          )}
-                                          {rec.total_kontras && (
-                                            <span className="rounded bg-blue-100 px-1 py-0.5 text-[9px] font-bold text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
-                                              Contrast: {rec.total_kontras}ml
-                                            </span>
-                                          )}
-                                        </div>
-                                        {rec.kesimpulan_laporan && (
-                                          <div className="mt-2 pt-1.5 border-t border-cyan-100/50 dark:border-white/5">
-                                            <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">
-                                              Kesimpulan:
-                                            </div>
-                                            <div className="italic text-slate-700 dark:text-white/70 line-clamp-3">
-                                              {rec.kesimpulan_laporan}
-                                            </div>
-                                          </div>
-                                        )}
-                                        {rec.plan_medis && (
-                                          <div className="mt-1">
-                                            <div className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400/60">
-                                              Plan:
-                                            </div>
-                                            <div className="text-emerald-700 dark:text-emerald-400 font-medium">
-                                              {rec.plan_medis}
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      {/* Section 3: Tim Medis */}
-                                      <div className="space-y-1.5 border-r border-cyan-100/50 pr-4 dark:border-white/5">
-                                        <div className="font-mono text-[10px] uppercase tracking-wider text-cyan-600 dark:text-cyan-400 font-bold flex items-center gap-1.5">
-                                          <Users size={12} /> Tim Medis
-                                        </div>
-                                        <div className="font-bold text-emerald-700 dark:text-emerald-400">
-                                          Dr: {rec.dokter || "—"}
-                                        </div>
-                                        <div className="mt-2 space-y-1 text-[10px] text-slate-600 dark:text-white/60">
-                                          {rec.asisten && (
-                                            <div>
-                                              <span className="font-bold opacity-70">
-                                                As:
-                                              </span>{" "}
-                                              {rec.asisten}
-                                            </div>
-                                          )}
-                                          {rec.sirkuler && (
-                                            <div>
-                                              <span className="font-bold opacity-70">
-                                                Sir:
-                                              </span>{" "}
-                                              {rec.sirkuler}
-                                            </div>
-                                          )}
-                                          {rec.logger && (
-                                            <div>
-                                              <span className="font-bold opacity-70">
-                                                Log:
-                                              </span>{" "}
-                                              {rec.logger}
-                                            </div>
-                                          )}
-                                        </div>
-
-                                        {/* Fast-Track Info if present */}
-                                        {rec.is_fast_track && (
-                                          <div className="mt-3 p-2 rounded bg-orange-100/50 border border-orange-200 dark:bg-orange-950/20 dark:border-orange-800/40">
-                                            <div className="font-black text-[9px] uppercase tracking-tighter text-orange-700 dark:text-orange-400 flex items-center gap-1">
-                                              <Zap size={10} /> Fast-Track STEMI
-                                            </div>
-                                            <div className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 font-mono text-[9px]">
-                                              <div className="opacity-60">
-                                                IGD:
-                                              </div>{" "}
-                                              <div>
-                                                {rec.pasien_datang_igd || "—"}
-                                              </div>
-                                              <div className="opacity-60">
-                                                D2B:
-                                              </div>{" "}
-                                              <div className="font-bold text-orange-600 dark:text-orange-300">
-                                                {rec.door_to_balloon || "—"}m
-                                              </div>
-                                              <div className="opacity-60">
-                                                Total:
-                                              </div>{" "}
-                                              <div>
-                                                {rec.total_waktu_fast_track ||
-                                                  "—"}
-                                                m
-                                              </div>
-                                            </div>
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      {/* Section 4: Administrasi & Log */}
-                                      <div className="space-y-1.5">
-                                        <div className="font-mono text-[10px] uppercase tracking-wider text-cyan-600 dark:text-cyan-400 font-bold flex items-center gap-1.5">
-                                          <MapPin size={12} /> Administrasi
-                                        </div>
-                                        <div className="font-bold text-slate-900 dark:text-white">
-                                          {rec.kelas_pembiayaan ||
-                                            rec.pembiayaan ||
-                                            "—"}
-                                        </div>
-                                        <div className="mt-1 flex flex-wrap gap-1">
-                                          <span
-                                            className={cn(
-                                              "rounded px-1.5 py-0.5 text-[9px] font-bold",
-                                              rec.status === "Selesai"
-                                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300"
-                                                : "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300",
-                                            )}
-                                          >
-                                            {rec.status || "—"}
-                                          </span>
-                                          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-700 dark:bg-white/10 dark:text-white/70">
-                                            {rec.ruangan || "—"}{" "}
-                                            {rec.cath && `(${rec.cath})`}
-                                          </span>
-                                        </div>
-
-                                        <div className="mt-4 pt-2 border-t border-cyan-100/50 dark:border-white/5">
-                                          <button
-                                            type="button"
-                                            onClick={() => openDetail(id)}
-                                            className="inline-flex items-center gap-1.5 text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300 font-bold transition"
-                                          >
-                                            Buka Detail Lengkap{" "}
-                                            <ChevronRight size={14} />
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-
                                   {/* Part 2: History (If duplicate RM found) */}
                                   {isDuplicateRm && priorList.length > 0 && (
                                     <div

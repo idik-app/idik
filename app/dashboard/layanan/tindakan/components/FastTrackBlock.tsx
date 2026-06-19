@@ -362,6 +362,7 @@ export default function FastTrackBlock({
                     scheduleIgd(v);
                   }}
                   appearance="drawer"
+                  disablePortal
                   triggerClassName="w-full rounded-xl border border-white/12 bg-[#5C6573] px-2 py-1.5 text-left text-[12px] font-semibold text-white shadow-none outline-none transition-colors hover:bg-[#545C6A] focus:ring-2 focus:ring-[#2C3E50]/35"
                   triggerIconClassName="text-white/80"
                 />
@@ -386,6 +387,7 @@ export default function FastTrackBlock({
                     scheduleD2b(v);
                   }}
                   appearance="drawer"
+                  disablePortal
                   triggerClassName="w-full rounded-xl border border-white/12 bg-[#5C6573] px-2 py-1.5 text-left text-[12px] font-semibold text-white shadow-none outline-none transition-colors hover:bg-[#545C6A] focus:ring-2 focus:ring-[#2C3E50]/35"
                   triggerIconClassName="text-white/80"
                 />

@@ -65,6 +65,7 @@ export function DatetimeLocalPicker({
   /** Gabungkan ke tombol pemicu (mis. field abu gelap di drawer). */
   triggerClassName,
   triggerIconClassName,
+  disablePortal = false,
 }: {
   value: string;
   onChange: (isoLike: string) => void;
@@ -73,6 +74,7 @@ export function DatetimeLocalPicker({
   appearance?: Appearance;
   triggerClassName?: string;
   triggerIconClassName?: string;
+  disablePortal?: boolean;
 }) {
   const { theme } = useTheme();
   const isDark = theme !== "light";
@@ -319,7 +321,7 @@ export function DatetimeLocalPicker({
       : "border-white/15 bg-[#0a1628] text-white",
   );
 
-  const panel = isDrawer
+  const panel = isDrawer && !disablePortal
     ? typeof document !== "undefined"
       ? createPortal(
           <div className={isDark ? "dark" : undefined}>

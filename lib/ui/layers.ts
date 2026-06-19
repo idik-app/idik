@@ -52,9 +52,9 @@ export const UI_LAYERS = {
   /** Portal untuk drawer */
   drawerPortal: "z-[100050]",
   /** Picker melayang (date/time) */
-  pickerFloating: "z-[5010]",
+  pickerFloating: "z-[110000]",
   /** Picker melayang paling atas */
-  pickerFloatingTop: "z-[10050]",
+  pickerFloatingTop: "z-[120000]",
   /** Overlay dialog paling atas */
   dialogOverlayTop: "z-[100000]",
   /** Konten dialog paling atas */

@@ -407,14 +407,20 @@ function linesFromOrderItemsJson(raw: unknown): PemakaianLine[] {
           ? String(o.kategori)
           : undefined;
     const kategori = normalizeKategoriAlkesLine(kategoriRaw) || kategoriRaw;
+    const distNameRaw = String(o.distributor || (o as any).distributor_nama || "").toLowerCase();
+    const isRevassDist = distNameRaw.includes("revass");
+    const isKonsolidasi =
+      isRevassDist || o.isKonsolidasi === true || (o as any).is_konsolidasi === true;
     const status =
-      o.status === "KONSOLIDASI" || o.status === "NON KONSOLIDASI"
-        ? o.status
-        : o.isKonsolidasi === true
-          ? "KONSOLIDASI"
-          : o.isKonsolidasi === false
-            ? "NON KONSOLIDASI"
-            : undefined;
+      isRevassDist
+        ? "KONSOLIDASI"
+        : o.status === "KONSOLIDASI" || o.status === "NON KONSOLIDASI"
+          ? o.status
+          : o.isKonsolidasi === true
+            ? "KONSOLIDASI"
+            : o.isKonsolidasi === false
+              ? "NON KONSOLIDASI"
+              : undefined;
     const lot =
       typeof o.lot === "string" && o.lot.trim() !== ""
         ? o.lot.trim()
@@ -442,8 +448,7 @@ function linesFromOrderItemsJson(raw: unknown): PemakaianLine[] {
           : typeof o.expired === "string" && o.expired.trim() !== ""
             ? o.expired.trim()
             : undefined;
-    const isKonsolidasi =
-      o.isKonsolidasi === true || (o as any).is_konsolidasi === true;
+
     let keterangan =
       typeof o.keterangan === "string" && o.keterangan.trim() !== ""
         ? o.keterangan.trim()
@@ -1331,13 +1336,6 @@ export default function PemakaianAlkesModal({
                 ? row.ed?.trim()
                 : next.ed;
 
-        const isKonsolidasi =
-          patch.isKonsolidasi !== undefined
-            ? patch.isKonsolidasi
-            : row
-              ? !!(row as any).is_konsolidasi
-              : next.isKonsolidasi;
-
         const distributor =
           patch.distributor !== undefined
             ? patch.distributor
@@ -1345,14 +1343,27 @@ export default function PemakaianAlkesModal({
               ? row.distributor_nama?.trim() || next.distributor
               : next.distributor;
 
+        const isRevass = String(distributor || "").toLowerCase().includes("revass");
+
+        const isKonsolidasi =
+          isRevass
+            ? true
+            : patch.isKonsolidasi !== undefined
+              ? patch.isKonsolidasi
+              : row
+                ? !!(row as any).is_konsolidasi
+                : next.isKonsolidasi;
+
         let status =
-          patch.status !== undefined
-            ? patch.status
-            : row
-              ? row.is_konsolidasi
-                ? "KONSOLIDASI"
-                : "NON KONSOLIDASI"
-              : next.status;
+          isRevass
+            ? "KONSOLIDASI"
+            : patch.status !== undefined
+              ? patch.status
+              : row
+                ? row.is_konsolidasi
+                  ? "KONSOLIDASI"
+                  : "NON KONSOLIDASI"
+                : next.status;
 
         let konsolidasiVal = isKonsolidasi;
         const resolvedKat = String(k ?? next.kategori ?? "").trim();
@@ -1449,11 +1460,14 @@ export default function PemakaianAlkesModal({
 
         const nextHarga = isHargaFilled ? line.harga : h;
         const nextKategori = isKategoriFilled ? line.kategori : k;
-        const nextIsKonsolidasi =
-          line.isKonsolidasi ?? !!(row as any)?.is_konsolidasi;
         const nextDistributor = isDistributorFilled
           ? line.distributor
           : row?.distributor_nama?.trim() || line.distributor;
+        const isRevass = String(nextDistributor || "").toLowerCase().includes("revass");
+        const nextIsKonsolidasi =
+          isRevass
+            ? true
+            : (line.isKonsolidasi ?? !!(row as any)?.is_konsolidasi);
 
         // JANGAN menimpa LOT, Ukuran, ED jika sudah ada nilainya di state (line)
         const currentLot = cleanFormText(String(line.lot ?? ""));
@@ -1494,13 +1508,15 @@ export default function PemakaianAlkesModal({
             ? row.ed.trim()
             : line.ed;
 
-        let nextStatus = isStatusFilled
-          ? line.status
-          : row
-            ? row.is_konsolidasi
-              ? "KONSOLIDASI"
-              : "NON KONSOLIDASI"
-            : line.status;
+        let nextStatus = isRevass
+          ? "KONSOLIDASI"
+          : isStatusFilled
+            ? line.status
+            : row
+              ? row.is_konsolidasi
+                ? "KONSOLIDASI"
+                : "NON KONSOLIDASI"
+              : line.status;
 
         const syncKat = String(nextKategori ?? line.kategori ?? "").trim();
         let nextIsKonsolidasiSync: boolean | undefined;
@@ -1658,7 +1674,9 @@ export default function PemakaianAlkesModal({
     const kCat = kategoriAlkesFromVariantPickRow(pick);
 
     const isObatPick = normalizeKategoriAlkesLine(kCat || "") === "OBAT";
-    const status = (pick as any).is_konsolidasi
+    const distNameRaw = String(pick.distributor_nama || "").toLowerCase();
+    const isRevass = distNameRaw.includes("revass");
+    const status = isRevass || (pick as any).is_konsolidasi
       ? "KONSOLIDASI"
       : "NON KONSOLIDASI";
     let rawUkuran = pick.ukuran?.trim() || undefined;
@@ -1676,7 +1694,7 @@ export default function PemakaianAlkesModal({
       ...(!isObatPick
         ? {
             status,
-            isKonsolidasi: !!(pick as any).is_konsolidasi,
+            isKonsolidasi: isRevass || !!(pick as any).is_konsolidasi,
             keterangan:
               status === "KONSOLIDASI" ? "Permintaan User" : undefined,
           }

@@ -576,15 +576,24 @@ function TindakanDetailDrawer({
     (info?: any) => {
       const wasCompleteBefore = checkAllFieldsCompleted(displayRecord);
 
-      // 1. Mutate the tindakan SWR cache immediately so the drawer shows the latest data.
+      // Tampilkan toast notifikasi sukses untuk autosave field
       if (info && typeof info.field === "string") {
+        const label = FIELD_LABELS[info.field] || info.field;
+        toast.success(`${label} berhasil disimpan`, {
+          id: `autosave-${info.field}`,
+          duration: 2000,
+        });
+
+        // 1. Mutate the tindakan SWR cache immediately so the drawer shows the latest data.
         void mutateTindakan(
           (currentData: any) => {
             if (currentData && currentData.data) {
               const updatedData = {
                 ...currentData.data,
-                [info.field]: info.value,
               };
+              if (info.value !== undefined) {
+                updatedData[info.field] = info.value;
+              }
 
               const mergedCheck = {
                 ...displayRecord,
@@ -608,6 +617,10 @@ function TindakanDetailDrawer({
           { revalidate: true },
         );
       } else {
+        toast.success("Perubahan berhasil disimpan", {
+          id: "autosave-generic",
+          duration: 2000,
+        });
         void mutateTindakan();
       }
 
@@ -1400,7 +1413,7 @@ function TindakanDetailDrawer({
                                   >,
                                   "fast_track_fotos",
                                 )}
-                                onSaved={handleRecordPatch}
+                                onSaved={() => handleRecordPatch({ field: "is_fast_track" })}
                               />
                             </div>
                           ) : def.id === "klinis" ? (
@@ -1440,7 +1453,7 @@ function TindakanDetailDrawer({
                                             pasienId={pasienId}
                                             field={key as KlinisFieldKey}
                                             value={rawVal}
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: key })}
                                           />
                                         </dd>
                                       </div>
@@ -1482,7 +1495,7 @@ function TindakanDetailDrawer({
                                               pasienId={pasienId}
                                               field={key as KlinisFieldKey}
                                               value={rawVal}
-                                              onSaved={handleRecordPatch}
+                                              onSaved={() => handleRecordPatch({ field: key })}
                                             />
                                           </dd>
                                         </div>
@@ -1653,7 +1666,7 @@ function TindakanDetailDrawer({
                                                 MASTER_PASIEN_COMPACT_SWR_KEY,
                                               );
                                             }}
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: key })}
                                           />
                                         ) : isPasienUmurReadonly ? (
                                           <div
@@ -1702,7 +1715,7 @@ function TindakanDetailDrawer({
                                                 ? null
                                                 : String(rawVal)
                                             }
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: "rs_perujuk" })}
                                           />
                                         ) : isRadiologiEditable ? (
                                           <RadiologiAutosaveField
@@ -1710,7 +1723,7 @@ function TindakanDetailDrawer({
                                             tindakanId={tindakanId}
                                             field={key as RadiologiFieldKey}
                                             value={rawVal}
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: key })}
                                           />
                                         ) : isGenericKlinisEditable ? (
                                           <KlinisAutosaveField
@@ -1718,7 +1731,7 @@ function TindakanDetailDrawer({
                                             pasienId={pasienId}
                                             field={key as KlinisFieldKey}
                                             value={rawVal}
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: key })}
                                             controlVariant={
                                               drawerCharcoalTindakan
                                                 ? "drawerCharcoal"
@@ -1733,7 +1746,7 @@ function TindakanDetailDrawer({
                                               (pasienMaster as Pasien | null) ??
                                               null
                                             }
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: "kelas_pembiayaan" })}
                                           />
                                         ) : isBiayaEditable ? (
                                           <BiayaAutosaveField
@@ -1752,7 +1765,7 @@ function TindakanDetailDrawer({
                                                 ? null
                                                 : String(rawVal)
                                             }
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: "dokter_anestesi" })}
                                           />
                                         ) : isPpdsEditable ? (
                                           <PpdsField
@@ -1763,7 +1776,7 @@ function TindakanDetailDrawer({
                                                 ? null
                                                 : String(rawVal)
                                             }
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: "ppds" })}
                                           />
                                         ) : isDokterEditable ? (
                                           <MasterDokterField
@@ -1774,7 +1787,7 @@ function TindakanDetailDrawer({
                                                 ? null
                                                 : String(rawVal)
                                             }
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: "dokter" })}
                                           />
                                         ) : isTimPerawatEditable ? (
                                           <MasterPerawatTimField
@@ -1786,7 +1799,7 @@ function TindakanDetailDrawer({
                                                 ? null
                                                 : String(rawVal)
                                             }
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: key })}
                                           />
                                         ) : isRuanganEditable ? (
                                           <RuanganTindakanField
@@ -1797,7 +1810,7 @@ function TindakanDetailDrawer({
                                                 ? null
                                                 : String(rawVal)
                                             }
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: "ruangan" })}
                                           />
                                         ) : isCathlabEditable ? (
                                           <CathlabSlotField
@@ -1808,7 +1821,7 @@ function TindakanDetailDrawer({
                                                 ? null
                                                 : String(rawVal)
                                             }
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: "cath" })}
                                           />
                                         ) : isJenisTindakanEditable ? (
                                           <MasterJenisTindakanField
@@ -1819,7 +1832,7 @@ function TindakanDetailDrawer({
                                                 ? null
                                                 : String(rawVal)
                                             }
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: "tindakan" })}
                                             controlVariant={
                                               drawerCharcoalTindakan
                                                 ? "drawerCharcoal"
@@ -1835,7 +1848,7 @@ function TindakanDetailDrawer({
                                                 ? null
                                                 : String(rawVal)
                                             }
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: "kategori" })}
                                             controlVariant={
                                               drawerCharcoalTindakan
                                                 ? "drawerCharcoal"
@@ -1851,13 +1864,13 @@ function TindakanDetailDrawer({
                                                 ? null
                                                 : String(rawVal)
                                             }
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: "status" })}
                                           />
                                         ) : isTanggalTindakanEditable ? (
                                           <TindakanTanggalDrawerField
                                             tindakanId={tindakanId}
                                             value={rawVal}
-                                            onSaved={handleRecordPatch}
+                                            onSaved={() => handleRecordPatch({ field: "tanggal_tindakan" })}
                                           />
                                         ) : (
                                           formatFieldValue(key, rawVal)

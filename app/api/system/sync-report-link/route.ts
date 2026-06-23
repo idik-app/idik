@@ -73,9 +73,36 @@ export async function POST(req: NextRequest) {
       // Jika ada content, ekstrak data klinis
       if (content) {
         const extracted = extractDataFromText(content);
-        // Gabungkan hasil ekstraksi ke payload update
-        Object.assign(updateData, extracted);
-        console.log(`[Sync API] Extracted data for record ${matchedId}:`, Object.keys(extracted));
+        
+        // Ambil data tindakan saat ini dari DB untuk mencegah menimpa field yang sudah diisi/diedit manual
+        const { data: currentData, error: fetchErr } = await supabase
+          .from("tindakan")
+          .select("waktu, diagnosa, severity_level, hasil_lab_ppm, kesimpulan_laporan, plan_medis, temuan_pembuluh, faktor_risiko, total_kontras, operan_ranap, kategori")
+          .eq("id", matchedId)
+          .maybeSingle();
+
+        if (!fetchErr && currentData) {
+          const dbRow = currentData as Record<string, any>;
+          // Hanya gabungkan hasil ekstraksi jika field di database masih kosong
+          for (const [key, val] of Object.entries(extracted)) {
+            const currentVal = dbRow[key];
+            const isEmpty =
+              currentVal === null ||
+              currentVal === undefined ||
+              String(currentVal).trim() === "" ||
+              String(currentVal).trim() === "—" ||
+              String(currentVal).trim() === "-";
+
+            if (isEmpty) {
+              updateData[key] = val;
+            }
+          }
+        } else {
+          // Fallback jika gagal fetch: gabungkan semuanya
+          Object.assign(updateData, extracted);
+        }
+        
+        console.log(`[Sync API] Extracted data for record ${matchedId}:`, Object.keys(updateData));
       }
 
       const { error: updateErr } = await supabase
@@ -89,7 +116,7 @@ export async function POST(req: NextRequest) {
         success: true, 
         message: `Linked and synced record ID ${matchedId}`,
         matchedId,
-        extractedFields: content ? Object.keys(extractDataFromText(content)) : []
+        extractedFields: Object.keys(updateData)
       });
     }
 

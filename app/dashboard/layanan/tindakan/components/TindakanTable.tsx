@@ -101,6 +101,7 @@ import {
 import type { TindakanFilteredSummary } from "./TindakanSummary";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import KeteranganField from "./KeteranganField";
+import { formatWaktuDisplay } from "@/lib/tindakan/waktuRangeFormat";
 const rowCacheMap = new WeakMap<object, {
   _idik_row_key: string;
   normalizedRm: string;
@@ -3629,6 +3630,11 @@ export default function TindakanTable({
                                     })
                                   }
                                 />
+                                {rec.waktu && (
+                                  <div className="mt-1 text-[9px] font-mono text-cyan-600 dark:text-cyan-400 font-medium leading-none select-none">
+                                    {formatWaktuDisplay(rec.waktu)}
+                                  </div>
+                                )}
                               </div>
                             </td>
                             <td

@@ -306,8 +306,38 @@ export default function KlinisAutosaveField({
         throw new Error("Tidak ada data klinis yang ditemukan dalam laporan ini.");
       }
 
-      // Jalankan persist dengan data hasil ekstraksi real
-      await persist(draft, extracted as any);
+      // Ambil data tindakan saat ini dari DB untuk mencegah menimpa field yang sudah diedit manual
+      let currentData: Record<string, any> = {};
+      try {
+        const currentRes = await fetch(`/api/tindakan/${encodeURIComponent(tindakanId)}`);
+        if (currentRes.ok) {
+          const json = await currentRes.json();
+          if (json.ok && json.data) {
+            currentData = json.data;
+          }
+        }
+      } catch (err) {
+        console.warn("[KlinisAutosaveField] Gagal mengambil data tindakan untuk filter ekstraksi:", err);
+      }
+
+      // Hanya simpan data ekstraksi untuk field yang masih kosong di database
+      const filteredExtracted: Record<string, string | null> = {};
+      for (const [key, val] of Object.entries(extracted)) {
+        const currentVal = currentData[key];
+        const isEmpty =
+          currentVal === null ||
+          currentVal === undefined ||
+          String(currentVal).trim() === "" ||
+          String(currentVal).trim() === "—" ||
+          String(currentVal).trim() === "-";
+
+        if (isEmpty) {
+          filteredExtracted[key] = val as string | null;
+        }
+      }
+
+      // Jalankan persist dengan data hasil ekstraksi real yang telah difilter
+      await persist(draft, filteredExtracted);
       clearInterval(interval);
 
       setExtractProgress(100);

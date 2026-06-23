@@ -434,6 +434,70 @@ function DrawerSidebarTabButton({
   );
 }
 
+function checkAllFieldsCompleted(record: any): boolean {
+  if (!record) return false;
+
+  const fieldsToCheck = [
+    // Pasien
+    ["no_rm"],
+    ["nama_pasien"],
+    ["jenis_kelamin", "jk"],
+    ["tgl_lahir"],
+    ["alamat"],
+    ["no_telp"],
+    // Tindakan
+    ["tanggal", "tanggal_tindakan"],
+    ["waktu"],
+    ["tindakan"],
+    ["kategori"],
+    ["status"],
+    ["temuan_pembuluh"],
+    ["kesimpulan_laporan"],
+    ["plan_medis"],
+    // Lokasi
+    ["ruangan"],
+    ["cath"],
+    // Tim
+    ["dokter"],
+    ["asisten"],
+    ["sirkuler"],
+    ["logger"],
+    // Radiologi
+    ["fluoro_time"],
+    ["air_kerma", "dose"],
+    ["dap_dose", "dap_gy_cm2"],
+    ["total_kontras"],
+    ["kv"],
+    ["ma"],
+    // Klinis
+    ["pci_report_link"],
+    ["diagnosa"],
+    ["severity_level"],
+    // Biaya
+    ["kelas_pembiayaan", "kelas"],
+    ["tarif_tindakan"],
+    ["total"],
+    ["krs"],
+    // Kelengkapan
+    ["asmed"],
+    ["resume_erm"],
+    ["sjp"],
+    ["berkas_laporan"],
+    ["consumable_kelengkapan"],
+    ["billing_simrs"],
+    ["pj_laporan"]
+  ];
+
+  for (const keys of fieldsToCheck) {
+    const hasValue = keys.some(key => {
+      const val = record[key];
+      return val !== null && val !== undefined && String(val).trim() !== "" && String(val).trim() !== "—" && String(val).trim() !== "-";
+    });
+    if (!hasValue) return false;
+  }
+  return true;
+}
+
 function TindakanDetailDrawer({
   open,
   initialTab,
@@ -471,54 +535,6 @@ function TindakanDetailDrawer({
   const { tindakan: tindakanDetail, mutate: mutateTindakan } =
     useTindakanDetail(open ? record?.id : null);
 
-  const handleRecordPatch = useCallback(
-    (info?: any) => {
-      // 1. Mutate the tindakan SWR cache immediately so the drawer shows the latest data.
-      if (info && typeof info.field === "string") {
-        void mutateTindakan(
-          (currentData: any) => {
-            if (currentData && currentData.data) {
-              return {
-                ...currentData,
-                data: {
-                  ...currentData.data,
-                  [info.field]: info.value,
-                },
-              };
-            }
-            return currentData;
-          },
-          { revalidate: true },
-        );
-      } else {
-        void mutateTindakan();
-      }
-
-      // Also trigger revalidation of pasien detail just in case
-      void mutatePasien();
-
-      // 2. Notify parent to sync the table list
-      if (onRecordPatch) {
-        onRecordPatch(info);
-      }
-    },
-    [onRecordPatch, mutateTindakan, mutatePasien],
-  );
-
-  // Jika record di-sync (mis. pci_report_link masuk dari drive), UI harus refresh
-  useEffect(() => {
-    if (!open || !record?.id || record?.pci_report_link || tindakanDetail?.pci_report_link) return;
-
-    // Polling kecil jika record sedang ditunggu (Background Sync HUD aktif)
-    // Ini memastikan jika user sedang buka drawer, link yang baru masuk
-    // akan muncul tanpa harus buka-tutup drawer.
-    const interval = setInterval(() => {
-      void mutateTindakan();
-    }, 10000); // 10 detik polling saat drawer terbuka
-
-    return () => clearInterval(interval);
-  }, [open, record?.id, record?.pci_report_link, tindakanDetail?.pci_report_link, mutateTindakan]);
-
   const detailTarifFromApi = useMemo(() => {
     if (!tindakanDetail) return null;
     const raw = tindakanDetail.tarif_tindakan;
@@ -532,25 +548,6 @@ function TindakanDetailDrawer({
           );
     return Number.isFinite(n) ? n : null;
   }, [tindakanDetail]);
-
-  useEffect(() => {
-    if (!open) {
-      lastIdRef.current = null;
-      return;
-    }
-    const currentId = record?.id ? String(record.id) : null;
-    // Persist active tab when switching records:
-    // If we're opening a new record but the drawer was already open (switching),
-    // we DON'T reset to "pasien". We stay on whatever tab the user was on.
-    // If the drawer was CLOSED (lastIdRef was null) and we're just opening it,
-    // only then do we reset to "pasien" (or respect initialTab).
-    if (currentId && currentId !== lastIdRef.current) {
-      if (!lastIdRef.current && !initialTab) {
-        setTab("pasien");
-      }
-      lastIdRef.current = currentId;
-    }
-  }, [open, record?.id, initialTab]);
 
   const displayRecord = useMemo(() => {
     if (!record) return null;
@@ -574,6 +571,89 @@ function TindakanDetailDrawer({
       return merged;
     return { ...merged, tarif_tindakan: detailTarifFromApi };
   }, [record, pasienMaster, tindakanDetail, detailTarifFromApi]);
+
+  const handleRecordPatch = useCallback(
+    (info?: any) => {
+      const wasCompleteBefore = checkAllFieldsCompleted(displayRecord);
+
+      // 1. Mutate the tindakan SWR cache immediately so the drawer shows the latest data.
+      if (info && typeof info.field === "string") {
+        void mutateTindakan(
+          (currentData: any) => {
+            if (currentData && currentData.data) {
+              const updatedData = {
+                ...currentData.data,
+                [info.field]: info.value,
+              };
+
+              const mergedCheck = {
+                ...displayRecord,
+                ...updatedData,
+              };
+
+              if (!wasCompleteBefore && checkAllFieldsCompleted(mergedCheck)) {
+                toast.success("Semua data tindakan telah terisi lengkap dan tersimpan!", {
+                  description: "Seluruh field wajib & penunjang telah berhasil di-autosave.",
+                  duration: 5000,
+                });
+              }
+
+              return {
+                ...currentData,
+                data: updatedData,
+              };
+            }
+            return currentData;
+          },
+          { revalidate: true },
+        );
+      } else {
+        void mutateTindakan();
+      }
+
+      // Also trigger revalidation of pasien detail just in case
+      void mutatePasien();
+
+      // 2. Notify parent to sync the table list
+      if (onRecordPatch) {
+        onRecordPatch(info);
+      }
+    },
+    [onRecordPatch, mutateTindakan, mutatePasien, displayRecord],
+  );
+
+  // Jika record di-sync (mis. pci_report_link masuk dari drive), UI harus refresh
+  useEffect(() => {
+    if (!open || !record?.id || record?.pci_report_link || tindakanDetail?.pci_report_link) return;
+
+    // Polling kecil jika record sedang ditunggu (Background Sync HUD aktif)
+    // Ini memastikan jika user sedang buka drawer, link yang baru masuk
+    // akan muncul tanpa harus buka-tutup drawer.
+    const interval = setInterval(() => {
+      void mutateTindakan();
+    }, 10000); // 10 detik polling saat drawer terbuka
+
+    return () => clearInterval(interval);
+  }, [open, record?.id, record?.pci_report_link, tindakanDetail?.pci_report_link, mutateTindakan]);
+
+  useEffect(() => {
+    if (!open) {
+      lastIdRef.current = null;
+      return;
+    }
+    const currentId = record?.id ? String(record.id) : null;
+    // Persist active tab when switching records:
+    // If we're opening a new record but the drawer was already open (switching),
+    // we DON'T reset to "pasien". We stay on whatever tab the user was on.
+    // If the drawer was CLOSED (lastIdRef was null) and we're just opening it,
+    // only then do we reset to "pasien" (or respect initialTab).
+    if (currentId && currentId !== lastIdRef.current) {
+      if (!lastIdRef.current && !initialTab) {
+        setTab("pasien");
+      }
+      lastIdRef.current = currentId;
+    }
+  }, [open, record?.id, initialTab]);
 
   /** Untuk autosave master pasien: utamakan FK baris, lalu id hasil lookup RM/nama. */
   const pasienEditId = useMemo(() => {

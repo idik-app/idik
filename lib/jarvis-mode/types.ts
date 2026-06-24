@@ -8,6 +8,36 @@ export type JarvisMatrixPoint = {
   value: number;
 };
 
+export type JarvisTrendPoint = {
+  label: string;
+  value: number;
+  dateKey?: string;
+};
+
+export type JarvisMatrixReportRow = {
+  label: string;
+  harian: number;
+  mingguan: number;
+  bulanan: number;
+  /** Persen relatif terhadap total periode (0–100) */
+  harianPct: number;
+  mingguanPct: number;
+  bulananPct: number;
+};
+
+export type JarvisTodayPatient = {
+  id: string;
+  nama: string;
+  no_rm: string;
+  jenis_kelamin: "L" | "P" | null;
+  tindakan: string;
+};
+
+export type JarvisActiveDoctor = {
+  nama: string;
+  count: number;
+};
+
 export type JarvisCriticalAlert = {
   id: string;
   label: string;

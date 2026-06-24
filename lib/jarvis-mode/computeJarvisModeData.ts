@@ -5,7 +5,14 @@ import {
   todayWibYmd,
 } from "@/app/dashboard/layanan/tindakan/utils/tindakanHelpers";
 
-import type { JarvisCriticalAlert, JarvisMatrixPoint } from "./types";
+import type {
+  JarvisActiveDoctor,
+  JarvisCriticalAlert,
+  JarvisMatrixPoint,
+  JarvisMatrixReportRow,
+  JarvisTodayPatient,
+  JarvisTrendPoint,
+} from "./types";
 
 function addDaysYmd(ymd: string, delta: number): string {
   const [y, m, d] = ymd.split("-").map(Number);
@@ -138,4 +145,220 @@ export function computeCriticalAlerts(
   }
 
   return alerts.slice(0, 6);
+}
+
+function isPpciRow(tindakan: string, rsPerujuk?: string | null, ket?: string | null): boolean {
+  const t = tindakan.trim().toLowerCase();
+  if (!t.includes("ppci")) return false;
+  const rs = String(rsPerujuk ?? "").trim().toLowerCase();
+  const k = String(ket ?? "").trim().toLowerCase();
+  return !rs.includes("pribadi") && !k.includes("pribadi");
+}
+
+function monthStartYmd(): string {
+  const today = todayWibYmd();
+  return `${today.slice(0, 7)}-01`;
+}
+
+/** Deret tren PPCI untuk grafik (harian / mingguan / bulanan). */
+export function computePpciTrendSeries(
+  rows: readonly TindakanJoinResult[],
+  period: "harian" | "mingguan" | "bulanan",
+): JarvisTrendPoint[] {
+  const ppciRows = rows.filter((r) =>
+    isPpciRow(
+      String(r.tindakan ?? ""),
+      r.rs_perujuk,
+      r.keterangan,
+    ),
+  );
+
+  if (period === "harian") {
+    const counts = new Map<string, number>();
+    for (let i = 13; i >= 0; i -= 1) {
+      const key = addDaysYmd(todayWibYmd(), -i);
+      counts.set(key, 0);
+    }
+    for (const r of ppciRows) {
+      const key = extractCalendarDateKey(String(r.tanggal ?? ""));
+      if (key && counts.has(key)) counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return [...counts.entries()].map(([dateKey, value]) => ({
+      label: dateKey.slice(8, 10),
+      value,
+      dateKey,
+    }));
+  }
+
+  if (period === "mingguan") {
+    const wStart = startOfWeekWibYmd();
+    const buckets = Array.from({ length: 8 }, (_, i) => {
+      const ymd = addDaysYmd(wStart, -7 * (7 - i));
+      return { label: `W${i + 1}`, ymd, value: 0 };
+    });
+    for (const r of ppciRows) {
+      const key = extractCalendarDateKey(String(r.tanggal ?? ""));
+      if (!key) continue;
+      for (const b of buckets) {
+        const end = addDaysYmd(b.ymd, 6);
+        if (key >= b.ymd && key <= end) b.value += 1;
+      }
+    }
+    return buckets.map(({ label, value }) => ({ label, value }));
+  }
+
+  const { year, month } = currentMonthYmd();
+  const counts = new Map<number, number>();
+  for (let m = 5; m >= 0; m -= 1) {
+    const d = new Date(year, month - 1 - m, 1);
+    counts.set(d.getMonth() + 1 + d.getFullYear() * 100, 0);
+  }
+  for (const r of ppciRows) {
+    const key = extractCalendarDateKey(String(r.tanggal ?? ""));
+    if (!key) continue;
+    const [y, mo] = key.split("-").map(Number);
+    const bucket = mo + y * 100;
+    if (counts.has(bucket)) counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
+  }
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  return [...counts.entries()].map(([bucket, value]) => {
+    const y = Math.floor(bucket / 100);
+    const m = bucket % 100;
+    return { label: `${monthNames[m - 1]} ${String(y).slice(2)}`, value };
+  });
+}
+
+function countInRange(
+  rows: readonly TindakanJoinResult[],
+  fromYmd: string,
+  toYmd: string,
+  predicate?: (r: TindakanJoinResult) => boolean,
+): number {
+  let n = 0;
+  for (const r of rows) {
+    const key = extractCalendarDateKey(String(r.tanggal ?? ""));
+    if (!key || key < fromYmd || key > toYmd) continue;
+    if (predicate && !predicate(r)) continue;
+    n += 1;
+  }
+  return n;
+}
+
+/** Matriks laporan HARIAN / MINGGUAN / BULANAN untuk panel kanan. */
+export function computeMatrixReport(
+  rows: readonly TindakanJoinResult[],
+): JarvisMatrixReportRow[] {
+  const today = todayWibYmd();
+  const wStart = startOfWeekWibYmd();
+  const wEnd = addDaysYmd(wStart, 6);
+  const mStart = monthStartYmd();
+
+  const totalH = countInRange(rows, today, today);
+  const totalW = countInRange(rows, wStart, wEnd);
+  const totalM = countInRange(rows, mStart, today);
+
+  const ppciH = countInRange(rows, today, today, (r) =>
+    isPpciRow(String(r.tindakan ?? ""), r.rs_perujuk, r.keterangan),
+  );
+  const ppciW = countInRange(rows, wStart, wEnd, (r) =>
+    isPpciRow(String(r.tindakan ?? ""), r.rs_perujuk, r.keterangan),
+  );
+  const ppciM = countInRange(rows, mStart, today, (r) =>
+    isPpciRow(String(r.tindakan ?? ""), r.rs_perujuk, r.keterangan),
+  );
+
+  const linkedH = countInRange(
+    rows,
+    today,
+    today,
+    (r) => String(r.pci_report_link ?? "").includes("docs.google.com"),
+  );
+  const linkedW = countInRange(
+    rows,
+    wStart,
+    wEnd,
+    (r) => String(r.pci_report_link ?? "").includes("docs.google.com"),
+  );
+  const linkedM = countInRange(
+    rows,
+    mStart,
+    today,
+    (r) => String(r.pci_report_link ?? "").includes("docs.google.com"),
+  );
+
+  const pct = (part: number, whole: number) =>
+    whole > 0 ? Math.round((part / whole) * 100) : 0;
+
+  return [
+    {
+      label: "Total Tindakan",
+      harian: totalH,
+      mingguan: totalW,
+      bulanan: totalM,
+      harianPct: 100,
+      mingguanPct: 100,
+      bulananPct: 100,
+    },
+    {
+      label: "PPCI",
+      harian: ppciH,
+      mingguan: ppciW,
+      bulanan: ppciM,
+      harianPct: pct(ppciH, totalH),
+      mingguanPct: pct(ppciW, totalW),
+      bulananPct: pct(ppciM, totalM),
+    },
+    {
+      label: "Laporan Terpetakan",
+      harian: linkedH,
+      mingguan: linkedW,
+      bulanan: linkedM,
+      harianPct: pct(linkedH, totalH),
+      mingguanPct: pct(linkedW, totalW),
+      bulananPct: pct(linkedM, totalM),
+    },
+  ];
+}
+
+/** Pasien hari ini untuk widget gender. */
+export function computeTodayPatients(
+  rows: readonly TindakanJoinResult[],
+): JarvisTodayPatient[] {
+  const today = todayWibYmd();
+  const out: JarvisTodayPatient[] = [];
+  for (const r of rows) {
+    const key = extractCalendarDateKey(String(r.tanggal ?? ""));
+    if (key !== today) continue;
+    const raw = r as unknown as Record<string, unknown>;
+    const jkRaw = String(r.jenis_kelamin ?? raw.jk ?? "").trim().toUpperCase();
+    const jk: "L" | "P" | null =
+      jkRaw === "L" || jkRaw === "LAKI-LAKI" ? "L" : jkRaw === "P" || jkRaw === "PEREMPUAN" ? "P" : null;
+    out.push({
+      id: String(r.id ?? `${r.no_rm}-${key}`),
+      nama: String(r.nama_pasien ?? "—").trim(),
+      no_rm: String(r.no_rm ?? "—").trim(),
+      jenis_kelamin: jk,
+      tindakan: String(r.tindakan ?? "—").trim(),
+    });
+  }
+  return out.slice(0, 8);
+}
+
+/** Dokter aktif hari ini. */
+export function computeActiveDoctors(
+  rows: readonly TindakanJoinResult[],
+): JarvisActiveDoctor[] {
+  const today = todayWibYmd();
+  const map = new Map<string, number>();
+  for (const r of rows) {
+    const key = extractCalendarDateKey(String(r.tanggal ?? ""));
+    if (key !== today) continue;
+    const d = String(r.dokter ?? "").trim();
+    if (!d || d === "—") continue;
+    map.set(d, (map.get(d) ?? 0) + 1);
+  }
+  return Array.from(map.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "id"))
+    .slice(0, 6)
+    .map(([nama, count]) => ({ nama, count }));
 }

@@ -31,7 +31,7 @@ function JarvisModeSystemBarInner({ lastSyncAt, compact = false }: Props) {
 
   if (compact) {
     return (
-      <div className="flex items-center justify-between gap-2 text-[8px] font-semibold uppercase tracking-wide text-white/75">
+      <div className="jarvis-system-bar flex items-center justify-between gap-2 text-[8px] font-semibold uppercase tracking-wide text-white/75">
         <div className="flex items-center gap-1.5">
           <motion.span
             className={cn(

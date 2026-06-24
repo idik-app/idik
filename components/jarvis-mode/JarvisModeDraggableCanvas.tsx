@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { motion, useDragControls } from "framer-motion";
+import { motion, useDragControls, useSpring, useTransform } from "framer-motion";
 import { AlertTriangle, Mars, Venus } from "lucide-react";
 
 import type { PasienOption } from "@/components/ui/pasien-combobox";
@@ -133,12 +133,31 @@ function KpiValue({
   loading,
   className,
   size = "lg",
+  shimmer = false,
 }: {
   value: number;
   loading?: boolean;
   className?: string;
   size?: "lg" | "md" | "sm";
+  shimmer?: boolean;
 }) {
+  const spring = useSpring(loading ? 0 : value, { stiffness: 90, damping: 18 });
+  const display = useTransform(spring, (v) =>
+    Math.round(v).toLocaleString("id-ID"),
+  );
+  const [text, setText] = useState(loading ? "—" : value.toLocaleString("id-ID"));
+
+  useEffect(() => {
+    if (loading) {
+      setText("—");
+      spring.set(0);
+      return;
+    }
+    spring.set(value);
+    const unsub = display.on("change", (v) => setText(v));
+    return () => unsub();
+  }, [value, loading, spring, display]);
+
   const sizeClass =
     size === "sm"
       ? "text-base sm:text-lg"
@@ -146,16 +165,27 @@ function KpiValue({
         ? "text-lg sm:text-xl"
         : "text-2xl sm:text-3xl";
   return (
-    <p
-      className={cn(
-        "font-mono font-bold tabular-nums leading-none text-white",
-        sizeClass,
-        loading && "animate-pulse opacity-60",
-        className,
-      )}
-    >
-      {loading ? "—" : value.toLocaleString("id-ID")}
-    </p>
+    <div className="space-y-0.5">
+      <motion.p
+        className={cn(
+          "font-mono font-bold tabular-nums leading-none text-white",
+          sizeClass,
+          loading && "animate-pulse opacity-60",
+          className,
+        )}
+        key={loading ? "load" : value}
+        initial={{ opacity: 0.65, y: 3 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35 }}
+      >
+        {loading ? "—" : text}
+      </motion.p>
+      {shimmer && !loading ? (
+        <div className="h-0.5 w-full overflow-hidden rounded-full bg-white/10">
+          <span className="jarvis-kpi-shimmer block h-full w-2/3 rounded-full bg-gradient-to-r from-cyan-500/20 via-cyan-400/70 to-cyan-500/20" />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -217,9 +247,9 @@ function JarvisModeDraggableCanvasInner({
     switch (id) {
       case "kpi-pasien":
         return (
-          <JarvisModeGlassPanel title="Pasien" kpi>
+          <JarvisModeGlassPanel title="Pasien" kpi accent="cyan">
             <div className="flex h-full min-h-0 flex-col justify-between gap-0.5">
-              <KpiValue value={totalPasien} loading={loading} size="sm" />
+              <KpiValue value={totalPasien} loading={loading} size="sm" shimmer />
               <p className="text-[8px] text-white/75 dark:text-white/90">
                 Hari ini{" "}
                 <span className="font-mono font-semibold text-cyan-200">
@@ -231,7 +261,7 @@ function JarvisModeDraggableCanvasInner({
         );
       case "kpi-gender":
         return (
-          <JarvisModeGlassPanel title="Gender" kpi>
+          <JarvisModeGlassPanel title="Gender" kpi accent="cyan">
             <div className="flex h-full min-h-0 flex-col gap-0.5">
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-0.5">
@@ -268,7 +298,7 @@ function JarvisModeDraggableCanvasInner({
         );
       case "kpi-tindakan":
         return (
-          <JarvisModeGlassPanel title="Tindakan" kpi>
+          <JarvisModeGlassPanel title="Tindakan" kpi accent="amber">
             <div className="flex h-full min-h-0 flex-col gap-0.5">
               <KpiValue value={totalTindakan} loading={loading} size="sm" />
               <ul className="min-h-0 flex-1 space-y-0">
@@ -286,7 +316,7 @@ function JarvisModeDraggableCanvasInner({
         );
       case "kpi-dokter":
         return (
-          <JarvisModeGlassPanel title="Dokter" kpi>
+          <JarvisModeGlassPanel title="Dokter" kpi accent="cyan">
             <div className="flex h-full min-h-0 flex-col gap-0.5">
               <KpiValue value={totalDokter} loading={loading} size="sm" />
               <ul className="min-h-0 flex-1 space-y-0">
@@ -376,12 +406,7 @@ function JarvisModeDraggableCanvasInner({
         className="relative h-full min-h-0 overflow-hidden rounded-lg border border-cyan-500/15 bg-black/25"
       >
         <div
-          className="pointer-events-none absolute inset-0 opacity-30"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(0,224,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0,224,255,0.06) 1px, transparent 1px)",
-            backgroundSize: "48px 48px",
-          }}
+          className="pointer-events-none absolute inset-0 jarvis-canvas-grid opacity-30"
           aria-hidden
         />
         {layout.map((rect, i) => (

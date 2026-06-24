@@ -2,8 +2,9 @@
 
 import { memo } from "react";
 import {
+  Area,
+  ComposedChart,
   Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -65,10 +66,24 @@ function JarvisModePpciChartInner({
         </div>
         <div className="min-h-0 flex-1 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart
+            <ComposedChart
               data={data}
               margin={{ top: 2, right: 4, left: -22, bottom: 0 }}
             >
+              <defs>
+                <linearGradient id="jarvisPpciFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.42} />
+                  <stop offset="85%" stopColor="#fbbf24" stopOpacity={0.04} />
+                  <stop offset="100%" stopColor="#fbbf24" stopOpacity={0} />
+                </linearGradient>
+                <filter id="jarvisPpciGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="2.5" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
               <XAxis
                 dataKey="label"
                 tick={{ fill: "rgba(255,255,255,0.7)", fontSize: 8 }}
@@ -91,15 +106,26 @@ function JarvisModePpciChartInner({
                   fontSize: 10,
                 }}
               />
+              <Area
+                type="monotone"
+                dataKey="value"
+                fill="url(#jarvisPpciFill)"
+                stroke="none"
+                isAnimationActive
+                animationDuration={900}
+              />
               <Line
                 type="monotone"
                 dataKey="value"
                 stroke="#fbbf24"
-                strokeWidth={2}
+                strokeWidth={2.25}
                 dot={false}
-                activeDot={{ r: 3, fill: "#fde68a" }}
+                filter="url(#jarvisPpciGlow)"
+                activeDot={{ r: 3.5, fill: "#fde68a", stroke: "#fff", strokeWidth: 1 }}
+                isAnimationActive
+                animationDuration={1100}
               />
-            </LineChart>
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
       </div>

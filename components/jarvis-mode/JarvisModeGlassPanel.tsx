@@ -46,6 +46,16 @@ function JarvisModeGlassPanelInner({
       )}
     >
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.08] via-transparent to-cyan-500/[0.04]" />
+      <span
+        className={cn(
+          "jarvis-panel-accent-bar pointer-events-none absolute inset-x-0 top-0 h-px",
+          accent === "cyan" && "jarvis-panel-accent-bar--cyan",
+          accent === "amber" && "jarvis-panel-accent-bar--amber",
+          accent === "rose" && "jarvis-panel-accent-bar--rose",
+          accent === "neutral" && "jarvis-panel-accent-bar--neutral",
+        )}
+        aria-hidden
+      />
       <header
         className={cn(
           "relative flex shrink-0 items-center justify-between gap-1 border-b border-white/10",

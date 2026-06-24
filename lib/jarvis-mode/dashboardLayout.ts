@@ -18,7 +18,7 @@ export type JarvisWidgetRect = {
   h: number;
 };
 
-export const JARVIS_LAYOUT_STORAGE_KEY = "idik-jarvis-mode-widget-layout-v8";
+export const JARVIS_LAYOUT_STORAGE_KEY = "idik-jarvis-mode-widget-layout-v9";
 
 /** Widget laporan mengisi sisa kanvas sampai bawah (top + bottom anchor). */
 export const JARVIS_LAPORAN_ANCHOR_BOTTOM = true;
@@ -53,8 +53,8 @@ export const DEFAULT_JARVIS_WIDGET_LAYOUT: JarvisWidgetRect[] = [
   { id: "kpi-tindakan", x: 40.5, y: 0, w: 19.5, h: 11 },
   { id: "kpi-dokter", x: 60.5, y: 0, w: 19.5, h: 11 },
   { id: "kpi-laporan", x: 80.5, y: 0, w: 19, h: 11 },
-  { id: "chart-ppci", x: 0.5, y: 11, w: 99, h: 30 },
-  { id: "laporan-tindakan", x: 0.5, y: 42, w: 99, h: 57 },
+  { id: "chart-ppci", x: 0.5, y: 11, w: 99, h: 28 },
+  { id: "laporan-tindakan", x: 0.5, y: 39, w: 99, h: 60 },
 ];
 
 const SNAP_PCT = 1.5;
@@ -95,7 +95,15 @@ function migrateSavedLayout(parsed: JarvisWidgetRect[]): JarvisWidgetRect[] {
     laporan != null && (laporan.h >= 55 || laporan.y <= 35);
   const oldShortChart = chart != null && chart.h <= 22;
 
-  if (!oldSideBySide && !oldTallLaporan && !oldShortChart) return migrated;
+  const oldV8Layout =
+    chart != null &&
+    laporan != null &&
+    chart.h === 30 &&
+    laporan.y === 42;
+
+  if (!oldSideBySide && !oldTallLaporan && !oldShortChart && !oldV8Layout) {
+    return migrated;
+  }
 
   const byId = new Map(DEFAULT_JARVIS_WIDGET_LAYOUT.map((d) => [d.id, d]));
   return migrated.map((p) => {

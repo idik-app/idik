@@ -327,13 +327,13 @@ function JarvisModeLaporanTindakanInner({
 
         <div
           className={cn(
-            "flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-cyan-500/20 bg-[#061018]/80",
+            "flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-cyan-500/20 bg-[#061018]/80 jarvis-laporan-surface",
             report.tab === "analisis" && "jarvis-matrix-scroll overflow-y-auto",
           )}
         >
           <div
             className={cn(
-              "min-h-0 flex-1",
+              "relative min-h-0 flex-1",
               report.tab !== "analisis" &&
                 "jarvis-matrix-scroll overflow-x-auto overflow-y-auto",
             )}
@@ -526,7 +526,7 @@ function JarvisModeLaporanTindakanInner({
               <span className="text-cyan-200">{report.monthYyyyMm}</span>
               <span className="text-white/50"> · </span>
               Total{" "}
-              <span className="font-mono font-bold text-amber-200">
+              <span className="jarvis-total-pulse font-mono font-bold text-amber-200">
                 {report.finalMatrix.grandTotal}
               </span>{" "}
               tindakan

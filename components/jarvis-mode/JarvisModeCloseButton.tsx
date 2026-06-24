@@ -32,14 +32,42 @@ function JarvisModeCloseButtonInner({
         type="button"
         onClick={onClose}
         className={cn(
-          "jarvis-close-btn group relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+          "jarvis-close-btn jarvis-close-btn--cycle group relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
           "border border-rose-400/55 bg-gradient-to-br from-rose-500/25 via-[#1a0a12] to-cyan-950/80",
-          "text-rose-100 shadow-[0_0_14px_rgba(251,113,133,0.35)]",
-          "transition hover:border-rose-300 hover:text-white hover:shadow-[0_0_20px_rgba(251,113,133,0.55)]",
+          "text-rose-100",
+          "transition hover:border-rose-300 hover:text-white",
         )}
         aria-label="Tutup JARVIS Mode"
         title={`Tutup · auto-sleep ${seconds}s · ESC`}
       >
+        <svg
+          className="pointer-events-none absolute inset-0 -rotate-90"
+          viewBox="0 0 32 32"
+          aria-hidden
+        >
+          <circle
+            cx="16"
+            cy="16"
+            r="13"
+            fill="none"
+            stroke="rgba(255,255,255,0.12)"
+            strokeWidth="1.5"
+          />
+          <motion.circle
+            cx="16"
+            cy="16"
+            r="13"
+            fill="none"
+            stroke="rgba(0,224,255,0.75)"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeDasharray={2 * Math.PI * 13}
+            animate={{
+              strokeDashoffset: 2 * Math.PI * 13 * (1 - progress),
+            }}
+            transition={{ duration: 0.25, ease: "linear" }}
+          />
+        </svg>
         <span className="jarvis-close-pulse-ring" aria-hidden />
         <span className="jarvis-close-pulse-ring jarvis-close-pulse-ring--delay" aria-hidden />
         <motion.span

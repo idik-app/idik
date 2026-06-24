@@ -18,17 +18,16 @@ export type JarvisWidgetRect = {
   h: number;
 };
 
-export const JARVIS_LAYOUT_STORAGE_KEY = "idik-jarvis-mode-widget-layout-v6";
+export const JARVIS_LAYOUT_STORAGE_KEY = "idik-jarvis-mode-widget-layout-v7";
 
-/** Tinggi dasar kanvas; konten laporan mengalir tanpa scroll vertikal ganda. */
-export const JARVIS_CANVAS_MIN_HEIGHT_PX = 1080;
+/** Kanvas mengisi tinggi area konten konsol (bukan px tetap). */
+export const JARVIS_CANVAS_MIN_HEIGHT_PX = 0;
 
 export function computeJarvisCanvasHeightPx(
   layout: readonly JarvisWidgetRect[],
 ): number {
-  const maxBottom = layout.reduce((m, r) => Math.max(m, r.y + r.h), 0);
-  const base = Math.ceil((maxBottom / 100) * JARVIS_CANVAS_MIN_HEIGHT_PX);
-  return Math.max(JARVIS_CANVAS_MIN_HEIGHT_PX, base + 48);
+  void layout;
+  return 0;
 }
 
 const KPI_IDS = new Set<JarvisWidgetId>([
@@ -39,20 +38,20 @@ const KPI_IDS = new Set<JarvisWidgetId>([
   "kpi-laporan",
 ]);
 
-/** Tinggi minimum KPI agar isi tidak perlu di-scroll (relatif ke kanvas ~920px). */
-export const JARVIS_KPI_MIN_H = 20;
+/** Tinggi minimum KPI (relatif % kanvas). */
+export const JARVIS_KPI_MIN_H = 9;
 
-const LAPORAN_MIN_H = 36;
+const LAPORAN_MIN_H = 28;
 
-/** Tata letak default: KPI atas + grafik PPCI + laporan tindakan lebar penuh (scroll vertikal). */
+/** Satu layar: KPI ringkas + PPCI + laporan tindakan. */
 export const DEFAULT_JARVIS_WIDGET_LAYOUT: JarvisWidgetRect[] = [
-  { id: "kpi-pasien", x: 0.5, y: 0, w: 19, h: 22 },
-  { id: "kpi-gender", x: 20.5, y: 0, w: 19, h: 22 },
-  { id: "kpi-tindakan", x: 40.5, y: 0, w: 19, h: 22 },
-  { id: "kpi-dokter", x: 60.5, y: 0, w: 19, h: 22 },
-  { id: "kpi-laporan", x: 80.5, y: 0, w: 19, h: 22 },
-  { id: "chart-ppci", x: 0.5, y: 24, w: 99, h: 26 },
-  { id: "laporan-tindakan", x: 0.5, y: 52, w: 99, h: 46 },
+  { id: "kpi-pasien", x: 0.5, y: 0, w: 19.5, h: 11 },
+  { id: "kpi-gender", x: 20.5, y: 0, w: 19.5, h: 11 },
+  { id: "kpi-tindakan", x: 40.5, y: 0, w: 19.5, h: 11 },
+  { id: "kpi-dokter", x: 60.5, y: 0, w: 19.5, h: 11 },
+  { id: "kpi-laporan", x: 80.5, y: 0, w: 19, h: 11 },
+  { id: "chart-ppci", x: 0.5, y: 12, w: 99, h: 17 },
+  { id: "laporan-tindakan", x: 0.5, y: 30, w: 99, h: 69 },
 ];
 
 const SNAP_PCT = 1.5;

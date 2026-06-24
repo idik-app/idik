@@ -2,15 +2,15 @@
 
 import { memo, useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Activity, Radio } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 type Props = {
   lastSyncAt?: string | null;
+  compact?: boolean;
 };
 
-function JarvisModeSystemBarInner({ lastSyncAt }: Props) {
+function JarvisModeSystemBarInner({ lastSyncAt, compact = false }: Props) {
   const [isOnline, setIsOnline] = useState(true);
   const [pulse, setPulse] = useState(false);
 
@@ -28,6 +28,34 @@ function JarvisModeSystemBarInner({ lastSyncAt }: Props) {
     const id = window.setInterval(() => setPulse((p) => !p), 1200);
     return () => clearInterval(id);
   }, []);
+
+  if (compact) {
+    return (
+      <div className="flex items-center justify-between gap-2 text-[8px] font-semibold uppercase tracking-wide text-white/75">
+        <div className="flex items-center gap-1.5">
+          <motion.span
+            className={cn(
+              "inline-block h-1.5 w-1.5 rounded-full",
+              isOnline ? "bg-emerald-400" : "bg-rose-400",
+            )}
+            animate={
+              isOnline
+                ? { scale: pulse ? 1.2 : 1, opacity: pulse ? 1 : 0.7 }
+                : undefined
+            }
+          />
+          <span className="text-white/85 dark:text-white">
+            Sync{lastSyncAt ? ` ${lastSyncAt}` : ""}
+          </span>
+          <span className="text-white/40">·</span>
+          <span className={isOnline ? "text-emerald-300" : "text-rose-300"}>
+            FHIR
+          </span>
+        </div>
+        <span className="text-cyan-300/80">IDIK</span>
+      </div>
+    );
+  }
 
   return (
     <footer
@@ -50,8 +78,7 @@ function JarvisModeSystemBarInner({ lastSyncAt }: Props) {
             }
             transition={{ duration: 0.6 }}
           />
-          <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-white dark:text-white">
-            <Activity className="h-3.5 w-3.5 text-cyan-300" aria-hidden />
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-white dark:text-white">
             Live System Sync
           </span>
           {lastSyncAt ? (
@@ -60,26 +87,16 @@ function JarvisModeSystemBarInner({ lastSyncAt }: Props) {
             </span>
           ) : null}
         </div>
-
-        <div className="hidden h-4 w-px bg-white/15 sm:block" aria-hidden />
-
-        <div className="flex items-center gap-2">
-          <Radio className="h-3.5 w-3.5 text-cyan-300" aria-hidden />
-          <span className="text-xs text-white/85 dark:text-white/90">
-            {isOnline ? (
-              <>
-                <span className="font-semibold text-emerald-300">Active</span>
-                <span className="text-white/70"> (SATUSEHAT FHIR)</span>
-              </>
-            ) : (
-              <span className="font-semibold text-rose-300">Disconnected</span>
-            )}
-          </span>
-        </div>
+        <span className="text-xs text-white/85 dark:text-white/90">
+          {isOnline ? (
+            <span className="font-semibold text-emerald-300">FHIR Active</span>
+          ) : (
+            <span className="font-semibold text-rose-300">Offline</span>
+          )}
+        </span>
       </div>
-
       <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80 dark:text-white/85">
-        IDIK · Autonomous Kernel
+        IDIK
       </p>
     </footer>
   );

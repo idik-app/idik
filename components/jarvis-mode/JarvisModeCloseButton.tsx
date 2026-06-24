@@ -10,18 +10,38 @@ type Props = {
   onClose: () => void;
   autoSleepRemainingMs: number;
   autoSleepMs: number;
+  compact?: boolean;
 };
 
 function JarvisModeCloseButtonInner({
   onClose,
   autoSleepRemainingMs,
   autoSleepMs,
+  compact = false,
 }: Props) {
   const progress =
     autoSleepMs > 0
       ? Math.max(0, Math.min(1, autoSleepRemainingMs / autoSleepMs))
       : 1;
   const circumference = 2 * Math.PI * 20;
+  const seconds = Math.ceil(autoSleepRemainingMs / 1000);
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={onClose}
+        className={cn(
+          "relative flex h-7 w-7 items-center justify-center rounded-md border border-white/20",
+          "bg-black/40 text-cyan-100 transition hover:border-cyan-400/45 hover:text-white",
+        )}
+        aria-label="Tutup JARVIS Mode"
+        title={`Tutup (${seconds}s)`}
+      >
+        <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+      </button>
+    );
+  }
 
   return (
     <div className="flex flex-col items-end gap-2">
@@ -74,7 +94,7 @@ function JarvisModeCloseButtonInner({
         <span className="text-cyan-300/90">(or Move Mouse)</span>
       </p>
       <p className="font-mono text-[9px] tabular-nums text-cyan-300/80">
-        {Math.ceil(autoSleepRemainingMs / 1000)}s
+        {seconds}s
       </p>
     </div>
   );

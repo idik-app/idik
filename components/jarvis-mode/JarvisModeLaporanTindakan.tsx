@@ -44,10 +44,10 @@ function formatCell(n: number): string {
 }
 
 const TAB_ITEMS: { id: TindakanLaporanTab; label: string }[] = [
-  { id: "jenis", label: "Prosedur (Detail)" },
-  { id: "kategori", label: "Kategori (Grup)" },
-  { id: "cara", label: "Cara bayar" },
-  { id: "analisis", label: "Analisis Gabungan" },
+  { id: "jenis", label: "Prosedur" },
+  { id: "kategori", label: "Kategori" },
+  { id: "cara", label: "Bayar" },
+  { id: "analisis", label: "Analisis" },
 ];
 
 function MatrixTable({
@@ -58,7 +58,7 @@ function MatrixTable({
   rowHeader: string;
 }) {
   return (
-    <table className="w-max min-w-full border-collapse text-[10px]">
+    <table className="w-max min-w-full border-collapse text-[8px]">
       <thead>
         <tr className="bg-cyan-950/40">
           <th
@@ -238,42 +238,23 @@ function JarvisModeLaporanTindakanInner({
 
   return (
     <JarvisModeGlassPanel
-      title="Laporan tindakan"
+      title="Laporan"
       accent="cyan"
       dragHandle
-      className="h-auto overflow-visible"
+      className="h-full"
       compact
-      bodyClassName="flex flex-col overflow-visible p-2"
+      bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden p-1"
     >
-      <div className="flex flex-col gap-1.5">
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-1">
-          {report.reportRowsCatchUp && !loading ? (
-            <p className="text-[8px] font-semibold text-white/70">
-              Menyesuaikan data…
-            </p>
-          ) : (
-            <span className="text-[8px] text-white/50"> </span>
-          )}
-          <ReportExportActionBar
-            disabled={loading || !report.ym}
-            empty={report.exportEmpty}
-            fileNameBase={report.exportFileBase}
-            buildHtml={report.buildExportHtml}
-            buildWhatsAppText={report.buildExportWhatsApp}
-            onDownloadExcel={report.handleDownloadExcel}
-            className="shrink-0"
-          />
-        </div>
-
-        <div className="flex shrink-0 flex-wrap items-end gap-1.5 rounded-lg border border-cyan-500/20 bg-black/25 p-1.5">
-          <div className="flex flex-wrap rounded-md border border-cyan-500/25 bg-black/30 p-0.5">
+      <div className="flex h-full min-h-0 flex-col gap-1">
+        <div className="flex shrink-0 flex-wrap items-center gap-1 rounded border border-cyan-500/20 bg-black/25 p-1">
+          <div className="flex flex-wrap rounded border border-cyan-500/25 bg-black/30 p-0.5">
             {TAB_ITEMS.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => handleTabChange(item.id)}
                 className={cn(
-                  "rounded px-1.5 py-0.5 text-[8px] font-extrabold transition",
+                  "rounded px-1 py-0.5 text-[7px] font-extrabold transition",
                   report.tab === item.id
                     ? "bg-cyan-600 text-white"
                     : "text-white/75 hover:bg-white/10 dark:text-white/85",
@@ -284,36 +265,37 @@ function JarvisModeLaporanTindakanInner({
             ))}
           </div>
 
-          <label className="flex flex-col gap-0.5">
-            <span className="text-[7px] font-bold uppercase tracking-wide text-white/70">
-              Bulan laporan
-            </span>
-            <input
-              type="month"
-              value={report.monthYyyyMm}
-              onChange={(e) => report.setMonthYyyyMm(e.target.value)}
-              className="rounded border border-cyan-500/30 bg-black/40 px-1.5 py-0.5 font-mono text-[9px] text-white [color-scheme:dark]"
-            />
-          </label>
+          <input
+            type="month"
+            value={report.monthYyyyMm}
+            onChange={(e) => report.setMonthYyyyMm(e.target.value)}
+            className="rounded border border-cyan-500/30 bg-black/40 px-1 py-0.5 font-mono text-[8px] text-white [color-scheme:dark]"
+            title="Bulan laporan"
+          />
 
-          <div className="min-w-[100px] flex-1">
-            <span className="text-[7px] font-bold uppercase tracking-wide text-white/70">
-              Cari tindakan / kategori
-            </span>
-            <div className="relative mt-0.5">
-              <Search
-                className="pointer-events-none absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-cyan-400/70"
-                aria-hidden
-              />
-              <input
-                type="search"
-                value={report.searchQuery}
-                onChange={(e) => report.setSearchQuery(e.target.value)}
-                placeholder="Ketik nama…"
-                className="w-full rounded border border-cyan-500/25 bg-black/40 py-0.5 pl-6 pr-1.5 text-[9px] text-white placeholder:text-white/50 dark:placeholder:text-white/70"
-              />
-            </div>
+          <div className="relative min-w-[64px] flex-1">
+            <Search
+              className="pointer-events-none absolute left-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-cyan-400/70"
+              aria-hidden
+            />
+            <input
+              type="search"
+              value={report.searchQuery}
+              onChange={(e) => report.setSearchQuery(e.target.value)}
+              placeholder="Cari…"
+              className="w-full rounded border border-cyan-500/25 bg-black/40 py-0.5 pl-5 pr-1 text-[8px] text-white placeholder:text-white/50"
+            />
           </div>
+
+          <ReportExportActionBar
+            disabled={loading || !report.ym}
+            empty={report.exportEmpty}
+            fileNameBase={report.exportFileBase}
+            buildHtml={report.buildExportHtml}
+            buildWhatsAppText={report.buildExportWhatsApp}
+            onDownloadExcel={report.handleDownloadExcel}
+            className="shrink-0"
+          />
         </div>
 
         {report.tab === "cara" && report.laporanCaraBelumTerisi.count > 0 ? (
@@ -334,10 +316,10 @@ function JarvisModeLaporanTindakanInner({
 
         <div
           className={cn(
-            "rounded-lg border border-cyan-500/20 bg-black/20",
+            "min-h-0 flex-1 rounded border border-cyan-500/20 bg-black/20",
             report.tab === "analisis"
-              ? "flex flex-col"
-              : "jarvis-matrix-scroll overflow-x-auto overflow-y-visible",
+              ? "flex flex-col overflow-hidden"
+              : "jarvis-matrix-scroll overflow-x-auto overflow-y-auto",
           )}
         >
           {loading ? (

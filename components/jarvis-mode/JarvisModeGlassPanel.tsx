@@ -39,7 +39,7 @@ function JarvisModeGlassPanelInner({
   return (
     <div
       className={cn(
-        "jarvis-glass relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border",
+        "jarvis-glass relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border",
         "bg-white/[0.06] backdrop-blur-xl",
         accentBorder[accent],
         className,
@@ -49,14 +49,14 @@ function JarvisModeGlassPanelInner({
       <header
         className={cn(
           "relative flex shrink-0 items-center justify-between gap-1 border-b border-white/10",
-          kpi ? "px-2 py-1" : compact ? "px-2.5 py-1.5" : "px-3 py-2 sm:px-4 sm:py-2.5",
+          kpi ? "px-1.5 py-0.5" : compact ? "px-2 py-1" : "px-3 py-2 sm:px-4 sm:py-2.5",
         )}
       >
         <h3
           className={cn(
             "min-w-0 font-semibold uppercase tracking-[0.14em] text-white dark:text-white",
             kpi
-              ? "text-[8px] leading-tight sm:text-[9px]"
+              ? "text-[7px] leading-tight"
               : compact
                 ? "truncate text-[9px]"
                 : "truncate text-[10px] sm:text-[11px]",
@@ -78,7 +78,7 @@ function JarvisModeGlassPanelInner({
           "relative flex min-h-0 flex-1 flex-col",
           bodyClassName ??
             (kpi
-              ? "overflow-hidden p-2"
+              ? "overflow-hidden p-1"
               : compact
                 ? "overflow-auto p-2.5"
                 : "overflow-auto p-3 sm:p-4"),

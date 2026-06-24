@@ -35,14 +35,15 @@
   );
 }
 
-/** Scroll horizontal tipis untuk matriks tanggal — tanpa scroll vertikal ganda. */
+/** Scroll vertikal hanya di dalam matriks laporan (bukan konsol). */
 .jarvis-matrix-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 210, 255, 0.4) transparent;
+  scrollbar-color: rgba(0, 210, 255, 0.35) rgba(0, 0, 0, 0.2);
 }
 
 .jarvis-matrix-scroll::-webkit-scrollbar {
-  height: 5px;
+  width: 4px;
+  height: 4px;
 }
 
 .jarvis-matrix-scroll::-webkit-scrollbar-thumb {

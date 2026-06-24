@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, LazyMotion, domAnimation, motion } from "framer-motion";
+import { AnimatePresence, LazyMotion, domAnimation } from "framer-motion";
 
 import { useJarvisModeOptional } from "@/contexts/JarvisModeContext";
 import { emptyTindakanKpiStats } from "@/app/dashboard/layanan/tindakan/hooks/useTindakanStats";
+import { resetJarvisWidgetLayout } from "@/lib/jarvis-mode/dashboardLayout";
 import { Z_INDEX_VALUES } from "@/lib/ui/layers";
+import { cn } from "@/lib/utils";
 
 import JarvisModeCloseButton from "./JarvisModeCloseButton";
 import JarvisModeConsoleShell from "./JarvisModeConsoleShell";
@@ -24,9 +26,9 @@ function useLiveClock(active: boolean) {
 
   return useMemo(() => {
     const date = now.toLocaleDateString("id-ID", {
-      weekday: "long",
+      weekday: "short",
       day: "numeric",
-      month: "long",
+      month: "short",
       year: "numeric",
       timeZone: "Asia/Jakarta",
     });
@@ -41,16 +43,10 @@ function useLiveClock(active: boolean) {
   }, [now]);
 }
 
-const STATUS_LINES = [
-  "MONITORING CATH LAB — STANDBY",
-  "LIVE SYNC GOOGLE SHEETS / SUPABASE",
-  "SATUSEHAT FHIR — CHANNEL ACTIVE",
-] as const;
-
 export default function JarvisModeOverlay() {
   const ctx = useJarvisModeOptional();
   const [mounted, setMounted] = useState(false);
-  const [statusIdx, setStatusIdx] = useState(0);
+  const [layoutEpoch, setLayoutEpoch] = useState(0);
   const isActive = ctx?.isActive ?? false;
   const data = ctx?.data;
   const exit = ctx?.exit;
@@ -66,15 +62,6 @@ export default function JarvisModeOverlay() {
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  useEffect(() => {
-    if (!isActive) return;
-    const id = window.setInterval(
-      () => setStatusIdx((i) => (i + 1) % STATUS_LINES.length),
-      4000,
-    );
-    return () => clearInterval(id);
-  }, [isActive]);
 
   useEffect(() => {
     if (!isActive || !exit) return;
@@ -144,50 +131,58 @@ export default function JarvisModeOverlay() {
             <JarvisModeConsoleShell
               isActive={isActive}
               header={
-                <div className="flex flex-wrap items-start justify-between gap-2 pr-1">
+                <div className="flex min-w-0 items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-[9px] font-bold uppercase tracking-[0.28em] text-cyan-300/90">
-                      JARVIS Mode
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">
+                      JARVIS
                     </p>
-                    <h2 className="text-sm font-bold uppercase tracking-[0.1em] text-white sm:text-base">
-                      Intel · Standby Status
-                    </h2>
-                    <p className="mt-0.5 truncate text-[10px] text-white/75 dark:text-white/90">
+                    <p className="truncate text-[9px] text-white/80 dark:text-white/90">
                       {locationLabel}
                     </p>
-                    <motion.p
-                      key={statusIdx}
-                      className="mt-1 font-mono text-[9px] uppercase tracking-wider text-cyan-400/90"
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                    >
-                      ▸ {STATUS_LINES[statusIdx]}
-                    </motion.p>
                   </div>
-                  <div className="hidden text-right sm:block">
-                    <p className="text-[9px] capitalize text-white/70">{clock.date}</p>
-                    <p className="font-mono text-sm font-semibold tabular-nums text-cyan-200">
+                  <p className="hidden shrink-0 text-right font-mono text-[9px] tabular-nums text-cyan-200/90 sm:block">
+                    <span className="block text-white/60">{clock.date}</span>
+                    <span className="text-[11px] font-semibold text-cyan-200">
                       {clock.time}
-                    </p>
-                  </div>
-                  <div className="pointer-events-auto">
+                    </span>
+                  </p>
+                </div>
+              }
+              headerActions={
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetJarvisWidgetLayout();
+                      setLayoutEpoch((n) => n + 1);
+                    }}
+                    className={cn(
+                      "rounded border border-white/15 px-1.5 py-1 text-[8px] font-bold uppercase tracking-wide",
+                      "text-white/75 transition hover:border-cyan-400/40 hover:text-white",
+                    )}
+                    title="Reset tata letak widget"
+                  >
+                    Reset
+                  </button>
+                  <div className="pointer-events-auto pl-0.5">
                     <JarvisModeCloseButton
                       onClose={() => exit?.()}
                       autoSleepRemainingMs={autoSleepRemainingMs}
                       autoSleepMs={autoSleepMs}
+                      compact
                     />
                   </div>
-                </div>
+                </>
               }
               footer={
                 <div className="pointer-events-auto">
-                  <JarvisModeSystemBar lastSyncAt={data?.lastSyncAt} />
+                  <JarvisModeSystemBar lastSyncAt={data?.lastSyncAt} compact />
                 </div>
               }
             >
-              <div className="pointer-events-auto">
+              <div className="pointer-events-auto h-full min-h-0">
                 <JarvisModeDraggableCanvas
+                  key={layoutEpoch}
                   rows={rows}
                   stats={stats}
                   filtered={data?.filtered}

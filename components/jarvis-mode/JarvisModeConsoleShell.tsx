@@ -45,6 +45,7 @@ type Props = {
   children: ReactNode;
   header: ReactNode;
   footer: ReactNode;
+  headerActions?: ReactNode;
   isActive: boolean;
 };
 
@@ -52,6 +53,7 @@ function JarvisModeConsoleShellInner({
   children,
   header,
   footer,
+  headerActions,
   isActive,
 }: Props) {
   const dragControls = useDragControls();
@@ -99,7 +101,7 @@ function JarvisModeConsoleShellInner({
   };
 
   const shellHeight =
-    size === "expanded" ? "min(90vh, 920px)" : "min(58vh, 480px)";
+    size === "expanded" ? "min(92vh, 940px)" : "min(58vh, 480px)";
 
   if (minimized) {
     return (
@@ -156,17 +158,18 @@ function JarvisModeConsoleShellInner({
         <JarvisModeBootSequence active={booting && isActive} onComplete={onBootComplete} />
 
         <header
-          className="relative z-20 flex shrink-0 cursor-grab items-start justify-between gap-2 border-b border-cyan-500/20 bg-black/30 px-3 py-2.5 active:cursor-grabbing sm:px-4"
+          className="relative z-20 flex shrink-0 cursor-grab items-center justify-between gap-1.5 border-b border-cyan-500/20 bg-black/30 px-2 py-1.5 active:cursor-grabbing sm:px-2.5"
           onPointerDown={(e) => {
             if ((e.target as HTMLElement).closest("button")) return;
             dragControls.start(e);
           }}
         >
-          <div className="flex min-w-0 flex-1 items-start gap-2">
-            <span className="jarvis-core-orb mt-1 h-2.5 w-2.5 shrink-0 rounded-full" />
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            <span className="jarvis-core-orb h-2 w-2 shrink-0 rounded-full" />
             <div className="min-w-0 flex-1">{header}</div>
           </div>
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-0.5">
+            {headerActions}
             <button
               type="button"
               onClick={toggleSize}
@@ -190,9 +193,9 @@ function JarvisModeConsoleShellInner({
           </div>
         </header>
 
-        <div className="jarvis-console-scroll relative z-10 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 sm:px-4 sm:py-3">
+        <div className="relative z-10 min-h-0 flex-1 overflow-hidden px-2 py-1 sm:px-2.5 sm:py-1.5">
           <motion.div
-            className="min-h-0"
+            className="h-full min-h-0"
             initial={false}
             animate={{ opacity: booting ? 0.3 : 1 }}
           >
@@ -200,7 +203,7 @@ function JarvisModeConsoleShellInner({
           </motion.div>
         </div>
 
-        <footer className="relative z-20 shrink-0 border-t border-cyan-500/15 bg-black/25 px-3 py-2 sm:px-4">
+        <footer className="relative z-20 shrink-0 border-t border-cyan-500/15 bg-black/25 px-2 py-1 sm:px-2.5">
           {footer}
         </footer>
       </div>

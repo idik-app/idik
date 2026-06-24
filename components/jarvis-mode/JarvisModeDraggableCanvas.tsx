@@ -22,10 +22,8 @@ import {
 } from "@/lib/jarvis-mode/computeJarvisModeData";
 import {
   clampJarvisRect,
-  computeJarvisCanvasHeightPx,
   DEFAULT_JARVIS_WIDGET_LAYOUT,
   loadJarvisWidgetLayout,
-  resetJarvisWidgetLayout,
   saveJarvisWidgetLayout,
   type JarvisWidgetId,
   type JarvisWidgetRect,
@@ -61,19 +59,16 @@ function DraggableWidget({
   children: ReactNode;
 }) {
   const dragControls = useDragControls();
-  const flowContent = rect.id === "laporan-tindakan";
 
   return (
     <motion.div
-      className={cn("absolute touch-none", flowContent && "overflow-visible")}
+      className="absolute touch-none"
       style={{
         left: `${rect.x}%`,
         top: `${rect.y}%`,
         width: `${rect.w}%`,
-        ...(flowContent
-          ? { minHeight: `${rect.h}%`, height: "auto" }
-          : { height: `${rect.h}%` }),
-        padding: 5,
+        height: `${rect.h}%`,
+        padding: 2,
       }}
       drag
       dragControls={dragControls}
@@ -101,14 +96,14 @@ function DraggableWidget({
       transition={{ type: "spring", stiffness: 320, damping: 28, delay: index * 0.06 }}
     >
       <motion.div
-        className={cn("w-full", flowContent ? "h-auto" : "h-full")}
+        className="h-full w-full"
         animate={undefined}
         style={{ y: 0 }}
         whileHover={{ y: -2 }}
         transition={{ type: "spring", stiffness: 300, damping: 20 }}
       >
         <div
-          className={cn("w-full", flowContent ? "h-auto" : "h-full")}
+          className="h-full w-full"
           onPointerDown={(e) => {
             const target = e.target as HTMLElement;
             if (
@@ -141,10 +136,10 @@ function KpiValue({
 }) {
   const sizeClass =
     size === "sm"
-      ? "text-xl sm:text-2xl"
+      ? "text-base sm:text-lg"
       : size === "md"
-        ? "text-2xl sm:text-3xl"
-        : "text-3xl sm:text-4xl";
+        ? "text-lg sm:text-xl"
+        : "text-2xl sm:text-3xl";
   return (
     <p
       className={cn(
@@ -178,11 +173,6 @@ function JarvisModeDraggableCanvasInner({
   useEffect(() => {
     setLayout(loadJarvisWidgetLayout());
   }, []);
-
-  const canvasHeight = useMemo(
-    () => computeJarvisCanvasHeightPx(layout),
-    [layout],
-  );
 
   const onMove = useCallback((id: JarvisWidgetId, next: JarvisWidgetRect) => {
     setLayout((prev) => {
@@ -222,11 +212,11 @@ function JarvisModeDraggableCanvasInner({
     switch (id) {
       case "kpi-pasien":
         return (
-          <JarvisModeGlassPanel title="KPI Total Pasien" kpi>
-            <div className="flex h-full min-h-0 flex-col justify-between gap-1">
-              <KpiValue value={totalPasien} loading={loading} size="md" />
-              <p className="text-[9px] leading-tight text-white/75 dark:text-white/90">
-                Hari ini:{" "}
+          <JarvisModeGlassPanel title="Pasien" kpi>
+            <div className="flex h-full min-h-0 flex-col justify-between gap-0.5">
+              <KpiValue value={totalPasien} loading={loading} size="sm" />
+              <p className="text-[8px] text-white/75 dark:text-white/90">
+                Hari ini{" "}
                 <span className="font-mono font-semibold text-cyan-200">
                   {loading ? "—" : pasienHariIni}
                 </span>
@@ -236,42 +226,35 @@ function JarvisModeDraggableCanvasInner({
         );
       case "kpi-gender":
         return (
-          <JarvisModeGlassPanel title="Total Gender Hari Ini" kpi>
-            <div className="flex h-full min-h-0 flex-col gap-1.5">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1">
-                  <Mars className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
+          <JarvisModeGlassPanel title="Gender" kpi>
+            <div className="flex h-full min-h-0 flex-col gap-0.5">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-0.5">
+                  <Mars className="h-3 w-3 shrink-0 text-cyan-400" />
                   <KpiValue
                     value={gender.laki}
                     loading={loading}
                     size="sm"
-                    className="text-cyan-300"
+                    className="text-base text-cyan-300"
                   />
                 </div>
-                <div className="flex items-center gap-1">
-                  <Venus className="h-3.5 w-3.5 shrink-0 text-pink-400" />
+                <div className="flex items-center gap-0.5">
+                  <Venus className="h-3 w-3 shrink-0 text-pink-400" />
                   <KpiValue
                     value={gender.perempuan}
                     loading={loading}
                     size="sm"
-                    className="text-pink-300"
+                    className="text-base text-pink-300"
                   />
                 </div>
               </div>
-              <ul className="min-h-0 flex-1 space-y-0.5">
-                {todayPatients.map((p) => (
+              <ul className="min-h-0 flex-1 space-y-0">
+                {todayPatients.slice(0, 3).map((p) => (
                   <li
                     key={p.id}
-                    className="flex items-start gap-1 text-[9px] leading-tight text-white/85 dark:text-white/90"
+                    className="truncate text-[8px] leading-tight text-white/85 dark:text-white/90"
                   >
-                    {p.jenis_kelamin === "L" ? (
-                      <Mars className="mt-0.5 h-2.5 w-2.5 shrink-0 text-cyan-400" />
-                    ) : p.jenis_kelamin === "P" ? (
-                      <Venus className="mt-0.5 h-2.5 w-2.5 shrink-0 text-pink-400" />
-                    ) : (
-                      <span className="mt-0.5 h-2.5 w-2.5 shrink-0" />
-                    )}
-                    <span className="line-clamp-2 break-words">{p.nama}</span>
+                    {p.nama}
                   </li>
                 ))}
               </ul>
@@ -280,14 +263,14 @@ function JarvisModeDraggableCanvasInner({
         );
       case "kpi-tindakan":
         return (
-          <JarvisModeGlassPanel title="Total Tindakan Hari Ini" kpi>
-            <div className="flex h-full min-h-0 flex-col gap-1">
-              <KpiValue value={totalTindakan} loading={loading} size="md" />
-              <ul className="min-h-0 flex-1 space-y-0.5">
-                {(filtered?.tindakanBreakdown ?? []).map((line) => (
+          <JarvisModeGlassPanel title="Tindakan" kpi>
+            <div className="flex h-full min-h-0 flex-col gap-0.5">
+              <KpiValue value={totalTindakan} loading={loading} size="sm" />
+              <ul className="min-h-0 flex-1 space-y-0">
+                {(filtered?.tindakanBreakdown ?? []).slice(0, 3).map((line) => (
                   <li
                     key={line}
-                    className="font-mono text-[9px] leading-tight text-white/80 dark:text-white/90"
+                    className="truncate font-mono text-[8px] leading-tight text-white/80 dark:text-white/90"
                   >
                     {line}
                   </li>
@@ -298,19 +281,16 @@ function JarvisModeDraggableCanvasInner({
         );
       case "kpi-dokter":
         return (
-          <JarvisModeGlassPanel title="Total Dokter Aktif" kpi>
-            <div className="flex h-full min-h-0 flex-col gap-1">
-              <KpiValue value={totalDokter} loading={loading} size="md" />
-              <ul className="min-h-0 flex-1 space-y-1">
-                {activeDoctors.map((d) => (
-                  <li key={d.nama} className="text-[9px] leading-tight">
-                    <p className="line-clamp-2 break-words text-white dark:text-white">
-                      {d.nama}
-                    </p>
-                    <span className="mt-0.5 inline-flex items-center gap-1 text-emerald-300">
-                      <span className="h-1 w-1 rounded-full bg-emerald-400" />
-                      Active
-                    </span>
+          <JarvisModeGlassPanel title="Dokter" kpi>
+            <div className="flex h-full min-h-0 flex-col gap-0.5">
+              <KpiValue value={totalDokter} loading={loading} size="sm" />
+              <ul className="min-h-0 flex-1 space-y-0">
+                {activeDoctors.slice(0, 2).map((d) => (
+                  <li
+                    key={d.nama}
+                    className="truncate text-[8px] leading-tight text-white dark:text-white"
+                  >
+                    {d.nama}
                   </li>
                 ))}
               </ul>
@@ -319,12 +299,9 @@ function JarvisModeDraggableCanvasInner({
         );
       case "kpi-laporan":
         return (
-          <JarvisModeGlassPanel title="Laporan Terpetakan" kpi accent="neutral">
-            <div className="flex h-full min-h-0 flex-col justify-between gap-1">
-              <KpiValue value={laporanMapped} loading={loading} size="md" />
-              <p className="text-[9px] leading-tight text-white/75 dark:text-white/90">
-                Dokumen PCI · Google Sheets / Drive
-              </p>
+          <JarvisModeGlassPanel title="PCI Map" kpi accent="neutral">
+            <div className="flex h-full min-h-0 flex-col justify-center">
+              <KpiValue value={laporanMapped} loading={loading} size="sm" />
             </div>
           </JarvisModeGlassPanel>
         );
@@ -336,6 +313,7 @@ function JarvisModeDraggableCanvasInner({
             monthly={ppciMonthly}
             period={ppciPeriod}
             onPeriodChange={setPpciPeriod}
+            compact
           />
         );
       case "laporan-tindakan":
@@ -387,27 +365,10 @@ function JarvisModeDraggableCanvasInner({
   };
 
   return (
-    <div className="relative pb-2">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-300/80 dark:text-white/85">
-          Seret panel · gulir konsol untuk laporan lengkap
-        </p>
-        <button
-          type="button"
-          onClick={() => setLayout(resetJarvisWidgetLayout())}
-          className="rounded-md border border-white/15 bg-black/30 px-2 py-1 text-[10px] uppercase tracking-wide text-white/80 transition hover:border-cyan-400/40 hover:text-white"
-        >
-          Reset layout
-        </button>
-      </div>
+    <div className="relative h-full min-h-0">
       <div
         ref={containerRef}
-        className="relative overflow-x-hidden overflow-y-visible rounded-xl border border-cyan-500/15 bg-black/25"
-        style={{
-          minHeight: canvasHeight,
-          height: canvasHeight,
-          paddingBottom: 16,
-        }}
+        className="relative h-full min-h-0 overflow-hidden rounded-lg border border-cyan-500/15 bg-black/25"
       >
         <div
           className="pointer-events-none absolute inset-0 opacity-30"

@@ -39,7 +39,7 @@ function JarvisModeGlassPanelInner({
   return (
     <div
       className={cn(
-        "jarvis-glass relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border",
+        "jarvis-glass jarvis-widget-panel relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border",
         "bg-white/[0.06] backdrop-blur-xl",
         accentBorder[accent],
         className,

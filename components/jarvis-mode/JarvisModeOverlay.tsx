@@ -133,46 +133,47 @@ export default function JarvisModeOverlay() {
               header={
                 <div className="flex min-w-0 items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">
-                      JARVIS
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">
+                        JARVIS
+                      </p>
+                      <span className="jarvis-live-badge">LIVE</span>
+                    </div>
                     <p className="truncate text-[9px] text-white/80 dark:text-white/90">
                       {locationLabel}
                     </p>
                   </div>
-                  <p className="hidden shrink-0 text-right font-mono text-[9px] tabular-nums text-cyan-200/90 sm:block">
+                  <p className="hidden shrink-0 text-right font-mono text-[9px] tabular-nums sm:block">
                     <span className="block text-white/60">{clock.date}</span>
-                    <span className="text-[11px] font-semibold text-cyan-200">
+                    <span className="jarvis-clock-pulse text-[11px] font-semibold text-cyan-200">
                       {clock.time}
                     </span>
                   </p>
                 </div>
               }
               headerActions={
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      resetJarvisWidgetLayout();
-                      setLayoutEpoch((n) => n + 1);
-                    }}
-                    className={cn(
-                      "rounded border border-white/15 px-1.5 py-1 text-[8px] font-bold uppercase tracking-wide",
-                      "text-white/75 transition hover:border-cyan-400/40 hover:text-white",
-                    )}
-                    title="Reset tata letak widget"
-                  >
-                    Reset
-                  </button>
-                  <div className="pointer-events-auto pl-0.5">
-                    <JarvisModeCloseButton
-                      onClose={() => exit?.()}
-                      autoSleepRemainingMs={autoSleepRemainingMs}
-                      autoSleepMs={autoSleepMs}
-                      compact
-                    />
-                  </div>
-                </>
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetJarvisWidgetLayout();
+                    setLayoutEpoch((n) => n + 1);
+                  }}
+                  className={cn(
+                    "rounded border border-white/15 px-1.5 py-1 text-[8px] font-bold uppercase tracking-wide",
+                    "text-white/75 transition hover:border-cyan-400/40 hover:text-white",
+                  )}
+                  title="Reset tata letak widget"
+                >
+                  Reset
+                </button>
+              }
+              headerClose={
+                <JarvisModeCloseButton
+                  onClose={() => exit?.()}
+                  autoSleepRemainingMs={autoSleepRemainingMs}
+                  autoSleepMs={autoSleepMs}
+                  compact
+                />
               }
               footer={
                 <div className="pointer-events-auto">

@@ -32,13 +32,27 @@ function JarvisModeCloseButtonInner({
         type="button"
         onClick={onClose}
         className={cn(
-          "relative flex h-7 w-7 items-center justify-center rounded-md border border-white/20",
-          "bg-black/40 text-cyan-100 transition hover:border-cyan-400/45 hover:text-white",
+          "jarvis-close-btn group relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+          "border border-rose-400/55 bg-gradient-to-br from-rose-500/25 via-[#1a0a12] to-cyan-950/80",
+          "text-rose-100 shadow-[0_0_14px_rgba(251,113,133,0.35)]",
+          "transition hover:border-rose-300 hover:text-white hover:shadow-[0_0_20px_rgba(251,113,133,0.55)]",
         )}
         aria-label="Tutup JARVIS Mode"
-        title={`Tutup (${seconds}s)`}
+        title={`Tutup · auto-sleep ${seconds}s · ESC`}
       >
-        <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+        <span className="jarvis-close-pulse-ring" aria-hidden />
+        <span className="jarvis-close-pulse-ring jarvis-close-pulse-ring--delay" aria-hidden />
+        <motion.span
+          className="absolute inset-0 rounded-full bg-rose-400/20"
+          animate={{ opacity: [0.25, 0.55, 0.25], scale: [0.92, 1, 0.92] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
+          aria-hidden
+        />
+        <X
+          className="relative z-[1] h-3.5 w-3.5 transition group-hover:scale-110"
+          strokeWidth={2.75}
+        />
+        <span className="sr-only">Tutup</span>
       </button>
     );
   }

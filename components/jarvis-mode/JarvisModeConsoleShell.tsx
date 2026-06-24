@@ -46,6 +46,8 @@ type Props = {
   header: ReactNode;
   footer: ReactNode;
   headerActions?: ReactNode;
+  /** Tombol tutup — selalu di paling kanan header. */
+  headerClose?: ReactNode;
   isActive: boolean;
 };
 
@@ -54,6 +56,7 @@ function JarvisModeConsoleShellInner({
   header,
   footer,
   headerActions,
+  headerClose,
   isActive,
 }: Props) {
   const dragControls = useDragControls();
@@ -168,12 +171,12 @@ function JarvisModeConsoleShellInner({
             <span className="jarvis-core-orb h-2 w-2 shrink-0 rounded-full" />
             <div className="min-w-0 flex-1">{header}</div>
           </div>
-          <div className="flex shrink-0 items-center gap-0.5">
+          <div className="flex shrink-0 items-center gap-1">
             {headerActions}
             <button
               type="button"
               onClick={toggleSize}
-              className="rounded-md border border-white/15 p-1.5 text-cyan-300/80 hover:border-cyan-400/40 hover:text-white"
+              className="rounded-md border border-white/15 p-1.5 text-cyan-300/80 transition hover:border-cyan-400/40 hover:text-white"
               title={size === "expanded" ? "Perkecil" : "Perbesar"}
             >
               {size === "expanded" ? (
@@ -185,11 +188,16 @@ function JarvisModeConsoleShellInner({
             <button
               type="button"
               onClick={() => setMinimized(true)}
-              className="rounded-md border border-white/15 p-1.5 text-cyan-300/80 hover:border-cyan-400/40 hover:text-white"
+              className="rounded-md border border-white/15 p-1.5 text-cyan-300/80 transition hover:border-cyan-400/40 hover:text-white"
               title="Minimize ke pojok"
             >
               <GripHorizontal className="h-3.5 w-3.5" />
             </button>
+            {headerClose ? (
+              <div className="pointer-events-auto ml-0.5 shrink-0">
+                {headerClose}
+              </div>
+            ) : null}
           </div>
         </header>
 

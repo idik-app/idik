@@ -14,6 +14,8 @@ type Props = {
   compact?: boolean;
   /** KPI: tanpa scroll, isi menyesuaikan tinggi kartu */
   kpi?: boolean;
+  /** Override kelas area isi panel */
+  bodyClassName?: string;
 };
 
 const accentBorder = {
@@ -32,6 +34,7 @@ function JarvisModeGlassPanelInner({
   dragHandle = true,
   compact,
   kpi,
+  bodyClassName,
 }: Props) {
   return (
     <div
@@ -73,7 +76,12 @@ function JarvisModeGlassPanelInner({
       <div
         className={cn(
           "relative flex min-h-0 flex-1 flex-col",
-          kpi ? "overflow-hidden p-2" : compact ? "overflow-auto p-2.5" : "overflow-auto p-3 sm:p-4",
+          bodyClassName ??
+            (kpi
+              ? "overflow-hidden p-2"
+              : compact
+                ? "overflow-auto p-2.5"
+                : "overflow-auto p-3 sm:p-4"),
         )}
       >
         {children}

@@ -128,7 +128,7 @@ function JarvisModeConsoleShellInner({
         x: offset.x,
         y: offset.y,
         width: size === "expanded" ? "min(96vw, 1180px)" : "min(92vw, 520px)",
-        maxHeight: size === "expanded" ? "min(78vh, 780px)" : "min(52vh, 420px)",
+        maxHeight: size === "expanded" ? "min(90vh, 920px)" : "min(58vh, 480px)",
       }}
       drag
       dragControls={dragControls}

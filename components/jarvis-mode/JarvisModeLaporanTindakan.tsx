@@ -58,24 +58,24 @@ function MatrixTable({
   rowHeader: string;
 }) {
   return (
-    <table className="w-max min-w-full border-collapse text-[9px]">
+    <table className="w-max min-w-full border-collapse text-[10px]">
       <thead>
         <tr className="bg-cyan-950/40">
           <th
             rowSpan={2}
-            className="sticky left-0 z-[2] border border-cyan-500/25 bg-[#061018] px-1.5 py-1 text-left text-[8px] font-bold uppercase tracking-wide text-cyan-200"
+            className="sticky left-0 z-[2] border border-cyan-500/25 bg-[#061018] px-1.5 py-1 text-left text-[9px] font-bold uppercase tracking-wide text-cyan-200"
           >
             {rowHeader}
           </th>
           <th
             colSpan={matrix.daysInMonth}
-            className="border border-cyan-500/25 px-1 py-0.5 text-center text-[8px] font-bold uppercase tracking-wide text-white/90"
+            className="border border-cyan-500/25 px-1 py-0.5 text-center text-[9px] font-bold uppercase tracking-wide text-white/90"
           >
             Tanggal
           </th>
           <th
             rowSpan={2}
-            className="border border-cyan-500/25 px-1.5 py-1 text-center text-[8px] font-bold uppercase text-amber-200"
+            className="border border-cyan-500/25 px-1.5 py-1 text-center text-[9px] font-bold uppercase text-amber-200"
           >
             Jumlah
           </th>
@@ -89,7 +89,7 @@ function MatrixTable({
               <th
                 key={day}
                 className={cn(
-                  "border border-cyan-500/20 px-0.5 py-0.5 text-center font-mono text-[8px] font-bold tabular-nums text-white/85",
+                  "border border-cyan-500/20 px-0.5 py-0.5 text-center font-mono text-[9px] font-bold tabular-nums text-white/85",
                   wkend && "bg-amber-950/35 text-amber-100/90",
                 )}
               >
@@ -243,8 +243,9 @@ function JarvisModeLaporanTindakanInner({
       dragHandle
       className="h-full"
       compact
+      bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden p-2"
     >
-      <div className="flex h-full min-h-0 flex-col gap-1.5">
+      <div className="flex h-full min-h-[300px] flex-col gap-1.5 overflow-hidden">
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-1">
           {report.reportRowsCatchUp && !loading ? (
             <p className="text-[8px] font-semibold text-white/70">
@@ -333,7 +334,7 @@ function JarvisModeLaporanTindakanInner({
 
         <div
           className={cn(
-            "min-h-0 flex-1 overflow-auto rounded-lg border border-cyan-500/20 bg-black/20 custom-scroll",
+            "min-h-[220px] flex-1 overflow-auto rounded-lg border border-cyan-500/20 bg-black/20 custom-scroll",
             report.tab === "analisis" && "flex flex-col",
           )}
         >

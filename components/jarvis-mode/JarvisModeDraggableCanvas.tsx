@@ -23,6 +23,7 @@ import {
 import {
   clampJarvisRect,
   DEFAULT_JARVIS_WIDGET_LAYOUT,
+  JARVIS_CANVAS_MIN_HEIGHT_PX,
   loadJarvisWidgetLayout,
   resetJarvisWidgetLayout,
   saveJarvisWidgetLayout,
@@ -379,9 +380,9 @@ function JarvisModeDraggableCanvasInner({
 
   return (
     <div className="relative min-h-0 flex-1">
-      <div className="mb-2 flex items-center justify-between gap-2 px-1">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
         <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-300/80 dark:text-white/85">
-          Seret panel · posisi tersimpan otomatis
+          Seret panel · scroll untuk laporan lengkap
         </p>
         <button
           type="button"
@@ -393,10 +394,11 @@ function JarvisModeDraggableCanvasInner({
       </div>
       <div
         ref={containerRef}
-        className={cn(
-          "relative overflow-hidden rounded-xl border border-cyan-500/15 bg-black/25",
-          compact ? "min-h-[360px] h-[min(58vh,480px)]" : "min-h-[520px] h-[calc(100%-1.75rem)]",
-        )}
+        className="relative overflow-x-hidden overflow-y-visible rounded-xl border border-cyan-500/15 bg-black/25"
+        style={{
+          minHeight: JARVIS_CANVAS_MIN_HEIGHT_PX,
+          height: JARVIS_CANVAS_MIN_HEIGHT_PX,
+        }}
       >
         <div
           className="pointer-events-none absolute inset-0 opacity-30"

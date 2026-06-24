@@ -18,7 +18,10 @@ export type JarvisWidgetRect = {
   h: number;
 };
 
-export const JARVIS_LAYOUT_STORAGE_KEY = "idik-jarvis-mode-widget-layout-v4";
+export const JARVIS_LAYOUT_STORAGE_KEY = "idik-jarvis-mode-widget-layout-v5";
+
+/** Tinggi minimum kanvas agar laporan tindakan punya ruang cukup; scroll di konsol JARVIS. */
+export const JARVIS_CANVAS_MIN_HEIGHT_PX = 920;
 
 const KPI_IDS = new Set<JarvisWidgetId>([
   "kpi-pasien",
@@ -28,18 +31,20 @@ const KPI_IDS = new Set<JarvisWidgetId>([
   "kpi-laporan",
 ]);
 
-/** Tinggi minimum KPI agar isi tidak perlu di-scroll */
-export const JARVIS_KPI_MIN_H = 40;
+/** Tinggi minimum KPI agar isi tidak perlu di-scroll (relatif ke kanvas ~920px). */
+export const JARVIS_KPI_MIN_H = 20;
 
-/** Tata letak default: 5 KPI atas (lebih tinggi) + 2 panel bawah */
+const LAPORAN_MIN_H = 36;
+
+/** Tata letak default: KPI atas + grafik PPCI + laporan tindakan lebar penuh (scroll vertikal). */
 export const DEFAULT_JARVIS_WIDGET_LAYOUT: JarvisWidgetRect[] = [
-  { id: "kpi-pasien", x: 0.5, y: 8, w: 19, h: 40 },
-  { id: "kpi-gender", x: 20.5, y: 8, w: 19, h: 40 },
-  { id: "kpi-tindakan", x: 40.5, y: 8, w: 19, h: 40 },
-  { id: "kpi-dokter", x: 60.5, y: 8, w: 19, h: 40 },
-  { id: "kpi-laporan", x: 80.5, y: 8, w: 19, h: 40 },
-  { id: "chart-ppci", x: 0.5, y: 50, w: 49, h: 48 },
-  { id: "laporan-tindakan", x: 50.5, y: 46, w: 49, h: 52 },
+  { id: "kpi-pasien", x: 0.5, y: 0, w: 19, h: 22 },
+  { id: "kpi-gender", x: 20.5, y: 0, w: 19, h: 22 },
+  { id: "kpi-tindakan", x: 40.5, y: 0, w: 19, h: 22 },
+  { id: "kpi-dokter", x: 60.5, y: 0, w: 19, h: 22 },
+  { id: "kpi-laporan", x: 80.5, y: 0, w: 19, h: 22 },
+  { id: "chart-ppci", x: 0.5, y: 24, w: 99, h: 28 },
+  { id: "laporan-tindakan", x: 0.5, y: 54, w: 99, h: 44 },
 ];
 
 const SNAP_PCT = 1.5;
@@ -49,12 +54,42 @@ export function snapJarvisPercent(value: number): number {
 }
 
 export function clampJarvisRect(rect: JarvisWidgetRect): JarvisWidgetRect {
-  const minH = KPI_IDS.has(rect.id) ? JARVIS_KPI_MIN_H : 16;
+  const minH = KPI_IDS.has(rect.id)
+    ? JARVIS_KPI_MIN_H
+    : rect.id === "laporan-tindakan"
+      ? LAPORAN_MIN_H
+      : 16;
   const w = Math.min(Math.max(rect.w, 14), 100);
   const h = Math.min(Math.max(rect.h, minH), 100);
   const x = snapJarvisPercent(Math.min(Math.max(rect.x, 0), 100 - w));
-  const y = snapJarvisPercent(Math.min(Math.max(rect.y, 8), 100 - h));
+  const y = snapJarvisPercent(Math.min(Math.max(rect.y, 0), 100 - h));
   return { ...rect, x, y, w, h };
+}
+
+function migrateSavedLayout(parsed: JarvisWidgetRect[]): JarvisWidgetRect[] {
+  const migrated = parsed.map((p) =>
+    (p.id as string) === "matrix-laporan"
+      ? { ...p, id: "laporan-tindakan" as JarvisWidgetId }
+      : p,
+  );
+
+  const laporan = migrated.find((p) => p.id === "laporan-tindakan");
+  const chart = migrated.find((p) => p.id === "chart-ppci");
+  const oldSideBySide =
+    laporan != null &&
+    chart != null &&
+    laporan.w < 70 &&
+    chart.w < 70 &&
+    Math.abs(laporan.y - chart.y) < 8;
+
+  if (!oldSideBySide) return migrated;
+
+  const byId = new Map(DEFAULT_JARVIS_WIDGET_LAYOUT.map((d) => [d.id, d]));
+  return migrated.map((p) => {
+    if (p.id !== "laporan-tindakan" && p.id !== "chart-ppci") return p;
+    const def = byId.get(p.id);
+    return def ? { ...p, x: def.x, y: def.y, w: def.w, h: def.h } : p;
+  });
 }
 
 export function loadJarvisWidgetLayout(): JarvisWidgetRect[] {
@@ -66,11 +101,7 @@ export function loadJarvisWidgetLayout(): JarvisWidgetRect[] {
     if (!Array.isArray(parsed) || parsed.length === 0) {
       return DEFAULT_JARVIS_WIDGET_LAYOUT;
     }
-    const migrated = parsed.map((p) =>
-      (p.id as string) === "matrix-laporan"
-        ? { ...p, id: "laporan-tindakan" as JarvisWidgetId }
-        : p,
-    );
+    const migrated = migrateSavedLayout(parsed);
     const known = new Set(DEFAULT_JARVIS_WIDGET_LAYOUT.map((w) => w.id));
     const merged = DEFAULT_JARVIS_WIDGET_LAYOUT.map((def) => {
       const saved = migrated.find((p) => p.id === def.id);

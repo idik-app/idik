@@ -11,6 +11,8 @@ import { JARVIS_MODE_DEFAULTS } from "@/lib/jarvis-mode/types";
 import { Z_INDEX_VALUES } from "@/lib/ui/layers";
 import { cn } from "@/lib/utils";
 
+import { RotateCcw } from "lucide-react";
+
 import JarvisModeCloseButton from "./JarvisModeCloseButton";
 import JarvisModeConsoleShell from "./JarvisModeConsoleShell";
 import JarvisModeDraggableCanvas from "./JarvisModeDraggableCanvas";
@@ -132,21 +134,22 @@ export default function JarvisModeOverlay() {
             <JarvisModeConsoleShell
               isActive={isActive}
               header={
-                <div className="flex min-w-0 items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">
-                        JARVIS
-                      </p>
-                      <span className="jarvis-live-badge">LIVE</span>
-                    </div>
-                    <p className="truncate text-[9px] text-white/80 dark:text-white/90">
-                      {locationLabel}
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300 sm:tracking-[0.2em]">
+                      JARVIS
                     </p>
+                    <span className="jarvis-live-badge">LIVE</span>
+                    <span className="font-mono text-[9px] font-semibold tabular-nums text-cyan-200 sm:hidden">
+                      {clock.time}
+                    </span>
                   </div>
-                  <p className="hidden shrink-0 text-right font-mono text-[9px] tabular-nums sm:block">
-                    <span className="block text-white/60">{clock.date}</span>
-                    <span className="jarvis-clock-pulse text-[11px] font-semibold text-cyan-200">
+                  <p className="truncate text-[8px] text-white/80 dark:text-white/90 sm:text-[9px]">
+                    {locationLabel}
+                  </p>
+                  <p className="mt-0.5 hidden font-mono text-[9px] tabular-nums sm:block">
+                    <span className="text-white/60">{clock.date}</span>
+                    <span className="jarvis-clock-pulse ml-1.5 text-[11px] font-semibold text-cyan-200">
                       {clock.time}
                     </span>
                   </p>
@@ -160,12 +163,14 @@ export default function JarvisModeOverlay() {
                     setLayoutEpoch((n) => n + 1);
                   }}
                   className={cn(
-                    "rounded border border-white/15 px-1.5 py-1 text-[8px] font-bold uppercase tracking-wide",
-                    "text-white/75 transition hover:border-cyan-400/40 hover:text-white",
+                    "rounded border border-white/15 p-1 text-white/75 transition hover:border-cyan-400/40 hover:text-white sm:px-1.5 sm:py-1",
+                    "text-[8px] font-bold uppercase tracking-wide",
                   )}
                   title="Reset tata letak widget"
+                  aria-label="Reset tata letak widget"
                 >
-                  Reset
+                  <RotateCcw className="h-3 w-3 sm:hidden" aria-hidden />
+                  <span className="hidden sm:inline">Reset</span>
                 </button>
               }
               headerClose={

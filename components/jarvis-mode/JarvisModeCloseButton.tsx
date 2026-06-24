@@ -47,7 +47,7 @@ function JarvisModeCloseButtonInner({
         type="button"
         onClick={onClose}
         className={cn(
-          "jarvis-close-btn jarvis-close-btn--cycle group relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+          "jarvis-close-btn jarvis-close-btn--cycle group relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full sm:h-8 sm:w-8",
           "border border-rose-400/55 bg-gradient-to-br from-rose-500/25 via-[#1a0a12] to-cyan-950/80",
           "text-rose-100",
           "transition hover:border-rose-300 hover:text-white",

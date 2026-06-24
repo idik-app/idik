@@ -275,17 +275,18 @@ function buildDrawerHeaderTitle(
   const tinStr = String(record.tindakan ?? "").trim();
   const dokterStr = resolveDrawerDokterLabel(record, doctorOptions);
   const ruanganStr = String(record.ruangan ?? "").trim();
-  const fullText = [
-    hariTanggal,
-    rmStr || "—",
-    namaStr,
-    tinStr || "—",
-    dokterStr,
-    ruanganStr,
-  ]
+  const copyText = [hariTanggal, rmStr || "—", namaStr, tinStr || "—"]
     .filter(Boolean)
     .join(" ");
-  return { hariTanggal, rmStr, namaStr, tinStr, dokterStr, ruanganStr, fullText };
+  return {
+    hariTanggal,
+    rmStr,
+    namaStr,
+    tinStr,
+    dokterStr,
+    ruanganStr,
+    copyText,
+  };
 }
 
 /** Jenis pembiayaan + kelas perawatan (angka), contoh: `NPBI - 1` */
@@ -584,7 +585,6 @@ function TindakanDetailDrawer({
 
   const [waCopied, setWaCopied] = useState(false);
   const [titleCopied, setTitleCopied] = useState(false);
-  const titleTextRef = useRef<HTMLDivElement>(null);
   /** Di viewport < sm: panel tab bisa disembunyikan agar konten lebar; default tertutup. */
   const [mobileTabMenuOpen, setMobileTabMenuOpen] = useState(false);
   /** Desktop sidebar toggle: jika true, sidebar kiri (nav) disembunyikan. */
@@ -813,22 +813,13 @@ function TindakanDetailDrawer({
 
     return (
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden whitespace-nowrap">
-        <div
-          ref={titleTextRef}
-          className="flex min-w-0 flex-1 cursor-default select-text items-center gap-2 overflow-hidden whitespace-nowrap"
-        >
+        <div className="flex min-w-0 cursor-default select-text items-center gap-2 overflow-hidden whitespace-nowrap">
           <span className="text-slate-300">{hariTanggal}</span>
           <span className="font-black tabular-nums text-amber-100">
             {rmStr || "—"}
           </span>
           <span className="font-bold text-white">{namaStr}</span>
           <span className="font-medium text-slate-200">{tinStr || "—"}</span>
-          {dokterStr && (
-            <span className="font-medium text-slate-200">{dokterStr}</span>
-          )}
-          {ruanganStr && (
-            <span className="font-medium text-slate-300">{ruanganStr}</span>
-          )}
         </div>
         <button
           type="button"
@@ -836,17 +827,10 @@ function TindakanDetailDrawer({
           onClick={async (e) => {
             e.stopPropagation();
             try {
-              const built = buildDrawerHeaderTitle(
+              const text = buildDrawerHeaderTitle(
                 displayRecord,
                 doctorOptions,
-              ).fullText;
-              const visible = titleTextRef.current?.innerText
-                ?.replace(/\s+/g, " ")
-                .trim();
-              const text =
-                [visible, built]
-                  .filter(Boolean)
-                  .sort((a, b) => b.length - a.length)[0] ?? "";
+              ).copyText;
               await navigator.clipboard.writeText(text);
               setTitleCopied(true);
               toast.success("Judul disalin ke clipboard", {
@@ -865,6 +849,16 @@ function TindakanDetailDrawer({
         >
           {titleCopied ? <Check size={10} /> : <Copy size={10} />}
         </button>
+        {(dokterStr || ruanganStr) && (
+          <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
+            {dokterStr && (
+              <span className="font-medium text-slate-200">{dokterStr}</span>
+            )}
+            {ruanganStr && (
+              <span className="font-medium text-slate-300">{ruanganStr}</span>
+            )}
+          </div>
+        )}
       </div>
     );
   }, [displayRecord, doctorOptions, titleCopied]);

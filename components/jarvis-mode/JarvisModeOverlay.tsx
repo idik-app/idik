@@ -7,6 +7,7 @@ import { AnimatePresence, LazyMotion, domAnimation } from "framer-motion";
 import { useJarvisModeOptional } from "@/contexts/JarvisModeContext";
 import { emptyTindakanKpiStats } from "@/app/dashboard/layanan/tindakan/hooks/useTindakanStats";
 import { resetJarvisWidgetLayout } from "@/lib/jarvis-mode/dashboardLayout";
+import { JARVIS_MODE_DEFAULTS } from "@/lib/jarvis-mode/types";
 import { Z_INDEX_VALUES } from "@/lib/ui/layers";
 import { cn } from "@/lib/utils";
 
@@ -52,7 +53,7 @@ export default function JarvisModeOverlay() {
   const exit = ctx?.exit;
   const locationLabel = ctx?.locationLabel ?? "";
   const autoSleepRemainingMs = ctx?.autoSleepRemainingMs ?? 0;
-  const autoSleepMs = ctx?.autoSleepMs ?? 180_000;
+  const autoSleepMs = ctx?.autoSleepMs ?? JARVIS_MODE_DEFAULTS.autoSleepMs;
 
   const rows = data?.allRows ?? data?.filtered?.allRows ?? [];
   const stats = data?.stats ?? emptyTindakanKpiStats();

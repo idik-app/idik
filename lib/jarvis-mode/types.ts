@@ -48,14 +48,17 @@ export type JarvisModeData = {
 export type JarvisModeConfig = {
   /** Durasi idle sebelum JARVIS Mode aktif (ms). Default: 10 detik. */
   idleEnterMs?: number;
-  /** Durasi auto-sleep setelah masuk JARVIS Mode tanpa interaksi (ms). Default: 3 menit. */
+  /** Durasi auto-sleep setelah masuk JARVIS Mode tanpa interaksi (ms). Default: 60 menit. */
   autoSleepMs?: number;
   /** Label unit / lokasi tampilan. */
   locationLabel?: string;
 };
 
+/** Auto-sleep JARVIS Mode: 60 menit tanpa interaksi. */
+export const JARVIS_MODE_AUTO_SLEEP_MS = 60 * 60 * 1000;
+
 export const JARVIS_MODE_DEFAULTS = {
   idleEnterMs: 10_000,
-  autoSleepMs: 180_000,
+  autoSleepMs: JARVIS_MODE_AUTO_SLEEP_MS,
   locationLabel: "Cath Lab RSUD dr. Mohamad Soewandhie",
 } as const;

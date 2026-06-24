@@ -6,6 +6,21 @@ import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+function formatAutoSleepRemaining(ms: number): string {
+  const sec = Math.max(0, Math.ceil(ms / 1000));
+  if (sec >= 3600) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    return m > 0 ? `${h}j ${m}m` : `${h}j`;
+  }
+  if (sec >= 60) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  }
+  return `${sec}s`;
+}
+
 type Props = {
   onClose: () => void;
   autoSleepRemainingMs: number;
@@ -24,7 +39,7 @@ function JarvisModeCloseButtonInner({
       ? Math.max(0, Math.min(1, autoSleepRemainingMs / autoSleepMs))
       : 1;
   const circumference = 2 * Math.PI * 20;
-  const seconds = Math.ceil(autoSleepRemainingMs / 1000);
+  const remainingLabel = formatAutoSleepRemaining(autoSleepRemainingMs);
 
   if (compact) {
     return (
@@ -38,7 +53,7 @@ function JarvisModeCloseButtonInner({
           "transition hover:border-rose-300 hover:text-white",
         )}
         aria-label="Tutup JARVIS Mode"
-        title={`Tutup · auto-sleep ${seconds}s · ESC`}
+        title={`Tutup · auto-sleep ${remainingLabel} · ESC`}
       >
         <svg
           className="pointer-events-none absolute inset-0 -rotate-90"
@@ -136,7 +151,7 @@ function JarvisModeCloseButtonInner({
         <span className="text-cyan-300/90">(or Move Mouse)</span>
       </p>
       <p className="font-mono text-[9px] tabular-nums text-cyan-300/80">
-        {seconds}s
+        {remainingLabel}
       </p>
     </div>
   );

@@ -224,6 +224,30 @@ function formatDrawerTitleHariTanggal(value: unknown): string {
   }).format(d);
 }
 
+function buildDrawerHeaderTitle(record: TindakanJoinResult) {
+  const tanggalVal = getWireframeFieldValue(
+    record as unknown as Record<string, unknown>,
+    "tanggal_tindakan",
+  );
+  const hariTanggal = formatDrawerTitleHariTanggal(tanggalVal);
+  const rmStr = String(record.no_rm ?? "").trim();
+  const namaStr = String(record.nama_pasien ?? "").trim() || "—";
+  const tinStr = String(record.tindakan ?? "").trim();
+  const dokterStr = String(record.dokter ?? "").split(",")[0].trim();
+  const ruanganStr = String(record.ruangan ?? "").trim();
+  const fullText = [
+    hariTanggal,
+    rmStr || "—",
+    namaStr,
+    tinStr || "—",
+    dokterStr,
+    ruanganStr,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return { hariTanggal, rmStr, namaStr, tinStr, dokterStr, ruanganStr, fullText };
+}
+
 /** Jenis pembiayaan + kelas perawatan (angka), contoh: `NPBI - 1` */
 function buildKelasPembiayaanFromPasienMaster(pasien: Pasien): string | null {
   const jp = pasien.jenisPembiayaan?.trim() || "";
@@ -725,77 +749,55 @@ function TindakanDetailDrawer({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  const fullTitleText = useMemo(() => {
-    if (!displayRecord) return "";
-    const tanggalVal = getWireframeFieldValue(
-      displayRecord as unknown as Record<string, unknown>,
-      "tanggal_tindakan",
-    );
-    const hariTanggal = formatDrawerTitleHariTanggal(tanggalVal);
-    const rmStr = String(displayRecord.no_rm ?? "").trim();
-    const namaStr = String(displayRecord.nama_pasien ?? "").trim() || "—";
-    const tinStr = String(displayRecord.tindakan ?? "").trim();
-    const dokterStr = String(displayRecord.dokter ?? "").split(",")[0].trim();
-    const ruanganStr = String(displayRecord.ruangan ?? "").trim();
-    return `${hariTanggal} ${rmStr || "—"} ${namaStr} ${tinStr || "—"} ${dokterStr} ${ruanganStr}`.trim();
-  }, [displayRecord]);
-
   const title = useMemo(() => {
     if (!displayRecord) return "Detail tindakan";
-    const tanggalVal = getWireframeFieldValue(
-      displayRecord as unknown as Record<string, unknown>,
-      "tanggal_tindakan",
-    );
-    const hariTanggal = formatDrawerTitleHariTanggal(tanggalVal);
-    const rmStr = String(displayRecord.no_rm ?? "").trim();
-    const namaStr = String(displayRecord.nama_pasien ?? "").trim() || "—";
-    const tinStr = String(displayRecord.tindakan ?? "").trim();
-    const dokterStr = String(displayRecord.dokter ?? "").split(",")[0].trim();
-    const ruanganStr = String(displayRecord.ruangan ?? "").trim();
+    const { hariTanggal, rmStr, namaStr, tinStr, dokterStr, ruanganStr } =
+      buildDrawerHeaderTitle(displayRecord);
 
     return (
       <div className="flex min-w-0 flex-1 cursor-default select-text items-center gap-2 overflow-hidden whitespace-nowrap">
-        <div className="flex select-text items-center gap-2 overflow-hidden whitespace-nowrap">
+        <div className="flex min-w-0 select-text items-center gap-2 overflow-hidden whitespace-nowrap">
           <span className="text-slate-300">{hariTanggal}</span>
           <span className="font-black tabular-nums text-amber-100">
             {rmStr || "—"}
           </span>
           <span className="font-bold text-white">{namaStr}</span>
           <span className="font-medium text-slate-200">{tinStr || "—"}</span>
+          {dokterStr && (
+            <span className="font-medium text-slate-200">{dokterStr}</span>
+          )}
+          {ruanganStr && (
+            <span className="font-medium text-slate-300">{ruanganStr}</span>
+          )}
         </div>
-        {displayRecord && (
-          <button
-            type="button"
-            title="Salin judul"
-            onClick={async (e) => {
-              e.stopPropagation();
-              try {
-                await navigator.clipboard.writeText(fullTitleText);
-                setTitleCopied(true);
-                toast.success("Judul disalin ke clipboard", {
-                  duration: 2000,
-                  position: "top-center",
-                });
-                setTimeout(() => setTitleCopied(false), 2000);
-              } catch (err) {
-                toast.error("Gagal menyalin judul");
-              }
-            }}
-            className={cn(
-              "flex h-5 w-5 shrink-0 cursor-pointer select-none items-center justify-center rounded-lg border border-white/25 bg-white/10 text-slate-200 transition-all duration-300 hover:border-white/40 hover:bg-white/20 hover:text-white",
-              titleCopied && "border-emerald-400/50 bg-emerald-950/60 text-emerald-300",
-            )}
-          >
-            {titleCopied ? <Check size={10} /> : <Copy size={10} />}
-          </button>
-        )}
-        <div className="flex select-text items-center gap-2 overflow-hidden whitespace-nowrap">
-          {dokterStr && <span className="font-medium text-slate-200">{dokterStr}</span>}
-          {ruanganStr && <span className="font-medium text-slate-300">{ruanganStr}</span>}
-        </div>
+        <button
+          type="button"
+          title="Salin judul"
+          onClick={async (e) => {
+            e.stopPropagation();
+            try {
+              const text = buildDrawerHeaderTitle(displayRecord).fullText;
+              await navigator.clipboard.writeText(text);
+              setTitleCopied(true);
+              toast.success("Judul disalin ke clipboard", {
+                duration: 2000,
+                position: "top-center",
+              });
+              setTimeout(() => setTitleCopied(false), 2000);
+            } catch {
+              toast.error("Gagal menyalin judul");
+            }
+          }}
+          className={cn(
+            "flex h-5 w-5 shrink-0 cursor-pointer select-none items-center justify-center rounded-lg border border-white/25 bg-white/10 text-slate-200 transition-all duration-300 hover:border-white/40 hover:bg-white/20 hover:text-white",
+            titleCopied && "border-emerald-400/50 bg-emerald-950/60 text-emerald-300",
+          )}
+        >
+          {titleCopied ? <Check size={10} /> : <Copy size={10} />}
+        </button>
       </div>
     );
-  }, [displayRecord, fullTitleText, titleCopied]);
+  }, [displayRecord, titleCopied]);
 
   /**
    * Portal ke body (atau fullscreen element): ancestor `LayoutMain` memakai `motion.div` (transform), sehingga

@@ -69,6 +69,8 @@ export const UI_LAYERS = {
    * Di atas agen Jarvis & drawer; di bawah modal intensive ICCU.
    */
   jarvisMode: "z-[100195]",
+  /** Popover/dropdown di dalam layer JARVIS Mode (portal ke body). */
+  jarvisModePopover: "z-[100196]",
   /** Overlay layar penuh */
   fullscreenOverlay: "z-[999]",
   /** Elemen layar penuh (intro/loader) */
@@ -120,6 +122,7 @@ export const Z_INDEX_VALUES = {
   jarvisAgentBackdrop: 100_099,
   jarvisAgent: 100_100,
   jarvisMode: 100_195,
+  jarvisModePopover: 100_196,
   intensiveIccuModalBackdrop: 100_200,
   intensiveIccuModal: 100_201,
   intensiveIccuModalPopover: 100_203,

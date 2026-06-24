@@ -28,6 +28,7 @@ import {
   Zap,
 } from "lucide-react";
 
+import { useJarvisModeDataPublisher } from "@/hooks/useJarvisModeDataPublisher";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import { useAppDialog } from "@/contexts/AppDialogContext";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -1280,6 +1281,8 @@ export default function TindakanTable({
       )
       .filter(Boolean) as PasienOption[];
   }, [pasienRaw]);
+
+  useJarvisModeDataPublisher({ pasienOptions });
 
   const doctorError = doctorErrorRaw
     ? extractErrorMessage(doctorErrorRaw)

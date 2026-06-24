@@ -20,7 +20,7 @@ import {
 type JarvisModeContextValue = {
   isActive: boolean;
   data: JarvisModeData;
-  setData: (next: JarvisModeData) => void;
+  setData: (next: Partial<JarvisModeData>) => void;
   enter: () => void;
   exit: () => void;
   autoSleepRemainingMs: number;
@@ -47,7 +47,7 @@ export function JarvisModeProvider({
     loading: true,
   });
 
-  const setData = useCallback((next: JarvisModeData) => {
+  const setData = useCallback((next: Partial<JarvisModeData>) => {
     setDataState((prev) => ({
       ...prev,
       ...next,

@@ -4,7 +4,7 @@ export { default as JarvisModeBootSequence } from "./JarvisModeBootSequence";
 export { default as JarvisModeDraggableCanvas } from "./JarvisModeDraggableCanvas";
 export { default as JarvisModeGlassPanel } from "./JarvisModeGlassPanel";
 export { default as JarvisModePpciChart } from "./JarvisModePpciChart";
-export { default as JarvisModeMatrixReport } from "./JarvisModeMatrixReport";
+export { default as JarvisModeLaporanTindakan } from "./JarvisModeLaporanTindakan";
 export { default as JarvisModeStatCard } from "./JarvisModeStatCard";
 export { default as JarvisModeCloseButton } from "./JarvisModeCloseButton";
 export { default as JarvisModeSystemBar } from "./JarvisModeSystemBar";

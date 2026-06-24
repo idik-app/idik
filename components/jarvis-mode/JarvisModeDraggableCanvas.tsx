@@ -12,11 +12,11 @@ import {
 import { motion, useDragControls } from "framer-motion";
 import { AlertTriangle, Mars, Venus } from "lucide-react";
 
+import type { PasienOption } from "@/components/ui/pasien-combobox";
 import type { TindakanFilteredSummary } from "@/app/dashboard/layanan/tindakan/components/TindakanSummary";
 import {
   computeActiveDoctors,
   computeCriticalAlerts,
-  computeMatrixReport,
   computePpciTrendSeries,
   computeTodayPatients,
 } from "@/lib/jarvis-mode/computeJarvisModeData";
@@ -33,13 +33,14 @@ import type { TindakanJoinResult } from "@/app/dashboard/layanan/tindakan/bridge
 import { cn } from "@/lib/utils";
 
 import JarvisModeGlassPanel from "./JarvisModeGlassPanel";
-import JarvisModeMatrixReport from "./JarvisModeMatrixReport";
+import JarvisModeLaporanTindakan from "./JarvisModeLaporanTindakan";
 import JarvisModePpciChart from "./JarvisModePpciChart";
 
 type Props = {
   rows: readonly TindakanJoinResult[];
   stats: Record<string, number>;
   filtered?: TindakanFilteredSummary | null;
+  pasienOptions?: readonly PasienOption[];
   loading?: boolean;
   /** Mode panel mengambang (lebih ringkas) */
   compact?: boolean;
@@ -158,6 +159,7 @@ function JarvisModeDraggableCanvasInner({
   rows,
   stats,
   filtered,
+  pasienOptions = [],
   loading,
   compact,
 }: Props) {
@@ -183,7 +185,6 @@ function JarvisModeDraggableCanvasInner({
 
   const todayPatients = useMemo(() => computeTodayPatients(rows), [rows]);
   const activeDoctors = useMemo(() => computeActiveDoctors(rows), [rows]);
-  const matrixReport = useMemo(() => computeMatrixReport(rows), [rows]);
   const criticalAlerts = useMemo(() => computeCriticalAlerts(rows), [rows]);
   const ppciDaily = useMemo(
     () => computePpciTrendSeries(rows, "harian"),
@@ -328,8 +329,14 @@ function JarvisModeDraggableCanvasInner({
             onPeriodChange={setPpciPeriod}
           />
         );
-      case "matrix-laporan":
-        return <JarvisModeMatrixReport rows={matrixReport} />;
+      case "laporan-tindakan":
+        return (
+          <JarvisModeLaporanTindakan
+            rows={rows}
+            pasienOptions={pasienOptions}
+            loading={loading}
+          />
+        );
       case "alerts-medis":
         return (
           <JarvisModeGlassPanel

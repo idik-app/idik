@@ -5,7 +5,7 @@ export type JarvisWidgetId =
   | "kpi-dokter"
   | "kpi-laporan"
   | "chart-ppci"
-  | "matrix-laporan"
+  | "laporan-tindakan"
   | "alerts-medis";
 
 export type JarvisWidgetRect = {
@@ -18,7 +18,7 @@ export type JarvisWidgetRect = {
   h: number;
 };
 
-export const JARVIS_LAYOUT_STORAGE_KEY = "idik-jarvis-mode-widget-layout-v3";
+export const JARVIS_LAYOUT_STORAGE_KEY = "idik-jarvis-mode-widget-layout-v4";
 
 const KPI_IDS = new Set<JarvisWidgetId>([
   "kpi-pasien",
@@ -39,7 +39,7 @@ export const DEFAULT_JARVIS_WIDGET_LAYOUT: JarvisWidgetRect[] = [
   { id: "kpi-dokter", x: 60.5, y: 8, w: 19, h: 40 },
   { id: "kpi-laporan", x: 80.5, y: 8, w: 19, h: 40 },
   { id: "chart-ppci", x: 0.5, y: 50, w: 49, h: 48 },
-  { id: "matrix-laporan", x: 50.5, y: 50, w: 49, h: 48 },
+  { id: "laporan-tindakan", x: 50.5, y: 46, w: 49, h: 52 },
 ];
 
 const SNAP_PCT = 1.5;
@@ -66,12 +66,17 @@ export function loadJarvisWidgetLayout(): JarvisWidgetRect[] {
     if (!Array.isArray(parsed) || parsed.length === 0) {
       return DEFAULT_JARVIS_WIDGET_LAYOUT;
     }
+    const migrated = parsed.map((p) =>
+      (p.id as string) === "matrix-laporan"
+        ? { ...p, id: "laporan-tindakan" as JarvisWidgetId }
+        : p,
+    );
     const known = new Set(DEFAULT_JARVIS_WIDGET_LAYOUT.map((w) => w.id));
     const merged = DEFAULT_JARVIS_WIDGET_LAYOUT.map((def) => {
-      const saved = parsed.find((p) => p.id === def.id);
+      const saved = migrated.find((p) => p.id === def.id);
       return saved ? clampJarvisRect({ ...def, ...saved }) : def;
     });
-    for (const p of parsed) {
+    for (const p of migrated) {
       if (!known.has(p.id)) merged.push(clampJarvisRect(p));
     }
     return merged;

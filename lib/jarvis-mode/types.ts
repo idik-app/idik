@@ -1,3 +1,4 @@
+import type { PasienOption } from "@/components/ui/pasien-combobox";
 import type { TindakanJoinResult } from "@/app/dashboard/layanan/tindakan/bridge/mapping.types";
 import type { TindakanFilteredSummary } from "@/app/dashboard/layanan/tindakan/components/TindakanSummary";
 
@@ -12,17 +13,6 @@ export type JarvisTrendPoint = {
   label: string;
   value: number;
   dateKey?: string;
-};
-
-export type JarvisMatrixReportRow = {
-  label: string;
-  harian: number;
-  mingguan: number;
-  bulanan: number;
-  /** Persen relatif terhadap total periode (0–100) */
-  harianPct: number;
-  mingguanPct: number;
-  bulananPct: number;
 };
 
 export type JarvisTodayPatient = {
@@ -49,6 +39,8 @@ export type JarvisModeData = {
   stats: Record<string, number>;
   filtered?: TindakanFilteredSummary | null;
   allRows?: readonly TindakanJoinResult[];
+  /** Master pasien untuk laporan cara bayar di widget Laporan tindakan. */
+  pasienOptions?: readonly PasienOption[];
   loading?: boolean;
   lastSyncAt?: string | null;
 };

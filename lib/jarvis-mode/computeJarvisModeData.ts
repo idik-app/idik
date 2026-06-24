@@ -9,7 +9,6 @@ import type {
   JarvisActiveDoctor,
   JarvisCriticalAlert,
   JarvisMatrixPoint,
-  JarvisMatrixReportRow,
   JarvisTodayPatient,
   JarvisTrendPoint,
 } from "./types";
@@ -155,11 +154,6 @@ function isPpciRow(tindakan: string, rsPerujuk?: string | null, ket?: string | n
   return !rs.includes("pribadi") && !k.includes("pribadi");
 }
 
-function monthStartYmd(): string {
-  const today = todayWibYmd();
-  return `${today.slice(0, 7)}-01`;
-}
-
 /** Deret tren PPCI untuk grafik (harian / mingguan / bulanan). */
 export function computePpciTrendSeries(
   rows: readonly TindakanJoinResult[],
@@ -226,98 +220,6 @@ export function computePpciTrendSeries(
     const m = bucket % 100;
     return { label: `${monthNames[m - 1]} ${String(y).slice(2)}`, value };
   });
-}
-
-function countInRange(
-  rows: readonly TindakanJoinResult[],
-  fromYmd: string,
-  toYmd: string,
-  predicate?: (r: TindakanJoinResult) => boolean,
-): number {
-  let n = 0;
-  for (const r of rows) {
-    const key = extractCalendarDateKey(String(r.tanggal ?? ""));
-    if (!key || key < fromYmd || key > toYmd) continue;
-    if (predicate && !predicate(r)) continue;
-    n += 1;
-  }
-  return n;
-}
-
-/** Matriks laporan HARIAN / MINGGUAN / BULANAN untuk panel kanan. */
-export function computeMatrixReport(
-  rows: readonly TindakanJoinResult[],
-): JarvisMatrixReportRow[] {
-  const today = todayWibYmd();
-  const wStart = startOfWeekWibYmd();
-  const wEnd = addDaysYmd(wStart, 6);
-  const mStart = monthStartYmd();
-
-  const totalH = countInRange(rows, today, today);
-  const totalW = countInRange(rows, wStart, wEnd);
-  const totalM = countInRange(rows, mStart, today);
-
-  const ppciH = countInRange(rows, today, today, (r) =>
-    isPpciRow(String(r.tindakan ?? ""), r.rs_perujuk, r.keterangan),
-  );
-  const ppciW = countInRange(rows, wStart, wEnd, (r) =>
-    isPpciRow(String(r.tindakan ?? ""), r.rs_perujuk, r.keterangan),
-  );
-  const ppciM = countInRange(rows, mStart, today, (r) =>
-    isPpciRow(String(r.tindakan ?? ""), r.rs_perujuk, r.keterangan),
-  );
-
-  const linkedH = countInRange(
-    rows,
-    today,
-    today,
-    (r) => String(r.pci_report_link ?? "").includes("docs.google.com"),
-  );
-  const linkedW = countInRange(
-    rows,
-    wStart,
-    wEnd,
-    (r) => String(r.pci_report_link ?? "").includes("docs.google.com"),
-  );
-  const linkedM = countInRange(
-    rows,
-    mStart,
-    today,
-    (r) => String(r.pci_report_link ?? "").includes("docs.google.com"),
-  );
-
-  const pct = (part: number, whole: number) =>
-    whole > 0 ? Math.round((part / whole) * 100) : 0;
-
-  return [
-    {
-      label: "Total Tindakan",
-      harian: totalH,
-      mingguan: totalW,
-      bulanan: totalM,
-      harianPct: 100,
-      mingguanPct: 100,
-      bulananPct: 100,
-    },
-    {
-      label: "PPCI",
-      harian: ppciH,
-      mingguan: ppciW,
-      bulanan: ppciM,
-      harianPct: pct(ppciH, totalH),
-      mingguanPct: pct(ppciW, totalW),
-      bulananPct: pct(ppciM, totalM),
-    },
-    {
-      label: "Laporan Terpetakan",
-      harian: linkedH,
-      mingguan: linkedW,
-      bulanan: linkedM,
-      harianPct: pct(linkedH, totalH),
-      mingguanPct: pct(linkedW, totalW),
-      bulananPct: pct(linkedM, totalM),
-    },
-  ];
 }
 
 /** Pasien hari ini untuk widget gender. */

@@ -191,6 +191,7 @@ export default function JarvisModeOverlay() {
                   rows={rows}
                   stats={stats}
                   filtered={data?.filtered}
+                  pasienOptions={data?.pasienOptions}
                   loading={loading}
                   compact
                 />

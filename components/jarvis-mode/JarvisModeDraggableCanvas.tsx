@@ -10,15 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { motion, useDragControls } from "framer-motion";
-import {
-  AlertTriangle,
-  ClipboardList,
-  Mars,
-  Stethoscope,
-  Syringe,
-  Users,
-  Venus,
-} from "lucide-react";
+import { AlertTriangle, Mars, Venus } from "lucide-react";
 
 import type { TindakanFilteredSummary } from "@/app/dashboard/layanan/tindakan/components/TindakanSummary";
 import {
@@ -135,15 +127,24 @@ function KpiValue({
   value,
   loading,
   className,
+  size = "lg",
 }: {
   value: number;
   loading?: boolean;
   className?: string;
+  size?: "lg" | "md" | "sm";
 }) {
+  const sizeClass =
+    size === "sm"
+      ? "text-xl sm:text-2xl"
+      : size === "md"
+        ? "text-2xl sm:text-3xl"
+        : "text-3xl sm:text-4xl";
   return (
     <p
       className={cn(
-        "font-mono text-3xl font-bold tabular-nums leading-none text-white sm:text-4xl lg:text-[2.75rem]",
+        "font-mono font-bold tabular-nums leading-none text-white",
+        sizeClass,
         loading && "animate-pulse opacity-60",
         className,
       )}
@@ -211,109 +212,110 @@ function JarvisModeDraggableCanvasInner({
     switch (id) {
       case "kpi-pasien":
         return (
-          <JarvisModeGlassPanel title="KPI Total Pasien" compact>
-            <KpiValue value={totalPasien} loading={loading} />
-            <p className="mt-2 text-[10px] text-white/75 dark:text-white/90">
-              Hari ini:{" "}
-              <span className="font-mono font-semibold text-cyan-200">
-                {loading ? "—" : pasienHariIni}
-              </span>
-            </p>
-            <Users className="pointer-events-none absolute bottom-3 right-3 h-8 w-8 text-cyan-400/25" />
+          <JarvisModeGlassPanel title="KPI Total Pasien" kpi>
+            <div className="flex h-full min-h-0 flex-col justify-between gap-1">
+              <KpiValue value={totalPasien} loading={loading} size="md" />
+              <p className="text-[9px] leading-tight text-white/75 dark:text-white/90">
+                Hari ini:{" "}
+                <span className="font-mono font-semibold text-cyan-200">
+                  {loading ? "—" : pasienHariIni}
+                </span>
+              </p>
+            </div>
           </JarvisModeGlassPanel>
         );
       case "kpi-gender":
         return (
-          <JarvisModeGlassPanel title="Total Gender Hari Ini" compact>
-            <div className="flex items-end gap-4">
-              <div className="flex items-center gap-2">
-                <Mars className="h-5 w-5 text-cyan-400" />
-                <KpiValue
-                  value={gender.laki}
-                  loading={loading}
-                  className="!text-3xl text-cyan-300"
-                />
+          <JarvisModeGlassPanel title="Total Gender Hari Ini" kpi>
+            <div className="flex h-full min-h-0 flex-col gap-1.5">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <Mars className="h-3.5 w-3.5 shrink-0 text-cyan-400" />
+                  <KpiValue
+                    value={gender.laki}
+                    loading={loading}
+                    size="sm"
+                    className="text-cyan-300"
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  <Venus className="h-3.5 w-3.5 shrink-0 text-pink-400" />
+                  <KpiValue
+                    value={gender.perempuan}
+                    loading={loading}
+                    size="sm"
+                    className="text-pink-300"
+                  />
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Venus className="h-5 w-5 text-pink-400" />
-                <KpiValue
-                  value={gender.perempuan}
-                  loading={loading}
-                  className="!text-3xl text-pink-300"
-                />
-              </div>
+              <ul className="min-h-0 flex-1 space-y-0.5">
+                {todayPatients.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex items-start gap-1 text-[9px] leading-tight text-white/85 dark:text-white/90"
+                  >
+                    {p.jenis_kelamin === "L" ? (
+                      <Mars className="mt-0.5 h-2.5 w-2.5 shrink-0 text-cyan-400" />
+                    ) : p.jenis_kelamin === "P" ? (
+                      <Venus className="mt-0.5 h-2.5 w-2.5 shrink-0 text-pink-400" />
+                    ) : (
+                      <span className="mt-0.5 h-2.5 w-2.5 shrink-0" />
+                    )}
+                    <span className="line-clamp-2 break-words">{p.nama}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul className="mt-3 space-y-1">
-              {todayPatients.slice(0, 4).map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-center gap-2 truncate text-[10px] text-white/85 dark:text-white/90"
-                >
-                  {p.jenis_kelamin === "L" ? (
-                    <Mars className="h-3 w-3 shrink-0 text-cyan-400" />
-                  ) : p.jenis_kelamin === "P" ? (
-                    <Venus className="h-3 w-3 shrink-0 text-pink-400" />
-                  ) : (
-                    <span className="h-3 w-3 shrink-0" />
-                  )}
-                  <span className="truncate">{p.nama}</span>
-                </li>
-              ))}
-            </ul>
           </JarvisModeGlassPanel>
         );
       case "kpi-tindakan":
         return (
-          <JarvisModeGlassPanel title="Total Tindakan Hari Ini" compact>
-            <KpiValue value={totalTindakan} loading={loading} />
-            <ul className="mt-2 space-y-0.5">
-              {(filtered?.tindakanBreakdown ?? []).slice(0, 4).map((line) => (
-                <li
-                  key={line}
-                  className="truncate font-mono text-[10px] text-white/80 dark:text-white/90"
-                >
-                  {line}
-                </li>
-              ))}
-            </ul>
-            <Syringe className="pointer-events-none absolute bottom-3 right-3 h-8 w-8 text-cyan-400/20" />
+          <JarvisModeGlassPanel title="Total Tindakan Hari Ini" kpi>
+            <div className="flex h-full min-h-0 flex-col gap-1">
+              <KpiValue value={totalTindakan} loading={loading} size="md" />
+              <ul className="min-h-0 flex-1 space-y-0.5">
+                {(filtered?.tindakanBreakdown ?? []).map((line) => (
+                  <li
+                    key={line}
+                    className="font-mono text-[9px] leading-tight text-white/80 dark:text-white/90"
+                  >
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </JarvisModeGlassPanel>
         );
       case "kpi-dokter":
         return (
-          <JarvisModeGlassPanel title="Total Dokter Aktif" compact>
-            <KpiValue value={totalDokter} loading={loading} />
-            <ul className="mt-2 space-y-1.5">
-              {activeDoctors.slice(0, 4).map((d) => (
-                <li
-                  key={d.nama}
-                  className="flex items-center justify-between gap-2 text-[10px]"
-                >
-                  <span className="truncate text-white dark:text-white">
-                    {d.nama}
-                  </span>
-                  <span className="flex shrink-0 items-center gap-1 text-emerald-300">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
-                    Active
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <Stethoscope className="pointer-events-none absolute bottom-3 right-3 h-8 w-8 text-indigo-400/20" />
+          <JarvisModeGlassPanel title="Total Dokter Aktif" kpi>
+            <div className="flex h-full min-h-0 flex-col gap-1">
+              <KpiValue value={totalDokter} loading={loading} size="md" />
+              <ul className="min-h-0 flex-1 space-y-1">
+                {activeDoctors.map((d) => (
+                  <li key={d.nama} className="text-[9px] leading-tight">
+                    <p className="line-clamp-2 break-words text-white dark:text-white">
+                      {d.nama}
+                    </p>
+                    <span className="mt-0.5 inline-flex items-center gap-1 text-emerald-300">
+                      <span className="h-1 w-1 rounded-full bg-emerald-400" />
+                      Active
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </JarvisModeGlassPanel>
         );
       case "kpi-laporan":
         return (
-          <JarvisModeGlassPanel
-            title="Laporan Terpetakan"
-            compact
-            accent="neutral"
-          >
-            <KpiValue value={laporanMapped} loading={loading} />
-            <p className="mt-2 text-[10px] leading-relaxed text-white/75 dark:text-white/90">
-              Dokumen PCI terhubung Google Sheets / Drive
-            </p>
-            <ClipboardList className="pointer-events-none absolute bottom-3 right-3 h-8 w-8 text-white/15" />
+          <JarvisModeGlassPanel title="Laporan Terpetakan" kpi accent="neutral">
+            <div className="flex h-full min-h-0 flex-col justify-between gap-1">
+              <KpiValue value={laporanMapped} loading={loading} size="md" />
+              <p className="text-[9px] leading-tight text-white/75 dark:text-white/90">
+                Dokumen PCI · Google Sheets / Drive
+              </p>
+            </div>
           </JarvisModeGlassPanel>
         );
       case "chart-ppci":
@@ -386,7 +388,7 @@ function JarvisModeDraggableCanvasInner({
         ref={containerRef}
         className={cn(
           "relative overflow-hidden rounded-xl border border-cyan-500/15 bg-black/25",
-          compact ? "min-h-[280px] h-[min(52vh,400px)]" : "min-h-[520px] h-[calc(100%-1.75rem)]",
+          compact ? "min-h-[360px] h-[min(58vh,480px)]" : "min-h-[520px] h-[calc(100%-1.75rem)]",
         )}
       >
         <div

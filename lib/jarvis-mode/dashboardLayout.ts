@@ -18,17 +18,28 @@ export type JarvisWidgetRect = {
   h: number;
 };
 
-export const JARVIS_LAYOUT_STORAGE_KEY = "idik-jarvis-mode-widget-layout-v2";
+export const JARVIS_LAYOUT_STORAGE_KEY = "idik-jarvis-mode-widget-layout-v3";
 
-/** Tata letak default mengikuti mockup: 5 KPI atas + 2 panel bawah */
+const KPI_IDS = new Set<JarvisWidgetId>([
+  "kpi-pasien",
+  "kpi-gender",
+  "kpi-tindakan",
+  "kpi-dokter",
+  "kpi-laporan",
+]);
+
+/** Tinggi minimum KPI agar isi tidak perlu di-scroll */
+export const JARVIS_KPI_MIN_H = 40;
+
+/** Tata letak default: 5 KPI atas (lebih tinggi) + 2 panel bawah */
 export const DEFAULT_JARVIS_WIDGET_LAYOUT: JarvisWidgetRect[] = [
-  { id: "kpi-pasien", x: 0.5, y: 10, w: 19, h: 30 },
-  { id: "kpi-gender", x: 20.5, y: 10, w: 19, h: 30 },
-  { id: "kpi-tindakan", x: 40.5, y: 10, w: 19, h: 30 },
-  { id: "kpi-dokter", x: 60.5, y: 10, w: 19, h: 30 },
-  { id: "kpi-laporan", x: 80.5, y: 10, w: 19, h: 30 },
-  { id: "chart-ppci", x: 0.5, y: 42, w: 49, h: 50 },
-  { id: "matrix-laporan", x: 50.5, y: 42, w: 49, h: 50 },
+  { id: "kpi-pasien", x: 0.5, y: 8, w: 19, h: 40 },
+  { id: "kpi-gender", x: 20.5, y: 8, w: 19, h: 40 },
+  { id: "kpi-tindakan", x: 40.5, y: 8, w: 19, h: 40 },
+  { id: "kpi-dokter", x: 60.5, y: 8, w: 19, h: 40 },
+  { id: "kpi-laporan", x: 80.5, y: 8, w: 19, h: 40 },
+  { id: "chart-ppci", x: 0.5, y: 50, w: 49, h: 48 },
+  { id: "matrix-laporan", x: 50.5, y: 50, w: 49, h: 48 },
 ];
 
 const SNAP_PCT = 1.5;
@@ -38,8 +49,9 @@ export function snapJarvisPercent(value: number): number {
 }
 
 export function clampJarvisRect(rect: JarvisWidgetRect): JarvisWidgetRect {
+  const minH = KPI_IDS.has(rect.id) ? JARVIS_KPI_MIN_H : 16;
   const w = Math.min(Math.max(rect.w, 14), 100);
-  const h = Math.min(Math.max(rect.h, 16), 100);
+  const h = Math.min(Math.max(rect.h, minH), 100);
   const x = snapJarvisPercent(Math.min(Math.max(rect.x, 0), 100 - w));
   const y = snapJarvisPercent(Math.min(Math.max(rect.y, 8), 100 - h));
   return { ...rect, x, y, w, h };

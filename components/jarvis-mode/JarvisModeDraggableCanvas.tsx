@@ -379,7 +379,7 @@ function JarvisModeDraggableCanvasInner({
   };
 
   return (
-    <div className="relative min-h-0 flex-1">
+    <div className="relative pb-2">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
         <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-300/80 dark:text-white/85">
           Seret panel · scroll untuk laporan lengkap
@@ -398,6 +398,7 @@ function JarvisModeDraggableCanvasInner({
         style={{
           minHeight: JARVIS_CANVAS_MIN_HEIGHT_PX,
           height: JARVIS_CANVAS_MIN_HEIGHT_PX,
+          paddingBottom: 12,
         }}
       >
         <div

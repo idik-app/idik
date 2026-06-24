@@ -98,6 +98,9 @@ function JarvisModeConsoleShellInner({
     localStorage.setItem(SIZE_KEY, next);
   };
 
+  const shellHeight =
+    size === "expanded" ? "min(90vh, 920px)" : "min(58vh, 480px)";
+
   if (minimized) {
     return (
       <motion.button
@@ -128,7 +131,8 @@ function JarvisModeConsoleShellInner({
         x: offset.x,
         y: offset.y,
         width: size === "expanded" ? "min(96vw, 1180px)" : "min(92vw, 520px)",
-        maxHeight: size === "expanded" ? "min(90vh, 920px)" : "min(58vh, 480px)",
+        height: shellHeight,
+        maxHeight: shellHeight,
       }}
       drag
       dragControls={dragControls}
@@ -141,11 +145,7 @@ function JarvisModeConsoleShellInner({
       exit={{ opacity: 0, y: 24, scale: 0.96 }}
       transition={{ type: "spring", stiffness: 280, damping: 26 }}
     >
-      <div
-        className={cn(
-          "jarvis-console-frame relative flex max-h-[inherit] flex-col overflow-hidden rounded-2xl",
-        )}
-      >
+      <div className="jarvis-console-frame relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl">
         <span className="jarvis-corner jarvis-corner-tl" aria-hidden />
         <span className="jarvis-corner jarvis-corner-tr" aria-hidden />
         <span className="jarvis-corner jarvis-corner-bl" aria-hidden />
@@ -190,9 +190,9 @@ function JarvisModeConsoleShellInner({
           </div>
         </header>
 
-        <div className="relative z-10 min-h-0 flex-1 overflow-hidden px-3 py-2 sm:px-4 sm:py-3">
+        <div className="jarvis-console-scroll relative z-10 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 sm:px-4 sm:py-3">
           <motion.div
-            className="h-full overflow-y-auto overflow-x-hidden custom-scroll"
+            className="min-h-0"
             initial={false}
             animate={{ opacity: booting ? 0.3 : 1 }}
           >

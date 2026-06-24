@@ -1,5 +1,10 @@
 /* JARVIS Mode — floating HUD console (non-fullscreen) */
 
+.jarvis-console-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 .jarvis-console-frame {
   position: relative;
   border: 1px solid rgba(0, 224, 255, 0.35);

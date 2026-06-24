@@ -32,6 +32,7 @@ import TindakanDetailDrawer from "./components/TindakanDetailDrawer";
 import FastTrackListModal from "./components/FastTrackListModal";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import { PhoneDirectoryProvider } from "./contexts/PhoneDirectoryContext";
+import { useJarvisModeDataPublisher } from "@/hooks/useJarvisModeDataPublisher";
 
 /** Baris awal tabel yang “dipanaskan” (cache SWR) agar klik baris/RM memakai data penuh tanpa jeda. */
 const TINDAKAN_DETAIL_SWR_WARM = 20;
@@ -111,6 +112,13 @@ export default function TindakanDashboard() {
   /** KPI header = snapshot terfilter dari tabel (bukan seluruh API). */
   const stats = filteredSummary?.stats ?? emptyTindakanKpiStats();
   const summaryLoading = Boolean(adapter.loading) || filteredSummary === null;
+
+  useJarvisModeDataPublisher({
+    stats,
+    filtered: filteredSummary,
+    allRows: filteredSummary?.allRows as TindakanJoinResult[] | undefined,
+    loading: summaryLoading,
+  });
 
   /**
    * Panjang array dependency wajib tetap (React 19 / rules-of-hooks "changed size" error

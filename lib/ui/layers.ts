@@ -64,6 +64,11 @@ export const UI_LAYERS = {
    * Jangan pakai z-[10002] — itu 10k, bukan 100k+.
    */
   dialogNestedPopover: "z-[100002]",
+  /**
+   * JARVIS Mode ambient overlay (Cath Lab wall display).
+   * Di atas fullscreen overlay biasa, di bawah agen Jarvis & modal intensive.
+   */
+  jarvisMode: "z-[100050]",
   /** Overlay layar penuh */
   fullscreenOverlay: "z-[999]",
   /** Elemen layar penuh (intro/loader) */

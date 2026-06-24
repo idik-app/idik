@@ -70,9 +70,14 @@ import { cn } from "@/lib/utils";
 import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
 import {
   MASTER_PASIEN_COMPACT_SWR_KEY,
+  useMasterDoctors,
   usePasienDetail,
   useTindakanDetail,
 } from "@/app/hooks/useMasterData";
+import {
+  canonicalDoctorDisplayValue,
+  type DoctorOption,
+} from "@/components/ui/doctor-combobox";
 import { mutate as mutateSwrGlobal } from "swr";
 
 type Props = {
@@ -224,7 +229,42 @@ function formatDrawerTitleHariTanggal(value: unknown): string {
   }).format(d);
 }
 
-function buildDrawerHeaderTitle(record: TindakanJoinResult) {
+function resolveDrawerDokterLabel(
+  record: TindakanJoinResult,
+  doctorOptions?: DoctorOption[],
+): string {
+  const raw =
+    String(record.dokter ?? "").split(",")[0].trim() ||
+    String(
+      (record as TindakanJoinResult & { operator?: string | null }).operator ??
+        "",
+    ).trim();
+  if (!raw) return "";
+  if (doctorOptions?.length) {
+    return canonicalDoctorDisplayValue(doctorOptions, raw) || raw;
+  }
+  return raw;
+}
+
+/** Jangan timpa nilai baris tabel dengan `null`/kosong dari fetch detail SWR. */
+function mergeTindakanDetailIntoRecord(
+  record: TindakanJoinResult,
+  detail: Partial<TindakanJoinResult> | null | undefined,
+): TindakanJoinResult {
+  if (!detail) return record;
+  const out: Record<string, unknown> = { ...record };
+  for (const [key, value] of Object.entries(detail)) {
+    if (value === null || value === undefined) continue;
+    if (typeof value === "string" && value.trim() === "") continue;
+    out[key] = value;
+  }
+  return out as TindakanJoinResult;
+}
+
+function buildDrawerHeaderTitle(
+  record: TindakanJoinResult,
+  doctorOptions?: DoctorOption[],
+) {
   const tanggalVal = getWireframeFieldValue(
     record as unknown as Record<string, unknown>,
     "tanggal_tindakan",
@@ -233,7 +273,7 @@ function buildDrawerHeaderTitle(record: TindakanJoinResult) {
   const rmStr = String(record.no_rm ?? "").trim();
   const namaStr = String(record.nama_pasien ?? "").trim() || "—";
   const tinStr = String(record.tindakan ?? "").trim();
-  const dokterStr = String(record.dokter ?? "").split(",")[0].trim();
+  const dokterStr = resolveDrawerDokterLabel(record, doctorOptions);
   const ruanganStr = String(record.ruangan ?? "").trim();
   const fullText = [
     hariTanggal,
@@ -544,6 +584,7 @@ function TindakanDetailDrawer({
 
   const [waCopied, setWaCopied] = useState(false);
   const [titleCopied, setTitleCopied] = useState(false);
+  const titleTextRef = useRef<HTMLDivElement>(null);
   /** Di viewport < sm: panel tab bisa disembunyikan agar konten lebar; default tertutup. */
   const [mobileTabMenuOpen, setMobileTabMenuOpen] = useState(false);
   /** Desktop sidebar toggle: jika true, sidebar kiri (nav) disembunyikan. */
@@ -554,6 +595,25 @@ function TindakanDetailDrawer({
     open ? record?.pasien_id : null,
     open ? record?.no_rm : null,
     open ? record?.nama_pasien : null,
+  );
+
+  const { doctors: doctorMasterRaw } = useMasterDoctors();
+  const doctorOptions = useMemo<DoctorOption[]>(
+    () =>
+      doctorMasterRaw.map(
+        (r: {
+          id: string;
+          nama_dokter: string;
+          spesialis: string | null;
+          aktif?: boolean;
+        }) => ({
+          id: r.id,
+          nama_dokter: r.nama_dokter,
+          spesialis: r.spesialis,
+          aktif: r.aktif,
+        }),
+      ),
+    [doctorMasterRaw],
   );
 
   const { tindakan: tindakanDetail, mutate: mutateTindakan } =
@@ -580,10 +640,7 @@ function TindakanDetailDrawer({
     // dan tindakanDetail (SWR - data paling baru dari DB).
     // Ini krusial agar saat Background Sync di drive masuk,
     // link pci_report_link langsung muncul tanpa user harus tutup-buka drawer.
-    const baseRow = {
-      ...record,
-      ...(tindakanDetail || {}), // Prioritaskan data terbaru dari DB (SWR)
-    };
+    const baseRow = mergeTindakanDetailIntoRecord(record, tindakanDetail);
 
     const merged = mergePasienMasterIntoRow(
       baseRow as TindakanJoinResult,
@@ -752,11 +809,14 @@ function TindakanDetailDrawer({
   const title = useMemo(() => {
     if (!displayRecord) return "Detail tindakan";
     const { hariTanggal, rmStr, namaStr, tinStr, dokterStr, ruanganStr } =
-      buildDrawerHeaderTitle(displayRecord);
+      buildDrawerHeaderTitle(displayRecord, doctorOptions);
 
     return (
-      <div className="flex min-w-0 flex-1 cursor-default select-text items-center gap-2 overflow-hidden whitespace-nowrap">
-        <div className="flex min-w-0 select-text items-center gap-2 overflow-hidden whitespace-nowrap">
+      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden whitespace-nowrap">
+        <div
+          ref={titleTextRef}
+          className="flex min-w-0 flex-1 cursor-default select-text items-center gap-2 overflow-hidden whitespace-nowrap"
+        >
           <span className="text-slate-300">{hariTanggal}</span>
           <span className="font-black tabular-nums text-amber-100">
             {rmStr || "—"}
@@ -776,7 +836,17 @@ function TindakanDetailDrawer({
           onClick={async (e) => {
             e.stopPropagation();
             try {
-              const text = buildDrawerHeaderTitle(displayRecord).fullText;
+              const built = buildDrawerHeaderTitle(
+                displayRecord,
+                doctorOptions,
+              ).fullText;
+              const visible = titleTextRef.current?.innerText
+                ?.replace(/\s+/g, " ")
+                .trim();
+              const text =
+                [visible, built]
+                  .filter(Boolean)
+                  .sort((a, b) => b.length - a.length)[0] ?? "";
               await navigator.clipboard.writeText(text);
               setTitleCopied(true);
               toast.success("Judul disalin ke clipboard", {
@@ -797,7 +867,7 @@ function TindakanDetailDrawer({
         </button>
       </div>
     );
-  }, [displayRecord, titleCopied]);
+  }, [displayRecord, doctorOptions, titleCopied]);
 
   /**
    * Portal ke body (atau fullscreen element): ancestor `LayoutMain` memakai `motion.div` (transform), sehingga
@@ -893,7 +963,7 @@ function TindakanDetailDrawer({
                   dragControls.start(e);
                 }}
                 className={cn(
-                  "shrink-0 border-b px-3 py-2.5 sm:px-4 cursor-grab active:cursor-grabbing select-none",
+                  "shrink-0 border-b px-3 py-2.5 sm:px-4 cursor-grab active:cursor-grabbing",
                   "border-white/10 bg-gradient-to-r from-[#1B2B44] to-[#2D4A6E] shadow-[0_1px_0_rgba(255,255,255,0.08)_inset]",
                 )}
               >

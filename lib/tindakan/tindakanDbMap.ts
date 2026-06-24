@@ -177,7 +177,7 @@ export function mapTindakanRowToApiDetail(data: Record<string, unknown>) {
   return {
     id: String(data.id),
     tanggal: (data.tanggal as string | null) ?? null,
-    dokter: (data.dokter as string | null) ?? null,
+    dokter: toText(data.dokter) ?? toText(data.operator),
     dokter_anestesi: toText(data.dokter_anestesi),
     ppds: toText(data.ppds),
     ruangan: (data.ruangan as string | null) ?? null,

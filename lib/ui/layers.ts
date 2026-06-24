@@ -66,9 +66,9 @@ export const UI_LAYERS = {
   dialogNestedPopover: "z-[100002]",
   /**
    * JARVIS Mode ambient overlay (Cath Lab wall display).
-   * Di atas fullscreen overlay biasa, di bawah agen Jarvis & modal intensive.
+   * Di atas agen Jarvis & drawer; di bawah modal intensive ICCU.
    */
-  jarvisMode: "z-[100050]",
+  jarvisMode: "z-[100195]",
   /** Overlay layar penuh */
   fullscreenOverlay: "z-[999]",
   /** Elemen layar penuh (intro/loader) */
@@ -119,6 +119,7 @@ export const Z_INDEX_VALUES = {
   barangAutocompletePortal: 100_090,
   jarvisAgentBackdrop: 100_099,
   jarvisAgent: 100_100,
+  jarvisMode: 100_195,
   intensiveIccuModalBackdrop: 100_200,
   intensiveIccuModal: 100_201,
   intensiveIccuModalPopover: 100_203,

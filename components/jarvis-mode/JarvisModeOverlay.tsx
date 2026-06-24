@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AnimatePresence,
   LazyMotion,
@@ -24,7 +25,7 @@ import {
   computeWeeklyMatrix,
 } from "@/lib/jarvis-mode/computeJarvisModeData";
 import { emptyTindakanKpiStats } from "@/app/dashboard/layanan/tindakan/hooks/useTindakanStats";
-import { UI_LAYERS } from "@/lib/ui/layers";
+import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
 import { cn } from "@/lib/utils";
 
 import JarvisModeCloseButton from "./JarvisModeCloseButton";
@@ -34,6 +35,7 @@ import JarvisModeSystemBar from "./JarvisModeSystemBar";
 
 export default function JarvisModeOverlay() {
   const ctx = useJarvisModeOptional();
+  const [mounted, setMounted] = useState(false);
   const isActive = ctx?.isActive ?? false;
   const data = ctx?.data;
   const exit = ctx?.exit;
@@ -49,6 +51,10 @@ export default function JarvisModeOverlay() {
   const weeklyMatrix = useMemo(() => computeWeeklyMatrix(rows), [rows]);
   const monthlyMatrix = useMemo(() => computeMonthlyMatrix(rows), [rows]);
   const criticalAlerts = useMemo(() => computeCriticalAlerts(rows), [rows]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isActive || !exit) return;
@@ -112,7 +118,7 @@ export default function JarvisModeOverlay() {
     };
   }, [isActive]);
 
-  if (!ctx) return null;
+  if (!ctx || !mounted) return null;
 
   const totalPasien = stats["Total pasien"] ?? stats["Pasien hari ini"] ?? 0;
   const totalTindakan = stats["Total tindakan"] ?? 0;
@@ -120,17 +126,18 @@ export default function JarvisModeOverlay() {
   const ppciWeekly = stats["PPCI Minggu Ini"] ?? 0;
   const laporanMapped = stats["Laporan Terpetakan"] ?? 0;
 
-  return (
+  const overlay = (
     <LazyMotion features={domAnimation}>
       <AnimatePresence>
         {isActive ? (
           <motion.div
             key="jarvis-mode-overlay"
             className={cn(
-              "fixed inset-0 flex flex-col",
+              "fixed inset-0 flex flex-col isolate pointer-events-auto",
               UI_LAYERS.jarvisMode,
-              "bg-black/75 backdrop-blur-2xl",
+              "bg-black/80 backdrop-blur-2xl",
             )}
+            style={{ zIndex: Z_INDEX_VALUES.jarvisMode }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -329,4 +336,6 @@ export default function JarvisModeOverlay() {
       </AnimatePresence>
     </LazyMotion>
   );
+
+  return createPortal(overlay, document.body);
 }

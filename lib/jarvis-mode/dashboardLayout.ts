@@ -18,10 +18,18 @@ export type JarvisWidgetRect = {
   h: number;
 };
 
-export const JARVIS_LAYOUT_STORAGE_KEY = "idik-jarvis-mode-widget-layout-v5";
+export const JARVIS_LAYOUT_STORAGE_KEY = "idik-jarvis-mode-widget-layout-v6";
 
-/** Tinggi minimum kanvas agar laporan tindakan punya ruang cukup; scroll di konsol JARVIS. */
-export const JARVIS_CANVAS_MIN_HEIGHT_PX = 920;
+/** Tinggi dasar kanvas; konten laporan mengalir tanpa scroll vertikal ganda. */
+export const JARVIS_CANVAS_MIN_HEIGHT_PX = 1080;
+
+export function computeJarvisCanvasHeightPx(
+  layout: readonly JarvisWidgetRect[],
+): number {
+  const maxBottom = layout.reduce((m, r) => Math.max(m, r.y + r.h), 0);
+  const base = Math.ceil((maxBottom / 100) * JARVIS_CANVAS_MIN_HEIGHT_PX);
+  return Math.max(JARVIS_CANVAS_MIN_HEIGHT_PX, base + 48);
+}
 
 const KPI_IDS = new Set<JarvisWidgetId>([
   "kpi-pasien",
@@ -43,8 +51,8 @@ export const DEFAULT_JARVIS_WIDGET_LAYOUT: JarvisWidgetRect[] = [
   { id: "kpi-tindakan", x: 40.5, y: 0, w: 19, h: 22 },
   { id: "kpi-dokter", x: 60.5, y: 0, w: 19, h: 22 },
   { id: "kpi-laporan", x: 80.5, y: 0, w: 19, h: 22 },
-  { id: "chart-ppci", x: 0.5, y: 24, w: 99, h: 28 },
-  { id: "laporan-tindakan", x: 0.5, y: 54, w: 99, h: 44 },
+  { id: "chart-ppci", x: 0.5, y: 24, w: 99, h: 26 },
+  { id: "laporan-tindakan", x: 0.5, y: 52, w: 99, h: 46 },
 ];
 
 const SNAP_PCT = 1.5;

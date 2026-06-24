@@ -22,8 +22,8 @@ import {
 } from "@/lib/jarvis-mode/computeJarvisModeData";
 import {
   clampJarvisRect,
+  computeJarvisCanvasHeightPx,
   DEFAULT_JARVIS_WIDGET_LAYOUT,
-  JARVIS_CANVAS_MIN_HEIGHT_PX,
   loadJarvisWidgetLayout,
   resetJarvisWidgetLayout,
   saveJarvisWidgetLayout,
@@ -61,15 +61,18 @@ function DraggableWidget({
   children: ReactNode;
 }) {
   const dragControls = useDragControls();
+  const flowContent = rect.id === "laporan-tindakan";
 
   return (
     <motion.div
-      className="absolute touch-none"
+      className={cn("absolute touch-none", flowContent && "overflow-visible")}
       style={{
         left: `${rect.x}%`,
         top: `${rect.y}%`,
         width: `${rect.w}%`,
-        height: `${rect.h}%`,
+        ...(flowContent
+          ? { minHeight: `${rect.h}%`, height: "auto" }
+          : { height: `${rect.h}%` }),
         padding: 5,
       }}
       drag
@@ -98,14 +101,14 @@ function DraggableWidget({
       transition={{ type: "spring", stiffness: 320, damping: 28, delay: index * 0.06 }}
     >
       <motion.div
-        className="h-full w-full"
+        className={cn("w-full", flowContent ? "h-auto" : "h-full")}
         animate={undefined}
         style={{ y: 0 }}
         whileHover={{ y: -2 }}
         transition={{ type: "spring", stiffness: 300, damping: 20 }}
       >
         <div
-          className="h-full w-full"
+          className={cn("w-full", flowContent ? "h-auto" : "h-full")}
           onPointerDown={(e) => {
             const target = e.target as HTMLElement;
             if (
@@ -175,6 +178,11 @@ function JarvisModeDraggableCanvasInner({
   useEffect(() => {
     setLayout(loadJarvisWidgetLayout());
   }, []);
+
+  const canvasHeight = useMemo(
+    () => computeJarvisCanvasHeightPx(layout),
+    [layout],
+  );
 
   const onMove = useCallback((id: JarvisWidgetId, next: JarvisWidgetRect) => {
     setLayout((prev) => {
@@ -382,7 +390,7 @@ function JarvisModeDraggableCanvasInner({
     <div className="relative pb-2">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
         <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-300/80 dark:text-white/85">
-          Seret panel · scroll untuk laporan lengkap
+          Seret panel · gulir konsol untuk laporan lengkap
         </p>
         <button
           type="button"
@@ -396,9 +404,9 @@ function JarvisModeDraggableCanvasInner({
         ref={containerRef}
         className="relative overflow-x-hidden overflow-y-visible rounded-xl border border-cyan-500/15 bg-black/25"
         style={{
-          minHeight: JARVIS_CANVAS_MIN_HEIGHT_PX,
-          height: JARVIS_CANVAS_MIN_HEIGHT_PX,
-          paddingBottom: 12,
+          minHeight: canvasHeight,
+          height: canvasHeight,
+          paddingBottom: 16,
         }}
       >
         <div

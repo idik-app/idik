@@ -149,7 +149,7 @@ function MatrixTable({
                         <div className="mb-1 border-b border-cyan-500/20 pb-1 font-bold text-cyan-300">
                           {label} — Tgl {day}
                         </div>
-                        <ul className="max-h-28 overflow-auto custom-scroll">
+                        <ul className="max-h-28 overflow-y-auto">
                           {detailPasien.length > 0 ? (
                             detailPasien.map((p, pi) => (
                               <li
@@ -241,11 +241,11 @@ function JarvisModeLaporanTindakanInner({
       title="Laporan tindakan"
       accent="cyan"
       dragHandle
-      className="h-full"
+      className="h-auto overflow-visible"
       compact
-      bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden p-2"
+      bodyClassName="flex flex-col overflow-visible p-2"
     >
-      <div className="flex h-full min-h-[300px] flex-col gap-1.5 overflow-hidden">
+      <div className="flex flex-col gap-1.5">
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-1">
           {report.reportRowsCatchUp && !loading ? (
             <p className="text-[8px] font-semibold text-white/70">
@@ -334,8 +334,10 @@ function JarvisModeLaporanTindakanInner({
 
         <div
           className={cn(
-            "min-h-[220px] flex-1 overflow-auto rounded-lg border border-cyan-500/20 bg-black/20 custom-scroll",
-            report.tab === "analisis" && "flex flex-col",
+            "rounded-lg border border-cyan-500/20 bg-black/20",
+            report.tab === "analisis"
+              ? "flex flex-col"
+              : "jarvis-matrix-scroll overflow-x-auto overflow-y-visible",
           )}
         >
           {loading ? (
@@ -347,7 +349,7 @@ function JarvisModeLaporanTindakanInner({
               Pilih bulan yang valid.
             </p>
           ) : report.tab === "analisis" ? (
-            <div className="flex min-h-0 flex-1 flex-col gap-1.5 p-1.5">
+            <div className="flex flex-col gap-1.5 p-1.5">
               {report.analisisStats ? (
                 <div className="grid shrink-0 grid-cols-2 gap-1 sm:grid-cols-4">
                   <div className="rounded border border-cyan-500/20 bg-black/30 p-1.5">
@@ -399,7 +401,7 @@ function JarvisModeLaporanTindakanInner({
                 </div>
               ) : null}
 
-              <div className="min-h-0 flex-1 overflow-auto">
+              <div className="overflow-x-auto jarvis-matrix-scroll">
                 <table className="w-full border-collapse text-[9px]">
                   <thead className="sticky top-0 z-[1] bg-[#061018]">
                     <tr>

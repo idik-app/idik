@@ -18,7 +18,10 @@ export type JarvisWidgetRect = {
   h: number;
 };
 
-export const JARVIS_LAYOUT_STORAGE_KEY = "idik-jarvis-mode-widget-layout-v7";
+export const JARVIS_LAYOUT_STORAGE_KEY = "idik-jarvis-mode-widget-layout-v8";
+
+/** Widget laporan mengisi sisa kanvas sampai bawah (top + bottom anchor). */
+export const JARVIS_LAPORAN_ANCHOR_BOTTOM = true;
 
 /** Kanvas mengisi tinggi area konten konsol (bukan px tetap). */
 export const JARVIS_CANVAS_MIN_HEIGHT_PX = 0;
@@ -43,15 +46,15 @@ export const JARVIS_KPI_MIN_H = 9;
 
 const LAPORAN_MIN_H = 28;
 
-/** Satu layar: KPI ringkas + PPCI + laporan tindakan. */
+/** Satu layar: KPI + PPCI lebih tinggi + laporan menempel ke bawah kanvas. */
 export const DEFAULT_JARVIS_WIDGET_LAYOUT: JarvisWidgetRect[] = [
   { id: "kpi-pasien", x: 0.5, y: 0, w: 19.5, h: 11 },
   { id: "kpi-gender", x: 20.5, y: 0, w: 19.5, h: 11 },
   { id: "kpi-tindakan", x: 40.5, y: 0, w: 19.5, h: 11 },
   { id: "kpi-dokter", x: 60.5, y: 0, w: 19.5, h: 11 },
   { id: "kpi-laporan", x: 80.5, y: 0, w: 19, h: 11 },
-  { id: "chart-ppci", x: 0.5, y: 12, w: 99, h: 17 },
-  { id: "laporan-tindakan", x: 0.5, y: 30, w: 99, h: 69 },
+  { id: "chart-ppci", x: 0.5, y: 11, w: 99, h: 30 },
+  { id: "laporan-tindakan", x: 0.5, y: 42, w: 99, h: 57 },
 ];
 
 const SNAP_PCT = 1.5;
@@ -88,8 +91,11 @@ function migrateSavedLayout(parsed: JarvisWidgetRect[]): JarvisWidgetRect[] {
     laporan.w < 70 &&
     chart.w < 70 &&
     Math.abs(laporan.y - chart.y) < 8;
+  const oldTallLaporan =
+    laporan != null && (laporan.h >= 55 || laporan.y <= 35);
+  const oldShortChart = chart != null && chart.h <= 22;
 
-  if (!oldSideBySide) return migrated;
+  if (!oldSideBySide && !oldTallLaporan && !oldShortChart) return migrated;
 
   const byId = new Map(DEFAULT_JARVIS_WIDGET_LAYOUT.map((d) => [d.id, d]));
   return migrated.map((p) => {

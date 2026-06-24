@@ -23,6 +23,7 @@ import {
 import {
   clampJarvisRect,
   DEFAULT_JARVIS_WIDGET_LAYOUT,
+  JARVIS_LAPORAN_ANCHOR_BOTTOM,
   loadJarvisWidgetLayout,
   saveJarvisWidgetLayout,
   type JarvisWidgetId,
@@ -60,15 +61,19 @@ function DraggableWidget({
 }) {
   const dragControls = useDragControls();
 
+  const anchorBottom =
+    rect.id === "laporan-tindakan" && JARVIS_LAPORAN_ANCHOR_BOTTOM;
+
   return (
     <motion.div
       className="absolute touch-none"
       style={{
         left: `${rect.x}%`,
-        top: `${rect.y}%`,
         width: `${rect.w}%`,
-        height: `${rect.h}%`,
         padding: 2,
+        ...(anchorBottom
+          ? { top: `${rect.y}%`, bottom: 0 }
+          : { top: `${rect.y}%`, height: `${rect.h}%` }),
       }}
       drag
       dragControls={dragControls}

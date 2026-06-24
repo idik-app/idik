@@ -53,10 +53,15 @@ const TAB_ITEMS: { id: TindakanLaporanTab; label: string }[] = [
 function MatrixTable({
   matrix,
   rowHeader,
+  roomyRows = false,
 }: {
   matrix: MonthlyMatrixAgg;
   rowHeader: string;
+  roomyRows?: boolean;
 }) {
+  const cellPad = roomyRows ? "px-0.5 py-1" : "px-0.5 py-0.5";
+  const headRowPad = roomyRows ? "px-1.5 py-1" : "px-1.5 py-0.5";
+
   return (
     <table className="w-max min-w-full border-collapse text-[8px]">
       <thead>
@@ -105,7 +110,8 @@ function MatrixTable({
             <th
               scope="row"
               className={cn(
-                "sticky left-0 z-[1] border border-cyan-500/20 bg-[#07121c] px-1.5 py-0.5 text-left font-semibold text-white dark:text-white",
+                "sticky left-0 z-[1] border border-cyan-500/20 bg-[#07121c] text-left font-semibold text-white dark:text-white",
+                headRowPad,
                 label.includes("PPCI") && "text-amber-200",
               )}
             >
@@ -125,7 +131,8 @@ function MatrixTable({
                 <td
                   key={di}
                   className={cn(
-                    "border border-cyan-500/15 px-0.5 py-0.5 text-center font-mono tabular-nums text-white/90",
+                    "border border-cyan-500/15 text-center font-mono tabular-nums text-white/90",
+                    cellPad,
                     wkend && "bg-amber-950/25",
                     c > 0 && "font-bold text-cyan-100",
                   )}
@@ -186,7 +193,10 @@ function MatrixTable({
         <tr className="bg-cyan-950/50 font-bold">
           <th
             scope="row"
-            className="sticky left-0 z-[1] border border-cyan-500/25 bg-[#061018] px-1.5 py-0.5 text-left text-amber-200"
+            className={cn(
+              "sticky left-0 z-[1] border border-cyan-500/25 bg-[#061018] text-left text-amber-200",
+              headRowPad,
+            )}
           >
             JUMLAH
           </th>
@@ -198,7 +208,8 @@ function MatrixTable({
               <td
                 key={di}
                 className={cn(
-                  "border border-cyan-500/20 px-0.5 py-0.5 text-center font-mono tabular-nums text-white",
+                  "border border-cyan-500/20 text-center font-mono tabular-nums text-white",
+                  cellPad,
                   wkend && "bg-amber-950/30",
                 )}
               >
@@ -316,12 +327,17 @@ function JarvisModeLaporanTindakanInner({
 
         <div
           className={cn(
-            "min-h-0 flex-1 rounded border border-cyan-500/20 bg-black/20",
-            report.tab === "analisis"
-              ? "flex flex-col overflow-hidden"
-              : "jarvis-matrix-scroll overflow-x-auto overflow-y-auto",
+            "flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-cyan-500/20 bg-[#061018]/80",
+            report.tab === "analisis" && "jarvis-matrix-scroll overflow-y-auto",
           )}
         >
+          <div
+            className={cn(
+              "min-h-0 flex-1",
+              report.tab !== "analisis" &&
+                "jarvis-matrix-scroll overflow-x-auto overflow-y-auto",
+            )}
+          >
           {loading ? (
             <p className="p-3 text-center text-[10px] text-white/70">
               Memuat data…
@@ -499,8 +515,23 @@ function JarvisModeLaporanTindakanInner({
             <MatrixTable
               matrix={report.finalMatrix}
               rowHeader={report.matrixRowHeader}
+              roomyRows={report.finalMatrix.rowLabels.length <= 11}
             />
           )}
+          </div>
+          {report.tab !== "analisis" &&
+          report.finalMatrix &&
+          report.finalMatrix.rowLabels.length > 0 ? (
+            <div className="shrink-0 border-t border-cyan-500/25 bg-cyan-950/40 px-2 py-0.5 text-[8px] font-semibold text-white/85">
+              <span className="text-cyan-200">{report.monthYyyyMm}</span>
+              <span className="text-white/50"> · </span>
+              Total{" "}
+              <span className="font-mono font-bold text-amber-200">
+                {report.finalMatrix.grandTotal}
+              </span>{" "}
+              tindakan
+            </div>
+          ) : null}
         </div>
       </div>
     </JarvisModeGlassPanel>

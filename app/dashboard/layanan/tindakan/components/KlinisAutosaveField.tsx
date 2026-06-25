@@ -26,6 +26,9 @@ const PREVIEW_ZOOM_MAX = 2;
 const PREVIEW_ZOOM_STEP = 0.1;
 /** Tinggi dasar iframe (px); zoom memperbesar layout, bukan CSS scale — agar teks tidak blur/pecah. */
 const PREVIEW_IFRAME_BASE_HEIGHT_PX = 820;
+/** Panah gelap — terbaca di atas dokumen putih walau app dark mode / iframe cross-origin. */
+const PREVIEW_VIEWPORT_CURSOR =
+  'url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 20 20%27%3E%3Cpath fill=%27%230f172a%27 stroke=%27%23ffffff%27 stroke-width=%271%27 d=%27M3 1l14 9-6.5.5 4.5 7.5-2.5 1.5-4.5-7-5.5 4.5z%27/%3E%3C/svg%3E") 2 2, default';
 
 const MULTILINE: Record<KlinisFieldKey, boolean> = {
   diagnosa: true,
@@ -504,20 +507,23 @@ export default function KlinisAutosaveField({
           <div
             className={cn(
               "relative min-h-0 flex-1 overflow-auto rounded-lg border border-cyan-500/30 bg-slate-200 shadow-inner",
-              "[color-scheme:only_light] cursor-default",
+              "[color-scheme:only_light]",
             )}
+            style={{ cursor: PREVIEW_VIEWPORT_CURSOR }}
+            tabIndex={0}
+            role="region"
+            aria-label="Pratinjau laporan — scroll untuk melihat dokumen"
           >
             {isGoogleDocs && previewDocId ? (
               <iframe
                 src={`https://docs.google.com/document/d/${previewDocId}/preview`}
-                className="block max-w-none cursor-default border-none bg-white [color-scheme:only_light]"
+                className="pointer-events-none block max-w-none select-none border-none bg-white"
                 title="PCI Report Preview"
                 allow="autoplay"
+                tabIndex={-1}
                 style={{
                   width: `${previewZoom * 100}%`,
                   height: `${Math.round(PREVIEW_IFRAME_BASE_HEIGHT_PX * previewZoom)}px`,
-                  colorScheme: "only light",
-                  cursor: "default",
                 }}
               />
             ) : (

@@ -23,14 +23,9 @@ import {
   weekdaySun0Wib,
   type MonthlyMatrixAgg,
 } from "@/app/dashboard/layanan/tindakan/lib/tindakanBulananMatrix";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { UI_LAYERS } from "@/lib/ui/layers";
 import { cn } from "@/lib/utils";
 
+import JarvisMatrixCellDetail from "./JarvisMatrixCellDetail";
 import JarvisModeGlassPanel from "./JarvisModeGlassPanel";
 
 type Props = {
@@ -138,47 +133,14 @@ function MatrixTable({
                   )}
                 >
                   {c > 0 ? (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          type="button"
-                          className="h-full w-full focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400/60"
-                        >
-                          {formatCell(c)}
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className={cn(
-                          "w-56 border-cyan-500/30 bg-[#0a1520] p-2 text-[10px] text-white",
-                          UI_LAYERS.jarvisModePopover,
-                        )}
-                      >
-                        <div className="mb-1 border-b border-cyan-500/20 pb-1 font-bold text-cyan-300">
-                          {label} — Tgl {day}
-                        </div>
-                        <ul className="max-h-28 overflow-y-auto">
-                          {detailPasien.length > 0 ? (
-                            detailPasien.map((p, pi) => (
-                              <li
-                                key={pi}
-                                className="border-b border-white/10 py-1 last:border-0"
-                              >
-                                <div className="font-semibold text-cyan-200">
-                                  {p.nama} | {p.tindakan || "—"}
-                                </div>
-                                <div className="text-[9px] text-white/75">
-                                  RM: {p.no_rm} · Dr: {p.dokter}
-                                </div>
-                              </li>
-                            ))
-                          ) : (
-                            <li className="py-1 italic text-white/50">
-                              Detail tidak tersedia
-                            </li>
-                          )}
-                        </ul>
-                      </PopoverContent>
-                    </Popover>
+                    <JarvisMatrixCellDetail
+                      count={c}
+                      display={formatCell(c)}
+                      label={label}
+                      day={day}
+                      patients={detailPasien}
+                      className={cn(c > 0 && "font-bold text-cyan-100")}
+                    />
                   ) : (
                     formatCell(c)
                   )}

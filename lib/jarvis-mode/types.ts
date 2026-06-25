@@ -46,7 +46,7 @@ export type JarvisModeData = {
 };
 
 export type JarvisModeConfig = {
-  /** Durasi idle sebelum JARVIS Mode aktif (ms). Default: 60 menit. */
+  /** Durasi idle sebelum JARVIS Mode aktif (ms). Default: 5 menit. */
   idleEnterMs?: number;
   /** Durasi auto-sleep setelah masuk JARVIS Mode tanpa interaksi (ms). Default: 60 menit. */
   autoSleepMs?: number;
@@ -54,8 +54,8 @@ export type JarvisModeConfig = {
   locationLabel?: string;
 };
 
-/** Idle sebelum JARVIS Mode otomatis aktif: 60 menit tanpa input. */
-export const JARVIS_MODE_IDLE_ENTER_MS = 60 * 60 * 1000;
+/** Idle sebelum JARVIS Mode otomatis aktif: 5 menit tanpa input. */
+export const JARVIS_MODE_IDLE_ENTER_MS = 5 * 60 * 1000;
 
 /** Auto-sleep JARVIS Mode: 60 menit tanpa interaksi. */
 export const JARVIS_MODE_AUTO_SLEEP_MS = 60 * 60 * 1000;

@@ -29,7 +29,7 @@ type Options = {
 };
 
 /**
- * Deteksi idle pengguna: setelah `idleEnterMs` (default 60 menit) tanpa input → JARVIS Mode aktif.
+ * Deteksi idle pengguna: setelah `idleEnterMs` (default 5 menit) tanpa input → JARVIS Mode aktif.
  * Saat aktif, `autoSleepMs` countdown; interaksi apa pun mereset countdown.
  */
 export function useJarvisModeIdle(options: Options = {}): JarvisModeIdleState {

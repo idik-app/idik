@@ -939,7 +939,7 @@ function TindakanDetailDrawer({
                 opacity: { duration: 0.15 }
               }}
               className={cn(
-                "pointer-events-auto flex h-[85vh] max-h-[85vh] min-w-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl border antialiased [text-rendering:optimizeLegibility]",
+                "pointer-events-auto flex h-[85vh] max-h-[85vh] min-w-0 w-full max-w-5xl cursor-default flex-col overflow-hidden rounded-2xl border antialiased [text-rendering:optimizeLegibility]",
                 "border-slate-200/90 bg-slate-50/90 shadow-[0_24px_56px_rgba(15,23,42,0.15),0_0_1px_rgba(15,23,42,0.1)]",
                 "font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
               )}

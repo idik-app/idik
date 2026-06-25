@@ -501,16 +501,23 @@ export default function KlinisAutosaveField({
             </div>
           </div>
 
-          <div className="relative min-h-0 flex-1 overflow-auto rounded-lg border border-cyan-500/30 bg-black/40 shadow-inner">
+          <div
+            className={cn(
+              "relative min-h-0 flex-1 overflow-auto rounded-lg border border-cyan-500/30 bg-slate-200 shadow-inner",
+              "[color-scheme:only_light] cursor-default",
+            )}
+          >
             {isGoogleDocs && previewDocId ? (
               <iframe
                 src={`https://docs.google.com/document/d/${previewDocId}/preview`}
-                className="block max-w-none border-none bg-white"
+                className="block max-w-none cursor-default border-none bg-white [color-scheme:only_light]"
                 title="PCI Report Preview"
                 allow="autoplay"
                 style={{
                   width: `${previewZoom * 100}%`,
                   height: `${Math.round(PREVIEW_IFRAME_BASE_HEIGHT_PX * previewZoom)}px`,
+                  colorScheme: "only light",
+                  cursor: "default",
                 }}
               />
             ) : (

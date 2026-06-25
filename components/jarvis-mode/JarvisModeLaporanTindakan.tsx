@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect } from "react";
+import { memo, useEffect, useMemo } from "react";
 import {
   Activity,
   CheckCircle2,
@@ -19,8 +19,13 @@ import {
   type TindakanLaporanTab,
 } from "@/app/dashboard/layanan/tindakan/hooks/useTindakanLaporanReport";
 import {
+  buildPasienReportLookup,
+} from "@/app/dashboard/layanan/tindakan/lib/displayTindakanRow";
+import {
   CARA_BAYAR_LABEL_BELUM_TERISI,
+  getMatrixCellPatientDetails,
   weekdaySun0Wib,
+  type MatrixLaporanTabKind,
   type MonthlyMatrixAgg,
 } from "@/app/dashboard/layanan/tindakan/lib/tindakanBulananMatrix";
 import { cn } from "@/lib/utils";
@@ -49,11 +54,26 @@ function MatrixTable({
   matrix,
   rowHeader,
   roomyRows = false,
+  tab,
+  sourceRows,
+  pasienOptions = [],
 }: {
   matrix: MonthlyMatrixAgg;
   rowHeader: string;
   roomyRows?: boolean;
+  tab: MatrixLaporanTabKind;
+  sourceRows: readonly TindakanJoinResult[];
+  pasienOptions?: readonly PasienOption[];
 }) {
+  const pasienLookup = useMemo(
+    () => buildPasienReportLookup(pasienOptions),
+    [pasienOptions],
+  );
+  const matrixPasienOpts = useMemo(
+    () => ({ pasienOptions, pasienLookup }),
+    [pasienOptions, pasienLookup],
+  );
+
   const cellPad = roomyRows ? "px-0.5 py-1" : "px-0.5 py-0.5";
   const headRowPad = roomyRows ? "px-1.5 py-1" : "px-1.5 py-0.5";
 
@@ -120,7 +140,21 @@ function MatrixTable({
                 day,
               );
               const wkend = wd === 0 || wd === 6;
-              const detailPasien = matrix.details?.[ri]?.[di] ?? [];
+              const fromMatrix = matrix.details?.[ri]?.[di] ?? [];
+              const detailPasien =
+                fromMatrix.length > 0
+                  ? fromMatrix
+                  : c > 0
+                    ? getMatrixCellPatientDetails(
+                        sourceRows,
+                        tab,
+                        label,
+                        matrix.year,
+                        matrix.month1to12,
+                        day,
+                        matrixPasienOpts,
+                      )
+                    : [];
 
               return (
                 <td
@@ -478,6 +512,9 @@ function JarvisModeLaporanTindakanInner({
               matrix={report.finalMatrix}
               rowHeader={report.matrixRowHeader}
               roomyRows={report.finalMatrix.rowLabels.length <= 11}
+              tab={report.tab as MatrixLaporanTabKind}
+              sourceRows={rows}
+              pasienOptions={pasienOptions}
             />
           )}
           </div>

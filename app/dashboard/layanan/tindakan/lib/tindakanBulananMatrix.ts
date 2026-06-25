@@ -625,6 +625,67 @@ export function aggregateMonthlyCaraBayar(
   return finalizeMatrix(year, month1to12, rowLabels, data, details);
 }
 
+export type MatrixLaporanTabKind = "jenis" | "kategori" | "cara";
+
+type MatrixCellPatient = NonNullable<
+  MonthlyMatrixAgg["details"]
+>[number][number][number];
+
+function rowMatchesMatrixLabel(
+  row: TindakanJoinResult,
+  tab: MatrixLaporanTabKind,
+  rowLabel: string,
+  opts?: MonthlyMatrixPasienOpts,
+): boolean {
+  if (tab === "jenis") {
+    const label = String(row.tindakan || "BELUM DIISI").trim().toUpperCase();
+    return label === rowLabel;
+  }
+  if (tab === "kategori") {
+    const masterLabels = TINDAKAN_KATEGORI.map((k) => k.toUpperCase());
+    let label = String(row.kategori || "").trim().toUpperCase();
+    if (!label || !masterLabels.includes(label)) label = "LAIN-LAIN";
+    return label === rowLabel;
+  }
+  const pasienOpts = opts?.pasienOptions;
+  const pasienLookup = opts?.pasienLookup;
+  const pasien =
+    pasienLookup && pasienOpts && pasienOpts.length > 0
+      ? resolvePasienOptionForLaporanCaraBayarFromLookup(row, pasienLookup)
+      : pasienOpts && pasienOpts.length > 0
+        ? resolvePasienOptionForLaporanCaraBayar(pasienOpts, row)
+        : null;
+  const rowWithMaster =
+    pasien != null ? applyPasienMasterForCaraBayarRow(row, pasien) : row;
+  const tindakanKp = String(row.kelas_pembiayaan ?? "").trim();
+  const rowFor = tindakanKp !== "" ? row : rowWithMaster;
+  return mapTindakanRowToCaraBayarLaporan(rowFor) === rowLabel;
+}
+
+/** Fallback / lookup detail pasien per sel matriks (untuk tooltip JARVIS). */
+export function getMatrixCellPatientDetails(
+  rows: readonly TindakanJoinResult[],
+  tab: MatrixLaporanTabKind,
+  rowLabel: string,
+  year: number,
+  month1to12: number,
+  day: number,
+  opts?: MonthlyMatrixPasienOpts,
+): MatrixCellPatient[] {
+  const dim = daysInMonth(year, month1to12);
+  if (day < 1 || day > dim) return [];
+
+  const out: MatrixCellPatient[] = [];
+  for (const row of rows) {
+    if (!isInYearMonth(row.tanggal, year, month1to12)) continue;
+    const rowDay = dayOfMonthFromTanggal(row.tanggal);
+    if (rowDay !== day) continue;
+    if (!rowMatchesMatrixLabel(row, tab, rowLabel, opts)) continue;
+    out.push(matrixDetailFromRow(row, opts?.pasienOptions, opts?.pasienLookup));
+  }
+  return out;
+}
+
 /** Weekday 0–6 (Minggu–Sabtu) untuk tanggal di WIB (tengah hari). */
 export function weekdaySun0Wib(
   year: number,

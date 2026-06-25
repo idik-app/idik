@@ -114,7 +114,9 @@ function DraggableWidget({
             if (
               target.closest("button") ||
               target.closest("input") ||
-              target.closest(".recharts-wrapper")
+              target.closest(".recharts-wrapper") ||
+              target.closest(".jarvis-matrix-scroll") ||
+              target.closest("[data-jarvis-matrix-cell]")
             ) {
               return;
             }

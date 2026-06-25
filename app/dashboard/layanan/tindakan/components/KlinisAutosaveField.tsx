@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Wand2, ZoomIn, ZoomOut } from "lucide-react";
+import { MousePointerClick, Search, Wand2, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useEventBridge } from "@/contexts/EventBridgeContext";
@@ -89,6 +89,7 @@ export default function KlinisAutosaveField({
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractProgress, setExtractProgress] = useState(0);
   const [previewZoom, setPreviewZoom] = useState(1);
+  const [previewInteract, setPreviewInteract] = useState(false);
   const { emit } = useEventBridge();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
@@ -137,7 +138,17 @@ export default function KlinisAutosaveField({
   useEffect(() => {
     if (field !== "pci_report_link") return;
     setPreviewZoom(1);
+    setPreviewInteract(false);
   }, [previewDocId, field]);
+
+  useEffect(() => {
+    if (!previewInteract) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPreviewInteract(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [previewInteract]);
 
   // Otomasi Ekstrak tanpa klik jika ini adalah field pci_report_link
   useEffect(() => {
@@ -454,7 +465,22 @@ export default function KlinisAutosaveField({
             </p>
             <div className="flex items-center gap-2">
               {isGoogleDocs && previewDocId ? (
-                <div
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewInteract((v) => !v)}
+                    className={cn(
+                      "flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors",
+                      previewInteract
+                        ? "border-amber-400/50 bg-amber-500/20 text-amber-100"
+                        : "border-cyan-500/30 bg-black/35 text-cyan-200/90 hover:bg-cyan-500/15",
+                    )}
+                    aria-pressed={previewInteract}
+                  >
+                    <MousePointerClick className="h-3 w-3" aria-hidden />
+                    {previewInteract ? "Selesai" : "Pilih teks"}
+                  </button>
+                  <div
                   className="flex items-center gap-0.5 rounded-md border border-cyan-500/30 bg-black/35 p-0.5"
                   role="group"
                   aria-label="Zoom pratinjau laporan"
@@ -495,6 +521,7 @@ export default function KlinisAutosaveField({
                     <ZoomIn className="h-3.5 w-3.5" aria-hidden />
                   </button>
                 </div>
+                </>
               ) : null}
               {isGoogleDocs && (
                 <span className="rounded bg-cyan-500/10 px-1.5 py-0.5 text-[9px] font-bold text-cyan-400">
@@ -509,23 +536,65 @@ export default function KlinisAutosaveField({
               "relative min-h-0 flex-1 overflow-auto rounded-lg border border-cyan-500/30 bg-slate-200 shadow-inner",
               "[color-scheme:only_light]",
             )}
-            style={{ cursor: PREVIEW_VIEWPORT_CURSOR }}
+            style={
+              previewInteract ? undefined : { cursor: PREVIEW_VIEWPORT_CURSOR }
+            }
             tabIndex={0}
             role="region"
-            aria-label="Pratinjau laporan — scroll untuk melihat dokumen"
+            aria-label={
+              previewInteract
+                ? "Pratinjau laporan — mode pilih teks aktif"
+                : "Pratinjau laporan — scroll untuk melihat dokumen"
+            }
           >
+            {previewInteract ? (
+              <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-cyan-600/30 bg-slate-800/95 px-2.5 py-1.5 backdrop-blur-sm">
+                <p className="text-[10px] font-semibold text-cyan-50">
+                  Blok teks di laporan lalu Ctrl+C · Esc untuk keluar
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPreviewInteract(false)}
+                  className="shrink-0 rounded border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white hover:bg-white/20"
+                >
+                  Selesai
+                </button>
+              </div>
+            ) : null}
             {isGoogleDocs && previewDocId ? (
-              <iframe
-                src={`https://docs.google.com/document/d/${previewDocId}/preview`}
-                className="pointer-events-none block max-w-none select-none border-none bg-white"
-                title="PCI Report Preview"
-                allow="autoplay"
-                tabIndex={-1}
-                style={{
-                  width: `${previewZoom * 100}%`,
-                  height: `${Math.round(PREVIEW_IFRAME_BASE_HEIGHT_PX * previewZoom)}px`,
-                }}
-              />
+              <>
+                <iframe
+                  src={`https://docs.google.com/document/d/${previewDocId}/preview`}
+                  className={cn(
+                    "block max-w-none border-none bg-white",
+                    previewInteract
+                      ? "pointer-events-auto [color-scheme:only_light]"
+                      : "pointer-events-none select-none",
+                  )}
+                  title="PCI Report Preview"
+                  allow="autoplay"
+                  tabIndex={previewInteract ? 0 : -1}
+                  style={{
+                    width: `${previewZoom * 100}%`,
+                    height: `${Math.round(PREVIEW_IFRAME_BASE_HEIGHT_PX * previewZoom)}px`,
+                    ...(previewInteract
+                      ? { colorScheme: "only light" as const }
+                      : {}),
+                  }}
+                />
+                {!previewInteract ? (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center pb-3">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewInteract(true)}
+                      className="pointer-events-auto rounded-lg border border-slate-300/80 bg-white/95 px-3 py-1.5 text-[11px] font-semibold text-slate-700 shadow-md transition-colors hover:bg-white"
+                      aria-label="Aktifkan mode pilih dan salin teks dari laporan"
+                    >
+                      Klik untuk memilih &amp; menyalin teks laporan
+                    </button>
+                  </div>
+                ) : null}
+              </>
             ) : (
               <div className="flex h-full flex-col items-center justify-center p-6 text-center">
                 <div className="mb-3 rounded-full bg-cyan-500/5 p-4">

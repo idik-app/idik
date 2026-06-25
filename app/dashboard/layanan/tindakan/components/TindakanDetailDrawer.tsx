@@ -75,7 +75,7 @@ import {
   useTindakanDetail,
 } from "@/app/hooks/useMasterData";
 import {
-  canonicalDoctorDisplayValue,
+  canonicalDoctorStoredValue,
   type DoctorOption,
 } from "@/components/ui/doctor-combobox";
 import { mutate as mutateSwrGlobal } from "swr";
@@ -233,17 +233,21 @@ function resolveDrawerDokterLabel(
   record: TindakanJoinResult,
   doctorOptions?: DoctorOption[],
 ): string {
-  const raw =
-    String(record.dokter ?? "").split(",")[0].trim() ||
+  const stored =
+    String(record.dokter ?? "").trim() ||
     String(
       (record as TindakanJoinResult & { operator?: string | null }).operator ??
         "",
     ).trim();
-  if (!raw) return "";
+  if (!stored) return "";
+
+  let label = stored;
   if (doctorOptions?.length) {
-    return canonicalDoctorDisplayValue(doctorOptions, raw) || raw;
+    label = canonicalDoctorStoredValue(doctorOptions, stored) || stored;
   }
-  return raw;
+
+  // Header: tanpa gelar belakang / spesialis setelah koma.
+  return label.split(",")[0].trim();
 }
 
 /** Jangan timpa nilai baris tabel dengan `null`/kosong dari fetch detail SWR. */

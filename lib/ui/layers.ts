@@ -49,6 +49,8 @@ export const UI_LAYERS = {
   confirmDialogHigh: "z-[600]",
   /** Popover standar */
   popover: "z-[100]",
+  /** Dropdown toolbar tabel (portal ke body; di atas tbody & label hover sel) */
+  toolbarPopover: "z-[105]",
   /** Portal untuk drawer */
   drawerPortal: "z-[100050]",
   /** Picker melayang (date/time) */
@@ -118,6 +120,7 @@ export const UI_LAYERS = {
 
 /** Nilai numerik untuk inline style portal (z-index kelas saja kadang kalah pada stacking konteks). */
 export const Z_INDEX_VALUES = {
+  toolbarPopover: 105,
   barangAutocompletePortal: 100_090,
   jarvisAgentBackdrop: 100_099,
   jarvisAgent: 100_100,

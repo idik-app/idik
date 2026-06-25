@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, memo } from "react";
+import { createPortal } from "react-dom";
 import { mutate } from "swr";
 import {
   Search,
@@ -21,7 +22,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { UI_LAYERS } from "@/lib/ui/layers";
+import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
 import type { Pasien } from "@/app/dashboard/pasien/types/pasien";
 import TambahPasienQuickModal from "./TambahPasienQuickModal";
 import TarifModal from "./TarifModal";
@@ -115,7 +116,14 @@ function TableToolbar({
   const [indenanOpen, setIndenanOpen] = useState(false);
   const [jadwalCathOpen, setJadwalCathOpen] = useState(false);
   const [laporanMenuOpen, setLaporanMenuOpen] = useState(false);
+  const [laporanMenuMounted, setLaporanMenuMounted] = useState(false);
+  const [laporanMenuPos, setLaporanMenuPos] = useState<{
+    top: number;
+    left: number;
+    minWidth: number;
+  } | null>(null);
   const laporanMenuRef = useRef<HTMLDivElement | null>(null);
+  const laporanMenuPortalRef = useRef<HTMLDivElement | null>(null);
 
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -125,11 +133,39 @@ function TableToolbar({
   const hasAnyLaporan =
     hasLaporanLab || hasLaporanMatriks || hasLaporanPemakaian;
 
+  useEffect(() => setLaporanMenuMounted(true), []);
+
+  useEffect(() => {
+    if (!laporanMenuOpen) {
+      setLaporanMenuPos(null);
+      return;
+    }
+    const updatePos = () => {
+      const el = laporanMenuRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setLaporanMenuPos({
+        top: rect.bottom + 6,
+        left: rect.left,
+        minWidth: Math.max(rect.width, 224),
+      });
+    };
+    updatePos();
+    window.addEventListener("resize", updatePos);
+    window.addEventListener("scroll", updatePos, true);
+    return () => {
+      window.removeEventListener("resize", updatePos);
+      window.removeEventListener("scroll", updatePos, true);
+    };
+  }, [laporanMenuOpen]);
+
   useEffect(() => {
     if (!laporanMenuOpen) return;
     const onDoc = (e: MouseEvent) => {
-      const el = laporanMenuRef.current;
-      if (!el?.contains(e.target as Node)) setLaporanMenuOpen(false);
+      const target = e.target as Node;
+      if (laporanMenuRef.current?.contains(target)) return;
+      if (laporanMenuPortalRef.current?.contains(target)) return;
+      setLaporanMenuOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setLaporanMenuOpen(false);
@@ -397,104 +433,118 @@ function TableToolbar({
                         aria-hidden
                       />
                     </button>
-                    {laporanMenuOpen ? (
-                      <div
-                        id="tindakan-toolbar-laporan-menu"
-                        role="menu"
-                        aria-labelledby="tindakan-toolbar-laporan-trigger"
-                        className={cn(
-                          "absolute left-0 top-full mt-1.5 min-w-[14rem] rounded-xl border py-1.5 shadow-2xl",
-                          UI_LAYERS.modal,
-                          "border-emerald-600/50 bg-white dark:border-emerald-500/40 dark:bg-zinc-950",
-                          "ring-1 ring-black/5 dark:ring-white/10",
-                        )}
-                      >
-                        {hasLaporanLab ? (
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className={cn(
-                              "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
-                              "text-slate-900 hover:bg-violet-500/10 dark:text-white dark:hover:bg-violet-500/15",
-                              "focus-visible:bg-violet-500/10 focus-visible:outline-none dark:focus-visible:bg-violet-500/15",
-                            )}
-                            onClick={() => {
-                              setLaporanMenuOpen(false);
-                              onOpenTindakanTerbanyakLab?.();
-                            }}
-                          >
-                            <BarChart3
-                              size={16}
-                              strokeWidth={2.25}
-                              className="shrink-0 text-violet-600 dark:text-violet-400"
-                            />
-                            <span className="min-w-0 flex-1 font-extrabold tracking-wide">
-                              Laporan Tindakan Terbanyak
-                            </span>
-                          </button>
-                        ) : null}
-                        {hasLaporanLab && hasLaporanMatriks ? (
+                    {laporanMenuMounted &&
+                    laporanMenuOpen &&
+                    laporanMenuPos &&
+                    typeof document !== "undefined"
+                      ? createPortal(
                           <div
-                            className="mx-2 border-t border-slate-200/80 dark:border-white/15"
-                            role="separator"
-                          />
-                        ) : null}
-                        {hasLaporanMatriks ? (
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className={cn(
-                              "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
-                              "text-slate-900 hover:bg-emerald-500/10 dark:text-white dark:hover:bg-emerald-500/15",
-                              "focus-visible:bg-emerald-500/10 focus-visible:outline-none dark:focus-visible:bg-emerald-500/15",
-                            )}
-                            onClick={() => {
-                              setLaporanMenuOpen(false);
-                              onOpenLaporan?.();
+                            ref={laporanMenuPortalRef}
+                            id="tindakan-toolbar-laporan-menu"
+                            role="menu"
+                            aria-labelledby="tindakan-toolbar-laporan-trigger"
+                            style={{
+                              position: "fixed",
+                              top: laporanMenuPos.top,
+                              left: laporanMenuPos.left,
+                              minWidth: laporanMenuPos.minWidth,
+                              zIndex: Z_INDEX_VALUES.toolbarPopover,
                             }}
+                            className={cn(
+                              "rounded-xl border py-1.5 shadow-2xl",
+                              UI_LAYERS.toolbarPopover,
+                              "border-emerald-600/50 bg-white dark:border-emerald-500/40 dark:bg-zinc-950",
+                              "ring-1 ring-black/5 dark:ring-white/10",
+                            )}
                           >
-                            <FileSpreadsheet
-                              size={16}
-                              strokeWidth={2.25}
-                              className="shrink-0 text-emerald-600 dark:text-emerald-400"
-                            />
-                            <span className="min-w-0 flex-1 font-extrabold tracking-wide">
-                              Laporan bulanan
-                            </span>
-                          </button>
-                        ) : null}
-                        {hasLaporanPemakaian ? (
-                          <>
-                            <div
-                              className="mx-2 border-t border-slate-200/80 dark:border-white/15"
-                              role="separator"
-                            />
-                            <button
-                              type="button"
-                              role="menuitem"
-                              className={cn(
-                                "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
-                                "text-slate-900 hover:bg-amber-500/10 dark:text-white dark:hover:bg-amber-500/15",
-                                "focus-visible:bg-amber-500/10 focus-visible:outline-none dark:focus-visible:bg-amber-500/15",
-                              )}
-                              onClick={() => {
-                                setLaporanMenuOpen(false);
-                                onOpenLaporanPemakaian?.();
-                              }}
-                            >
-                              <Package
-                                size={16}
-                                strokeWidth={2.25}
-                                className="shrink-0 text-amber-600 dark:text-amber-400"
+                            {hasLaporanLab ? (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className={cn(
+                                  "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
+                                  "text-slate-900 hover:bg-violet-500/10 dark:text-white dark:hover:bg-violet-500/15",
+                                  "focus-visible:bg-violet-500/10 focus-visible:outline-none dark:focus-visible:bg-violet-500/15",
+                                )}
+                                onClick={() => {
+                                  setLaporanMenuOpen(false);
+                                  onOpenTindakanTerbanyakLab?.();
+                                }}
+                              >
+                                <BarChart3
+                                  size={16}
+                                  strokeWidth={2.25}
+                                  className="shrink-0 text-violet-600 dark:text-violet-400"
+                                />
+                                <span className="min-w-0 flex-1 font-extrabold tracking-wide">
+                                  Laporan Tindakan Terbanyak
+                                </span>
+                              </button>
+                            ) : null}
+                            {hasLaporanLab && hasLaporanMatriks ? (
+                              <div
+                                className="mx-2 border-t border-slate-200/80 dark:border-white/15"
+                                role="separator"
                               />
-                              <span className="min-w-0 flex-1 font-extrabold tracking-wide">
-                                Laporan Pemakaian Alkes
-                              </span>
-                            </button>
-                          </>
-                        ) : null}
-                      </div>
-                    ) : null}
+                            ) : null}
+                            {hasLaporanMatriks ? (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className={cn(
+                                  "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
+                                  "text-slate-900 hover:bg-emerald-500/10 dark:text-white dark:hover:bg-emerald-500/15",
+                                  "focus-visible:bg-emerald-500/10 focus-visible:outline-none dark:focus-visible:bg-emerald-500/15",
+                                )}
+                                onClick={() => {
+                                  setLaporanMenuOpen(false);
+                                  onOpenLaporan?.();
+                                }}
+                              >
+                                <FileSpreadsheet
+                                  size={16}
+                                  strokeWidth={2.25}
+                                  className="shrink-0 text-emerald-600 dark:text-emerald-400"
+                                />
+                                <span className="min-w-0 flex-1 font-extrabold tracking-wide">
+                                  Laporan bulanan
+                                </span>
+                              </button>
+                            ) : null}
+                            {hasLaporanPemakaian ? (
+                              <>
+                                <div
+                                  className="mx-2 border-t border-slate-200/80 dark:border-white/15"
+                                  role="separator"
+                                />
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className={cn(
+                                    "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
+                                    "text-slate-900 hover:bg-amber-500/10 dark:text-white dark:hover:bg-amber-500/15",
+                                    "focus-visible:bg-amber-500/10 focus-visible:outline-none dark:focus-visible:bg-amber-500/15",
+                                  )}
+                                  onClick={() => {
+                                    setLaporanMenuOpen(false);
+                                    onOpenLaporanPemakaian?.();
+                                  }}
+                                >
+                                  <Package
+                                    size={16}
+                                    strokeWidth={2.25}
+                                    className="shrink-0 text-amber-600 dark:text-amber-400"
+                                  />
+                                  <span className="min-w-0 flex-1 font-extrabold tracking-wide">
+                                    Laporan Pemakaian Alkes
+                                  </span>
+                                </button>
+                              </>
+                            ) : null}
+                          </div>,
+                          document.body,
+                        )
+                      : null}
                   </div>
                 ) : null}
 

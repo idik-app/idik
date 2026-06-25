@@ -7,7 +7,10 @@ import { extractDataFromText } from "@/lib/tindakan/reportExtractor";
  */
 
 /** Cache hasil ekstraksi (10 menit) */
-const fetchDocCache = new Map<string, { data: any, expires: number }>();
+const fetchDocCache = new Map<
+  string,
+  { data: Record<string, unknown>; fullText: string; expires: number }
+>();
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -19,8 +22,14 @@ export async function GET(req: NextRequest) {
 
   const now = Date.now();
   const cached = fetchDocCache.get(docId);
+  const wantFullText = searchParams.get("fullText") === "1";
   if (cached && now < cached.expires) {
-    return NextResponse.json({ success: true, data: cached.data, cached: true });
+    return NextResponse.json({
+      success: true,
+      data: cached.data,
+      ...(wantFullText ? { fullText: cached.fullText } : {}),
+      cached: true,
+    });
   }
 
   try {
@@ -43,13 +52,14 @@ export async function GET(req: NextRequest) {
     // Update Cache
     fetchDocCache.set(docId, {
       data: extracted,
-      expires: now + 10 * 60 * 1000 // 10 menit
+      fullText: text,
+      expires: now + 10 * 60 * 1000, // 10 menit
     });
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       data: extracted,
-      rawText: text.slice(0, 500) + "..." // Untuk debug jika perlu
+      ...(wantFullText ? { fullText: text } : {}),
     });
 
   } catch (err: any) {

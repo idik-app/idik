@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MousePointerClick, Search, Wand2, ZoomIn, ZoomOut } from "lucide-react";
+import { Loader2, MousePointerClick, Search, Wand2, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useEventBridge } from "@/contexts/EventBridgeContext";
@@ -90,6 +90,9 @@ export default function KlinisAutosaveField({
   const [extractProgress, setExtractProgress] = useState(0);
   const [previewZoom, setPreviewZoom] = useState(1);
   const [previewInteract, setPreviewInteract] = useState(false);
+  const [previewCopyText, setPreviewCopyText] = useState<string | null>(null);
+  const [previewCopyLoading, setPreviewCopyLoading] = useState(false);
+  const [previewCopyError, setPreviewCopyError] = useState<string | null>(null);
   const { emit } = useEventBridge();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const draftRef = useRef(draft);
@@ -139,6 +142,8 @@ export default function KlinisAutosaveField({
     if (field !== "pci_report_link") return;
     setPreviewZoom(1);
     setPreviewInteract(false);
+    setPreviewCopyText(null);
+    setPreviewCopyError(null);
   }, [previewDocId, field]);
 
   useEffect(() => {
@@ -149,6 +154,46 @@ export default function KlinisAutosaveField({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [previewInteract]);
+
+  useEffect(() => {
+    if (!previewInteract || !previewDocId || field !== "pci_report_link") return;
+
+    let cancelled = false;
+    setPreviewCopyLoading(true);
+    setPreviewCopyError(null);
+
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/system/fetch-doc?docId=${encodeURIComponent(previewDocId)}&fullText=1`,
+        );
+        const json = (await res.json()) as {
+          success?: boolean;
+          fullText?: string;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok || !json.success || typeof json.fullText !== "string") {
+          throw new Error(
+            json.error ||
+              "Gagal memuat teks laporan. Pastikan dokumen dapat diakses publik.",
+          );
+        }
+        setPreviewCopyText(json.fullText);
+      } catch (e) {
+        if (!cancelled) {
+          setPreviewCopyText(null);
+          setPreviewCopyError((e as Error).message);
+        }
+      } finally {
+        if (!cancelled) setPreviewCopyLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [previewInteract, previewDocId, field]);
 
   // Otomasi Ekstrak tanpa klik jika ini adalah field pci_report_link
   useEffect(() => {
@@ -550,7 +595,7 @@ export default function KlinisAutosaveField({
             {previewInteract ? (
               <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-cyan-600/30 bg-slate-800/95 px-2.5 py-1.5 backdrop-blur-sm">
                 <p className="text-[10px] font-semibold text-cyan-50">
-                  Blok teks di laporan lalu Ctrl+C · Esc untuk keluar
+                  Blok teks laporan di bawah lalu Ctrl+C · Esc untuk keluar
                 </p>
                 <button
                   type="button"
@@ -562,27 +607,41 @@ export default function KlinisAutosaveField({
               </div>
             ) : null}
             {isGoogleDocs && previewDocId ? (
-              <>
-                <iframe
-                  src={`https://docs.google.com/document/d/${previewDocId}/preview`}
+              previewInteract ? (
+                <div
                   className={cn(
-                    "block max-w-none border-none bg-white",
-                    previewInteract
-                      ? "pointer-events-auto [color-scheme:only_light]"
-                      : "pointer-events-none select-none",
+                    "min-h-[min(720px,60dvh)] flex-1 overflow-auto bg-white p-4",
+                    "[color-scheme:only_light] cursor-text select-text",
                   )}
-                  title="PCI Report Preview"
-                  allow="autoplay"
-                  tabIndex={previewInteract ? 0 : -1}
-                  style={{
-                    width: `${previewZoom * 100}%`,
-                    height: `${Math.round(PREVIEW_IFRAME_BASE_HEIGHT_PX * previewZoom)}px`,
-                    ...(previewInteract
-                      ? { colorScheme: "only light" as const }
-                      : {}),
-                  }}
-                />
-                {!previewInteract ? (
+                >
+                  {previewCopyLoading ? (
+                    <div className="flex h-full min-h-[200px] flex-col items-center justify-center gap-2 text-slate-600">
+                      <Loader2 className="h-6 w-6 animate-spin" aria-hidden />
+                      <p className="text-xs font-medium">Memuat teks laporan…</p>
+                    </div>
+                  ) : previewCopyError ? (
+                    <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
+                      {previewCopyError}
+                    </div>
+                  ) : previewCopyText ? (
+                    <pre className="whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-slate-900">
+                      {previewCopyText}
+                    </pre>
+                  ) : null}
+                </div>
+              ) : (
+                <>
+                  <iframe
+                    src={`https://docs.google.com/document/d/${previewDocId}/preview`}
+                    className="pointer-events-none block max-w-none select-none border-none bg-white"
+                    title="PCI Report Preview"
+                    allow="autoplay"
+                    tabIndex={-1}
+                    style={{
+                      width: `${previewZoom * 100}%`,
+                      height: `${Math.round(PREVIEW_IFRAME_BASE_HEIGHT_PX * previewZoom)}px`,
+                    }}
+                  />
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center pb-3">
                     <button
                       type="button"
@@ -593,8 +652,8 @@ export default function KlinisAutosaveField({
                       Klik untuk memilih &amp; menyalin teks laporan
                     </button>
                   </div>
-                ) : null}
-              </>
+                </>
+              )
             ) : (
               <div className="flex h-full flex-col items-center justify-center p-6 text-center">
                 <div className="mb-3 rounded-full bg-cyan-500/5 p-4">

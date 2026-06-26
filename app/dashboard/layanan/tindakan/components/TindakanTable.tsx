@@ -106,6 +106,7 @@ import { formatWaktuDisplay } from "@/lib/tindakan/waktuRangeFormat";
 import {
   getStatusBadgeClass,
   getStatusIndicatorMeta,
+  getStatusTooltip,
 } from "@/lib/tindakan/statusIndicator";
 const rowCacheMap = new WeakMap<object, {
   _idik_row_key: string;
@@ -3528,9 +3529,15 @@ export default function TindakanTable({
                           >
                             <td
                               {...cellSelection.getTdProps(i, TCol.NO)}
+                              title={
+                                getStatusTooltip(
+                                  rec.status,
+                                  rec.status_keterangan,
+                                ) ?? undefined
+                              }
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
-                                "relative px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center tabular-nums",
+                                "relative overflow-visible px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center tabular-nums",
                                 "text-cyan-800 dark:text-slate-100",
                                 cellSelection.isCellSelected(i, TCol.NO) &&
                                   TINDAKAN_CELL_SELECTION_CLASS,
@@ -3556,11 +3563,31 @@ export default function TindakanTable({
                                       "absolute inset-y-0 left-0 w-[3px]",
                                       meta.barClass,
                                     )}
-                                    title={meta.label}
+                                    aria-hidden
                                   />
                                 );
                               })()}
-                              {rowNo}
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span>{rowNo}</span>
+                                {(() => {
+                                  const statusLabel = String(
+                                    rec.status ?? "",
+                                  ).trim();
+                                  const badgeClass =
+                                    getStatusBadgeClass(statusLabel);
+                                  if (!statusLabel || !badgeClass) return null;
+                                  return (
+                                    <span
+                                      className={cn(
+                                        "inline-flex max-w-[4.5rem] truncate rounded border px-1 py-px text-[8px] font-bold uppercase leading-tight tracking-wide",
+                                        badgeClass,
+                                      )}
+                                    >
+                                      {statusLabel}
+                                    </span>
+                                  );
+                                })()}
+                              </div>
                             </td>
                             <td
                               {...cellSelection.getTdProps(i, TCol.TANGGAL)}
@@ -4448,32 +4475,6 @@ export default function TindakanTable({
                                       : "Belum ada jenis tindakan di master."}
                                   </p>
                                 ) : null}
-                                {(() => {
-                                  const statusLabel = String(
-                                    rec.status ?? "",
-                                  ).trim();
-                                  const badgeClass =
-                                    getStatusBadgeClass(statusLabel);
-                                  if (!statusLabel || !badgeClass) return null;
-                                  const ket = String(
-                                    rec.status_keterangan ?? "",
-                                  ).trim();
-                                  return (
-                                    <span
-                                      className={cn(
-                                        "mt-1 inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
-                                        badgeClass,
-                                      )}
-                                      title={
-                                        ket
-                                          ? `${statusLabel}: ${ket}`
-                                          : statusLabel
-                                      }
-                                    >
-                                      {statusLabel}
-                                    </span>
-                                  );
-                                })()}
                               </div>
                             </td>
                             <td

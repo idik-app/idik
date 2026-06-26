@@ -99,3 +99,13 @@ export function getStatusBadgeClass(
   }
   return null;
 }
+
+export function getStatusTooltip(
+  status: string | null | undefined,
+  statusKeterangan?: string | null,
+): string | null {
+  const label = String(status ?? "").trim();
+  if (!label) return null;
+  const ket = String(statusKeterangan ?? "").trim();
+  return ket ? `${label}: ${ket}` : label;
+}

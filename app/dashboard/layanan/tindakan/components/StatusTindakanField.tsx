@@ -5,11 +5,16 @@ import { useNotification } from "@/app/contexts/NotificationContext";
 import { TINDAKAN_STATUS } from "../bridge/bridge.constants";
 import { cn } from "@/lib/utils";
 
+export type StatusTindakanSavedInfo = {
+  field: "status" | "status_keterangan";
+  value: string | null;
+};
+
 type Props = {
   tindakanId: string;
   value: string | null | undefined;
   statusKeterangan?: string | null;
-  onSaved?: () => void;
+  onSaved?: (info: StatusTindakanSavedInfo) => void;
 };
 
 export default function StatusTindakanField({
@@ -39,7 +44,11 @@ export default function StatusTindakanField({
   }, [statusKeterangan, savingKet, tindakanId]);
 
   const patchFields = useCallback(
-    async (body: Record<string, unknown>, successMessage: string) => {
+    async (
+      body: Record<string, unknown>,
+      successMessage: string,
+      saved: StatusTindakanSavedInfo,
+    ) => {
       const res = await fetch(
         `/api/tindakan/${encodeURIComponent(tindakanId)}`,
         {
@@ -60,7 +69,7 @@ export default function StatusTindakanField({
       }
 
       show({ type: "success", message: successMessage });
-      onSaved?.();
+      onSaved?.(saved);
     },
     [onSaved, show, tindakanId],
   );
@@ -70,10 +79,12 @@ export default function StatusTindakanField({
     if (nextValue === normalized || saving) return;
     setSaving(true);
 
+    const savedValue = nextValue || null;
     try {
       await patchFields(
-        { status: nextValue || null },
+        { status: savedValue },
         "Status tindakan diperbarui.",
+        { field: "status", value: savedValue },
       );
     } catch (e) {
       show({
@@ -94,6 +105,7 @@ export default function StatusTindakanField({
       await patchFields(
         { status_keterangan: next || null },
         "Keterangan status disimpan.",
+        { field: "status_keterangan", value: next || null },
       );
       lastKetRef.current = next;
     } catch (e) {

@@ -714,7 +714,16 @@ function TindakanDetailDrawer({
 
       // 2. Notify parent to sync the table list
       if (onRecordPatch) {
-        onRecordPatch(info);
+        const tid = String(displayRecord?.id ?? "").trim();
+        if (info && typeof info.field === "string" && tid) {
+          onRecordPatch({
+            tindakanId: tid,
+            field: info.field,
+            value: info.value,
+          });
+        } else {
+          onRecordPatch(info);
+        }
       }
     },
     [onRecordPatch, mutateTindakan, mutatePasien, displayRecord],
@@ -1937,10 +1946,8 @@ function TindakanDetailDrawer({
                                             statusKeterangan={
                                               displayRecord.status_keterangan
                                             }
-                                            onSaved={() =>
-                                              handleRecordPatch({
-                                                field: "status",
-                                              })
+                                            onSaved={(info) =>
+                                              handleRecordPatch(info)
                                             }
                                           />
                                         ) : isTanggalTindakanEditable ? (

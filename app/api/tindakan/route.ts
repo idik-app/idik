@@ -125,6 +125,10 @@ function projectionHasFastTrackClockFields(projection: string | null): boolean {
   return Boolean(projection?.includes("fast_track_time_out"));
 }
 
+function projectionHasStatusKeteranganField(projection: string | null): boolean {
+  return Boolean(projection?.includes("status_keterangan"));
+}
+
 /** Daftar tindakan untuk dashboard (server-side service role, tahan RLS). */
 export async function GET(request: Request) {
   try {
@@ -163,7 +167,8 @@ export async function GET(request: Request) {
 
     if (
       workingProjectionCache &&
-      !projectionHasFastTrackClockFields(workingProjectionCache)
+      (!projectionHasFastTrackClockFields(workingProjectionCache) ||
+        !projectionHasStatusKeteranganField(workingProjectionCache))
     ) {
       workingProjectionCache = null;
     }

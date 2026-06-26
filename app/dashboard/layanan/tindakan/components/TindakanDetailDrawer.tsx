@@ -1934,7 +1934,14 @@ function TindakanDetailDrawer({
                                                 ? null
                                                 : String(rawVal)
                                             }
-                                            onSaved={() => handleRecordPatch({ field: "status" })}
+                                            statusKeterangan={
+                                              displayRecord.status_keterangan
+                                            }
+                                            onSaved={() =>
+                                              handleRecordPatch({
+                                                field: "status",
+                                              })
+                                            }
                                           />
                                         ) : isTanggalTindakanEditable ? (
                                           <TindakanTanggalDrawerField

@@ -137,6 +137,7 @@ export function finalizeTindakanPatchForSupabase(
     "operan_ranap",
     "rs_perujuk",
     "keterangan",
+    "status_keterangan",
     "kelas_pembiayaan",
   ] as const) {
     if (sanitized[key] === undefined) continue;
@@ -232,6 +233,7 @@ export function mapTindakanRowToApiDetail(data: Record<string, unknown>) {
     operan_ranap: toText(data.operan_ranap),
     rs_perujuk: toText(data.rs_perujuk),
     keterangan: toText(data.keterangan),
+    status_keterangan: toText(data.status_keterangan),
     kelas_pembiayaan: toText(data.kelas_pembiayaan),
   };
 }

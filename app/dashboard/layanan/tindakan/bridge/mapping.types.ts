@@ -66,6 +66,8 @@ export interface TindakanJoinResult {
   logger: string | null;
   rs_perujuk?: string | null;
   keterangan?: string | null;
+  /** Keterangan khusus status (mis. alasan pembatalan) */
+  status_keterangan?: string | null;
 
   status: string | null;
   kelas: string | null;

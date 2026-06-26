@@ -103,6 +103,10 @@ import type { TindakanFilteredSummary } from "./TindakanSummary";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import KeteranganField from "./KeteranganField";
 import { formatWaktuDisplay } from "@/lib/tindakan/waktuRangeFormat";
+import {
+  getStatusBadgeClass,
+  getStatusIndicatorMeta,
+} from "@/lib/tindakan/statusIndicator";
 const rowCacheMap = new WeakMap<object, {
   _idik_row_key: string;
   normalizedRm: string;
@@ -3534,51 +3538,25 @@ export default function TindakanTable({
                             >
                               {/* Status Indicator Line */}
                               {(() => {
-                                const s = String(
-                                  rec.status ?? "",
-                                ).toLowerCase();
-                                const t = String(
-                                  rec.tindakan ?? "",
-                                ).toLowerCase();
                                 const dateStr = String(
                                   rec.tanggal ?? "",
                                 ).trim();
                                 const isoDate = extractCalendarDateKey(dateStr);
                                 const isToday = isoDate === todayWibYmd();
+                                const meta = getStatusIndicatorMeta(rec.status, {
+                                  isToday,
+                                  tindakan: rec.tindakan,
+                                  statusKeterangan: rec.status_keterangan,
+                                });
 
-                                let indicatorClass = "";
-                                if (s.includes("meninggal")) {
-                                  indicatorClass =
-                                    "bg-rose-600 shadow-[0_0_8px_rgba(225,29,72,0.5)]";
-                                } else if (
-                                  s.includes("cito") ||
-                                  s.includes("emergency") ||
-                                  t.includes("ppci")
-                                ) {
-                                  indicatorClass =
-                                    "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]";
-                                } else if (
-                                  isToday ||
-                                  s.includes("selesai") ||
-                                  s.includes("langsung")
-                                ) {
-                                  indicatorClass =
-                                    "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]";
-                                } else if (s.includes("tunggu")) {
-                                  indicatorClass =
-                                    "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.3)]";
-                                }
-
-                                if (!indicatorClass) return null;
+                                if (!meta) return null;
                                 return (
                                   <div
                                     className={cn(
                                       "absolute inset-y-0 left-0 w-[3px]",
-                                      indicatorClass,
+                                      meta.barClass,
                                     )}
-                                    title={
-                                      rec.status || (isToday ? "Hari ini" : "")
-                                    }
+                                    title={meta.label}
                                   />
                                 );
                               })()}
@@ -4470,6 +4448,32 @@ export default function TindakanTable({
                                       : "Belum ada jenis tindakan di master."}
                                   </p>
                                 ) : null}
+                                {(() => {
+                                  const statusLabel = String(
+                                    rec.status ?? "",
+                                  ).trim();
+                                  const badgeClass =
+                                    getStatusBadgeClass(statusLabel);
+                                  if (!statusLabel || !badgeClass) return null;
+                                  const ket = String(
+                                    rec.status_keterangan ?? "",
+                                  ).trim();
+                                  return (
+                                    <span
+                                      className={cn(
+                                        "mt-1 inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
+                                        badgeClass,
+                                      )}
+                                      title={
+                                        ket
+                                          ? `${statusLabel}: ${ket}`
+                                          : statusLabel
+                                      }
+                                    >
+                                      {statusLabel}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             </td>
                             <td

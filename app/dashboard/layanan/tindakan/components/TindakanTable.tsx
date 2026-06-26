@@ -1482,6 +1482,11 @@ export default function TindakanTable({
     pemakaianOrderIdOverrideByTindakan,
     setPemakaianOrderIdOverrideByTindakan,
   ] = useState<Record<string, string>>({});
+  /** Sementara sembunyikan order setelah hapus (sebelum SWR refresh). */
+  const [
+    pemakaianOrderClearedByTindakan,
+    setPemakaianOrderClearedByTindakan,
+  ] = useState<Record<string, true>>({});
 
   const [pasienLabelByRowId, setPasienLabelByRowId] = useState<
     Record<string, string>
@@ -1720,12 +1725,17 @@ export default function TindakanTable({
       if (tid && oid) next[tid] = oid;
     }
 
+    for (const tid of Object.keys(pemakaianOrderClearedByTindakan)) {
+      delete next[tid];
+    }
+
     return next;
   }, [
     pemakaianOrdersRaw,
     rowsForPemakaianLink,
     pasienLabelByRowId,
     pemakaianOrderIdOverrideByTindakan,
+    pemakaianOrderClearedByTindakan,
   ]);
 
   useEffect(() => {
@@ -5067,11 +5077,28 @@ export default function TindakanTable({
           open
           onClose={() => setPemakaianModalRow(null)}
           onSaved={(info) => {
-            if (info?.tindakanId && info.orderId) {
-              setPemakaianOrderIdOverrideByTindakan((p) => ({
-                ...p,
-                [info.tindakanId]: info.orderId,
-              }));
+            if (info?.tindakanId) {
+              if ("orderCleared" in info && info.orderCleared) {
+                setPemakaianOrderIdOverrideByTindakan((p) => {
+                  const next = { ...p };
+                  delete next[info.tindakanId];
+                  return next;
+                });
+                setPemakaianOrderClearedByTindakan((p) => ({
+                  ...p,
+                  [info.tindakanId]: true,
+                }));
+              } else if ("orderId" in info && info.orderId) {
+                setPemakaianOrderClearedByTindakan((p) => {
+                  const next = { ...p };
+                  delete next[info.tindakanId];
+                  return next;
+                });
+                setPemakaianOrderIdOverrideByTindakan((p) => ({
+                  ...p,
+                  [info.tindakanId]: info.orderId,
+                }));
+              }
             }
             void mutateOrders();
             void refresh();

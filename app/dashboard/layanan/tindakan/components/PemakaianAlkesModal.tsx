@@ -656,8 +656,12 @@ export type PemakaianAlkesModalProps = {
   tindakanId?: string | null;
   /** Order terkait (dari `tindakan_id` atau fallback pasien+tanggal di tabel Tindakan). */
   initialPemakaianOrderId?: string | null;
-  /** Dipanggil setelah POST/PATCH order berhasil (untuk refresh indeks di tabel Tindakan). */
-  onSaved?: (info?: { tindakanId: string; orderId: string }) => void;
+  /** Dipanggil setelah POST/PATCH/DELETE order berhasil (untuk refresh indeks di tabel Tindakan). */
+  onSaved?: (
+    info?:
+      | { tindakanId: string; orderId: string }
+      | { tindakanId: string; orderCleared: true },
+  ) => void;
 };
 
 const KETERANGAN_OPTIONS = [
@@ -2038,7 +2042,44 @@ export default function PemakaianAlkesModal({
     const hasBarang = drawerLines.some(
       (l) => cleanFormText(l.barang).length > 0,
     );
+    const isEdit = Boolean(existingOrderId?.trim());
     if (!hasBarang) {
+      if (isEdit && existingOrderId) {
+        onClose();
+        const orderIdToDelete = existingOrderId.trim();
+        const tid = tindakanId?.trim() ?? "";
+        const savePromise = (async () => {
+          const res = await fetch(
+            `/api/pemakaian-orders/${encodeURIComponent(orderIdToDelete)}`,
+            {
+              method: "DELETE",
+              credentials: "include",
+              cache: "no-store",
+            },
+          );
+          const j = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            message?: string;
+          };
+          if (!res.ok || !j?.ok) {
+            throw new Error(
+              typeof j?.message === "string"
+                ? j.message
+                : `Gagal menghapus order (HTTP ${res.status}).`,
+            );
+          }
+          if (tid) onSaved?.({ tindakanId: tid, orderCleared: true });
+          else onSaved?.();
+          return "Order pemakaian dihapus — siap input ulang.";
+        })();
+        toast.promise(savePromise, {
+          loading: "Menghapus order pemakaian...",
+          success: (msg) => msg,
+          error: (err) =>
+            err instanceof Error ? err.message : "Gagal menghapus order.",
+        });
+        return;
+      }
       void appAlert({
         variant: "warning",
         message:
@@ -2168,7 +2209,6 @@ export default function PemakaianAlkesModal({
     }
 
     const ruangan = ruanganRaw;
-    const isEdit = Boolean(existingOrderId?.trim());
     const tanggalSaved = drawerDateTime;
     const templateInputBarangSaved = normalizeTemplateInputBarang(
       editingTemplateInputBarang,

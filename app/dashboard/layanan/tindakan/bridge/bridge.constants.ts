@@ -32,6 +32,31 @@ export const PEMBIAYAAN_TYPES = ["BPJS", "UMUM", "Asuransi", "Karyawan"];
 // -------------------------------------------------------------
 export const TINDAKAN_STATUS = ["Selesai", "Proses", "Pending", "Dibatalkan", "Meninggal"];
 
+/** Label field keterangan per status (kecuali Selesai). */
+export const STATUS_KETERANGAN_LABELS: Partial<
+  Record<(typeof TINDAKAN_STATUS)[number], string>
+> = {
+  Dibatalkan: "Keterangan pembatalan",
+  Proses: "Keterangan proses",
+  Pending: "Keterangan pending",
+  Meninggal: "Keterangan Meninggal",
+};
+
+export function statusNeedsKeterangan(
+  status: string | null | undefined,
+): boolean {
+  const s = String(status ?? "").trim();
+  return Boolean(s) && s !== "Selesai";
+}
+
+export function getStatusKeteranganLabel(
+  status: string | null | undefined,
+): string | null {
+  const s = String(status ?? "").trim() as (typeof TINDAKAN_STATUS)[number];
+  if (!statusNeedsKeterangan(s)) return null;
+  return STATUS_KETERANGAN_LABELS[s] ?? null;
+}
+
 // -------------------------------------------------------------
 // 🗂 5. MASTER SCHEMA — 38 KOLUM (FINAL IDIK)
 // -------------------------------------------------------------

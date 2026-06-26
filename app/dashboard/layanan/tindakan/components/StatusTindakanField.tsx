@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNotification } from "@/app/contexts/NotificationContext";
-import { TINDAKAN_STATUS } from "../bridge/bridge.constants";
+import {
+  TINDAKAN_STATUS,
+  getStatusKeteranganLabel,
+  statusNeedsKeterangan,
+} from "../bridge/bridge.constants";
 import { cn } from "@/lib/utils";
 
 export type StatusTindakanSavedInfo = {
@@ -119,7 +123,8 @@ export default function StatusTindakanField({
     }
   }, [keteranganDraft, patchFields, savingKet, show]);
 
-  const showKeterangan = draft === "Dibatalkan";
+  const keteranganLabel = getStatusKeteranganLabel(draft);
+  const showKeterangan = statusNeedsKeterangan(draft) && Boolean(keteranganLabel);
 
   return (
     <div className="flex w-full max-w-[28rem] flex-col gap-2">
@@ -139,16 +144,16 @@ export default function StatusTindakanField({
         ))}
       </select>
 
-      {showKeterangan && (
+      {showKeterangan && keteranganLabel && (
         <div className="flex flex-col gap-1">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-white/80 dark:text-white/90">
-            Keterangan pembatalan
+            {keteranganLabel}
           </label>
           <textarea
             rows={3}
             disabled={savingKet}
             value={keteranganDraft}
-            placeholder="Alasan tindakan dibatalkan..."
+            placeholder={`${keteranganLabel}...`}
             onChange={(e) => setKeteranganDraft(e.target.value)}
             onBlur={() => void persistKeterangan()}
             onKeyDown={(e) => {
@@ -158,13 +163,12 @@ export default function StatusTindakanField({
               }
             }}
             className={cn(
-              "w-full resize-y rounded-xl border border-white/12 bg-[#5C6573] px-3 py-2 text-xs text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-red-500/40 disabled:opacity-50",
+              "w-full resize-y rounded-xl border border-white/12 bg-[#5C6573] px-3 py-2 text-xs text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50",
               "dark:text-white dark:placeholder:text-white/90",
             )}
           />
           <p className="text-[10px] text-white/65 dark:text-white/80">
-            Wajib diisi saat status Dibatalkan. Simpan otomatis saat keluar dari
-            kolom.
+            Simpan otomatis saat keluar dari kolom.
           </p>
         </div>
       )}

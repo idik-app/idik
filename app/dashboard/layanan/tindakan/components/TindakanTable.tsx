@@ -3381,15 +3381,6 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[6.5rem] text-center",
-                        "text-cyan-950 dark:text-slate-100",
-                      )}
-                    >
-                      Status
-                    </th>
-                    <th
-                      className={cn(
-                        TINDAKAN_SHEET_CELL,
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
                         "text-cyan-950 dark:text-slate-100",
                       )}
@@ -3402,7 +3393,7 @@ export default function TindakanTable({
                   {pagedRecords.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={13}
+                        colSpan={12}
                         className={cn(
                           TINDAKAN_SHEET_CELL,
                           "px-4 py-10 text-center font-semibold",
@@ -4548,47 +4539,6 @@ export default function TindakanTable({
                               </div>
                             </td>
                             <td
-                              {...cellSelection.getTdProps(i, TCol.STATUS)}
-                              title={
-                                getStatusTooltip(
-                                  rec.status,
-                                  rec.status_keterangan,
-                                ) ?? undefined
-                              }
-                              className={cn(
-                                TINDAKAN_SHEET_CELL,
-                                "px-2 sm:px-2.5 py-1 max-w-[9rem] text-center align-middle",
-                                cellSelection.isCellSelected(i, TCol.STATUS) &&
-                                  TINDAKAN_CELL_SELECTION_CLASS,
-                              )}
-                            >
-                              {(() => {
-                                const statusLabel = String(
-                                  rec.status ?? "",
-                                ).trim();
-                                const badgeClass =
-                                  getStatusBadgeClass(statusLabel);
-                                if (!statusLabel) {
-                                  return (
-                                    <span className="text-[10px] text-slate-400 dark:text-white/50">
-                                      —
-                                    </span>
-                                  );
-                                }
-                                return (
-                                  <span
-                                    className={cn(
-                                      "inline-flex max-w-full truncate rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
-                                      badgeClass ??
-                                        "border-slate-300/40 text-slate-600 dark:text-white/80",
-                                    )}
-                                  >
-                                    {statusLabel}
-                                  </span>
-                                );
-                              })()}
-                            </td>
-                            <td
                               {...cellSelection.getTdProps(i, TCol.AKSI)}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
@@ -4670,7 +4620,7 @@ export default function TindakanTable({
                               )}
                             >
                               <td
-                                colSpan={13}
+                                colSpan={12}
                                 className={cn(
                                   TINDAKAN_SHEET_CELL,
                                   "px-4 py-3 align-top text-left",

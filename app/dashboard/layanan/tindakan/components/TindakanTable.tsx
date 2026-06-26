@@ -108,6 +108,7 @@ import {
   getStatusIndicatorMeta,
   getStatusTooltip,
 } from "@/lib/tindakan/statusIndicator";
+import { getStatusKeteranganLabel } from "../bridge/bridge.constants";
 const rowCacheMap = new WeakMap<object, {
   _idik_row_key: string;
   normalizedRm: string;
@@ -3286,11 +3287,11 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap w-10",
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[6.5rem] max-w-[9rem] text-left",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
-                      No
+                      No / Ket. tindakan
                     </th>
                     <th
                       className={cn(
@@ -3558,7 +3559,7 @@ export default function TindakanTable({
                               }
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
-                                "relative overflow-visible px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center tabular-nums",
+                                "relative overflow-visible px-2 sm:px-2.5 py-1 min-w-[6.5rem] max-w-[9rem] text-left align-top",
                                 "text-cyan-800 dark:text-slate-100",
                                 cellSelection.isCellSelected(i, TCol.NO) &&
                                   TINDAKAN_CELL_SELECTION_CLASS,
@@ -3588,7 +3589,48 @@ export default function TindakanTable({
                                   />
                                 );
                               })()}
-                              {rowNo}
+                              {(() => {
+                                const statusLabel = String(
+                                  rec.status ?? "",
+                                ).trim();
+                                const ket = String(
+                                  rec.status_keterangan ?? "",
+                                ).trim();
+                                const badgeClass =
+                                  getStatusBadgeClass(statusLabel);
+                                const ketLabel =
+                                  getStatusKeteranganLabel(statusLabel);
+
+                                return (
+                                  <div className="flex flex-col items-start gap-0.5 pl-0.5">
+                                    <span className="font-mono text-[11px] font-bold tabular-nums leading-none">
+                                      {rowNo}
+                                    </span>
+                                    {statusLabel && badgeClass ? (
+                                      <span
+                                        className={cn(
+                                          "inline-flex max-w-full truncate rounded border px-1 py-px text-[8px] font-bold uppercase leading-tight tracking-wide",
+                                          badgeClass,
+                                        )}
+                                      >
+                                        {statusLabel}
+                                      </span>
+                                    ) : null}
+                                    {ket ? (
+                                      <span
+                                        className="line-clamp-2 max-w-full text-[9px] font-medium leading-snug text-slate-700 dark:text-white"
+                                        title={ket}
+                                      >
+                                        {ket}
+                                      </span>
+                                    ) : ketLabel ? (
+                                      <span className="text-[8px] italic leading-tight text-amber-700/80 dark:text-amber-300/85">
+                                        {ketLabel} belum diisi
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                );
+                              })()}
                             </td>
                             <td
                               {...cellSelection.getTdProps(i, TCol.TANGGAL)}
@@ -4555,26 +4597,16 @@ export default function TindakanTable({
                                     </span>
                                   );
                                 }
-                                const ket = String(
-                                  rec.status_keterangan ?? "",
-                                ).trim();
                                 return (
-                                  <div className="flex flex-col items-center gap-0.5">
-                                    <span
-                                      className={cn(
-                                        "inline-flex max-w-full truncate rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
-                                        badgeClass ??
-                                          "border-slate-300/40 text-slate-600 dark:text-white/80",
-                                      )}
-                                    >
-                                      {statusLabel}
-                                    </span>
-                                    {ket ? (
-                                      <span className="max-w-full truncate text-[9px] font-medium text-slate-600 dark:text-white/85">
-                                        {ket}
-                                      </span>
-                                    ) : null}
-                                  </div>
+                                  <span
+                                    className={cn(
+                                      "inline-flex max-w-full truncate rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
+                                      badgeClass ??
+                                        "border-slate-300/40 text-slate-600 dark:text-white/80",
+                                    )}
+                                  >
+                                    {statusLabel}
+                                  </span>
                                 );
                               })()}
                             </td>

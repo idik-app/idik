@@ -59,7 +59,28 @@ export function computeTindakanStatsFromRows(
     "Total pasien": totalPasien,
     "Total tindakan": distinctTindakan.size,
     "Total dokter": dokterKeys.size,
+    ...computeStatusKpiCounts(rows),
   };
+}
+
+/** KPI jumlah per status tindakan (selain kosong). */
+export function computeStatusKpiCounts(
+  rows: readonly TindakanJoinResult[],
+): Record<string, number> {
+  const counts: Record<string, number> = {
+    "Status Proses": 0,
+    "Status Pending": 0,
+    "Status Dibatalkan": 0,
+    "Status Meninggal": 0,
+  };
+  for (let i = 0; i < rows.length; i += 1) {
+    const s = String(rows[i].status ?? "").trim();
+    if (s === "Proses") counts["Status Proses"] += 1;
+    else if (s === "Pending") counts["Status Pending"] += 1;
+    else if (s === "Dibatalkan") counts["Status Dibatalkan"] += 1;
+    else if (s === "Meninggal") counts["Status Meninggal"] += 1;
+  }
+  return counts;
 }
 
 /** Hitung gender (L/P) berdasarkan kolom `jenis_kelamin` pada baris yang sama dengan tabel. */

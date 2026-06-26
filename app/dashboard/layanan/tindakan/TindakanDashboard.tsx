@@ -274,7 +274,10 @@ export default function TindakanDashboard() {
             ? (adapter.tindakanList as TindakanJoinResult[])
             : []
         }
-        onClose={adapter.closeDetailDrawer}
+        onClose={() => {
+          adapter.closeDetailDrawer();
+          void adapter.refresh();
+        }}
         onRecordPatch={adapter.syncListAfterAutosave}
         patchTindakanFields={adapter.saveEditor}
       />

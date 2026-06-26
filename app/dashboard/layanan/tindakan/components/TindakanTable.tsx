@@ -1381,6 +1381,7 @@ export default function TindakanTable({
   const [filterTanggalFrom, setFilterTanggalFrom] = useState("");
   const [filterTanggalTo, setFilterTanggalTo] = useState("");
   const [filterPciOnly, setFilterPciOnly] = useState(false);
+  const [filterStatus, setFilterStatus] = useState("");
   const [fastTrackModalOpen, setFastTrackModalOpen] = useState(false);
   const [tindakanTerbanyakLabOpen, setTindakanTerbanyakLabOpen] =
     useState(false);
@@ -1884,6 +1885,10 @@ export default function TindakanTable({
         return t.includes("pci") || t.includes("ptca");
       });
     }
+    const fs = String(filterStatus ?? "").trim();
+    if (fs) {
+      list = list.filter((r) => String(r.status ?? "").trim() === fs);
+    }
     const q = debouncedSearchTrim.toLowerCase();
     if (q) {
       list = list.filter((r) =>
@@ -1981,6 +1986,10 @@ export default function TindakanTable({
     if (filterPciOnly) {
       lines.push("Prosedur: PCI");
     }
+    const fst = String(filterStatus ?? "").trim();
+    if (fst) {
+      lines.push(`Status: ${fst}`);
+    }
     const q = String(debouncedSearchTrim ?? "").trim();
     if (q) {
       const short = q.length > 48 ? `${q.slice(0, 45)}…` : q;
@@ -2001,6 +2010,7 @@ export default function TindakanTable({
     filterTanggalFrom,
     filterTanggalTo,
     filterPciOnly,
+    filterStatus,
     debouncedSearchTrim,
     filterPasienId,
     filterRm,
@@ -2322,6 +2332,7 @@ export default function TindakanTable({
     filterTanggalFrom,
     filterTanggalTo,
     filterPciOnly,
+    filterStatus,
     perPage,
   ]);
 
@@ -3101,7 +3112,7 @@ export default function TindakanTable({
           onRefresh={refresh}
           onCreateDraftForPasien={createDraftForPasien}
           onSyncMasterPasien={syncMasterPasienFromTindakan}
-          onFilter={(d, rg, t, from, to, pci) => {
+          onFilter={(d, rg, t, from, to, pci, st) => {
             setFilterDokter(d);
             setFilterRuangan(rg);
             setFilterTindakan(t ?? "");
@@ -3110,6 +3121,7 @@ export default function TindakanTable({
             setFilterTanggalFrom(f);
             setFilterTanggalTo(tx);
             setFilterPciOnly(Boolean(pci));
+            setFilterStatus(String(st ?? "").trim());
 
             // Note: We perform date filtering 100% locally on the 10,000 rows already fetched,
             // which is instant and eliminates slow database queries and loading screens.
@@ -3373,6 +3385,15 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[6.5rem] text-center",
+                        "text-cyan-950 dark:text-slate-100",
+                      )}
+                    >
+                      Status
+                    </th>
+                    <th
+                      className={cn(
+                        TINDAKAN_SHEET_CELL,
                         "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
                         "text-cyan-950 dark:text-slate-100",
                       )}
@@ -3385,7 +3406,7 @@ export default function TindakanTable({
                   {pagedRecords.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={12}
+                        colSpan={13}
                         className={cn(
                           TINDAKAN_SHEET_CELL,
                           "px-4 py-10 text-center font-semibold",
@@ -3567,27 +3588,7 @@ export default function TindakanTable({
                                   />
                                 );
                               })()}
-                              <div className="flex flex-col items-center gap-0.5">
-                                <span>{rowNo}</span>
-                                {(() => {
-                                  const statusLabel = String(
-                                    rec.status ?? "",
-                                  ).trim();
-                                  const badgeClass =
-                                    getStatusBadgeClass(statusLabel);
-                                  if (!statusLabel || !badgeClass) return null;
-                                  return (
-                                    <span
-                                      className={cn(
-                                        "inline-flex max-w-[4.5rem] truncate rounded border px-1 py-px text-[8px] font-bold uppercase leading-tight tracking-wide",
-                                        badgeClass,
-                                      )}
-                                    >
-                                      {statusLabel}
-                                    </span>
-                                  );
-                                })()}
-                              </div>
+                              {rowNo}
                             </td>
                             <td
                               {...cellSelection.getTdProps(i, TCol.TANGGAL)}
@@ -4527,6 +4528,57 @@ export default function TindakanTable({
                               </div>
                             </td>
                             <td
+                              {...cellSelection.getTdProps(i, TCol.STATUS)}
+                              title={
+                                getStatusTooltip(
+                                  rec.status,
+                                  rec.status_keterangan,
+                                ) ?? undefined
+                              }
+                              className={cn(
+                                TINDAKAN_SHEET_CELL,
+                                "px-2 sm:px-2.5 py-1 max-w-[9rem] text-center align-middle",
+                                cellSelection.isCellSelected(i, TCol.STATUS) &&
+                                  TINDAKAN_CELL_SELECTION_CLASS,
+                              )}
+                            >
+                              {(() => {
+                                const statusLabel = String(
+                                  rec.status ?? "",
+                                ).trim();
+                                const badgeClass =
+                                  getStatusBadgeClass(statusLabel);
+                                if (!statusLabel) {
+                                  return (
+                                    <span className="text-[10px] text-slate-400 dark:text-white/50">
+                                      —
+                                    </span>
+                                  );
+                                }
+                                const ket = String(
+                                  rec.status_keterangan ?? "",
+                                ).trim();
+                                return (
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <span
+                                      className={cn(
+                                        "inline-flex max-w-full truncate rounded-md border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide",
+                                        badgeClass ??
+                                          "border-slate-300/40 text-slate-600 dark:text-white/80",
+                                      )}
+                                    >
+                                      {statusLabel}
+                                    </span>
+                                    {ket ? (
+                                      <span className="max-w-full truncate text-[9px] font-medium text-slate-600 dark:text-white/85">
+                                        {ket}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                );
+                              })()}
+                            </td>
+                            <td
                               {...cellSelection.getTdProps(i, TCol.AKSI)}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
@@ -4608,7 +4660,7 @@ export default function TindakanTable({
                               )}
                             >
                               <td
-                                colSpan={12}
+                                colSpan={13}
                                 className={cn(
                                   TINDAKAN_SHEET_CELL,
                                   "px-4 py-3 align-top text-left",

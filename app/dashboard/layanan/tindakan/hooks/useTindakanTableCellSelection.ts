@@ -9,7 +9,7 @@ import {
   type RefObject,
 } from "react";
 
-/** Indeks kolom 0..11 — selaras urutan `<td>` baris utama tabel tindakan */
+/** Indeks kolom 0..12 — selaras urutan `<td>` baris utama tabel tindakan */
 export const TINDAKAN_TABLE_COL = {
   NO: 0,
   TANGGAL: 1,
@@ -22,10 +22,11 @@ export const TINDAKAN_TABLE_COL = {
   DOKTER: 8,
   TINDAKAN: 9,
   RUANGAN: 10,
-  AKSI: 11,
+  STATUS: 11,
+  AKSI: 12,
 } as const;
 
-export const TINDAKAN_TABLE_COL_COUNT = 12;
+export const TINDAKAN_TABLE_COL_COUNT = 13;
 
 export type TindakanCellRect = {
   r1: number;

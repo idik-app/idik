@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
 import type { Pasien } from "@/app/dashboard/pasien/types/pasien";
 import TambahPasienQuickModal from "./TambahPasienQuickModal";
+import { TINDAKAN_STATUS } from "../bridge/bridge.constants";
 import TarifModal from "./TarifModal";
 import DiagnosaModal from "./DiagnosaModal";
 import SeverityLevelModal from "./SeverityLevelModal";
@@ -46,6 +47,7 @@ interface Props {
     tanggalFrom?: string,
     tanggalTo?: string,
     isPciOnly?: boolean,
+    status?: string,
   ) => void;
   dokterOptions: string[];
   ruanganOptions: string[];
@@ -105,6 +107,7 @@ function TableToolbar({
   const [tanggalFrom, setTanggalFrom] = useState("");
   const [tanggalTo, setTanggalTo] = useState("");
   const [isPciOnly, setIsPciOnly] = useState(false);
+  const [status, setStatus] = useState("");
   const [searchValue, setSearchValue] = useState("");
   const [, setCountdown] = useState(POLL_INTERVAL_SEC);
   const [isPageVisible, setIsPageVisible] = useState(true);
@@ -271,7 +274,7 @@ function TableToolbar({
 
     setTanggalFrom(from);
     setTanggalTo(to);
-    onFilter(dokter, ruangan, tindakan, from, to, isPciOnly);
+    onFilter(dokter, ruangan, tindakan, from, to, isPciOnly, status);
   };
 
   useEffect(() => {
@@ -736,7 +739,7 @@ function TableToolbar({
                     onChange={(e) => {
                       const v = e.target.value;
                       setDokter(v);
-                      onFilter(v, ruangan, tindakan, tanggalFrom, tanggalTo, isPciOnly);
+                      onFilter(v, ruangan, tindakan, tanggalFrom, tanggalTo, isPciOnly, status);
                     }}
                     className={cn(
                       "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
@@ -764,6 +767,7 @@ function TableToolbar({
                             tanggalFrom,
                             tanggalTo,
                             isPciOnly,
+                            status,
                           );
                         }}
                         className={cn(
@@ -791,7 +795,7 @@ function TableToolbar({
                     onChange={(e) => {
                       const v = e.target.value;
                       setRuangan(v);
-                      onFilter(dokter, v, tindakan, tanggalFrom, tanggalTo, isPciOnly);
+                      onFilter(dokter, v, tindakan, tanggalFrom, tanggalTo, isPciOnly, status);
                     }}
                     className={cn(
                       "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
@@ -819,6 +823,7 @@ function TableToolbar({
                             tanggalFrom,
                             tanggalTo,
                             isPciOnly,
+                            status,
                           );
                         }}
                         className={cn(
@@ -839,6 +844,70 @@ function TableToolbar({
                   </div>
                 </div>
 
+                {/* Filter status tindakan */}
+                <div className="relative min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem] group">
+                  <select
+                    value={status}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setStatus(v);
+                      onFilter(
+                        dokter,
+                        ruangan,
+                        tindakan,
+                        tanggalFrom,
+                        tanggalTo,
+                        isPciOnly,
+                        v,
+                      );
+                    }}
+                    className={cn(
+                      "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
+                      "bg-white border-cyan-500/40 text-slate-900 [color-scheme:light]",
+                      "dark:bg-black dark:border-white/20 dark:text-slate-100 dark:[color-scheme:dark]",
+                    )}
+                  >
+                    <option value="">Semua status</option>
+                    {TINDAKAN_STATUS.map((st) => (
+                      <option key={st} value={st}>
+                        {st}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center pointer-events-none group-focus-within:pointer-events-auto">
+                    {status ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStatus("");
+                          onFilter(
+                            dokter,
+                            ruangan,
+                            tindakan,
+                            tanggalFrom,
+                            tanggalTo,
+                            isPciOnly,
+                            "",
+                          );
+                        }}
+                        className={cn(
+                          "p-0.5 rounded-md transition-colors pointer-events-auto",
+                          "text-slate-400 hover:text-red-500 hover:bg-red-50",
+                          "dark:text-slate-500 dark:hover:text-red-400 dark:hover:bg-red-950/30",
+                        )}
+                        title="Bersihkan filter status"
+                      >
+                        <X size={13} strokeWidth={2.5} />
+                      </button>
+                    ) : (
+                      <ChevronDown
+                        size={14}
+                        className="text-cyan-700/60 dark:text-slate-400/60"
+                      />
+                    )}
+                  </div>
+                </div>
+
                 {/* Filter tindakan — master tindakan */}
                 <div className="relative min-w-0 w-full min-[420px]:w-auto min-[420px]:min-w-[9rem] group">
                   <select
@@ -846,7 +915,7 @@ function TableToolbar({
                     onChange={(e) => {
                       const v = e.target.value;
                       setTindakan(v);
-                      onFilter(dokter, ruangan, v, tanggalFrom, tanggalTo, isPciOnly);
+                      onFilter(dokter, ruangan, v, tanggalFrom, tanggalTo, isPciOnly, status);
                     }}
                     className={cn(
                       "text-[13px] font-semibold pl-2 pr-7 py-1 rounded-md border focus:outline-none w-full appearance-none transition-all",
@@ -874,6 +943,7 @@ function TableToolbar({
                             tanggalFrom,
                             tanggalTo,
                             isPciOnly,
+                            status,
                           );
                         }}
                         className={cn(
@@ -945,7 +1015,7 @@ function TableToolbar({
                       onChange={(e) => {
                         const v = e.target.value;
                         setTanggalFrom(v);
-                        onFilter(dokter, ruangan, tindakan, v, tanggalTo, isPciOnly);
+                        onFilter(dokter, ruangan, tindakan, v, tanggalTo, isPciOnly, status);
                       }}
                       className={cn(
                         "cursor-pointer text-[13px] font-semibold pl-2 pr-8 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
@@ -960,7 +1030,7 @@ function TableToolbar({
                         type="button"
                         onClick={() => {
                           setTanggalFrom("");
-                          onFilter(dokter, ruangan, tindakan, "", tanggalTo, isPciOnly);
+                          onFilter(dokter, ruangan, tindakan, "", tanggalTo, isPciOnly, status);
                         }}
                         className={cn(
                           "absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded-md transition-colors",
@@ -990,7 +1060,7 @@ function TableToolbar({
                       onChange={(e) => {
                         const v = e.target.value;
                         setTanggalTo(v);
-                        onFilter(dokter, ruangan, tindakan, tanggalFrom, v, isPciOnly);
+                        onFilter(dokter, ruangan, tindakan, tanggalFrom, v, isPciOnly, status);
                       }}
                       className={cn(
                         "cursor-pointer text-[13px] font-semibold pl-2 pr-8 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-cyan-500 transition-all",
@@ -1012,6 +1082,7 @@ function TableToolbar({
                             tanggalFrom,
                             "",
                             isPciOnly,
+                            status,
                           );
                         }}
                         className={cn(
@@ -1033,7 +1104,7 @@ function TableToolbar({
                     onClick={() => {
                       const next = !isPciOnly;
                       setIsPciOnly(next);
-                      onFilter(dokter, ruangan, tindakan, tanggalFrom, tanggalTo, next);
+                      onFilter(dokter, ruangan, tindakan, tanggalFrom, tanggalTo, next, status);
                     }}
                     className={cn(
                       "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
@@ -1052,6 +1123,7 @@ function TableToolbar({
                   dokter ||
                   ruangan ||
                   tindakan ||
+                  status ||
                   tanggalFrom ||
                   tanggalTo ||
                   isPciOnly) && (
@@ -1063,10 +1135,11 @@ function TableToolbar({
                       setDokter("");
                       setRuangan("");
                       setTindakan("");
+                      setStatus("");
                       setTanggalFrom("");
                       setTanggalTo("");
                       setIsPciOnly(false);
-                      onFilter("", "", "", "", "", false);
+                      onFilter("", "", "", "", "", false, "");
                     }}
                     className={cn(
                       "flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all",

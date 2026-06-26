@@ -272,7 +272,43 @@ export async function PATCH(req: Request, ctx: Params) {
           { status: 404 },
         );
       }
-      return NextResponse.json({ ok: true, data: updated }, { status: 200 });
+
+      const warnings: string[] = [];
+      const statusTouched =
+        Object.prototype.hasOwnProperty.call(patch, "status") ||
+        Object.prototype.hasOwnProperty.call(patch, "status_keterangan");
+
+      if (statusTouched) {
+        const { buildStatusKeteranganWarnings, insertTindakanStatusLog } =
+          await import("@/lib/tindakan/logTindakanStatusChange");
+
+        const { data: current } = await supabase
+          .from("tindakan")
+          .select("status, status_keterangan")
+          .eq("id", tindakanId)
+          .maybeSingle();
+
+        const nextStatus =
+          current?.status != null ? String(current.status) : null;
+        const nextKet =
+          current?.status_keterangan != null
+            ? String(current.status_keterangan)
+            : null;
+
+        warnings.push(...buildStatusKeteranganWarnings(nextStatus, nextKet));
+
+        await insertTindakanStatusLog(supabase, {
+          tindakanId,
+          status: nextStatus,
+          statusKeterangan: nextKet,
+          changedBy: auth.userId,
+        });
+      }
+
+      return NextResponse.json(
+        { ok: true, data: updated, warnings },
+        { status: 200 },
+      );
     }
 
     lastError = error;

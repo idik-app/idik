@@ -115,6 +115,38 @@ function pickItemStyle(
         "border-rose-400/45 bg-rose-100/90 text-rose-800 dark:border-rose-700/50 dark:bg-black dark:text-rose-200/90",
     };
   }
+  if (key.includes("dibatalkan")) {
+    return {
+      icon: Activity,
+      tone: "from-red-50/95 to-white border-red-300/50 dark:from-black dark:to-black dark:border-red-800/40",
+      iconWrap:
+        "border-red-400/45 bg-red-100/90 text-red-800 dark:border-red-700/50 dark:bg-black dark:text-red-300/90",
+    };
+  }
+  if (key.includes("meninggal")) {
+    return {
+      icon: Activity,
+      tone: "from-rose-50/95 to-white border-rose-300/50 dark:from-black dark:to-black dark:border-rose-800/40",
+      iconWrap:
+        "border-rose-400/45 bg-rose-100/90 text-rose-800 dark:border-rose-700/50 dark:bg-black dark:text-rose-300/90",
+    };
+  }
+  if (key.includes("pending")) {
+    return {
+      icon: Activity,
+      tone: "from-amber-50/95 to-white border-amber-300/50 dark:from-black dark:to-black dark:border-amber-800/40",
+      iconWrap:
+        "border-amber-400/45 bg-amber-100/90 text-amber-800 dark:border-amber-700/50 dark:bg-black dark:text-amber-300/90",
+    };
+  }
+  if (key.includes("status proses") || (key.includes("status") && key.includes("proses"))) {
+    return {
+      icon: Activity,
+      tone: "from-cyan-50/95 to-white border-cyan-300/50 dark:from-black dark:to-black dark:border-cyan-800/40",
+      iconWrap:
+        "border-cyan-400/45 bg-cyan-100/90 text-cyan-800 dark:border-cyan-700/50 dark:bg-black dark:text-cyan-300/90",
+    };
+  }
   if (key.includes("laporan") || key.includes("terpetakan")) {
     return {
       icon: ClipboardList,
@@ -144,8 +176,9 @@ function sortStatEntries(entries: [string, number][]): [string, number][] {
     if (k.includes("tindakan")) return 2;
     if (k.includes("dokter")) return 3;
     if (k.includes("ppci")) return 4;
-    if (k.includes("laporan") || k.includes("terpetakan")) return 5;
-    return 6;
+    if (k.includes("status")) return 5;
+    if (k.includes("laporan") || k.includes("terpetakan")) return 6;
+    return 7;
   };
   return [...entries].sort(([a], [b]) => {
     const d = rank(a) - rank(b);

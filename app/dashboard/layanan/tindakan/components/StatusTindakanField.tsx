@@ -7,6 +7,7 @@ import {
   getStatusKeteranganLabel,
   statusNeedsKeterangan,
 } from "../bridge/bridge.constants";
+import StatusTindakanLog from "./StatusTindakanLog";
 import { cn } from "@/lib/utils";
 
 export type StatusTindakanSavedInfo = {
@@ -34,6 +35,7 @@ export default function StatusTindakanField({
   const [keteranganDraft, setKeteranganDraft] = useState(normalizedKet);
   const [saving, setSaving] = useState(false);
   const [savingKet, setSavingKet] = useState(false);
+  const [logRefreshKey, setLogRefreshKey] = useState(0);
   const lastKetRef = useRef(normalizedKet);
 
   useEffect(() => {
@@ -51,7 +53,7 @@ export default function StatusTindakanField({
     async (
       body: Record<string, unknown>,
       successMessage: string,
-      saved: StatusTindakanSavedInfo,
+      saved: StatusTindakanSavedInfo | StatusTindakanSavedInfo[],
     ) => {
       const res = await fetch(
         `/api/tindakan/${encodeURIComponent(tindakanId)}`,
@@ -66,16 +68,45 @@ export default function StatusTindakanField({
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         message?: string;
+        warnings?: string[];
       };
 
       if (!res.ok || !json.ok) {
         throw new Error(json.message || res.statusText);
       }
 
+      const warnings = Array.isArray(json.warnings) ? json.warnings : [];
+      for (const w of warnings) {
+        show({ type: "warning", message: w });
+      }
+
       show({ type: "success", message: successMessage });
-      onSaved?.(saved);
+      const items = Array.isArray(saved) ? saved : [saved];
+      for (const item of items) {
+        onSaved?.(item);
+      }
+      setLogRefreshKey((k) => k + 1);
     },
     [onSaved, show, tindakanId],
+  );
+
+  const notifyCriticalStatus = useCallback(
+    (nextValue: string | null) => {
+      if (nextValue === "Dibatalkan") {
+        show({
+          type: "warning",
+          message:
+            "Status tindakan diubah ke Dibatalkan. Pastikan keterangan pembatalan diisi.",
+        });
+      } else if (nextValue === "Meninggal") {
+        show({
+          type: "error",
+          message:
+            "Status tindakan diubah ke Meninggal (DOT). Isi Keterangan Meninggal.",
+        });
+      }
+    },
+    [show],
   );
 
   const handleChange = async (nextValue: string) => {
@@ -84,18 +115,27 @@ export default function StatusTindakanField({
     setSaving(true);
 
     const savedValue = nextValue || null;
+    setKeteranganDraft("");
+    lastKetRef.current = "";
+
     try {
       await patchFields(
-        { status: savedValue },
+        { status: savedValue, status_keterangan: null },
         "Status tindakan diperbarui.",
-        { field: "status", value: savedValue },
+        [
+          { field: "status", value: savedValue },
+          { field: "status_keterangan", value: null },
+        ],
       );
+      notifyCriticalStatus(savedValue);
     } catch (e) {
       show({
         type: "error",
         message: `Gagal simpan status: ${(e as Error).message}`,
       });
       setDraft(normalized);
+      setKeteranganDraft(normalizedKet);
+      lastKetRef.current = normalizedKet;
     } finally {
       setSaving(false);
     }
@@ -125,6 +165,8 @@ export default function StatusTindakanField({
 
   const keteranganLabel = getStatusKeteranganLabel(draft);
   const showKeterangan = statusNeedsKeterangan(draft) && Boolean(keteranganLabel);
+  const keteranganEmpty =
+    showKeterangan && !String(keteranganDraft ?? "").trim();
 
   return (
     <div className="flex w-full max-w-[28rem] flex-col gap-2">
@@ -163,15 +205,26 @@ export default function StatusTindakanField({
               }
             }}
             className={cn(
-              "w-full resize-y rounded-xl border border-white/12 bg-[#5C6573] px-3 py-2 text-xs text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50",
+              "w-full resize-y rounded-xl border bg-[#5C6573] px-3 py-2 text-xs text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 disabled:opacity-50",
               "dark:text-white dark:placeholder:text-white/90",
+              keteranganEmpty
+                ? "border-amber-400/70"
+                : "border-white/12",
             )}
           />
-          <p className="text-[10px] text-white/65 dark:text-white/80">
-            Simpan otomatis saat keluar dari kolom.
-          </p>
+          {keteranganEmpty ? (
+            <p className="text-[10px] font-medium text-amber-200 dark:text-amber-300">
+              Keterangan disarankan diisi, tetapi Anda tetap dapat menutup drawer.
+            </p>
+          ) : (
+            <p className="text-[10px] text-white/65 dark:text-white/80">
+              Simpan otomatis saat keluar dari kolom.
+            </p>
+          )}
         </div>
       )}
+
+      <StatusTindakanLog tindakanId={tindakanId} refreshKey={logRefreshKey} />
     </div>
   );
 }

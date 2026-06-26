@@ -304,6 +304,7 @@ export function downloadPemakaianAlkesExcel(opts: {
       Nama: normalizeNamaPasien(displayNamaPasien(raw)),
       [FIELD_LABELS.diagnosa || "Diagnosa"]: String(rec.diagnosa || "").trim() || "—",
       Status: displayStatus,
+      "Keterangan Status": String(rec.status_keterangan || "").trim() || "—",
       Kasus: displayKasus,
       Operator: rec.dokter || "—",
       KONSOLIDASI: parsed.KONSOLIDASI.join("\n"),
@@ -387,6 +388,7 @@ export function buildPemakaianAlkesReportHtml(opts: {
         <td><strong>${escapeHtml(nama)}</strong><br/><small>${escapeHtml(rm)}</small></td>
         <td>${escapeHtml(String(rec.diagnosa || "").trim() || "—")}</td>
         <td>${escapeHtml(displayStatus)}</td>
+        <td>${escapeHtml(String(rec.status_keterangan || "").trim() || "—")}</td>
         <td>${escapeHtml(displayKasus)}</td>
         <td>${escapeHtml(rec.dokter || "—")}</td>
         <td style="white-space: pre-wrap;">${formatBlock(parsed.KONSOLIDASI) || "—"}</td>
@@ -405,6 +407,7 @@ export function buildPemakaianAlkesReportHtml(opts: {
         <th style="width:150px">PASIEN</th>
         <th style="width:100px">${(FIELD_LABELS.diagnosa || "DIAGNOSA").toUpperCase()}</th>
         <th style="width:60px">STATUS</th>
+        <th style="width:120px">KETERANGAN STATUS</th>
         <th style="width:60px">KASUS</th>
         <th style="width:120px">OPERATOR</th>
         <th style="width:150px">KONSOLIDASI</th>
@@ -414,7 +417,7 @@ export function buildPemakaianAlkesReportHtml(opts: {
       </tr>
     </thead>
     <tbody>
-      ${bodyRows || '<tr><td colspan="11" class="num">Tidak ada data pemakaian.</td></tr>'}
+      ${bodyRows || '<tr><td colspan="12" class="num">Tidak ada data pemakaian.</td></tr>'}
     </tbody>
   </table>`;
 
@@ -767,6 +770,7 @@ export function buildAnalisisGabunganHtml(
         <td>${escapeHtml(r.dokter || "—")}</td>
         <td>${escapeHtml(r.diagnosa || "—")}</td>
         <td>${escapeHtml(r.status || "—")}</td>
+        <td>${escapeHtml(r.status_keterangan || "—")}</td>
       </tr>`;
     })
     .join("\n");
@@ -782,10 +786,11 @@ export function buildAnalisisGabunganHtml(
         <th>Dokter</th>
         <th>${FIELD_LABELS.diagnosa || "Diagnosa"}</th>
         <th>Status</th>
+        <th>Keterangan Status</th>
       </tr>
     </thead>
     <tbody>
-      ${bodyRows || '<tr><td colspan="8" class="num">Tidak ada data.</td></tr>'}
+      ${bodyRows || '<tr><td colspan="9" class="num">Tidak ada data.</td></tr>'}
     </tbody>
   </table>`;
 
@@ -840,6 +845,7 @@ export function downloadAnalisisGabunganExcel(
       Dokter: r.dokter || "—",
       [FIELD_LABELS.diagnosa || "Diagnosa"]: r.diagnosa || "—",
       Status: r.status || "—",
+      "Keterangan Status": r.status_keterangan || "—",
       Ruangan: r.ruangan || "—",
       Cathlab: r.cath || "—",
       Severity: r.severity_level || "—",

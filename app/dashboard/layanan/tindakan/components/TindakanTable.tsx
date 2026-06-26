@@ -103,12 +103,7 @@ import type { TindakanFilteredSummary } from "./TindakanSummary";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import KeteranganField from "./KeteranganField";
 import { formatWaktuDisplay } from "@/lib/tindakan/waktuRangeFormat";
-import {
-  getStatusBadgeClass,
-  getStatusIndicatorMeta,
-  getStatusTooltip,
-} from "@/lib/tindakan/statusIndicator";
-import { getStatusKeteranganLabel } from "../bridge/bridge.constants";
+import { getStatusBadgeClass, getStatusIndicatorMeta, getStatusTooltip } from "@/lib/tindakan/statusIndicator";
 const rowCacheMap = new WeakMap<object, {
   _idik_row_key: string;
   normalizedRm: string;
@@ -3287,11 +3282,11 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[6.5rem] max-w-[9rem] text-left",
+                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[4.5rem] max-w-[6rem] text-center",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
-                      No / Ket. tindakan
+                      No / Status
                     </th>
                     <th
                       className={cn(
@@ -3559,7 +3554,7 @@ export default function TindakanTable({
                               }
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
-                                "relative overflow-visible px-2 sm:px-2.5 py-1 min-w-[6.5rem] max-w-[9rem] text-left align-top",
+                                "relative overflow-visible px-2 sm:px-2.5 py-1 min-w-[4.5rem] max-w-[6rem] text-center align-middle",
                                 "text-cyan-800 dark:text-slate-100",
                                 cellSelection.isCellSelected(i, TCol.NO) &&
                                   TINDAKAN_CELL_SELECTION_CLASS,
@@ -3593,16 +3588,11 @@ export default function TindakanTable({
                                 const statusLabel = String(
                                   rec.status ?? "",
                                 ).trim();
-                                const ket = String(
-                                  rec.status_keterangan ?? "",
-                                ).trim();
                                 const badgeClass =
                                   getStatusBadgeClass(statusLabel);
-                                const ketLabel =
-                                  getStatusKeteranganLabel(statusLabel);
 
                                 return (
-                                  <div className="flex flex-col items-start gap-0.5 pl-0.5">
+                                  <div className="flex flex-col items-center gap-0.5">
                                     <span className="font-mono text-[11px] font-bold tabular-nums leading-none">
                                       {rowNo}
                                     </span>
@@ -3614,18 +3604,6 @@ export default function TindakanTable({
                                         )}
                                       >
                                         {statusLabel}
-                                      </span>
-                                    ) : null}
-                                    {ket ? (
-                                      <span
-                                        className="line-clamp-2 max-w-full text-[9px] font-medium leading-snug text-slate-700 dark:text-white"
-                                        title={ket}
-                                      >
-                                        {ket}
-                                      </span>
-                                    ) : ketLabel ? (
-                                      <span className="text-[8px] italic leading-tight text-amber-700/80 dark:text-amber-300/85">
-                                        {ketLabel} belum diisi
                                       </span>
                                     ) : null}
                                   </div>

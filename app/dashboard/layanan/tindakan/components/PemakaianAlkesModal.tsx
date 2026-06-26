@@ -1242,6 +1242,14 @@ export default function PemakaianAlkesModal({
   /** Satu gelombang paralel: ruangan + katalog variant (hindari dua effect terpisah mengantre). */
   // SWR handles this now
 
+  const clearDrawerFocusLine = useCallback(() => {
+    setDrawerFocusLineId(null);
+  }, []);
+
+  const releaseDrawerFocusLine = useCallback((lineId: string) => {
+    setDrawerFocusLineId((cur) => (cur === lineId ? null : cur));
+  }, []);
+
   function patchDrawerLine(lineId: string, patch: Partial<PemakaianLine>) {
     setDrawerLines((rows) =>
       rows.map((l) => {
@@ -1250,11 +1258,20 @@ export default function PemakaianAlkesModal({
         if (!next.barang.trim())
           return { ...next, harga: undefined, kategori: undefined };
 
-        // Jika patch HANYA berisi qty, keterangan, atau tipe, jangan resolve ulang dari catalog
-        // karena itu bisa memicu reset data jika resolusi catalog tidak stabil/ambigu.
+        // Jika patch hanya metadata kolom selain nama barang, jangan resolve ulang dari katalog
+        // (hindari re-render berat dan loncat fokus saat mengedit LOT/Ukuran/ED/dll.).
         const keys = Object.keys(patch);
         const isMetadataOnly = keys.every((k) =>
-          ["qtyRencana", "qtyDipakai", "tipe", "keterangan"].includes(k),
+          [
+            "qtyRencana",
+            "qtyDipakai",
+            "tipe",
+            "keterangan",
+            "lot",
+            "ukuran",
+            "ed",
+            "distributor",
+          ].includes(k),
         );
         if (isMetadataOnly) return next;
 
@@ -2756,6 +2773,9 @@ export default function PemakaianAlkesModal({
                                     autoFocus={
                                       line.lineId === drawerFocusLineId
                                     }
+                                    onAutoFocusApplied={() =>
+                                      releaseDrawerFocusLine(line.lineId)
+                                    }
                                     value={line.barang}
                                     blurResolveLine={line}
                                     onChange={(nama) =>
@@ -2909,6 +2929,7 @@ export default function PemakaianAlkesModal({
                                     <div className="mt-1 flex flex-col gap-1">
                                       <select
                                         value={line.kategori || ""}
+                                        onFocus={clearDrawerFocusLine}
                                         onChange={(e) =>
                                           patchDrawerLine(line.lineId, {
                                             kategori:
@@ -2937,6 +2958,7 @@ export default function PemakaianAlkesModal({
                                       ) ? (
                                         <select
                                           value={line.status || ""}
+                                          onFocus={clearDrawerFocusLine}
                                           onChange={(e) => {
                                             const newStatus = e.target.value;
                                             const patch: Partial<PemakaianLine> =
@@ -2984,6 +3006,7 @@ export default function PemakaianAlkesModal({
                               <input
                                 type="text"
                                 value={line.lot ?? ""}
+                                onFocus={clearDrawerFocusLine}
                                 onChange={(e) =>
                                   patchDrawerLine(line.lineId, {
                                     lot:
@@ -3000,6 +3023,7 @@ export default function PemakaianAlkesModal({
                               <input
                                 type="text"
                                 value={line.ukuran ?? ""}
+                                onFocus={clearDrawerFocusLine}
                                 onChange={(e) => {
                                   let val = e.target.value;
                                   // Pastikan spasi di sekitar 'x' atau 'X'
@@ -3024,6 +3048,7 @@ export default function PemakaianAlkesModal({
                               <input
                                 type="text"
                                 value={line.ed ?? ""}
+                                onFocus={clearDrawerFocusLine}
                                 onChange={(e) =>
                                   patchDrawerLine(line.lineId, {
                                     ed: e.target.value.trim() || undefined,
@@ -3059,6 +3084,7 @@ export default function PemakaianAlkesModal({
                                 <input
                                   type="number"
                                   value={line.qtyDipakai}
+                                  onFocus={clearDrawerFocusLine}
                                   onChange={(e) =>
                                     patchDrawerLine(line.lineId, {
                                       qtyDipakai: Math.max(
@@ -3087,6 +3113,7 @@ export default function PemakaianAlkesModal({
                                 type="text"
                                 list={distributorDatalistId}
                                 value={line.distributor ?? ""}
+                                onFocus={clearDrawerFocusLine}
                                 onChange={(e) => {
                                   const v = e.target.value || undefined;
                                   const patch: Partial<PemakaianLine> = {
@@ -3111,6 +3138,7 @@ export default function PemakaianAlkesModal({
                             <td className="p-4 text-center border-r border-slate-100">
                               <select
                                 value={line.tipe}
+                                onFocus={clearDrawerFocusLine}
                                 onChange={(e) =>
                                   patchDrawerLine(line.lineId, {
                                     tipe: e.target.value as any,
@@ -3136,6 +3164,7 @@ export default function PemakaianAlkesModal({
                                   <input
                                     type="text"
                                     value={line.keterangan ?? ""}
+                                    onFocus={clearDrawerFocusLine}
                                     onChange={(e) =>
                                       patchDrawerLine(line.lineId, {
                                         keterangan: e.target.value || undefined,

@@ -364,6 +364,7 @@ export function BarangVariantCombobox({
   blurResolveLine,
   onRequestAddProduct,
   autoFocus,
+  onAutoFocusApplied,
   inputClassName,
   onKeyDown,
 }: {
@@ -379,6 +380,8 @@ export function BarangVariantCombobox({
   /** Saat tidak ada hasil / katalog kosong: tombol membuka alur tambah produk (mis. modal induk). */
   onRequestAddProduct?: (draftQuery: string) => void;
   autoFocus?: boolean;
+  /** Dipanggil setelah fokus programatik dari `autoFocus` diterapkan (untuk clear token fokus di parent). */
+  onAutoFocusApplied?: () => void;
   inputClassName?: string;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }) {
@@ -397,8 +400,9 @@ export function BarangVariantCombobox({
     // Hindari focus sinkron di dalam effect: bisa memicu onFocus → setState saat React masih commit.
     queueMicrotask(() => {
       inputRef.current?.focus();
+      onAutoFocusApplied?.();
     });
-  }, [autoFocus]);
+  }, [autoFocus, onAutoFocusApplied]);
 
   const [menuPos, setMenuPos] = useState<MenuPos | null>(null);
 
@@ -802,7 +806,6 @@ export function BarangVariantCombobox({
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={listboxId}
-          autoFocus={autoFocus}
         />
         {blockingLoad ? (
           <Loader2

@@ -2497,8 +2497,13 @@ export default function PemakaianPage() {
                                 <BarangVariantCombobox
                                   variant="table"
                                   listboxId={`pemakaian-barang-${line.lineId}`}
-                                  autoFocus={line.lineId === detailFocusLineId}
-                                  value={line.barang}
+                                autoFocus={line.lineId === detailFocusLineId}
+                                onAutoFocusApplied={() =>
+                                  setDetailFocusLineId((cur) =>
+                                    cur === line.lineId ? null : cur,
+                                  )
+                                }
+                                value={line.barang}
                                   blurResolveLine={{
                                     distributor: line.distributor,
                                     lot: line.lot,
@@ -2943,6 +2948,11 @@ export default function PemakaianPage() {
                                 variant="table"
                                 listboxId={`pemakaian-drawer-barang-${line.lineId}`}
                                 autoFocus={line.lineId === drawerFocusLineId}
+                                onAutoFocusApplied={() =>
+                                  setDrawerFocusLineId((cur) =>
+                                    cur === line.lineId ? null : cur,
+                                  )
+                                }
                                 value={line.barang}
                                 blurResolveLine={{
                                   distributor: line.distributor,

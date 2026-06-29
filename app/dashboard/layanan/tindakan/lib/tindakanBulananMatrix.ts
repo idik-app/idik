@@ -289,6 +289,8 @@ export function applyPasienMasterForCaraBayarRow(
 export type MonthlyMatrixPasienOpts = {
   pasienOptions?: readonly PasienOption[];
   pasienLookup?: PasienReportLookup;
+  /** Lewati detail pasien per sel (hitung on-demand saat popover dibuka). */
+  skipCellDetails?: boolean;
 };
 
 /** Label baris tindakan batal di laporan prosedur (terpisah dari matriks utama). */
@@ -367,6 +369,7 @@ function aggregateJenisPairFromMonthRows(
   opts?: MonthlyMatrixPasienOpts,
 ): { main: MonthlyMatrixAgg; batal: MonthlyMatrixAgg } {
   const dim = daysInMonth(year, month1to12);
+  const skipDetails = opts?.skipCellDetails === true;
   const mainByLabel = new Map<string, number[]>();
   const mainDetailsByLabel = new Map<string, MonthlyMatrixPerLabelDetails>();
   const batalByLabel = new Map<string, number[]>();
@@ -379,10 +382,12 @@ function aggregateJenisPairFromMonthRows(
   ) => {
     if (byLabel.has(label)) return;
     byLabel.set(label, new Array(dim).fill(0));
-    detailsByLabel.set(
-      label,
-      Array.from({ length: dim }, () => []),
-    );
+    if (!skipDetails) {
+      detailsByLabel.set(
+        label,
+        Array.from({ length: dim }, () => []),
+      );
+    }
   };
 
   for (const row of monthRows) {
@@ -396,14 +401,12 @@ function aggregateJenisPairFromMonthRows(
 
     ensureLabel(byLabel, detailsByLabel, label);
 
-    const detail = matrixDetailFromRow(
-      row,
-      opts?.pasienOptions,
-      opts?.pasienLookup,
-    );
-
     byLabel.get(label)![di] += 1;
-    detailsByLabel.get(label)![di].push(detail);
+    if (!skipDetails) {
+      detailsByLabel.get(label)![di].push(
+        matrixDetailFromRow(row, opts?.pasienOptions, opts?.pasienLookup),
+      );
+    }
   }
 
   const buildFromMaps = (
@@ -412,9 +415,9 @@ function aggregateJenisPairFromMonthRows(
   ): MonthlyMatrixAgg => {
     const rowLabels = [...byLabel.keys()].sort();
     const data: number[][] = rowLabels.map((l) => [...byLabel.get(l)!]);
-    const details: MonthlyMatrixAgg["details"] = rowLabels.map(
-      (l) => detailsByLabel.get(l)!,
-    );
+    const details: MonthlyMatrixAgg["details"] | undefined = skipDetails
+      ? undefined
+      : rowLabels.map((l) => detailsByLabel.get(l)!);
     return finalizeMatrix(year, month1to12, rowLabels, data, details);
   };
 
@@ -529,6 +532,7 @@ export function aggregateMonthlyKategori(
   opts?: MonthlyMatrixPasienOpts,
 ): MonthlyMatrixAgg {
   const dim = daysInMonth(year, month1to12);
+  const skipDetails = opts?.skipCellDetails === true;
   const byLabel = new Map<string, number[]>();
   const detailsByLabel = new Map<string, MonthlyMatrixPerLabelDetails>();
 
@@ -537,19 +541,23 @@ export function aggregateMonthlyKategori(
 
   for (const label of masterLabels) {
     byLabel.set(label, new Array(dim).fill(0));
-    detailsByLabel.set(
-      label,
-      Array.from({ length: dim }, () => []),
-    );
+    if (!skipDetails) {
+      detailsByLabel.set(
+        label,
+        Array.from({ length: dim }, () => []),
+      );
+    }
   }
 
   // Tambahkan kategori "LAIN-LAIN" untuk data yang tidak terpetakan
   const OTHER_LABEL = "LAIN-LAIN";
   byLabel.set(OTHER_LABEL, new Array(dim).fill(0));
-  detailsByLabel.set(
-    OTHER_LABEL,
-    Array.from({ length: dim }, () => []),
-  );
+  if (!skipDetails) {
+    detailsByLabel.set(
+      OTHER_LABEL,
+      Array.from({ length: dim }, () => []),
+    );
+  }
 
   for (const row of rows) {
     if (!isInYearMonth(row.tanggal, year, month1to12)) continue;
@@ -562,15 +570,13 @@ export function aggregateMonthlyKategori(
       label = OTHER_LABEL;
     }
 
-    const detail = matrixDetailFromRow(
-      row,
-      opts?.pasienOptions,
-      opts?.pasienLookup,
-    );
-
     if (byLabel.has(label)) {
       byLabel.get(label)![di] += 1;
-      detailsByLabel.get(label)![di].push(detail);
+      if (!skipDetails) {
+        detailsByLabel.get(label)![di].push(
+          matrixDetailFromRow(row, opts?.pasienOptions, opts?.pasienLookup),
+        );
+      }
     }
   }
 
@@ -580,9 +586,9 @@ export function aggregateMonthlyKategori(
   }
 
   const data: number[][] = rowLabels.map((l) => [...byLabel.get(l)!]);
-  const details: MonthlyMatrixAgg["details"] = rowLabels.map(
-    (l) => detailsByLabel.get(l)!,
-  );
+  const details: MonthlyMatrixAgg["details"] | undefined = skipDetails
+    ? undefined
+    : rowLabels.map((l) => detailsByLabel.get(l)!);
 
   return finalizeMatrix(year, month1to12, rowLabels, data, details);
 }
@@ -643,6 +649,7 @@ export function aggregateMonthlyCaraBayar(
   opts?: MonthlyMatrixPasienOpts,
 ): MonthlyMatrixAgg {
   const dim = daysInMonth(year, month1to12);
+  const skipDetails = opts?.skipCellDetails === true;
   const byBucket = new Map<
     (typeof CARA_BAYAR_ROW_LABELS_CORE)[number],
     number[]
@@ -654,16 +661,17 @@ export function aggregateMonthlyCaraBayar(
 
   for (const label of CARA_BAYAR_ROW_LABELS_CORE) {
     byBucket.set(label, new Array(dim).fill(0));
-    detailsByBucket.set(
-      label,
-      Array.from({ length: dim }, () => []),
-    );
+    if (!skipDetails) {
+      detailsByBucket.set(
+        label,
+        Array.from({ length: dim }, () => []),
+      );
+    }
   }
   const belumTerisi = new Array(dim).fill(0);
-  const belumTerisiDetails: MonthlyMatrixPerLabelDetails = Array.from(
-    { length: dim },
-    () => [],
-  );
+  const belumTerisiDetails: MonthlyMatrixPerLabelDetails | null = skipDetails
+    ? null
+    : Array.from({ length: dim }, () => []);
 
   const pasienOpts = opts?.pasienOptions;
   const pasienLookup = opts?.pasienLookup;
@@ -681,19 +689,24 @@ export function aggregateMonthlyCaraBayar(
           : null;
     const rowWithMaster =
       pasien != null ? applyPasienMasterForCaraBayarRow(row, pasien) : row;
-    // Nilai eksplisit di kasus (PATCH `kelas_pembiayaan`) dipakai; jika kosong, isi dari master pasien.
     const tindakanKp = String(row.kelas_pembiayaan ?? "").trim();
     const rowFor = tindakanKp !== "" ? row : rowWithMaster;
     const bucket = mapTindakanRowToCaraBayarLaporan(rowFor);
 
-    const detail = matrixDetailFromRow(row, pasienOpts, pasienLookup);
-
     if (bucket === CARA_BAYAR_LABEL_BELUM_TERISI) {
       belumTerisi[di] += 1;
-      belumTerisiDetails[di].push(detail);
+      if (!skipDetails && belumTerisiDetails) {
+        belumTerisiDetails[di].push(
+          matrixDetailFromRow(row, pasienOpts, pasienLookup),
+        );
+      }
     } else {
       byBucket.get(bucket)![di] += 1;
-      detailsByBucket.get(bucket)![di].push(detail);
+      if (!skipDetails) {
+        detailsByBucket.get(bucket)![di].push(
+          matrixDetailFromRow(row, pasienOpts, pasienLookup),
+        );
+      }
     }
   }
 
@@ -701,14 +714,16 @@ export function aggregateMonthlyCaraBayar(
   const data: number[][] = CARA_BAYAR_ROW_LABELS_CORE.map((l) => [
     ...byBucket.get(l)!,
   ]);
-  const details: MonthlyMatrixAgg["details"] = CARA_BAYAR_ROW_LABELS_CORE.map(
-    (l) => detailsByBucket.get(l)!,
-  );
+  const details: MonthlyMatrixAgg["details"] | undefined = skipDetails
+    ? undefined
+    : CARA_BAYAR_ROW_LABELS_CORE.map((l) => detailsByBucket.get(l)!);
 
   if (belumTerisi.some((n) => n > 0)) {
     rowLabels.push(CARA_BAYAR_LABEL_BELUM_TERISI);
     data.push(belumTerisi);
-    details.push(belumTerisiDetails);
+    if (details && belumTerisiDetails) {
+      details.push(belumTerisiDetails);
+    }
   }
 
   return finalizeMatrix(year, month1to12, rowLabels, data, details);
@@ -720,7 +735,7 @@ type MatrixCellPatient = NonNullable<
   MonthlyMatrixAgg["details"]
 >[number][number][number];
 
-function rowMatchesMatrixLabel(
+export function rowMatchesMatrixLabel(
   row: TindakanJoinResult,
   tab: MatrixLaporanTabKind,
   rowLabel: string,

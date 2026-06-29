@@ -15,8 +15,11 @@ import type { WireframeTabId } from "../bridge/wireframeDrawerTabs";
 import ReportExportActionBar from "./ReportExportActionBar";
 import {
   CARA_BAYAR_LABEL_BELUM_TERISI,
+  getMatrixCellPatientDetails,
   weekdaySun0Wib,
+  type MatrixLaporanTabKind,
   type MonthlyMatrixAgg,
+  type MonthlyMatrixPasienOpts,
 } from "../lib/tindakanBulananMatrix";
 import { useTindakanLaporanReport } from "../hooks/useTindakanLaporanReport";
 import {
@@ -165,11 +168,17 @@ const TableRow = React.memo(
     ri,
     activeMatrix,
     formatCell,
+    matrixTab,
+    sourceRows,
+    matrixPasienOpts,
   }: {
     label: string;
     ri: number;
     activeMatrix: MonthlyMatrixAgg;
     formatCell: (n: number) => string;
+    matrixTab?: MatrixLaporanTabKind;
+    sourceRows?: readonly TindakanJoinResult[];
+    matrixPasienOpts?: MonthlyMatrixPasienOpts;
   }) => {
     return (
       <tr>
@@ -190,8 +199,21 @@ const TableRow = React.memo(
           );
           const wkend = wd === 0 || wd === 6;
 
-          // Detail Pasien untuk Popover (Point 4)
-          const detailPasien = activeMatrix.details?.[ri]?.[di] ?? [];
+          const fromMatrix = activeMatrix.details?.[ri]?.[di] ?? [];
+          const detailPasien =
+            fromMatrix.length > 0
+              ? fromMatrix
+              : c > 0 && matrixTab && sourceRows
+                ? getMatrixCellPatientDetails(
+                    sourceRows,
+                    matrixTab,
+                    label,
+                    activeMatrix.year,
+                    activeMatrix.month1to12,
+                    day,
+                    matrixPasienOpts,
+                  )
+                : [];
 
           return (
             <td
@@ -276,9 +298,15 @@ const LaporanMatrixTable = React.memo(
   ({
     matrix,
     yAxisHeader,
+    matrixTab,
+    sourceRows,
+    matrixPasienOpts,
   }: {
     matrix: MonthlyMatrixAgg;
     yAxisHeader: string;
+    matrixTab?: MatrixLaporanTabKind;
+    sourceRows?: readonly TindakanJoinResult[];
+    matrixPasienOpts?: MonthlyMatrixPasienOpts;
   }) => (
     <table className="w-max min-w-full border-collapse text-[11px]">
       <thead>
@@ -332,6 +360,9 @@ const LaporanMatrixTable = React.memo(
             ri={ri}
             activeMatrix={matrix}
             formatCell={formatCell}
+            matrixTab={matrixTab}
+            sourceRows={sourceRows}
+            matrixPasienOpts={matrixPasienOpts}
           />
         ))}
         <tr className="bg-slate-100/90 font-extrabold dark:bg-white/5">
@@ -404,7 +435,8 @@ export default function TindakanLaporanModal({
     setAnalisisPage,
     resetAnalisisPage,
     ym,
-    reportRowsCatchUp,
+    reportRows,
+    matrixPasienOpts,
     finalMatrix,
     finalMatrixStatusBatal,
     filteredAnalisisRows,
@@ -423,6 +455,7 @@ export default function TindakanLaporanModal({
     pasienOptions,
     loading,
     filterSummaryLines,
+    enabled: open,
   });
 
   useEffect(() => {
@@ -471,14 +504,6 @@ export default function TindakanLaporanModal({
                   Laporan tindakan
                 </DialogTitle>
               </DialogHeader>
-              {reportRowsCatchUp && !loading ? (
-                <p
-                  role="status"
-                  className="text-[10px] font-semibold text-slate-600 dark:text-white/70"
-                >
-                  Menyesuaikan laporan dengan data tindakan / master pasien terbaru…
-                </p>
-              ) : null}
             </div>
             <ReportExportActionBar
               className="shrink-0 sm:pt-0.5"
@@ -770,6 +795,13 @@ export default function TindakanLaporanModal({
                         ? "KATEGORI (GRUP)"
                         : "CARA BAYAR"
                   }
+                  matrixTab={
+                    tab === "jenis" || tab === "kategori" || tab === "cara"
+                      ? tab
+                      : undefined
+                  }
+                  sourceRows={reportRows}
+                  matrixPasienOpts={matrixPasienOpts}
                 />
                 {tab === "jenis" &&
                 finalMatrixStatusBatal &&
@@ -781,6 +813,9 @@ export default function TindakanLaporanModal({
                     <LaporanMatrixTable
                       matrix={finalMatrixStatusBatal}
                       yAxisHeader="STATUS BATAL"
+                      matrixTab="jenis"
+                      sourceRows={reportRows}
+                      matrixPasienOpts={matrixPasienOpts}
                     />
                   </div>
                 ) : null}

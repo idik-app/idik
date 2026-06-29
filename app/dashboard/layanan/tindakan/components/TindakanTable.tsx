@@ -3162,8 +3162,7 @@ export default function TindakanTable({
           onPhoneDirectoryOpen={onPhoneDirectoryOpen}
         />
 
-        {laporanModalOpen && (
-          <TindakanLaporanModal
+        <TindakanLaporanModal
             open={laporanModalOpen}
             onOpenChange={setLaporanModalOpen}
             rows={filteredRecords}
@@ -3177,7 +3176,6 @@ export default function TindakanTable({
               openDetail(rec.id, tab);
             }}
           />
-        )}
 
         {laporanPemakaianModalOpen && (
           <TindakanLaporanPemakaianModal

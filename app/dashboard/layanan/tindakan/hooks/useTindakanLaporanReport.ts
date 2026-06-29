@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useDeferredValue, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import type { PasienOption } from "@/components/ui/pasien-combobox";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
@@ -10,7 +10,10 @@ import {
   aggregateMonthlyKategori,
   CARA_BAYAR_LABEL_BELUM_TERISI,
   filterLaporanRowsInYearMonth,
+  rowMatchesMatrixLabel,
+  type MatrixLaporanTabKind,
   type MonthlyMatrixAgg,
+  type MonthlyMatrixPasienOpts,
 } from "../lib/tindakanBulananMatrix";
 import {
   buildPasienReportLookup,
@@ -103,9 +106,41 @@ function buildBelumTerisiRmList(matrix: MonthlyMatrixAgg): {
     });
 }
 
+function laporanRowMatchesSearch(
+  row: TindakanJoinResult,
+  query: string,
+): boolean {
+  const fields = [
+    row.nama_pasien,
+    row.no_rm,
+    row.tindakan,
+    row.kategori,
+    row.dokter,
+    row.diagnosa,
+    row.asisten,
+    row.sirkuler,
+    row.logger,
+    row.ruangan,
+    row.cath,
+    row.severity_level,
+    row.pembiayaan,
+    row.kelas_pembiayaan,
+    row.kesimpulan_laporan,
+    row.plan_medis,
+    row.faktor_risiko,
+    row.temuan_pembuluh,
+  ];
+  return fields.some((f) => String(f ?? "").toLowerCase().includes(query));
+}
+
 function filterMatrixBySearch(
   rawMatrix: MonthlyMatrixAgg,
   searchQuery: string,
+  ctx?: {
+    reportRows?: readonly TindakanJoinResult[];
+    tab?: MatrixLaporanTabKind;
+    pasienOpts?: MonthlyMatrixPasienOpts;
+  },
 ): MonthlyMatrixAgg {
   const query = searchQuery.toLowerCase();
   const filteredIndices = rawMatrix.rowLabels
@@ -123,7 +158,15 @@ function filterMatrixBySearch(
             p.dokter.toLowerCase().includes(query),
         ),
       );
-      return labelMatch || detailMatch ? idx : -1;
+      const rowMatch =
+        ctx?.reportRows &&
+        ctx.tab &&
+        ctx.reportRows.some(
+          (r) =>
+            rowMatchesMatrixLabel(r, ctx.tab!, label, ctx.pasienOpts) &&
+            laporanRowMatchesSearch(r, query),
+        );
+      return labelMatch || detailMatch || rowMatch ? idx : -1;
     })
     .filter((idx) => idx !== -1);
 
@@ -186,6 +229,8 @@ export type UseTindakanLaporanReportArgs = {
   pasienOptions?: readonly PasienOption[];
   loading?: boolean;
   filterSummaryLines?: readonly string[];
+  /** false saat modal/dialog laporan tertutup — lewati agregasi berat. */
+  enabled?: boolean;
 };
 
 export function useTindakanLaporanReport({
@@ -193,6 +238,7 @@ export function useTindakanLaporanReport({
   pasienOptions = [],
   loading = false,
   filterSummaryLines = [],
+  enabled = true,
 }: UseTindakanLaporanReportArgs) {
   const [tab, setTab] = useState<TindakanLaporanTab>("jenis");
   const [monthYyyyMm, setMonthYyyyMm] = useState(currentMonthWibYyyyMm);
@@ -201,68 +247,64 @@ export function useTindakanLaporanReport({
 
   const ym = useMemo(() => parseYyyyMm(monthYyyyMm), [monthYyyyMm]);
 
-  const deferredRows = useDeferredValue(rows);
-  const deferredPasien = useDeferredValue(pasienOptions);
-  const reportRowsCatchUp =
-    deferredRows !== rows || deferredPasien !== pasienOptions;
-
   const pasienLookup = useMemo(
-    () => buildPasienReportLookup(deferredPasien),
-    [deferredPasien],
+    () => buildPasienReportLookup(pasienOptions),
+    [pasienOptions],
   );
 
   const monthScopedRows = useMemo(() => {
-    if (!ym) return [] as readonly TindakanJoinResult[];
-    return filterLaporanRowsInYearMonth(deferredRows, ym.y, ym.m);
-  }, [deferredRows, ym]);
+    if (!enabled || !ym) return [] as readonly TindakanJoinResult[];
+    return filterLaporanRowsInYearMonth(rows, ym.y, ym.m);
+  }, [enabled, rows, ym]);
 
   const reportRows = useMemo(() => {
-    if (!deferredPasien.length) return monthScopedRows;
+    if (!pasienOptions.length) return monthScopedRows;
     return monthScopedRows.map((r) =>
-      mergePasienMasterIntoRowForReport(r, deferredPasien, pasienLookup),
+      mergePasienMasterIntoRowForReport(r, pasienOptions, pasienLookup),
     );
-  }, [monthScopedRows, deferredPasien, pasienLookup]);
+  }, [monthScopedRows, pasienOptions, pasienLookup]);
 
   const matrixPasienOpts = useMemo(
-    () => ({
-      pasienOptions: deferredPasien,
+    (): MonthlyMatrixPasienOpts => ({
+      pasienOptions,
       pasienLookup,
+      skipCellDetails: true,
     }),
-    [deferredPasien, pasienLookup],
+    [pasienOptions, pasienLookup],
   );
 
   const jenisMatrixPair = useMemo(() => {
-    if (!ym || tab !== "jenis") return null;
+    if (!enabled || !ym) return null;
     return aggregateMonthlyJenisOperasiWithBatal(
       reportRows,
       ym.y,
       ym.m,
       matrixPasienOpts,
     );
-  }, [reportRows, ym, matrixPasienOpts, tab]);
+  }, [enabled, reportRows, ym, matrixPasienOpts]);
 
   const matrixJenis = jenisMatrixPair?.main ?? null;
   const matrixStatusBatal = jenisMatrixPair?.batal ?? null;
 
   const matrixCara = useMemo(() => {
-    if (!ym || tab !== "cara") return null;
+    if (!enabled || !ym) return null;
     return aggregateMonthlyCaraBayar(
       reportRows,
       ym.y,
       ym.m,
       matrixPasienOpts,
     );
-  }, [reportRows, ym, matrixPasienOpts, tab]);
+  }, [enabled, reportRows, ym, matrixPasienOpts]);
 
   const matrixKategori = useMemo(() => {
-    if (!ym || tab !== "kategori") return null;
+    if (!enabled || !ym) return null;
     return aggregateMonthlyKategori(
       reportRows,
       ym.y,
       ym.m,
       matrixPasienOpts,
     );
-  }, [reportRows, ym, matrixPasienOpts, tab]);
+  }, [enabled, reportRows, ym, matrixPasienOpts]);
 
   const laporanCaraBelumTerisi = useMemo(() => {
     if (!matrixCara) {
@@ -296,10 +338,22 @@ export function useTindakanLaporanReport({
           ? matrixCara
           : null;
 
+  const matrixSearchCtx = useMemo(
+    () => ({
+      reportRows,
+      tab:
+        tab === "jenis" || tab === "kategori" || tab === "cara"
+          ? tab
+          : undefined,
+      pasienOpts: matrixPasienOpts,
+    }),
+    [reportRows, tab, matrixPasienOpts],
+  );
+
   const activeMatrix = useMemo(() => {
     if (!rawMatrix || !searchQuery.trim()) return rawMatrix;
-    return filterMatrixBySearch(rawMatrix, searchQuery);
-  }, [rawMatrix, searchQuery]);
+    return filterMatrixBySearch(rawMatrix, searchQuery, matrixSearchCtx);
+  }, [rawMatrix, searchQuery, matrixSearchCtx]);
 
   const finalMatrix = useMemo(() => {
     if (!activeMatrix) return null;
@@ -310,8 +364,11 @@ export function useTindakanLaporanReport({
   const activeMatrixStatusBatal = useMemo(() => {
     if (tab !== "jenis" || !matrixStatusBatal) return null;
     if (!searchQuery.trim()) return matrixStatusBatal;
-    return filterMatrixBySearch(matrixStatusBatal, searchQuery);
-  }, [tab, matrixStatusBatal, searchQuery]);
+    return filterMatrixBySearch(matrixStatusBatal, searchQuery, {
+      ...matrixSearchCtx,
+      tab: "jenis",
+    });
+  }, [tab, matrixStatusBatal, searchQuery, matrixSearchCtx]);
 
   const finalMatrixStatusBatal = useMemo(() => {
     if (!activeMatrixStatusBatal) return null;
@@ -320,41 +377,19 @@ export function useTindakanLaporanReport({
   }, [activeMatrixStatusBatal, searchQuery]);
 
   const filteredAnalisisRows = useMemo(() => {
-    if (tab !== "analisis") return [];
     if (!reportRows.length) return [];
 
     if (!searchQuery.trim()) return reportRows;
 
     const query = searchQuery.toLowerCase();
-    return reportRows.filter((r) => {
-      const fields = [
-        r.nama_pasien,
-        r.no_rm,
-        r.tindakan,
-        r.kategori,
-        r.dokter,
-        r.diagnosa,
-        r.asisten,
-        r.sirkuler,
-        r.logger,
-        r.ruangan,
-        r.cath,
-        r.severity_level,
-        r.pembiayaan,
-        r.kelas_pembiayaan,
-        r.kesimpulan_laporan,
-        r.plan_medis,
-        r.faktor_risiko,
-        r.temuan_pembuluh,
-      ];
-      return fields.some((f) => String(f ?? "").toLowerCase().includes(query));
-    });
-  }, [reportRows, tab, searchQuery]);
+    return reportRows.filter((r) => laporanRowMatchesSearch(r, query));
+  }, [reportRows, searchQuery]);
 
   const paginatedAnalisisRows = useMemo(() => {
+    if (tab !== "analisis") return [];
     const start = (analisisPage - 1) * ANALISIS_PAGE_SIZE;
     return filteredAnalisisRows.slice(start, start + ANALISIS_PAGE_SIZE);
-  }, [filteredAnalisisRows, analisisPage]);
+  }, [filteredAnalisisRows, analisisPage, tab]);
 
   const totalAnalisisPages = Math.ceil(
     filteredAnalisisRows.length / ANALISIS_PAGE_SIZE,
@@ -518,7 +553,8 @@ export function useTindakanLaporanReport({
     setAnalisisPage,
     ym,
     loading,
-    reportRowsCatchUp,
+    reportRows,
+    matrixPasienOpts,
     finalMatrix,
     finalMatrixStatusBatal,
     activeMatrix,

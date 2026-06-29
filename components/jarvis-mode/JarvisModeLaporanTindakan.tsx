@@ -232,6 +232,7 @@ function JarvisModeLaporanTindakanInner({
     pasienOptions,
     loading,
     filterSummaryLines: ["JARVIS Mode — snapshot data Cath Lab"],
+    enabled: true,
   });
 
   useEffect(() => {

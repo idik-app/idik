@@ -105,6 +105,7 @@ import KeteranganField from "./KeteranganField";
 import { formatWaktuDisplay } from "@/lib/tindakan/waktuRangeFormat";
 import { getStatusBadgeClass, getStatusIndicatorMeta, getStatusTooltip } from "@/lib/tindakan/statusIndicator";
 import { buildAutoSelesaiStatusUpdates } from "@/lib/tindakan/autoStatusSelesai";
+import { useTindakanAutoSelesaiSync } from "../hooks/useTindakanAutoSelesaiSync";
 const rowCacheMap = new WeakMap<object, {
   _idik_row_key: string;
   normalizedRm: string;
@@ -1504,6 +1505,10 @@ export default function TindakanTable({
     if (cathlabFallbackRows.length) return cathlabFallbackRows;
     return [];
   }, [tindakanList, cathlabFallbackRows]);
+
+  useTindakanAutoSelesaiSync(dokterSourceRows, () => {
+    void refresh();
+  });
 
   const { dokterOptions, ruanganFilterOptions, tindakanFilterOptions } =
     useMemo(() => {

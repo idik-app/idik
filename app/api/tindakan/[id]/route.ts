@@ -239,7 +239,7 @@ export async function PATCH(req: Request, ctx: Params) {
 
   const { data: existingRow } = await supabase
     .from("tindakan")
-    .select("dokter, tindakan, ruangan, status")
+    .select("dokter, operator, tindakan, ruangan, status")
     .eq("id", tindakanId)
     .maybeSingle();
 
@@ -248,7 +248,7 @@ export async function PATCH(req: Request, ctx: Params) {
   const autoStatus = buildAutoSelesaiStatusUpdates({
     ...(existingRow ?? {}),
     ...attemptPatch,
-  });
+  } as Record<string, unknown>);
   if (autoStatus) {
     attemptPatch = { ...attemptPatch, ...autoStatus };
   }

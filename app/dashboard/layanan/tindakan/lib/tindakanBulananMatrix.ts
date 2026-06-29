@@ -360,45 +360,41 @@ function finalizeMatrix(
   };
 }
 
-function aggregateMonthlyJenisOperasiInternal(
-  rows: readonly TindakanJoinResult[],
+function aggregateJenisPairFromMonthRows(
+  monthRows: readonly TindakanJoinResult[],
   year: number,
   month1to12: number,
-  opts: MonthlyMatrixPasienOpts | undefined,
-  includeBatal: boolean,
-): MonthlyMatrixAgg {
+  opts?: MonthlyMatrixPasienOpts,
+): { main: MonthlyMatrixAgg; batal: MonthlyMatrixAgg } {
   const dim = daysInMonth(year, month1to12);
+  const mainByLabel = new Map<string, number[]>();
+  const mainDetailsByLabel = new Map<string, MonthlyMatrixPerLabelDetails>();
+  const batalByLabel = new Map<string, number[]>();
+  const batalDetailsByLabel = new Map<string, MonthlyMatrixPerLabelDetails>();
 
-  const monthRows = rows.filter((r) => {
-    if (!isInYearMonth(r.tanggal, year, month1to12)) return false;
-    const batal = isLaporanStatusBatalRow(r);
-    return includeBatal ? batal : !batal;
-  });
-
-  const uniqueTindakans = Array.from(
-    new Set(
-      monthRows
-        .map((r) => String(r.tindakan || "BELUM DIISI").trim().toUpperCase())
-        .filter(Boolean),
-    ),
-  ).sort();
-
-  const byLabel = new Map<string, number[]>();
-  const detailsByLabel = new Map<string, MonthlyMatrixPerLabelDetails>();
-
-  for (const label of uniqueTindakans) {
+  const ensureLabel = (
+    byLabel: Map<string, number[]>,
+    detailsByLabel: Map<string, MonthlyMatrixPerLabelDetails>,
+    label: string,
+  ) => {
+    if (byLabel.has(label)) return;
     byLabel.set(label, new Array(dim).fill(0));
     detailsByLabel.set(
       label,
       Array.from({ length: dim }, () => []),
     );
-  }
+  };
 
   for (const row of monthRows) {
     const day = dayOfMonthFromTanggal(row.tanggal);
     if (day == null || day < 1 || day > dim) continue;
     const di = day - 1;
     const label = String(row.tindakan || "BELUM DIISI").trim().toUpperCase();
+    const batal = isLaporanStatusBatalRow(row);
+    const byLabel = batal ? batalByLabel : mainByLabel;
+    const detailsByLabel = batal ? batalDetailsByLabel : mainDetailsByLabel;
+
+    ensureLabel(byLabel, detailsByLabel, label);
 
     const detail = matrixDetailFromRow(
       row,
@@ -406,19 +402,66 @@ function aggregateMonthlyJenisOperasiInternal(
       opts?.pasienLookup,
     );
 
-    if (byLabel.has(label)) {
-      byLabel.get(label)![di] += 1;
-      detailsByLabel.get(label)![di].push(detail);
-    }
+    byLabel.get(label)![di] += 1;
+    detailsByLabel.get(label)![di].push(detail);
   }
 
-  const rowLabels = [...uniqueTindakans];
-  const data: number[][] = rowLabels.map((l) => [...byLabel.get(l)!]);
-  const details: MonthlyMatrixAgg["details"] = rowLabels.map(
-    (l) => detailsByLabel.get(l)!,
-  );
+  const buildFromMaps = (
+    byLabel: Map<string, number[]>,
+    detailsByLabel: Map<string, MonthlyMatrixPerLabelDetails>,
+  ): MonthlyMatrixAgg => {
+    const rowLabels = [...byLabel.keys()].sort();
+    const data: number[][] = rowLabels.map((l) => [...byLabel.get(l)!]);
+    const details: MonthlyMatrixAgg["details"] = rowLabels.map(
+      (l) => detailsByLabel.get(l)!,
+    );
+    return finalizeMatrix(year, month1to12, rowLabels, data, details);
+  };
 
-  return finalizeMatrix(year, month1to12, rowLabels, data, details);
+  return {
+    main: buildFromMaps(mainByLabel, mainDetailsByLabel),
+    batal: buildFromMaps(batalByLabel, batalDetailsByLabel),
+  };
+}
+
+export function filterLaporanRowsInYearMonth(
+  rows: readonly TindakanJoinResult[],
+  year: number,
+  month1to12: number,
+): TindakanJoinResult[] {
+  return rows.filter((r) => isInYearMonth(r.tanggal, year, month1to12));
+}
+
+export type JenisOperasiMatrixPair = {
+  main: MonthlyMatrixAgg;
+  batal: MonthlyMatrixAgg;
+};
+
+/** Satu pass: matriks prosedur utama + matriks batal untuk bulan yang sama. */
+export function aggregateMonthlyJenisOperasiWithBatal(
+  rows: readonly TindakanJoinResult[],
+  year: number,
+  month1to12: number,
+  opts?: MonthlyMatrixPasienOpts,
+): JenisOperasiMatrixPair {
+  const monthRows = filterLaporanRowsInYearMonth(rows, year, month1to12);
+  return aggregateJenisPairFromMonthRows(monthRows, year, month1to12, opts);
+}
+
+function aggregateMonthlyJenisOperasiInternal(
+  rows: readonly TindakanJoinResult[],
+  year: number,
+  month1to12: number,
+  opts: MonthlyMatrixPasienOpts | undefined,
+  includeBatal: boolean,
+): MonthlyMatrixAgg {
+  const pair = aggregateMonthlyJenisOperasiWithBatal(
+    rows,
+    year,
+    month1to12,
+    opts,
+  );
+  return includeBatal ? pair.batal : pair.main;
 }
 
 export function aggregateMonthlyJenisOperasi(

@@ -1,5 +1,5 @@
 import { FileSpreadsheet, X, Search, Activity, Users, CheckCircle2, Stethoscope, ChevronLeft, ChevronRight } from "lucide-react";
-import React, { useCallback, useDeferredValue, useMemo, useState } from "react";
+import React, { useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,27 +14,11 @@ import type { TindakanJoinResult } from "../bridge/mapping.types";
 import type { WireframeTabId } from "../bridge/wireframeDrawerTabs";
 import ReportExportActionBar from "./ReportExportActionBar";
 import {
-  aggregateMonthlyCaraBayar,
-  aggregateMonthlyJenisOperasi,
-  aggregateMonthlyKategori,
-  aggregateMonthlyStatusBatal,
   CARA_BAYAR_LABEL_BELUM_TERISI,
   weekdaySun0Wib,
   type MonthlyMatrixAgg,
 } from "../lib/tindakanBulananMatrix";
-import {
-  buildPasienReportLookup,
-  mergePasienMasterIntoRowForReport,
-} from "../lib/displayTindakanRow";
-import {
-  buildBulananCaraBayarHtml,
-  buildBulananJenisOperasiHtml,
-  buildBulananMatrixWhatsAppText,
-  buildAnalisisGabunganHtml,
-  buildAnalisisGabunganWhatsAppText,
-  downloadAnalisisGabunganExcel,
-  downloadMonthlyMatrixExcel,
-} from "../lib/tindakanReportTemplates";
+import { useTindakanLaporanReport } from "../hooks/useTindakanLaporanReport";
 import {
   Popover,
   PopoverContent,
@@ -383,89 +367,9 @@ const LaporanMatrixTable = React.memo(
 );
 LaporanMatrixTable.displayName = "LaporanMatrixTable";
 
-// --- Utils ---
-
-function currentMonthWibYyyyMm(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  })
-    .format(new Date())
-    .slice(0, 7);
-}
-
-function parseYyyyMm(s: string): { y: number; m: number } | null {
-  const m = /^(\d{4})-(\d{2})$/.exec(s.trim());
-  if (!m) return null;
-  const y = Number.parseInt(m[1]!, 10);
-  const mo = Number.parseInt(m[2]!, 10);
-  if (mo < 1 || mo > 12) return null;
-  return { y, m: mo };
-}
-
 function formatCell(n: number): string {
   return n === 0 ? "" : String(n);
 }
-
-/** Ringkas RM / pasien untuk kasus baris BELUM TERISI (unik per RM atau per nama bila RM kosong). */
-function buildBelumTerisiRmList(matrix: MonthlyMatrixAgg): {
-  key: string;
-  rmLabel: string;
-  nama: string;
-  kasus: number;
-}[] {
-  const idx = matrix.rowLabels.indexOf(CARA_BAYAR_LABEL_BELUM_TERISI);
-  if (idx < 0) return [];
-  const perDay = matrix.details?.[idx];
-  if (!perDay) return [];
-
-  const agg = new Map<
-    string,
-    { rmLabel: string; nama: string; kasus: number }
-  >();
-
-  for (const dayDetails of perDay) {
-    for (const p of dayDetails) {
-      const rawRm = String(p.no_rm ?? "").trim();
-      const digits = rawRm.replace(/\D/g, "");
-      const nama = String(p.nama ?? "").trim() || "—";
-      const key =
-        digits.length >= 3
-          ? `rm:${digits}`
-          : `nama:${nama.toLowerCase()}`;
-      const rmLabel =
-        digits.length >= 3
-          ? rawRm && rawRm !== "-"
-            ? rawRm
-            : digits
-          : "Tanpa RM";
-
-      const cur = agg.get(key);
-      if (cur) {
-        cur.kasus += 1;
-      } else {
-        agg.set(key, { rmLabel, nama, kasus: 1 });
-      }
-    }
-  }
-
-  return [...agg.entries()]
-    .map(([key, v]) => ({ key, ...v }))
-    .sort((a, b) => {
-      const da = a.rmLabel.replace(/\D/g, "");
-      const db = b.rmLabel.replace(/\D/g, "");
-      if (da.length >= 3 && db.length >= 3) {
-        return da.localeCompare(db, undefined, { numeric: true });
-      }
-      if (da.length >= 3) return -1;
-      if (db.length >= 3) return 1;
-      return a.nama.localeCompare(b.nama, "id");
-    });
-}
-
-type ReportTab = "jenis" | "kategori" | "cara" | "analisis";
 
 export default function TindakanLaporanModal({
   open,
@@ -489,483 +393,41 @@ export default function TindakanLaporanModal({
     initialTab?: WireframeTabId,
   ) => void;
 }) {
-  const [tab, setTab] = useState<ReportTab>("jenis");
-  const [monthYyyyMm, setMonthYyyyMm] = useState(currentMonthWibYyyyMm);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [analisisPage, setAnalisisPage] = useState(1);
-  const ANALISIS_PAGE_SIZE = 20;
-
-  const ym = useMemo(() => parseYyyyMm(monthYyyyMm), [monthYyyyMm]);
-
-  /** Kurangi jank: hitung laporan dari snapshot pasien/baris yang sedikit tertunda saat data besar baru masuk. */
-  const deferredRows = useDeferredValue(rows);
-  const deferredPasien = useDeferredValue(pasienOptions);
-  const reportRowsCatchUp =
-    deferredRows !== rows || deferredPasien !== pasienOptions;
-
-  const pasienLookup = useMemo(
-    () => buildPasienReportLookup(deferredPasien),
-    [deferredPasien],
-  );
-
-  /** Nama/RM mengikuti master pasien terbaru; indeks O(1) untuk master besar. */
-  const reportRows = useMemo(
-    () =>
-      deferredRows.map((r) =>
-        mergePasienMasterIntoRowForReport(r, deferredPasien, pasienLookup),
-      ),
-    [deferredRows, deferredPasien, pasienLookup],
-  );
-
-  const matrixPasienOpts = useMemo(
-    () => ({
-      pasienOptions: deferredPasien,
-      pasienLookup,
-    }),
-    [deferredPasien, pasienLookup],
-  );
-
-  // Reset page saat pencarian atau tab berubah
-  useMemo(() => {
-    setAnalisisPage(1);
-  }, [searchQuery, tab]);
-
-  const matrixJenis = useMemo(() => {
-    if (!ym) return null;
-    return aggregateMonthlyJenisOperasi(
-      reportRows,
-      ym.y,
-      ym.m,
-      matrixPasienOpts,
-    );
-  }, [reportRows, ym, matrixPasienOpts]);
-
-  const matrixStatusBatal = useMemo(() => {
-    if (!ym) return null;
-    return aggregateMonthlyStatusBatal(
-      reportRows,
-      ym.y,
-      ym.m,
-      matrixPasienOpts,
-    );
-  }, [reportRows, ym, matrixPasienOpts]);
-
-  const matrixCara = useMemo(() => {
-    if (!ym) return null;
-    return aggregateMonthlyCaraBayar(reportRows, ym.y, ym.m, matrixPasienOpts);
-  }, [reportRows, ym, matrixPasienOpts]);
-
-  const matrixKategori = useMemo(() => {
-    if (!ym) return null;
-    return aggregateMonthlyKategori(
-      reportRows,
-      ym.y,
-      ym.m,
-      matrixPasienOpts,
-    );
-  }, [reportRows, ym, matrixPasienOpts]);
-
-  const laporanCaraBelumTerisi = useMemo(() => {
-    if (!matrixCara) {
-      return { count: 0, strong: false, rmList: [] as ReturnType<typeof buildBelumTerisiRmList> };
-    }
-    const idx = matrixCara.rowLabels.indexOf(CARA_BAYAR_LABEL_BELUM_TERISI);
-    if (idx < 0) {
-      return { count: 0, strong: false, rmList: [] as ReturnType<typeof buildBelumTerisiRmList> };
-    }
-    const count = matrixCara.rowTotals[idx] ?? 0;
-    const gt = matrixCara.grandTotal;
-    const strong = count > 0 && (count >= 5 || (gt > 0 && count / gt >= 0.15));
-    const rmList = buildBelumTerisiRmList(matrixCara);
-    return { count, strong, rmList };
-  }, [matrixCara]);
-
-  const rawMatrix =
-    tab === "jenis"
-      ? matrixJenis
-      : tab === "kategori"
-        ? matrixKategori
-        : matrixCara;
-
-  // Filter Matrix berdasarkan Search Query (Point 2)
-  const activeMatrix = useMemo(() => {
-    if (!rawMatrix || !searchQuery.trim()) return rawMatrix;
-
-    const query = searchQuery.toLowerCase();
-    
-    // Logika Pencarian Cerdas: 
-    // Cari di Label Baris (Kategori/Jenis) ATAU di dalam Detail Pasien (Nama Tindakan/Nama Pasien)
-    const filteredIndices = rawMatrix.rowLabels
-      .map((label, idx) => {
-        const labelMatch = label.toLowerCase().includes(query);
-        
-        // Cek apakah ada detail pasien (nama tindakan, nama pasien, dokter) yang cocok
-        const detailMatch = rawMatrix.details?.[idx]?.some(dayDetails => 
-          dayDetails.some(p => 
-            p.nama.toLowerCase().includes(query) || 
-            (p as any).tindakan?.toLowerCase().includes(query) ||
-            (p as any).diagnosa?.toLowerCase().includes(query) ||
-            (p as any).kategori?.toLowerCase().includes(query) ||
-            (p as any).kesimpulan_laporan?.toLowerCase().includes(query) ||
-            (p as any).plan_medis?.toLowerCase().includes(query) ||
-            p.dokter.toLowerCase().includes(query)
-          )
-        );
-
-        return (labelMatch || detailMatch) ? idx : -1;
-      })
-      .filter((idx) => idx !== -1);
-
-    if (filteredIndices.length === rawMatrix.rowLabels.length) return rawMatrix;
-
-    return {
-      ...rawMatrix,
-      rowLabels: filteredIndices.map((i) => rawMatrix.rowLabels[i]),
-      data: filteredIndices.map((i) => {
-        // Jika pencarian spesifik (misal: "DCA"), kita hanya ingin menghitung yang cocok saja di sel tersebut
-        return rawMatrix.data[i].map((count, di) => {
-          const details = rawMatrix.details?.[i]?.[di] || [];
-          if (rawMatrix.rowLabels[i].toLowerCase().includes(query)) return count;
-          
-          return details.filter(p => 
-            p.nama.toLowerCase().includes(query) || 
-            p.tindakan?.toLowerCase().includes(query) ||
-            p.diagnosa?.toLowerCase().includes(query) ||
-            p.kategori?.toLowerCase().includes(query) ||
-            p.kesimpulan_laporan?.toLowerCase().includes(query) ||
-            p.plan_medis?.toLowerCase().includes(query) ||
-            p.dokter.toLowerCase().includes(query)
-          ).length;
-        });
-      }),
-      rowTotals: [], // Akan dihitung ulang di finalizeMatrix atau manual
-      colTotals: [], // Akan dihitung ulang
-      grandTotal: 0,
-      details: filteredIndices.map((i) => {
-        const rowDetails = rawMatrix.details?.[i] || [];
-        return rowDetails.map(dayDetails => {
-          if (rawMatrix.rowLabels[i].toLowerCase().includes(query)) return dayDetails;
-          return dayDetails.filter(p => 
-            p.nama.toLowerCase().includes(query) || 
-            p.tindakan?.toLowerCase().includes(query) ||
-            p.diagnosa?.toLowerCase().includes(query) ||
-            p.kategori?.toLowerCase().includes(query) ||
-            p.kesimpulan_laporan?.toLowerCase().includes(query) ||
-            p.plan_medis?.toLowerCase().includes(query) ||
-            p.dokter.toLowerCase().includes(query)
-          );
-        });
-      }),
-    } as MonthlyMatrixAgg;
-  }, [rawMatrix, searchQuery]);
-
-  // Re-calculate totals untuk filtered matrix
-  const finalMatrix = useMemo(() => {
-    if (!activeMatrix) return null;
-    if (!searchQuery.trim()) return activeMatrix;
-    
-    const data = activeMatrix.data;
-    const rowTotals = data.map(row => row.reduce((a, b) => a + b, 0));
-    const colTotals = Array.from({ length: activeMatrix.daysInMonth }, (_, c) =>
-      data.reduce((sum, row) => sum + (row[c] ?? 0), 0)
-    );
-    const grandTotal = rowTotals.reduce((a, b) => a + b, 0);
-
-    return {
-      ...activeMatrix,
-      rowTotals,
-      colTotals,
-      grandTotal
-    } as MonthlyMatrixAgg;
-  }, [activeMatrix, searchQuery]);
-
-  const activeMatrixStatusBatal = useMemo(() => {
-    if (tab !== "jenis" || !matrixStatusBatal) return null;
-    if (!searchQuery.trim()) return matrixStatusBatal;
-
-    const query = searchQuery.toLowerCase();
-    const filteredIndices = matrixStatusBatal.rowLabels
-      .map((label, idx) => {
-        const labelMatch = label.toLowerCase().includes(query);
-        const detailMatch = matrixStatusBatal.details?.[idx]?.some((dayDetails) =>
-          dayDetails.some(
-            (p) =>
-              p.nama.toLowerCase().includes(query) ||
-              p.tindakan?.toLowerCase().includes(query) ||
-              p.diagnosa?.toLowerCase().includes(query) ||
-              p.kategori?.toLowerCase().includes(query) ||
-              p.kesimpulan_laporan?.toLowerCase().includes(query) ||
-              p.plan_medis?.toLowerCase().includes(query) ||
-              p.dokter.toLowerCase().includes(query),
-          ),
-        );
-        return labelMatch || detailMatch ? idx : -1;
-      })
-      .filter((idx) => idx !== -1);
-
-    if (filteredIndices.length === matrixStatusBatal.rowLabels.length) {
-      return matrixStatusBatal;
-    }
-
-    return {
-      ...matrixStatusBatal,
-      rowLabels: filteredIndices.map((i) => matrixStatusBatal.rowLabels[i]!),
-      data: filteredIndices.map((i) =>
-        matrixStatusBatal.data[i]!.map((count, di) => {
-          const details = matrixStatusBatal.details?.[i]?.[di] ?? [];
-          if (matrixStatusBatal.rowLabels[i]!.toLowerCase().includes(query)) {
-            return count;
-          }
-          return details.filter(
-            (p) =>
-              p.nama.toLowerCase().includes(query) ||
-              p.tindakan?.toLowerCase().includes(query) ||
-              p.diagnosa?.toLowerCase().includes(query) ||
-              p.kategori?.toLowerCase().includes(query) ||
-              p.kesimpulan_laporan?.toLowerCase().includes(query) ||
-              p.plan_medis?.toLowerCase().includes(query) ||
-              p.dokter.toLowerCase().includes(query),
-          ).length;
-        }),
-      ),
-      rowTotals: [],
-      colTotals: [],
-      grandTotal: 0,
-      details: filteredIndices.map((i) => {
-        const rowDetails = matrixStatusBatal.details?.[i] ?? [];
-        return rowDetails.map((dayDetails) => {
-          if (matrixStatusBatal.rowLabels[i]!.toLowerCase().includes(query)) {
-            return dayDetails;
-          }
-          return dayDetails.filter(
-            (p) =>
-              p.nama.toLowerCase().includes(query) ||
-              p.tindakan?.toLowerCase().includes(query) ||
-              p.diagnosa?.toLowerCase().includes(query) ||
-              p.kategori?.toLowerCase().includes(query) ||
-              p.kesimpulan_laporan?.toLowerCase().includes(query) ||
-              p.plan_medis?.toLowerCase().includes(query) ||
-              p.dokter.toLowerCase().includes(query),
-          );
-        });
-      }),
-    } as MonthlyMatrixAgg;
-  }, [tab, matrixStatusBatal, searchQuery]);
-
-  const finalMatrixStatusBatal = useMemo(() => {
-    if (!activeMatrixStatusBatal) return null;
-    if (!searchQuery.trim()) return activeMatrixStatusBatal;
-
-    const data = activeMatrixStatusBatal.data;
-    const rowTotals = data.map((row) => row.reduce((a, b) => a + b, 0));
-    const colTotals = Array.from(
-      { length: activeMatrixStatusBatal.daysInMonth },
-      (_, c) => data.reduce((sum, row) => sum + (row[c] ?? 0), 0),
-    );
-    const grandTotal = rowTotals.reduce((a, b) => a + b, 0);
-
-    return {
-      ...activeMatrixStatusBatal,
-      rowTotals,
-      colTotals,
-      grandTotal,
-    } as MonthlyMatrixAgg;
-  }, [activeMatrixStatusBatal, searchQuery]);
-
-  const filteredAnalisisRows = useMemo(() => {
-    if (tab !== "analisis") return [];
-    if (!ym) return [];
-    
-    // Filter berdasarkan bulan terpilih
-    const monthRows = reportRows.filter((r) => {
-      const s = String(r.tanggal ?? "").trim();
-      if (s.length < 7) return false;
-      const y = Number.parseInt(s.slice(0, 4), 10);
-      const m = Number.parseInt(s.slice(5, 7), 10);
-      return y === ym.y && m === ym.m;
-    });
-
-    if (!searchQuery.trim()) return monthRows;
-
-    const query = searchQuery.toLowerCase();
-    return monthRows.filter((r) => {
-      const nama = String(r.nama_pasien || "").toLowerCase();
-      const rm = String(r.no_rm || "").toLowerCase();
-      const tindakan = String(r.tindakan || "").toLowerCase();
-      const kategori = String(r.kategori || "").toLowerCase();
-      const dokter = String(r.dokter || "").toLowerCase();
-      
-      // Field tambahan dari detail drawer (Radiologi, Klinis, Tim, dll)
-      const diagnosa = String(r.diagnosa || "").toLowerCase();
-      const asisten = String(r.asisten || "").toLowerCase();
-      const sirkuler = String(r.sirkuler || "").toLowerCase();
-      const logger = String(r.logger || "").toLowerCase();
-      const ruangan = String(r.ruangan || "").toLowerCase();
-      const cath = String(r.cath || "").toLowerCase();
-      const severity = String(r.severity_level || "").toLowerCase();
-      const pembiayaan = String(r.pembiayaan || "").toLowerCase();
-      const kelas_pembiayaan = String(r.kelas_pembiayaan || "").toLowerCase();
-
-      // Field baru dari Laporan
-      const kesimpulan = String(r.kesimpulan_laporan || "").toLowerCase();
-      const plan = String(r.plan_medis || "").toLowerCase();
-      const faktor_risiko = String(r.faktor_risiko || "").toLowerCase();
-      const temuan = String(r.temuan_pembuluh || "").toLowerCase();
-      
-      return (
-        nama.includes(query) ||
-        rm.includes(query) ||
-        tindakan.includes(query) ||
-        kategori.includes(query) ||
-        dokter.includes(query) ||
-        diagnosa.includes(query) ||
-        asisten.includes(query) ||
-        sirkuler.includes(query) ||
-        logger.includes(query) ||
-        ruangan.includes(query) ||
-        cath.includes(query) ||
-        severity.includes(query) ||
-        pembiayaan.includes(query) ||
-        kelas_pembiayaan.includes(query) ||
-        kesimpulan.includes(query) ||
-        plan.includes(query) ||
-        faktor_risiko.includes(query) ||
-        temuan.includes(query)
-      );
-    });
-  }, [reportRows, ym, tab, searchQuery]);
-
-  const paginatedAnalisisRows = useMemo(() => {
-    const start = (analisisPage - 1) * ANALISIS_PAGE_SIZE;
-    return filteredAnalisisRows.slice(start, start + ANALISIS_PAGE_SIZE);
-  }, [filteredAnalisisRows, analisisPage]);
-
-  const totalAnalisisPages = Math.ceil(filteredAnalisisRows.length / ANALISIS_PAGE_SIZE);
-
-  const analisisStats = useMemo(() => {
-    if (tab !== "analisis" || filteredAnalisisRows.length === 0) return null;
-    
-    const total = filteredAnalisisRows.length;
-    const selesai = filteredAnalisisRows.filter(r => r.status === "Selesai").length;
-    const successRate = Math.round((selesai / total) * 100);
-    
-    // Cari Top Dokter
-    const doctorCounts: Record<string, number> = {};
-    filteredAnalisisRows.forEach(r => {
-      const d = r.dokter || "Tanpa Dokter";
-      doctorCounts[d] = (doctorCounts[d] || 0) + 1;
-    });
-    const topDoctor = Object.entries(doctorCounts).sort((a, b) => b[1] - a[1])[0];
-
-    return { total, selesai, successRate, topDoctor };
-  }, [tab, filteredAnalisisRows]);
-
-  const subtitleLines = useMemo(() => {
-    const base = [...filterSummaryLines];
-    base.push(`Baris tindakan (setelah filter tabel): ${rows.length}`);
-    if (pasienOptions.length > 0) {
-      base.push(
-        "Cara bayar: klasifikasi memakai master pasien (jenis + kelas) bila kasus terhubung ke RM / pasien_id.",
-      );
-    }
-    if (matrixCara) {
-      const idx = matrixCara.rowLabels.indexOf(CARA_BAYAR_LABEL_BELUM_TERISI);
-      const n = idx >= 0 ? (matrixCara.rowTotals[idx] ?? 0) : 0;
-      if (n > 0) {
-        base.push(
-          `Cara bayar: ${n} kasus tanpa data biaya terklasifikasi → baris ${CARA_BAYAR_LABEL_BELUM_TERISI} (bukan UMUM).`,
-        );
-      }
-    }
-    return base;
-  }, [filterSummaryLines, rows.length, pasienOptions.length, matrixCara]);
-
-  const buildExportHtml = useCallback(() => {
-    if (tab === "analisis") {
-      return buildAnalisisGabunganHtml(filteredAnalisisRows, subtitleLines);
-    }
-    if (!activeMatrix) return "";
-    if (tab === "jenis")
-      return buildBulananJenisOperasiHtml(
-        activeMatrix,
-        subtitleLines,
-        activeMatrixStatusBatal ?? undefined,
-      );
-    if (tab === "cara")
-      return buildBulananCaraBayarHtml(activeMatrix, subtitleLines);
-    // Fallback untuk kategori (bisa memakai template jenis operasi karena strukturnya sama)
-    return buildBulananJenisOperasiHtml(activeMatrix, subtitleLines);
-  }, [
-    activeMatrix,
-    activeMatrixStatusBatal,
+  const {
     tab,
-    subtitleLines,
+    setTab,
+    monthYyyyMm,
+    setMonthYyyyMm,
+    searchQuery,
+    setSearchQuery,
+    analisisPage,
+    setAnalisisPage,
+    resetAnalisisPage,
+    ym,
+    reportRowsCatchUp,
+    finalMatrix,
+    finalMatrixStatusBatal,
     filteredAnalisisRows,
-  ]);
-
-  const buildExportWhatsApp = useCallback(() => {
-    if (tab === "analisis") {
-      return buildAnalisisGabunganWhatsAppText(filteredAnalisisRows, subtitleLines);
-    }
-    if (!activeMatrix) return "";
-    const title =
-      tab === "jenis"
-        ? "LAPORAN JENIS OPERASI / TINDAKAN CATHLAB"
-        : tab === "cara"
-          ? "LAPORAN CARA BAYAR CATHLAB"
-          : "LAPORAN KATEGORI TINDAKAN CATHLAB";
-    let text = buildBulananMatrixWhatsAppText(title, activeMatrix, subtitleLines);
-    if (tab === "jenis" && activeMatrixStatusBatal?.rowLabels.length) {
-      text += `\n\n${buildBulananMatrixWhatsAppText(
-        "LAPORAN STATUS BATAL / DIBATALKAN",
-        activeMatrixStatusBatal,
-        subtitleLines,
-      )}`;
-    }
-    return text;
-  }, [
-    activeMatrix,
-    activeMatrixStatusBatal,
-    tab,
-    subtitleLines,
-    filteredAnalisisRows,
-  ]);
-
-  const exportFileBase = useMemo(() => {
-    const safe = monthYyyyMm.replace(/[^\d-]/g, "") || "bulan";
-    if (tab === "jenis") return `laporan-tindakan-jenis-${safe}`;
-    if (tab === "kategori") return `laporan-tindakan-kategori-${safe}`;
-    if (tab === "cara") return `laporan-tindakan-cara-bayar-${safe}`;
-    if (tab === "analisis") return `laporan-analisis-gabungan-${safe}`;
-    return `laporan-tindakan-kategori-${safe}`;
-  }, [monthYyyyMm, tab]);
-
-  const handleDownloadExcel = useCallback(() => {
-    if (tab === "analisis") {
-      downloadAnalisisGabunganExcel(filteredAnalisisRows, exportFileBase);
-    } else if (activeMatrix) {
-      const title =
-        tab === "jenis"
-          ? "LAPORAN JENIS OPERASI / TINDAKAN CATHLAB"
-          : tab === "cara"
-            ? "LAPORAN CARA BAYAR CATHLAB"
-            : "LAPORAN KATEGORI TINDAKAN CATHLAB";
-      downloadMonthlyMatrixExcel(activeMatrix, title, exportFileBase);
-      if (tab === "jenis" && activeMatrixStatusBatal?.rowLabels.length) {
-        downloadMonthlyMatrixExcel(
-          activeMatrixStatusBatal,
-          "LAPORAN STATUS BATAL / DIBATALKAN",
-          `${exportFileBase}-batal`,
-        );
-      }
-    }
-  }, [
-    activeMatrix,
-    activeMatrixStatusBatal,
-    tab,
-    filteredAnalisisRows,
+    paginatedAnalisisRows,
+    totalAnalisisPages,
+    analisisStats,
+    laporanCaraBelumTerisi,
     exportFileBase,
-  ]);
+    buildExportHtml,
+    buildExportWhatsApp,
+    handleDownloadExcel,
+    exportEmpty,
+    analisisPageSize,
+  } = useTindakanLaporanReport({
+    rows,
+    pasienOptions,
+    loading,
+    filterSummaryLines,
+  });
+
+  useEffect(() => {
+    resetAnalisisPage();
+  }, [searchQuery, tab, resetAnalisisPage]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1021,7 +483,7 @@ export default function TindakanLaporanModal({
             <ReportExportActionBar
               className="shrink-0 sm:pt-0.5"
               disabled={loading || !ym}
-              empty={!loading && (tab === "analisis" ? filteredAnalisisRows.length === 0 : !activeMatrix)}
+              empty={exportEmpty}
               fileNameBase={exportFileBase}
               buildHtml={buildExportHtml}
               buildWhatsAppText={buildExportWhatsApp}
@@ -1273,7 +735,7 @@ export default function TindakanLaporanModal({
                 {totalAnalisisPages > 1 && (
                   <div className="flex items-center justify-between border-t border-slate-200/60 p-2 dark:border-white/5 shrink-0">
                     <div className="text-[10px] font-medium text-slate-500 dark:text-white/40">
-                      Menampilkan {((analisisPage - 1) * ANALISIS_PAGE_SIZE) + 1} - {Math.min(analisisPage * ANALISIS_PAGE_SIZE, filteredAnalisisRows.length)} dari {filteredAnalisisRows.length} data
+                      Menampilkan {((analisisPage - 1) * analisisPageSize) + 1} - {Math.min(analisisPage * analisisPageSize, filteredAnalisisRows.length)} dari {filteredAnalisisRows.length} data
                     </div>
                     <div className="flex items-center gap-1">
                       <button

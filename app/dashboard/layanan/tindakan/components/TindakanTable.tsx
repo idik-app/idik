@@ -3165,16 +3165,9 @@ export default function TindakanTable({
         {laporanModalOpen && (
           <TindakanLaporanModal
             open={laporanModalOpen}
-            onOpenChange={(next) => {
-              setLaporanModalOpen(next);
-              if (next) {
-                /* Paralel: total waktu ≈ max(API tindakan, API pasien); modal memakai useDeferredValue agar UI tetap responsif. */
-                void refresh();
-                void mutatePasien();
-              }
-            }}
+            onOpenChange={setLaporanModalOpen}
             rows={filteredRecords}
-            loading={loading}
+            loading={loading && filteredRecords.length === 0}
             filterSummaryLines={filterSummaryLines}
             pasienOptions={pasienOptions}
             onOpenDetail={(rec, tab) => {

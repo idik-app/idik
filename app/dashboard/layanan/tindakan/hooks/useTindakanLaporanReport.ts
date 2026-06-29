@@ -6,10 +6,10 @@ import type { PasienOption } from "@/components/ui/pasien-combobox";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import {
   aggregateMonthlyCaraBayar,
-  aggregateMonthlyJenisOperasi,
+  aggregateMonthlyJenisOperasiWithBatal,
   aggregateMonthlyKategori,
-  aggregateMonthlyStatusBatal,
   CARA_BAYAR_LABEL_BELUM_TERISI,
+  filterLaporanRowsInYearMonth,
   type MonthlyMatrixAgg,
 } from "../lib/tindakanBulananMatrix";
 import {
@@ -211,13 +211,17 @@ export function useTindakanLaporanReport({
     [deferredPasien],
   );
 
-  const reportRows = useMemo(
-    () =>
-      deferredRows.map((r) =>
-        mergePasienMasterIntoRowForReport(r, deferredPasien, pasienLookup),
-      ),
-    [deferredRows, deferredPasien, pasienLookup],
-  );
+  const monthScopedRows = useMemo(() => {
+    if (!ym) return [] as readonly TindakanJoinResult[];
+    return filterLaporanRowsInYearMonth(deferredRows, ym.y, ym.m);
+  }, [deferredRows, ym]);
+
+  const reportRows = useMemo(() => {
+    if (!deferredPasien.length) return monthScopedRows;
+    return monthScopedRows.map((r) =>
+      mergePasienMasterIntoRowForReport(r, deferredPasien, pasienLookup),
+    );
+  }, [monthScopedRows, deferredPasien, pasienLookup]);
 
   const matrixPasienOpts = useMemo(
     () => ({
@@ -227,45 +231,38 @@ export function useTindakanLaporanReport({
     [deferredPasien, pasienLookup],
   );
 
-  const matrixJenis = useMemo(() => {
-    if (!ym) return null;
-    return aggregateMonthlyJenisOperasi(
+  const jenisMatrixPair = useMemo(() => {
+    if (!ym || tab !== "jenis") return null;
+    return aggregateMonthlyJenisOperasiWithBatal(
       reportRows,
       ym.y,
       ym.m,
       matrixPasienOpts,
     );
-  }, [reportRows, ym, matrixPasienOpts]);
+  }, [reportRows, ym, matrixPasienOpts, tab]);
 
-  const matrixStatusBatal = useMemo(() => {
-    if (!ym) return null;
-    return aggregateMonthlyStatusBatal(
-      reportRows,
-      ym.y,
-      ym.m,
-      matrixPasienOpts,
-    );
-  }, [reportRows, ym, matrixPasienOpts]);
+  const matrixJenis = jenisMatrixPair?.main ?? null;
+  const matrixStatusBatal = jenisMatrixPair?.batal ?? null;
 
   const matrixCara = useMemo(() => {
-    if (!ym) return null;
+    if (!ym || tab !== "cara") return null;
     return aggregateMonthlyCaraBayar(
       reportRows,
       ym.y,
       ym.m,
       matrixPasienOpts,
     );
-  }, [reportRows, ym, matrixPasienOpts]);
+  }, [reportRows, ym, matrixPasienOpts, tab]);
 
   const matrixKategori = useMemo(() => {
-    if (!ym) return null;
+    if (!ym || tab !== "kategori") return null;
     return aggregateMonthlyKategori(
       reportRows,
       ym.y,
       ym.m,
       matrixPasienOpts,
     );
-  }, [reportRows, ym, matrixPasienOpts]);
+  }, [reportRows, ym, matrixPasienOpts, tab]);
 
   const laporanCaraBelumTerisi = useMemo(() => {
     if (!matrixCara) {
@@ -324,20 +321,12 @@ export function useTindakanLaporanReport({
 
   const filteredAnalisisRows = useMemo(() => {
     if (tab !== "analisis") return [];
-    if (!ym) return [];
+    if (!reportRows.length) return [];
 
-    const monthRows = reportRows.filter((r) => {
-      const s = String(r.tanggal ?? "").trim();
-      if (s.length < 7) return false;
-      const y = Number.parseInt(s.slice(0, 4), 10);
-      const m = Number.parseInt(s.slice(5, 7), 10);
-      return y === ym.y && m === ym.m;
-    });
-
-    if (!searchQuery.trim()) return monthRows;
+    if (!searchQuery.trim()) return reportRows;
 
     const query = searchQuery.toLowerCase();
-    return monthRows.filter((r) => {
+    return reportRows.filter((r) => {
       const fields = [
         r.nama_pasien,
         r.no_rm,
@@ -360,7 +349,7 @@ export function useTindakanLaporanReport({
       ];
       return fields.some((f) => String(f ?? "").toLowerCase().includes(query));
     });
-  }, [reportRows, ym, tab, searchQuery]);
+  }, [reportRows, tab, searchQuery]);
 
   const paginatedAnalisisRows = useMemo(() => {
     const start = (analisisPage - 1) * ANALISIS_PAGE_SIZE;
@@ -432,19 +421,19 @@ export function useTindakanLaporanReport({
     if (tab === "analisis") {
       return buildAnalisisGabunganHtml(filteredAnalisisRows, subtitleLines);
     }
-    if (!activeMatrix) return "";
+    if (!finalMatrix) return "";
     if (tab === "jenis")
       return buildBulananJenisOperasiHtml(
-        activeMatrix,
+        finalMatrix,
         subtitleLines,
-        activeMatrixStatusBatal ?? undefined,
+        finalMatrixStatusBatal ?? undefined,
       );
     if (tab === "cara")
-      return buildBulananCaraBayarHtml(activeMatrix, subtitleLines);
-    return buildBulananJenisOperasiHtml(activeMatrix, subtitleLines);
+      return buildBulananCaraBayarHtml(finalMatrix, subtitleLines);
+    return buildBulananJenisOperasiHtml(finalMatrix, subtitleLines);
   }, [
-    activeMatrix,
-    activeMatrixStatusBatal,
+    finalMatrix,
+    finalMatrixStatusBatal,
     tab,
     subtitleLines,
     filteredAnalisisRows,
@@ -457,25 +446,25 @@ export function useTindakanLaporanReport({
         subtitleLines,
       );
     }
-    if (!activeMatrix) return "";
+    if (!finalMatrix) return "";
     const title =
       tab === "jenis"
         ? "LAPORAN JENIS OPERASI / TINDAKAN CATHLAB"
         : tab === "cara"
           ? "LAPORAN CARA BAYAR CATHLAB"
           : "LAPORAN KATEGORI TINDAKAN CATHLAB";
-    let text = buildBulananMatrixWhatsAppText(title, activeMatrix, subtitleLines);
-    if (tab === "jenis" && activeMatrixStatusBatal?.rowLabels.length) {
+    let text = buildBulananMatrixWhatsAppText(title, finalMatrix, subtitleLines);
+    if (tab === "jenis" && finalMatrixStatusBatal?.rowLabels.length) {
       text += `\n\n${buildBulananMatrixWhatsAppText(
         "LAPORAN STATUS BATAL / DIBATALKAN",
-        activeMatrixStatusBatal,
+        finalMatrixStatusBatal,
         subtitleLines,
       )}`;
     }
     return text;
   }, [
-    activeMatrix,
-    activeMatrixStatusBatal,
+    finalMatrix,
+    finalMatrixStatusBatal,
     tab,
     subtitleLines,
     filteredAnalisisRows,
@@ -484,25 +473,25 @@ export function useTindakanLaporanReport({
   const handleDownloadExcel = useCallback(() => {
     if (tab === "analisis") {
       downloadAnalisisGabunganExcel(filteredAnalisisRows, exportFileBase);
-    } else if (activeMatrix) {
+    } else if (finalMatrix) {
       const title =
         tab === "jenis"
           ? "LAPORAN JENIS OPERASI / TINDAKAN CATHLAB"
           : tab === "cara"
             ? "LAPORAN CARA BAYAR CATHLAB"
             : "LAPORAN KATEGORI TINDAKAN CATHLAB";
-      downloadMonthlyMatrixExcel(activeMatrix, title, exportFileBase);
-      if (tab === "jenis" && activeMatrixStatusBatal?.rowLabels.length) {
+      downloadMonthlyMatrixExcel(finalMatrix, title, exportFileBase);
+      if (tab === "jenis" && finalMatrixStatusBatal?.rowLabels.length) {
         downloadMonthlyMatrixExcel(
-          activeMatrixStatusBatal,
+          finalMatrixStatusBatal,
           "LAPORAN STATUS BATAL / DIBATALKAN",
           `${exportFileBase}-batal`,
         );
       }
     }
   }, [
-    activeMatrix,
-    activeMatrixStatusBatal,
+    finalMatrix,
+    finalMatrixStatusBatal,
     tab,
     filteredAnalisisRows,
     exportFileBase,

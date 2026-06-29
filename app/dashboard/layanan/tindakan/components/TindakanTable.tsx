@@ -104,6 +104,7 @@ import type { TindakanJoinResult } from "../bridge/mapping.types";
 import KeteranganField from "./KeteranganField";
 import { formatWaktuDisplay } from "@/lib/tindakan/waktuRangeFormat";
 import { getStatusBadgeClass, getStatusIndicatorMeta, getStatusTooltip } from "@/lib/tindakan/statusIndicator";
+import { buildAutoSelesaiStatusUpdates } from "@/lib/tindakan/autoStatusSelesai";
 const rowCacheMap = new WeakMap<object, {
   _idik_row_key: string;
   normalizedRm: string;
@@ -2579,20 +2580,33 @@ export default function TindakanTable({
   const patchRowField = useCallback(
     async (id: string, updates: Record<string, unknown>) => {
       if (!id) return false;
+      const idStr = String(id).trim();
+      const currentRow =
+        (tindakanList as TindakanJoinResult[]).find(
+          (r) => String(r.id ?? "").trim() === idStr,
+        ) ??
+        cathlabFallbackRows.find(
+          (r) => String(r.id ?? "").trim() === idStr,
+        );
+      const merged = {
+        ...(currentRow ?? {}),
+        ...updates,
+      } as Record<string, unknown>;
+      const autoStatus = buildAutoSelesaiStatusUpdates(merged);
+      const finalUpdates = autoStatus ? { ...updates, ...autoStatus } : updates;
+
       // Update local fallback rows immediately so changes reflect without re-fetching
       setCathlabFallbackRows((prev) =>
         prev.map((r) =>
-          String(r.id ?? "").trim() === String(id).trim()
-            ? { ...r, ...updates }
-            : r,
+          String(r.id ?? "").trim() === idStr ? { ...r, ...finalUpdates } : r,
         ),
       );
       // Instantly update the main SWR list cache
       if (adapter.patchLocalRow) {
-        adapter.patchLocalRow(id, updates);
+        adapter.patchLocalRow(id, finalUpdates);
       }
       try {
-        await saveEditor(id, updates);
+        await saveEditor(id, finalUpdates);
         return true;
       } catch (e) {
         notify({
@@ -2603,7 +2617,7 @@ export default function TindakanTable({
         return false;
       }
     },
-    [notify, saveEditor, adapter],
+    [notify, saveEditor, adapter, tindakanList, cathlabFallbackRows],
   );
 
   /**

@@ -234,8 +234,25 @@ export async function PATCH(req: Request, ctx: Params) {
     );
   }
 
+  const { buildAutoSelesaiStatusUpdates } =
+    await import("@/lib/tindakan/autoStatusSelesai");
+
+  const { data: existingRow } = await supabase
+    .from("tindakan")
+    .select("dokter, tindakan, ruangan, status")
+    .eq("id", tindakanId)
+    .maybeSingle();
+
   /** Beberapa DB tidak punya kolom opsional (mis. `pasien_id`); buang dari payload lalu ulang — selaras `useTindakanCrud` insert. */
   let attemptPatch: Record<string, unknown> = { ...patch };
+  const autoStatus = buildAutoSelesaiStatusUpdates({
+    ...(existingRow ?? {}),
+    ...attemptPatch,
+  });
+  if (autoStatus) {
+    attemptPatch = { ...attemptPatch, ...autoStatus };
+  }
+
   let lastError: { message?: string } | null = null;
 
   for (let i = 0; i < 16; i += 1) {

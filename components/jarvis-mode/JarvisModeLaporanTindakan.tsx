@@ -508,14 +508,35 @@ function JarvisModeLaporanTindakanInner({
               Belum ada data pada bulan ini.
             </p>
           ) : (
-            <MatrixTable
-              matrix={report.finalMatrix}
-              rowHeader={report.matrixRowHeader}
-              roomyRows={report.finalMatrix.rowLabels.length <= 11}
-              tab={report.tab as MatrixLaporanTabKind}
-              sourceRows={rows}
-              pasienOptions={pasienOptions}
-            />
+            <div className="flex flex-col gap-2">
+              <MatrixTable
+                matrix={report.finalMatrix}
+                rowHeader={report.matrixRowHeader}
+                roomyRows={report.finalMatrix.rowLabels.length <= 11}
+                tab={report.tab as MatrixLaporanTabKind}
+                sourceRows={rows}
+                pasienOptions={pasienOptions}
+              />
+              {report.tab === "jenis" &&
+              report.finalMatrixStatusBatal &&
+              report.finalMatrixStatusBatal.rowLabels.length > 0 ? (
+                <div className="flex flex-col gap-1 border-t border-cyan-500/25 pt-2">
+                  <div className="sticky left-0 px-1 text-[8px] font-extrabold uppercase tracking-wide text-red-300">
+                    Status Batal / Dibatalkan
+                  </div>
+                  <MatrixTable
+                    matrix={report.finalMatrixStatusBatal}
+                    rowHeader="Status Batal"
+                    roomyRows={
+                      report.finalMatrixStatusBatal.rowLabels.length <= 11
+                    }
+                    tab="jenis"
+                    sourceRows={rows}
+                    pasienOptions={pasienOptions}
+                  />
+                </div>
+              ) : null}
+            </div>
           )}
           </div>
           {report.tab !== "analisis" &&

@@ -17,6 +17,7 @@ import {
   aggregateMonthlyCaraBayar,
   aggregateMonthlyJenisOperasi,
   aggregateMonthlyKategori,
+  aggregateMonthlyStatusBatal,
   CARA_BAYAR_LABEL_BELUM_TERISI,
   weekdaySun0Wib,
   type MonthlyMatrixAgg,
@@ -287,6 +288,101 @@ const TableRow = React.memo(
 );
 TableRow.displayName = "TableRow";
 
+const LaporanMatrixTable = React.memo(
+  ({
+    matrix,
+    yAxisHeader,
+  }: {
+    matrix: MonthlyMatrixAgg;
+    yAxisHeader: string;
+  }) => (
+    <table className="w-max min-w-full border-collapse text-[11px]">
+      <thead>
+        <tr className="bg-slate-100/90 dark:bg-white/5">
+          <th
+            rowSpan={2}
+            className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-1 text-left font-extrabold dark:border-white/10 dark:bg-zinc-900"
+          >
+            {yAxisHeader}
+          </th>
+          <th
+            colSpan={matrix.daysInMonth}
+            className="border border-slate-300/70 px-1 py-0.5 text-center font-extrabold dark:border-white/10"
+          >
+            TANGGAL
+          </th>
+          <th
+            rowSpan={2}
+            className="border border-slate-300/70 px-1.5 py-1 text-center font-extrabold dark:border-white/10"
+          >
+            JUMLAH
+          </th>
+        </tr>
+        <tr>
+          {Array.from({ length: matrix.daysInMonth }, (_, i) => {
+            const day = i + 1;
+            const wd = weekdaySun0Wib(matrix.year, matrix.month1to12, day);
+            const wkend = wd === 0 || wd === 6;
+            return (
+              <th
+                key={day}
+                className={cn(
+                  "border px-0.5 py-0.5 text-center font-bold tabular-nums",
+                  "border-slate-300/70 dark:border-white/10",
+                  wkend
+                    ? "bg-amber-100/90 dark:bg-amber-950/30"
+                    : "bg-slate-50/80 dark:bg-white/5",
+                )}
+              >
+                {day}
+              </th>
+            );
+          })}
+        </tr>
+      </thead>
+      <tbody>
+        {matrix.rowLabels.map((label: string, ri: number) => (
+          <TableRow
+            key={label}
+            label={label}
+            ri={ri}
+            activeMatrix={matrix}
+            formatCell={formatCell}
+          />
+        ))}
+        <tr className="bg-slate-100/90 font-extrabold dark:bg-white/5">
+          <th
+            scope="row"
+            className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-0.5 text-left dark:border-white/10 dark:bg-zinc-900"
+          >
+            JUMLAH
+          </th>
+          {matrix.colTotals.map((c: number, di: number) => {
+            const day = di + 1;
+            const wd = weekdaySun0Wib(matrix.year, matrix.month1to12, day);
+            const wkend = wd === 0 || wd === 6;
+            return (
+              <td
+                key={di}
+                className={cn(
+                  "border px-0.5 py-0.5 text-center tabular-nums dark:border-white/10",
+                  wkend ? "bg-amber-100/80 dark:bg-amber-950/30" : "",
+                )}
+              >
+                {formatCell(c)}
+              </td>
+            );
+          })}
+          <td className="border border-slate-300/70 px-1 py-0.5 text-center dark:border-white/10">
+            {formatCell(matrix.grandTotal)}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  ),
+);
+LaporanMatrixTable.displayName = "LaporanMatrixTable";
+
 // --- Utils ---
 
 function currentMonthWibYyyyMm(): string {
@@ -444,6 +540,16 @@ export default function TindakanLaporanModal({
     );
   }, [reportRows, ym, matrixPasienOpts]);
 
+  const matrixStatusBatal = useMemo(() => {
+    if (!ym) return null;
+    return aggregateMonthlyStatusBatal(
+      reportRows,
+      ym.y,
+      ym.m,
+      matrixPasienOpts,
+    );
+  }, [reportRows, ym, matrixPasienOpts]);
+
   const matrixCara = useMemo(() => {
     if (!ym) return null;
     return aggregateMonthlyCaraBayar(reportRows, ym.y, ym.m, matrixPasienOpts);
@@ -573,6 +679,99 @@ export default function TindakanLaporanModal({
     } as MonthlyMatrixAgg;
   }, [activeMatrix, searchQuery]);
 
+  const activeMatrixStatusBatal = useMemo(() => {
+    if (tab !== "jenis" || !matrixStatusBatal) return null;
+    if (!searchQuery.trim()) return matrixStatusBatal;
+
+    const query = searchQuery.toLowerCase();
+    const filteredIndices = matrixStatusBatal.rowLabels
+      .map((label, idx) => {
+        const labelMatch = label.toLowerCase().includes(query);
+        const detailMatch = matrixStatusBatal.details?.[idx]?.some((dayDetails) =>
+          dayDetails.some(
+            (p) =>
+              p.nama.toLowerCase().includes(query) ||
+              p.tindakan?.toLowerCase().includes(query) ||
+              p.diagnosa?.toLowerCase().includes(query) ||
+              p.kategori?.toLowerCase().includes(query) ||
+              p.kesimpulan_laporan?.toLowerCase().includes(query) ||
+              p.plan_medis?.toLowerCase().includes(query) ||
+              p.dokter.toLowerCase().includes(query),
+          ),
+        );
+        return labelMatch || detailMatch ? idx : -1;
+      })
+      .filter((idx) => idx !== -1);
+
+    if (filteredIndices.length === matrixStatusBatal.rowLabels.length) {
+      return matrixStatusBatal;
+    }
+
+    return {
+      ...matrixStatusBatal,
+      rowLabels: filteredIndices.map((i) => matrixStatusBatal.rowLabels[i]!),
+      data: filteredIndices.map((i) =>
+        matrixStatusBatal.data[i]!.map((count, di) => {
+          const details = matrixStatusBatal.details?.[i]?.[di] ?? [];
+          if (matrixStatusBatal.rowLabels[i]!.toLowerCase().includes(query)) {
+            return count;
+          }
+          return details.filter(
+            (p) =>
+              p.nama.toLowerCase().includes(query) ||
+              p.tindakan?.toLowerCase().includes(query) ||
+              p.diagnosa?.toLowerCase().includes(query) ||
+              p.kategori?.toLowerCase().includes(query) ||
+              p.kesimpulan_laporan?.toLowerCase().includes(query) ||
+              p.plan_medis?.toLowerCase().includes(query) ||
+              p.dokter.toLowerCase().includes(query),
+          ).length;
+        }),
+      ),
+      rowTotals: [],
+      colTotals: [],
+      grandTotal: 0,
+      details: filteredIndices.map((i) => {
+        const rowDetails = matrixStatusBatal.details?.[i] ?? [];
+        return rowDetails.map((dayDetails) => {
+          if (matrixStatusBatal.rowLabels[i]!.toLowerCase().includes(query)) {
+            return dayDetails;
+          }
+          return dayDetails.filter(
+            (p) =>
+              p.nama.toLowerCase().includes(query) ||
+              p.tindakan?.toLowerCase().includes(query) ||
+              p.diagnosa?.toLowerCase().includes(query) ||
+              p.kategori?.toLowerCase().includes(query) ||
+              p.kesimpulan_laporan?.toLowerCase().includes(query) ||
+              p.plan_medis?.toLowerCase().includes(query) ||
+              p.dokter.toLowerCase().includes(query),
+          );
+        });
+      }),
+    } as MonthlyMatrixAgg;
+  }, [tab, matrixStatusBatal, searchQuery]);
+
+  const finalMatrixStatusBatal = useMemo(() => {
+    if (!activeMatrixStatusBatal) return null;
+    if (!searchQuery.trim()) return activeMatrixStatusBatal;
+
+    const data = activeMatrixStatusBatal.data;
+    const rowTotals = data.map((row) => row.reduce((a, b) => a + b, 0));
+    const colTotals = Array.from(
+      { length: activeMatrixStatusBatal.daysInMonth },
+      (_, c) => data.reduce((sum, row) => sum + (row[c] ?? 0), 0),
+    );
+    const grandTotal = rowTotals.reduce((a, b) => a + b, 0);
+
+    return {
+      ...activeMatrixStatusBatal,
+      rowTotals,
+      colTotals,
+      grandTotal,
+    } as MonthlyMatrixAgg;
+  }, [activeMatrixStatusBatal, searchQuery]);
+
   const filteredAnalisisRows = useMemo(() => {
     if (tab !== "analisis") return [];
     if (!ym) return [];
@@ -687,12 +886,22 @@ export default function TindakanLaporanModal({
     }
     if (!activeMatrix) return "";
     if (tab === "jenis")
-      return buildBulananJenisOperasiHtml(activeMatrix, subtitleLines);
+      return buildBulananJenisOperasiHtml(
+        activeMatrix,
+        subtitleLines,
+        activeMatrixStatusBatal ?? undefined,
+      );
     if (tab === "cara")
       return buildBulananCaraBayarHtml(activeMatrix, subtitleLines);
     // Fallback untuk kategori (bisa memakai template jenis operasi karena strukturnya sama)
     return buildBulananJenisOperasiHtml(activeMatrix, subtitleLines);
-  }, [activeMatrix, tab, subtitleLines, filteredAnalisisRows]);
+  }, [
+    activeMatrix,
+    activeMatrixStatusBatal,
+    tab,
+    subtitleLines,
+    filteredAnalisisRows,
+  ]);
 
   const buildExportWhatsApp = useCallback(() => {
     if (tab === "analisis") {
@@ -705,8 +914,22 @@ export default function TindakanLaporanModal({
         : tab === "cara"
           ? "LAPORAN CARA BAYAR CATHLAB"
           : "LAPORAN KATEGORI TINDAKAN CATHLAB";
-    return buildBulananMatrixWhatsAppText(title, activeMatrix, subtitleLines);
-  }, [activeMatrix, tab, subtitleLines, filteredAnalisisRows]);
+    let text = buildBulananMatrixWhatsAppText(title, activeMatrix, subtitleLines);
+    if (tab === "jenis" && activeMatrixStatusBatal?.rowLabels.length) {
+      text += `\n\n${buildBulananMatrixWhatsAppText(
+        "LAPORAN STATUS BATAL / DIBATALKAN",
+        activeMatrixStatusBatal,
+        subtitleLines,
+      )}`;
+    }
+    return text;
+  }, [
+    activeMatrix,
+    activeMatrixStatusBatal,
+    tab,
+    subtitleLines,
+    filteredAnalisisRows,
+  ]);
 
   const exportFileBase = useMemo(() => {
     const safe = monthYyyyMm.replace(/[^\d-]/g, "") || "bulan";
@@ -728,8 +951,21 @@ export default function TindakanLaporanModal({
             ? "LAPORAN CARA BAYAR CATHLAB"
             : "LAPORAN KATEGORI TINDAKAN CATHLAB";
       downloadMonthlyMatrixExcel(activeMatrix, title, exportFileBase);
+      if (tab === "jenis" && activeMatrixStatusBatal?.rowLabels.length) {
+        downloadMonthlyMatrixExcel(
+          activeMatrixStatusBatal,
+          "LAPORAN STATUS BATAL / DIBATALKAN",
+          `${exportFileBase}-batal`,
+        );
+      }
     }
-  }, [activeMatrix, tab, filteredAnalisisRows, exportFileBase]);
+  }, [
+    activeMatrix,
+    activeMatrixStatusBatal,
+    tab,
+    filteredAnalisisRows,
+    exportFileBase,
+  ]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1062,104 +1298,31 @@ export default function TindakanLaporanModal({
                 )}
               </div>
             ) : finalMatrix ? (
-              <table className="w-max min-w-full border-collapse text-[11px]">
-                <thead>
-                  <tr className="bg-slate-100/90 dark:bg-white/5">
-                    <th
-                      rowSpan={2}
-                      className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-1 text-left font-extrabold dark:border-white/10 dark:bg-zinc-900"
-                    >
-                      {tab === "jenis"
-                        ? "PROSEDUR (DETAIL)"
-                        : tab === "kategori"
-                          ? "KATEGORI (GRUP)"
-                          : "CARA BAYAR"}
-                    </th>
-                    <th
-                      colSpan={finalMatrix.daysInMonth}
-                      className="border border-slate-300/70 px-1 py-0.5 text-center font-extrabold dark:border-white/10"
-                    >
-                      TANGGAL
-                    </th>
-                    <th
-                      rowSpan={2}
-                      className="border border-slate-300/70 px-1.5 py-1 text-center font-extrabold dark:border-white/10"
-                    >
-                      JUMLAH
-                    </th>
-                  </tr>
-                  <tr>
-                    {Array.from(
-                      { length: finalMatrix.daysInMonth },
-                      (_, i) => {
-                        const day = i + 1;
-                        const wd = weekdaySun0Wib(
-                          finalMatrix.year,
-                          finalMatrix.month1to12,
-                          day,
-                        );
-                        const wkend = wd === 0 || wd === 6;
-                        return (
-                          <th
-                            key={day}
-                            className={cn(
-                              "border px-0.5 py-0.5 text-center font-bold tabular-nums",
-                              "border-slate-300/70 dark:border-white/10",
-                              wkend
-                                ? "bg-amber-100/90 dark:bg-amber-950/30"
-                                : "bg-slate-50/80 dark:bg-white/5",
-                            )}
-                          >
-                            {day}
-                          </th>
-                        );
-                      },
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {finalMatrix.rowLabels.map((label: string, ri: number) => (
-                    <TableRow
-                      key={label}
-                      label={label}
-                      ri={ri}
-                      activeMatrix={finalMatrix}
-                      formatCell={formatCell}
+              <div className="flex flex-col gap-4">
+                <LaporanMatrixTable
+                  matrix={finalMatrix}
+                  yAxisHeader={
+                    tab === "jenis"
+                      ? "PROSEDUR (DETAIL)"
+                      : tab === "kategori"
+                        ? "KATEGORI (GRUP)"
+                        : "CARA BAYAR"
+                  }
+                />
+                {tab === "jenis" &&
+                finalMatrixStatusBatal &&
+                finalMatrixStatusBatal.rowLabels.length > 0 ? (
+                  <div className="flex flex-col gap-2 border-t border-slate-200/80 pt-4 dark:border-white/10">
+                    <h3 className="sticky left-0 text-[11px] font-extrabold uppercase tracking-wide text-red-700 dark:text-red-300">
+                      Status Batal / Dibatalkan
+                    </h3>
+                    <LaporanMatrixTable
+                      matrix={finalMatrixStatusBatal}
+                      yAxisHeader="STATUS BATAL"
                     />
-                  ))}
-                  <tr className="bg-slate-100/90 font-extrabold dark:bg-white/5">
-                    <th
-                      scope="row"
-                      className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-0.5 text-left dark:border-white/10 dark:bg-zinc-900"
-                    >
-                      JUMLAH
-                    </th>
-                    {finalMatrix.colTotals.map((c: number, di: number) => {
-                      const day = di + 1;
-                      const wd = weekdaySun0Wib(
-                        finalMatrix.year,
-                        finalMatrix.month1to12,
-                        day,
-                      );
-                      const wkend = wd === 0 || wd === 6;
-                      return (
-                        <td
-                          key={di}
-                          className={cn(
-                            "border px-0.5 py-0.5 text-center tabular-nums dark:border-white/10",
-                            wkend ? "bg-amber-100/80 dark:bg-amber-950/30" : "",
-                          )}
-                        >
-                          {formatCell(c)}
-                        </td>
-                      );
-                    })}
-                    <td className="border border-slate-300/70 px-1 py-0.5 text-center dark:border-white/10">
-                      {formatCell(finalMatrix.grandTotal)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
           </div>
         </div>

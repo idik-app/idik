@@ -8,6 +8,7 @@ import {
   aggregateMonthlyCaraBayar,
   aggregateMonthlyJenisOperasi,
   aggregateMonthlyKategori,
+  aggregateMonthlyStatusBatal,
   CARA_BAYAR_LABEL_BELUM_TERISI,
   type MonthlyMatrixAgg,
 } from "../lib/tindakanBulananMatrix";
@@ -236,6 +237,16 @@ export function useTindakanLaporanReport({
     );
   }, [reportRows, ym, matrixPasienOpts]);
 
+  const matrixStatusBatal = useMemo(() => {
+    if (!ym) return null;
+    return aggregateMonthlyStatusBatal(
+      reportRows,
+      ym.y,
+      ym.m,
+      matrixPasienOpts,
+    );
+  }, [reportRows, ym, matrixPasienOpts]);
+
   const matrixCara = useMemo(() => {
     if (!ym) return null;
     return aggregateMonthlyCaraBayar(
@@ -298,6 +309,18 @@ export function useTindakanLaporanReport({
     if (!searchQuery.trim()) return activeMatrix;
     return finalizeMatrixTotals(activeMatrix);
   }, [activeMatrix, searchQuery]);
+
+  const activeMatrixStatusBatal = useMemo(() => {
+    if (tab !== "jenis" || !matrixStatusBatal) return null;
+    if (!searchQuery.trim()) return matrixStatusBatal;
+    return filterMatrixBySearch(matrixStatusBatal, searchQuery);
+  }, [tab, matrixStatusBatal, searchQuery]);
+
+  const finalMatrixStatusBatal = useMemo(() => {
+    if (!activeMatrixStatusBatal) return null;
+    if (!searchQuery.trim()) return activeMatrixStatusBatal;
+    return finalizeMatrixTotals(activeMatrixStatusBatal);
+  }, [activeMatrixStatusBatal, searchQuery]);
 
   const filteredAnalisisRows = useMemo(() => {
     if (tab !== "analisis") return [];
@@ -411,11 +434,21 @@ export function useTindakanLaporanReport({
     }
     if (!activeMatrix) return "";
     if (tab === "jenis")
-      return buildBulananJenisOperasiHtml(activeMatrix, subtitleLines);
+      return buildBulananJenisOperasiHtml(
+        activeMatrix,
+        subtitleLines,
+        activeMatrixStatusBatal ?? undefined,
+      );
     if (tab === "cara")
       return buildBulananCaraBayarHtml(activeMatrix, subtitleLines);
     return buildBulananJenisOperasiHtml(activeMatrix, subtitleLines);
-  }, [activeMatrix, tab, subtitleLines, filteredAnalisisRows]);
+  }, [
+    activeMatrix,
+    activeMatrixStatusBatal,
+    tab,
+    subtitleLines,
+    filteredAnalisisRows,
+  ]);
 
   const buildExportWhatsApp = useCallback(() => {
     if (tab === "analisis") {
@@ -431,8 +464,22 @@ export function useTindakanLaporanReport({
         : tab === "cara"
           ? "LAPORAN CARA BAYAR CATHLAB"
           : "LAPORAN KATEGORI TINDAKAN CATHLAB";
-    return buildBulananMatrixWhatsAppText(title, activeMatrix, subtitleLines);
-  }, [activeMatrix, tab, subtitleLines, filteredAnalisisRows]);
+    let text = buildBulananMatrixWhatsAppText(title, activeMatrix, subtitleLines);
+    if (tab === "jenis" && activeMatrixStatusBatal?.rowLabels.length) {
+      text += `\n\n${buildBulananMatrixWhatsAppText(
+        "LAPORAN STATUS BATAL / DIBATALKAN",
+        activeMatrixStatusBatal,
+        subtitleLines,
+      )}`;
+    }
+    return text;
+  }, [
+    activeMatrix,
+    activeMatrixStatusBatal,
+    tab,
+    subtitleLines,
+    filteredAnalisisRows,
+  ]);
 
   const handleDownloadExcel = useCallback(() => {
     if (tab === "analisis") {
@@ -445,8 +492,21 @@ export function useTindakanLaporanReport({
             ? "LAPORAN CARA BAYAR CATHLAB"
             : "LAPORAN KATEGORI TINDAKAN CATHLAB";
       downloadMonthlyMatrixExcel(activeMatrix, title, exportFileBase);
+      if (tab === "jenis" && activeMatrixStatusBatal?.rowLabels.length) {
+        downloadMonthlyMatrixExcel(
+          activeMatrixStatusBatal,
+          "LAPORAN STATUS BATAL / DIBATALKAN",
+          `${exportFileBase}-batal`,
+        );
+      }
     }
-  }, [activeMatrix, tab, filteredAnalisisRows, exportFileBase]);
+  }, [
+    activeMatrix,
+    activeMatrixStatusBatal,
+    tab,
+    filteredAnalisisRows,
+    exportFileBase,
+  ]);
 
   const exportEmpty =
     !loading &&
@@ -471,7 +531,9 @@ export function useTindakanLaporanReport({
     loading,
     reportRowsCatchUp,
     finalMatrix,
+    finalMatrixStatusBatal,
     activeMatrix,
+    activeMatrixStatusBatal,
     filteredAnalisisRows,
     paginatedAnalisisRows,
     totalAnalisisPages,

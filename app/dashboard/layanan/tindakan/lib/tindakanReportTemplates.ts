@@ -709,13 +709,19 @@ ${bodyRows.join("\n")}
 export function buildBulananJenisOperasiHtml(
   matrix: MonthlyMatrixAgg,
   subtitleLines: string[],
+  batalMatrix?: MonthlyMatrixAgg | null,
 ): string {
   const bulan = formatBulanTahunId(matrix.year, matrix.month1to12);
   const sub = [`BULAN : ${bulan}`, ...subtitleLines];
+  let body = buildMonthlyMatrixTableHtml(matrix, "TINDAKAN");
+  if (batalMatrix && batalMatrix.rowLabels.length > 0) {
+    body += `<h2 style="font-size:13px;margin:20px 0 8px;text-align:center">LAPORAN STATUS BATAL / DIBATALKAN</h2>`;
+    body += buildMonthlyMatrixTableHtml(batalMatrix, "STATUS BATAL");
+  }
   return wrapReportHtmlDocument({
     title: "LAPORAN JENIS OPERASI / TINDAKAN CATHLAB",
     subtitleLines: sub,
-    bodyInnerHtml: buildMonthlyMatrixTableHtml(matrix, "TINDAKAN"),
+    bodyInnerHtml: body,
   });
 }
 

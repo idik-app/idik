@@ -291,6 +291,17 @@ export type MonthlyMatrixPasienOpts = {
   pasienLookup?: PasienReportLookup;
 };
 
+/** Label baris tindakan batal di laporan prosedur (terpisah dari matriks utama). */
+export const LAPORAN_TINDAKAN_BATAL_LABEL = "BATAL" as const;
+
+/** Kasus dengan status Dibatalkan atau tindakan eksplisit BATAL. */
+export function isLaporanStatusBatalRow(row: TindakanJoinResult): boolean {
+  const status = String(row.status ?? "").trim();
+  if (status === "Dibatalkan") return true;
+  const tindakan = String(row.tindakan ?? "").trim().toUpperCase();
+  return tindakan === LAPORAN_TINDAKAN_BATAL_LABEL;
+}
+
 function matrixDetailFromRow(
   row: TindakanJoinResult,
   pasienOpts?: readonly PasienOption[] | null,
@@ -349,19 +360,24 @@ function finalizeMatrix(
   };
 }
 
-export function aggregateMonthlyJenisOperasi(
+function aggregateMonthlyJenisOperasiInternal(
   rows: readonly TindakanJoinResult[],
   year: number,
   month1to12: number,
-  opts?: MonthlyMatrixPasienOpts,
+  opts: MonthlyMatrixPasienOpts | undefined,
+  includeBatal: boolean,
 ): MonthlyMatrixAgg {
   const dim = daysInMonth(year, month1to12);
 
-  // Ambil semua tindakan unik dari data yang difilter bulan ini ( Point: menampilkan Jenis Tindakan berdasarkan semua kolom tindakan )
+  const monthRows = rows.filter((r) => {
+    if (!isInYearMonth(r.tanggal, year, month1to12)) return false;
+    const batal = isLaporanStatusBatalRow(r);
+    return includeBatal ? batal : !batal;
+  });
+
   const uniqueTindakans = Array.from(
     new Set(
-      rows
-        .filter((r) => isInYearMonth(r.tanggal, year, month1to12))
+      monthRows
         .map((r) => String(r.tindakan || "BELUM DIISI").trim().toUpperCase())
         .filter(Boolean),
     ),
@@ -378,8 +394,7 @@ export function aggregateMonthlyJenisOperasi(
     );
   }
 
-  for (const row of rows) {
-    if (!isInYearMonth(row.tanggal, year, month1to12)) continue;
+  for (const row of monthRows) {
     const day = dayOfMonthFromTanggal(row.tanggal);
     if (day == null || day < 1 || day > dim) continue;
     const di = day - 1;
@@ -404,6 +419,37 @@ export function aggregateMonthlyJenisOperasi(
   );
 
   return finalizeMatrix(year, month1to12, rowLabels, data, details);
+}
+
+export function aggregateMonthlyJenisOperasi(
+  rows: readonly TindakanJoinResult[],
+  year: number,
+  month1to12: number,
+  opts?: MonthlyMatrixPasienOpts,
+): MonthlyMatrixAgg {
+  return aggregateMonthlyJenisOperasiInternal(
+    rows,
+    year,
+    month1to12,
+    opts,
+    false,
+  );
+}
+
+/** Matriks terpisah untuk status tindakan batal / dibatalkan. */
+export function aggregateMonthlyStatusBatal(
+  rows: readonly TindakanJoinResult[],
+  year: number,
+  month1to12: number,
+  opts?: MonthlyMatrixPasienOpts,
+): MonthlyMatrixAgg {
+  return aggregateMonthlyJenisOperasiInternal(
+    rows,
+    year,
+    month1to12,
+    opts,
+    true,
+  );
 }
 
 /** Daftar kategori master tetap untuk laporan matrix (Y-Axis). */

@@ -1777,9 +1777,15 @@ export default function TindakanTable({
         doctorLabelByRowId[id] ??
         canonicalDoctorDisplayValue(
           doctorOptionsMaster,
-          String(pemakaianModalRow.dokter ?? ""),
+          isPlaceholderTindakanLabel(String(pemakaianModalRow.dokter ?? ""))
+            ? ""
+            : String(pemakaianModalRow.dokter ?? ""),
         ),
-      initialRuangan: String(pemakaianModalRow.ruangan ?? ""),
+      initialRuangan: isPlaceholderTindakanLabel(
+        String(pemakaianModalRow.ruangan ?? ""),
+      )
+        ? ""
+        : String(pemakaianModalRow.ruangan ?? "").trim(),
       tindakanId: tindakanIdForApi,
       initialPemakaianOrderId: linkedOrderId,
       initialAsisten: String(pemakaianModalRow.asisten ?? "").trim(),
@@ -5115,6 +5121,15 @@ export default function TindakanTable({
                   ...p,
                   [info.tindakanId]: info.orderId,
                 }));
+                if (info.dokter?.trim()) {
+                  setDoctorLabelByRowId((p) => ({
+                    ...p,
+                    [info.tindakanId]: canonicalDoctorDisplayValue(
+                      doctorOptionsMaster,
+                      info.dokter!.trim(),
+                    ),
+                  }));
+                }
               }
             }
             void mutateOrders();

@@ -91,6 +91,7 @@ import {
   usePasienDetail,
 } from "@/app/hooks/useMasterData";
 import { formatKelasPerawatanDisplay } from "@/app/dashboard/pasien/utils/formatKelasPerawatan";
+import { isPlaceholderTindakanLabel } from "@/app/dashboard/layanan/tindakan/utils/tindakanHelpers";
 import { runDeduped } from "@/lib/api/runDeduped";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import {
@@ -502,6 +503,12 @@ function cleanFormText(s: string): string {
     .trim();
 }
 
+/** Placeholder UI tabel tindakan ("Belum diisi", "—", kosong) → field form kosong. */
+function normalizeTindakanScalarField(s: string): string {
+  const t = cleanFormText(s);
+  return isPlaceholderTindakanLabel(t) ? "" : t;
+}
+
 function lineDistributorFilled(line: PemakaianLine): boolean {
   return cleanFormText(String(line.distributor ?? "")).length > 0;
 }
@@ -659,7 +666,12 @@ export type PemakaianAlkesModalProps = {
   /** Dipanggil setelah POST/PATCH/DELETE order berhasil (untuk refresh indeks di tabel Tindakan). */
   onSaved?: (
     info?:
-      | { tindakanId: string; orderId: string }
+      | {
+          tindakanId: string;
+          orderId: string;
+          dokter?: string;
+          ruangan?: string;
+        }
       | { tindakanId: string; orderCleared: true },
   ) => void;
 };
@@ -919,8 +931,8 @@ export default function PemakaianAlkesModal({
   const resetFormFromProps = useCallback(() => {
     const firstId = newDrawerLineId();
     setDrawerPasien(initialPasienLabel.trim());
-    setDrawerDokter(initialDokter.trim());
-    setDrawerRuangan(initialRuangan.trim());
+    setDrawerDokter(normalizeTindakanScalarField(initialDokter));
+    setDrawerRuangan(normalizeTindakanScalarField(initialRuangan));
     setDrawerDateTime(toDatetimeLocalValue(new Date()));
     setDrawerLines([
       {
@@ -977,10 +989,12 @@ export default function PemakaianAlkesModal({
       setDrawerDokter(
         canonicalDoctorDisplayValue(
           doctorOptionsRef.current,
-          String(first.dokter ?? "").trim(),
+          normalizeTindakanScalarField(String(first.dokter ?? "")),
         ),
       );
-      setDrawerRuangan(String(first.ruangan ?? "").trim());
+      setDrawerRuangan(
+        normalizeTindakanScalarField(String(first.ruangan ?? "")),
+      );
       setDrawerDateTime(
         orderTanggalToDatetimeLocal(String(first.tanggal ?? "")),
       );
@@ -1075,10 +1089,12 @@ export default function PemakaianAlkesModal({
         setDrawerDokter(
           canonicalDoctorDisplayValue(
             doctorOptionsRef.current,
-            String(d.dokter ?? "").trim(),
+            normalizeTindakanScalarField(String(d.dokter ?? "")),
           ),
         );
-        setDrawerRuangan(String(d.ruangan ?? "").trim());
+        setDrawerRuangan(
+          normalizeTindakanScalarField(String(d.ruangan ?? "")),
+        );
         const teamParts = [d.asisten, d.sirkuler, d.logger]
           .map((s) => String(s ?? "").trim())
           .filter(Boolean);
@@ -2028,8 +2044,8 @@ export default function PemakaianAlkesModal({
     setDokterFieldInvalid(false);
     setRuanganFieldInvalid(false);
     const pasien = cleanFormText(drawerPasien);
-    const dokterRaw = cleanFormText(drawerDokter);
-    const ruanganRaw = cleanFormText(drawerRuangan);
+    const dokterRaw = normalizeTindakanScalarField(drawerDokter);
+    const ruanganRaw = normalizeTindakanScalarField(drawerRuangan);
     const dokterResolved =
       doctorOptions.length > 0
         ? resolveDoctorFromLooseInput(doctorOptions, dokterRaw)
@@ -2262,16 +2278,21 @@ export default function PemakaianAlkesModal({
       // 1. Generate resume teks pemakaian
       const resumeText = buildPemakaianResumeText(itemsPayload);
 
-      // 2. Sync resume ke baris tindakan (jika ada tindakanId)
+      // 2. Sync resume + dokter/ruangan ke baris tindakan (jika ada tindakanId)
       if (tindakanId?.trim()) {
         try {
+          const tindakanPatch: Record<string, string | null> = {
+            pemakaian: resumeText,
+          };
+          if (dokter) tindakanPatch.dokter = dokter;
+          if (ruangan) tindakanPatch.ruangan = ruangan;
           await fetch(
             `/api/tindakan/${encodeURIComponent(tindakanId.trim())}`,
             {
               method: "PATCH",
               credentials: "include",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ pemakaian: resumeText }),
+              body: JSON.stringify(tindakanPatch),
             },
           );
         } catch (e) {
@@ -2319,7 +2340,13 @@ export default function PemakaianAlkesModal({
         {
           const tid = tindakanId?.trim() ?? "";
           const oid = existingOrderId.trim();
-          if (tid && oid) onSaved?.({ tindakanId: tid, orderId: oid });
+          if (tid && oid)
+            onSaved?.({
+              tindakanId: tid,
+              orderId: oid,
+              dokter,
+              ruangan,
+            });
           else onSaved?.();
         }
         return `Order ${existingOrderId} telah diperbarui.`;
@@ -2360,7 +2387,13 @@ export default function PemakaianAlkesModal({
       const oid = typeof j.order?.id === "string" ? j.order.id : "";
       {
         const tid = tindakanId?.trim() ?? "";
-        if (tid && oid) onSaved?.({ tindakanId: tid, orderId: oid });
+        if (tid && oid)
+          onSaved?.({
+            tindakanId: tid,
+            orderId: oid,
+            dokter,
+            ruangan,
+          });
         else onSaved?.();
       }
       return oid

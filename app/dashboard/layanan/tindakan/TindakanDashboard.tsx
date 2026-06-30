@@ -53,7 +53,7 @@ export default function TindakanDashboard() {
     }
   }, [isMobile]);
 
-  // Silent auto-refresh if there is no user activity (mouse/keyboard) for 30 seconds
+  // Silent auto-refresh jika tidak ada aktivitas pengguna (hemat egress vs polling 30s).
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -69,10 +69,10 @@ export default function TindakanDashboard() {
 
     const interval = setInterval(() => {
       const inactiveMs = Date.now() - lastActivity;
-      if (inactiveMs >= 30000) {
+      if (inactiveMs >= 120_000) {
         adapter.refresh();
       }
-    }, 30000);
+    }, 60_000);
 
     return () => {
       events.forEach((evt) => {

@@ -1,10 +1,15 @@
 "use client";
 
-import useSWR, { mutate as globalMutate } from "swr";
+import useSWR from "swr";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+/** Batas baris default — cukup untuk filter lokal; turunkan egress vs 10k+. */
+const DEFAULT_TINDAKAN_LIMIT = 2000;
+/** Debounce refetch realtime (ms) — hindari burst API setelah event DB. */
+const REALTIME_TINDAKAN_DEBOUNCE_MS = 20_000;
 
 export function useTindakanData(params?: {
   from?: string;
@@ -13,8 +18,7 @@ export function useTindakanData(params?: {
 }) {
   const query = useMemo(() => {
     const p = new URLSearchParams();
-    // Default limit tetap besar untuk mendukung fitur pencarian lokal di dalam hasil server
-    p.set("limit", "10000");
+    p.set("limit", String(DEFAULT_TINDAKAN_LIMIT));
     if (params?.from) p.set("from", params.from);
     if (params?.to) p.set("to", params.to);
     if (params?.search) p.set("search", params.search);
@@ -26,13 +30,13 @@ export function useTindakanData(params?: {
     fetcher,
     {
       revalidateOnFocus: false,
-      dedupingInterval: 5000,
-      refreshInterval: 10000, // Auto refresh silent setiap 10 detik
+      dedupingInterval: 15_000,
+      // Tanpa polling — andalkan realtime + refresh manual / idle di dashboard.
+      refreshInterval: 0,
     },
   );
 
   const [tindakanList, setTindakanList] = useState<any[]>([]);
-  const lastRealtimeReloadAtRef = useRef(0);
   const lastTindakanRealtimeReloadAtRef = useRef(0);
 
   // Sync SWR data to local state for easier use with removeLocalById
@@ -117,38 +121,18 @@ export function useTindakanData(params?: {
       .channel("tindakan-list-sync")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "pasien",
-          filter: "id=neq.0",
-        },
-        () => {
-          const now = Date.now();
-          if (now - lastRealtimeReloadAtRef.current < 10000) return;
-          lastRealtimeReloadAtRef.current = now;
-
-          if (document.hidden) return;
-
-          window.setTimeout(() => {
-            if (document.hidden) return;
-            void mutate();
-            void globalMutate("/api/pasien?compact=1&limit=5000&force=1");
-          }, 2000);
-        },
-      )
-      .on(
-        "postgres_changes",
         { event: "*", schema: "public", table: "tindakan" },
         () => {
           const now = Date.now();
-          if (now - lastTindakanRealtimeReloadAtRef.current < 8000) return;
+          if (now - lastTindakanRealtimeReloadAtRef.current < REALTIME_TINDAKAN_DEBOUNCE_MS) {
+            return;
+          }
           lastTindakanRealtimeReloadAtRef.current = now;
           if (document.hidden) return;
           window.setTimeout(() => {
             if (document.hidden) return;
             void mutate();
-          }, 1200);
+          }, 1500);
         },
       )
       .subscribe();

@@ -66,7 +66,7 @@ export function PasienProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "SET_LOADING", payload: true });
 
       /** Sama dengan modal refresh: GET /api/pasien (service role), bukan anon ke view — hindari beda data vs edit */
-      const res = await fetch("/api/pasien", {
+      const res = await fetch("/api/pasien?compact=1&limit=500", {
         credentials: "same-origin",
         cache: "no-store",
       });
@@ -103,10 +103,11 @@ export function PasienProvider({ children }: { children: ReactNode }) {
     // ---------------------------------------------
     let lastEventId: string | null = null;
     let lastFetch = 0;
-    const minInterval = 3000; // 3 detik antar fetch
+    const minInterval = 15_000; // 15 detik antar fetch
 
     const fetchDebounced = (payload: any) => {
       if (!configured) return;
+      if (document.hidden) return;
       const now = Date.now();
 
       // ?? Hindari event handshake kosong

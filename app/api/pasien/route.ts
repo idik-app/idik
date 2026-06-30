@@ -82,10 +82,10 @@ export async function GET(request: Request) {
     const user = await requireUser();
     if (!user.ok) return user.response;
 
-    // Jika compact dan tidak ada filter spesifik, gunakan cache (default limit 1000)
+    // Jika compact dan tidak ada filter spesifik, gunakan cache (default limit 500)
     const now = Date.now();
-    const effectiveLimit = limitRaw || 1000;
-    if (!force && compact && !noRm && !namaLookup && effectiveLimit === 1000 && pasienCompactCache && now < pasienCompactCacheExpires) {
+    const effectiveLimit = limitRaw || (compact ? 500 : 0);
+    if (!force && compact && !noRm && !namaLookup && effectiveLimit === 500 && pasienCompactCache && now < pasienCompactCacheExpires) {
       return NextResponse.json({ ok: true, data: pasienCompactCache, cached: true }, { status: 200 });
     }
 
@@ -147,7 +147,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const defaultLimit = compact ? 1000 : 0;
+    const defaultLimit = compact ? 500 : 0;
     const limit =
       Number.isFinite(limitRaw) && limitRaw > 0
         ? Math.min(Math.trunc(limitRaw), 5000)
@@ -174,9 +174,11 @@ export async function GET(request: Request) {
       SAFE_PASIEN_COLUMNS.add("kontak");
     }
 
-    // Gunakan chunked fetching jika limit > 1000 untuk melewati batas default PostgREST
-    // Gunakan select("*") agar kompatibel dengan berbagai versi schema, lalu filter di JS
-    const { data: rawData, error } = await fetchTableOrderedInChunks(supabase, "*", limit || 20000);
+    const { data: rawData, error } = await fetchTableOrderedInChunks(
+      supabase,
+      "*",
+      limit || (compact ? 500 : 1500),
+    );
 
     if (error) {
       return NextResponse.json(
@@ -199,7 +201,7 @@ export async function GET(request: Request) {
     // Update cache jika ini adalah request compact default
     if (compact && !noRm && !namaLookup && !limitRaw) {
       pasienCompactCache = filteredData;
-      pasienCompactCacheExpires = Date.now() + 120 * 1000; // 2 menit
+      pasienCompactCacheExpires = Date.now() + 180 * 1000; // 3 menit
     }
 
     return NextResponse.json({ ok: true, data: filteredData }, { status: 200 });

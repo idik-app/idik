@@ -50,7 +50,7 @@ export default function SupabaseStatus() {
       }
     };
     pingCheck();
-    const interval = setInterval(pingCheck, 30000);
+    const interval = setInterval(pingCheck, 120_000);
     return () => clearInterval(interval);
   }, [configured]);
 

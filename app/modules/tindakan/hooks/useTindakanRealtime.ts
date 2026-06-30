@@ -2,30 +2,19 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase/supabaseClient";
-import { useNotification } from "@/app/contexts/NotificationContext";
 import { DiagnosticsBridge } from "@/core/idik-autonomous/DiagnosticsBridge";
 
 type Tindakan = any;
 
 /**
- * ⚡ useTindakanRealtime v3.3
- * Sinkronisasi realtime otomatis tabel tindakan.
+ * ⚡ useTindakanRealtime v3.4 — egress-safe
+ * Hanya subscribe perubahan; tidak fetch seluruh tabel `tindakan` di mount.
  */
 export function useTindakanRealtime() {
-  const { show } = useNotification();
-
   const [tindakanList, setTindakanList] = useState<Tindakan[]>([]);
   const [lastEvent, setLastEvent] = useState<string | null>(null);
   const [eventCount, setEventCount] = useState(0);
-  const channelRef = useRef<any>(null);
-
-  const refreshStats = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("tindakan")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (!error && data) setTindakanList(data);
-  }, []);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const startRealtime = useCallback(() => {
     if (channelRef.current) return;
@@ -40,22 +29,23 @@ export function useTindakanRealtime() {
           setLastEvent(event);
           setEventCount((c) => c + 1);
 
-          if (event === "INSERT" && payload.new)
+          if (event === "INSERT" && payload.new) {
             setTindakanList((p) => [payload.new as Tindakan, ...p]);
-          if (event === "UPDATE" && payload.new)
+          }
+          if (event === "UPDATE" && payload.new) {
             setTindakanList((p) =>
               p.map((i) =>
-                i.id === payload.new.id ? (payload.new as Tindakan) : i
-              )
+                i.id === payload.new.id ? (payload.new as Tindakan) : i,
+              ),
             );
-          if (event === "DELETE" && payload.old)
+          }
+          if (event === "DELETE" && payload.old) {
             setTindakanList((p) => p.filter((i) => i.id !== payload.old.id));
-
-          show({ type: "info", message: `Realtime: ${event}` });
-        }
+          }
+        },
       )
       .subscribe();
-  }, [show]);
+  }, []);
 
   const stopRealtime = useCallback(() => {
     if (channelRef.current) {
@@ -65,10 +55,13 @@ export function useTindakanRealtime() {
   }, []);
 
   useEffect(() => {
-    refreshStats();
     startRealtime();
     return stopRealtime;
-  }, [refreshStats, startRealtime, stopRealtime]);
+  }, [startRealtime, stopRealtime]);
+
+  /** Manual refresh jika modul legacy masih memanggil refreshStats. */
+  const refreshStats = useCallback(async () => {
+  }, []);
 
   return { tindakanList, lastEvent, eventCount, refreshStats };
 }

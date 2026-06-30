@@ -447,15 +447,25 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, order: data }, { status: 201 });
 }
 
-/** Cache orders (1 menit) untuk dashboard */
+/** Kolom daftar order — hindari select(*) penuh (items JSON tetap diambil). */
+const PEMEMAKAIAN_ORDER_LIST_COLUMNS =
+  "id, mode, tanggal, pasien, no_rm, dokter, ruangan, depo, status, items, catatan, template_input_barang, tindakan_id, created_at, updated_at";
+
+/** Default & batas daftar order di dashboard pemakaian. */
+const DEFAULT_ORDERS_LIST_LIMIT = 300;
+const MAX_ORDERS_LIST_LIMIT = 2000;
+
+/** Cache orders (2 menit) untuk dashboard */
 let ordersCache: { data: any[]; expires: number; key: string } | null = null;
 
 /** GET /api/pemakaian-orders — daftar order; `?tindakanId=` = filter per kasus tindakan. */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const tindakanFilter = searchParams.get("tindakanId")?.trim() ?? "";
-  const limitRaw = Number(searchParams.get("limit") ?? 1000);
-  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 5000) : 1000;
+  const limitRaw = Number(searchParams.get("limit") ?? DEFAULT_ORDERS_LIST_LIMIT);
+  const limit = Number.isFinite(limitRaw)
+    ? Math.min(Math.max(limitRaw, 1), MAX_ORDERS_LIST_LIMIT)
+    : DEFAULT_ORDERS_LIST_LIMIT;
 
   const cacheKey = `${tindakanFilter}|${limit}`;
   const now = Date.now();
@@ -480,7 +490,7 @@ export async function GET(request: Request) {
 
   let query = supabase
     .from("cathlab_pemakaian_order")
-    .select("*")
+    .select(PEMEMAKAIAN_ORDER_LIST_COLUMNS)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -502,7 +512,7 @@ export async function GET(request: Request) {
   // Cache for 1 minute
   ordersCache = {
     data: finalData,
-    expires: now + 60 * 1000,
+    expires: now + 120 * 1000,
     key: cacheKey
   };
 

@@ -721,7 +721,7 @@ export default function PemakaianPage() {
       const { res, j } = await runDeduped(
         "GET:/api/pemakaian-orders",
         async () => {
-          const res = await fetch("/api/pemakaian-orders", {
+          const res = await fetch("/api/pemakaian-orders?limit=300", {
             credentials: "include",
             cache: "no-store",
           });
@@ -764,10 +764,12 @@ export default function PemakaianPage() {
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const scheduleRefresh = () => {
+      if (document.hidden) return;
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
+        if (document.hidden) return;
         void loadOrders({ silent: true });
-      }, 450);
+      }, 3000);
     };
 
     let cancelled = false;

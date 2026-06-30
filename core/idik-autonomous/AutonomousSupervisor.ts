@@ -10,7 +10,7 @@
 
 import { DiagnosticsBridge } from "./DiagnosticsBridge";
 
-const HEALTH_CHECK_INTERVAL_MS = 15_000;
+const HEALTH_CHECK_INTERVAL_MS = 120_000;
 const PING_TABLE = "pasien";
 
 export class AutonomousSupervisor {
@@ -51,9 +51,8 @@ export class AutonomousSupervisor {
       const sb = await this.ensureSupabase();
       const { error } = await this.supabase
         .from(PING_TABLE)
-        .select("id")
-        .limit(1)
-        .maybeSingle();
+        .select("id", { head: true, count: "exact" })
+        .limit(1);
       if (error) {
         DiagnosticsBridge.disconnected();
       } else {

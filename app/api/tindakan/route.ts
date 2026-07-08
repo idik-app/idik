@@ -254,6 +254,7 @@ export async function GET(request: Request) {
       "air_kerma",
       "dap_dose",
       "dap_gy_cm2",
+      "accession_no",
     ]);
 
     for (const projection of projections) {

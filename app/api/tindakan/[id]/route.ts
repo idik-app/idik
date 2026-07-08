@@ -69,6 +69,7 @@ const PATCHABLE_TINDAKAN_KEYS = new Set([
   "keterangan",
   "status_keterangan",
   "kelas_pembiayaan",
+  "accession_no",
 ]);
 
 function sanitizeTindakanPatch(body: unknown): Record<string, unknown> {

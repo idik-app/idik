@@ -96,6 +96,8 @@ export interface TindakanJoinResult {
 
   pemakaian: string | null; // JSON, teks, atau summary
 
+  accession_no?: string | null;
+
   /** Metadata audit dari API/DB (opsional, tab Resume) */
   created_at?: string | null;
   updated_at?: string | null;

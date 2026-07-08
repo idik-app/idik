@@ -130,6 +130,7 @@ const RADIOLOGI_AUTOSAVE_FIELDS: RadiologiFieldKey[] = [
   "kv",
   "ma",
   "waktu",
+  "accession_no",
 ];
 
 const KLINIS_AUTOSAVE_FIELDS: (KlinisFieldKey | string)[] = [
@@ -262,7 +263,7 @@ function mergeTindakanDetailIntoRecord(
     if (typeof value === "string" && value.trim() === "") continue;
     out[key] = value;
   }
-  return out as TindakanJoinResult;
+  return (out as unknown) as TindakanJoinResult;
 }
 
 function buildDrawerHeaderTitle(

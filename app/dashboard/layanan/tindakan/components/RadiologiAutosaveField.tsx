@@ -21,11 +21,12 @@ export type RadiologiFieldKey =
   | "dap_dose"
   | "kv"
   | "ma"
-  | "waktu";
+  | "waktu"
+  | "accession_no";
 
 const FIELD_KIND: Record<
   RadiologiFieldKey,
-  "fluoro" | "numeric" | "waktu_range"
+  "fluoro" | "numeric" | "waktu_range" | "text"
 > = {
   fluoro_time: "fluoro",
   air_kerma: "numeric",
@@ -33,6 +34,7 @@ const FIELD_KIND: Record<
   kv: "numeric",
   ma: "numeric",
   waktu: "waktu_range",
+  accession_no: "text",
 };
 
 /** Kunci body PATCH — selaras `getWireframeFieldValue` / kolom tindakan. */
@@ -202,6 +204,10 @@ export default function RadiologiAutosaveField({
       if (!p.ok) return;
       payloadVal = p.v;
       if (numericEqual(p.v, valueAsNumber(valBaseline))) return;
+    } else {
+      // text/string field
+      if (String(valBaseline ?? "") === String(draftNow ?? "")) return;
+      payloadVal = draftNow;
     }
 
     try {
@@ -284,7 +290,7 @@ export default function RadiologiAutosaveField({
       void persist(d, snap);
       return;
     }
-    if (snap.fieldSnap === "waktu") {
+    if (snap.fieldSnap === "waktu" || kind === "text") {
       void persist(d, snap);
       return;
     }
@@ -302,7 +308,9 @@ export default function RadiologiAutosaveField({
             ? "mA"
             : field === "dap_dose"
               ? "DAP (mGy·cm)"
-              : "Waktu";
+              : field === "accession_no"
+                ? "Accession No"
+                : "Waktu";
 
   const inputClassNumeric = cn(
     "mt-0.5 w-full max-w-[14rem] rounded-md border px-2 py-1.5 font-mono text-sm font-semibold focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",
@@ -368,6 +376,27 @@ export default function RadiologiAutosaveField({
         autoComplete="off"
         className={inputClassWaktu}
         placeholder="07.00 - 12.00"
+        value={draft}
+        aria-label={ariaLabel}
+        onFocus={handleFocus}
+        onChange={(e) => {
+          const v = e.target.value;
+          setDraft(v);
+          schedulePersist(v);
+        }}
+        onBlur={handleBlur}
+      />
+    );
+  }
+
+  if (kind === "text") {
+    return (
+      <input
+        type="text"
+        inputMode="text"
+        autoComplete="off"
+        className={inputClassNumeric}
+        placeholder="—"
         value={draft}
         aria-label={ariaLabel}
         onFocus={handleFocus}

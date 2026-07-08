@@ -109,6 +109,7 @@ export const WIREFRAME_DRAWER_TABS: {
       "kv",
       "ma",
       "waktu",
+      "accession_no",
     ],
   },
   {
@@ -150,6 +151,7 @@ export const FIELD_LABELS: Record<string, string> = {
   no: "No. urut",
   tanggal: "Tanggal",
   waktu: "Waktu",
+  accession_no: "Accession No",
   fluoro_time: "Fluoro time",
   air_kerma: "Air kerma (mGy)",
   kv: "kV",

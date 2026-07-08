@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
 
     // Update Cache
     fetchDocCache.set(docId, {
-      data: extracted,
+      data: extracted as any,
       fullText: text,
       expires: now + 10 * 60 * 1000, // 10 menit
     });

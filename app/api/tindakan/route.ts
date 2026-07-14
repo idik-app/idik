@@ -20,8 +20,8 @@ export const dynamic = "force-dynamic";
 const POSTGREST_SAFE_CHUNK = 1000;
 
 const PROJECTIONS_LIST = [
-  "id, tanggal, dokter, dokter_anestesi, ppds, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, status_keterangan, ruangan, pasien_id, created_at, inserted_at, updated_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, jenis_kelamin, fluoro_time, dose, kv, ma, waktu, total_kontras, air_kerma, dap_dose, total, krs, consumable, selisih",
-  "id, tanggal, dokter, dokter_anestesi, ppds, nama_pasien, no_rm, tindakan, kategori, status, status_keterangan, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, jenis_kelamin, fluoro_time, dose, kv, ma, waktu, total_kontras, air_kerma, dap_dose, total, krs, consumable, selisih",
+  "id, tanggal, dokter, dokter_anestesi, ppds, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, status_keterangan, ruangan, pasien_id, created_at, inserted_at, updated_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, jenis_kelamin, fluoro_time, dose, kv, ma, waktu, total_kontras, air_kerma, dap_dose, accession_no, total, krs, consumable, selisih",
+  "id, tanggal, dokter, dokter_anestesi, ppds, nama_pasien, no_rm, tindakan, kategori, status, status_keterangan, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, jenis_kelamin, fluoro_time, dose, kv, ma, waktu, total_kontras, air_kerma, dap_dose, accession_no, total, krs, consumable, selisih",
 ];
 
 async function fetchTableOrderedInChunks(
@@ -114,6 +114,7 @@ function mapLegacyTindakanMedikRow(
     billing_simrs: toText(row.billing_simrs),
     pj_laporan: toText(row.pj_laporan),
     operan_ranap: toText(row.operan_ranap),
+    accession_no: toText(row.accession_no),
     _source_table: "tindakan_medik",
   };
 }
@@ -127,6 +128,10 @@ function projectionHasFastTrackClockFields(projection: string | null): boolean {
 
 function projectionHasStatusKeteranganField(projection: string | null): boolean {
   return Boolean(projection?.includes("status_keterangan"));
+}
+
+function projectionHasAccessionNoField(projection: string | null): boolean {
+  return Boolean(projection?.includes("accession_no"));
 }
 
 /** Daftar tindakan untuk dashboard (server-side service role, tahan RLS). */
@@ -168,7 +173,8 @@ export async function GET(request: Request) {
     if (
       workingProjectionCache &&
       (!projectionHasFastTrackClockFields(workingProjectionCache) ||
-        !projectionHasStatusKeteranganField(workingProjectionCache))
+        !projectionHasStatusKeteranganField(workingProjectionCache) ||
+        !projectionHasAccessionNoField(workingProjectionCache))
     ) {
       workingProjectionCache = null;
     }

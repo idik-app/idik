@@ -102,7 +102,7 @@ type Props = {
   tindakanId: string;
   field: RadiologiFieldKey;
   value: unknown;
-  onSaved?: () => void;
+  onSaved?: (savedValue?: unknown) => void;
 };
 
 export default function RadiologiAutosaveField({
@@ -227,7 +227,7 @@ export default function RadiologiAutosaveField({
       if (!res.ok || !json.ok) {
         throw new Error(json.message || res.statusText);
       }
-      onSaved?.();
+      onSaved?.(payloadVal);
     } catch (e) {
       if (process.env.NODE_ENV === "development") {
         console.warn("[RadiologiAutosaveField]", fieldNow, e);

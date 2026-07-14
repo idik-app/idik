@@ -1803,7 +1803,12 @@ function TindakanDetailDrawer({
                                             tindakanId={tindakanId}
                                             field={key as RadiologiFieldKey}
                                             value={rawVal}
-                                            onSaved={() => handleRecordPatch({ field: key })}
+                                            onSaved={(savedValue) =>
+                                              handleRecordPatch({
+                                                field: key,
+                                                value: savedValue,
+                                              })
+                                            }
                                           />
                                         ) : isGenericKlinisEditable ? (
                                           <KlinisAutosaveField

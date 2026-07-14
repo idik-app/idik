@@ -235,5 +235,6 @@ export function mapTindakanRowToApiDetail(data: Record<string, unknown>) {
     keterangan: toText(data.keterangan),
     status_keterangan: toText(data.status_keterangan),
     kelas_pembiayaan: toText(data.kelas_pembiayaan),
+    accession_no: toText(data.accession_no),
   };
 }

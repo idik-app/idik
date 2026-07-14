@@ -12,6 +12,7 @@ import {
   waktuDisplayEquals,
 } from "@/lib/tindakan/waktuRangeFormat";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 export type RadiologiFieldKey =
   | "fluoro_time"
@@ -229,6 +230,9 @@ export default function RadiologiAutosaveField({
       }
       onSaved?.(payloadVal);
     } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "Gagal menyimpan perubahan radiologi.";
+      toast.error("Gagal menyimpan", { description: message, duration: 4000 });
       if (process.env.NODE_ENV === "development") {
         console.warn("[RadiologiAutosaveField]", fieldNow, e);
       }

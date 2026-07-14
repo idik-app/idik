@@ -139,6 +139,7 @@ export function finalizeTindakanPatchForSupabase(
     "keterangan",
     "status_keterangan",
     "kelas_pembiayaan",
+    "accession_no",
   ] as const) {
     if (sanitized[key] === undefined) continue;
     const v = sanitized[key];

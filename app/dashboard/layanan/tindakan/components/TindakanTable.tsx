@@ -64,6 +64,7 @@ import { useTindakanBridgeAdapter } from "../bridge/useTindakanBridgeAdapter";
 import TableContainer from "../components/TableContainer";
 import TableToolbar from "../components/TableToolbar";
 import TablePagination from "../components/TablePagination";
+import type { TindakanLaporanTab } from "../hooks/useTindakanLaporanReport";
 
 const FastTrackListModal = dynamic(
   () => import(/* webpackPrefetch: true */ "../components/FastTrackListModal"),
@@ -1384,6 +1385,8 @@ export default function TindakanTable({
   const [tindakanTerbanyakLabOpen, setTindakanTerbanyakLabOpen] =
     useState(false);
   const [laporanModalOpen, setLaporanModalOpen] = useState(false);
+  const [laporanInitialTab, setLaporanInitialTab] =
+    useState<TindakanLaporanTab>("jenis");
   const [laporanPemakaianModalOpen, setLaporanPemakaianModalOpen] =
     useState(false);
   const [creatingForPasien, setCreatingForPasien] = useState(false);
@@ -3154,7 +3157,14 @@ export default function TindakanTable({
           isSyncingMasterPasien={isSyncingMasterPasien}
           onOpenFastTrack={() => setFastTrackModalOpen(true)}
           onOpenTindakanTerbanyakLab={() => setTindakanTerbanyakLabOpen(true)}
-          onOpenLaporan={() => setLaporanModalOpen(true)}
+          onOpenLaporan={() => {
+            setLaporanInitialTab("jenis");
+            setLaporanModalOpen(true);
+          }}
+          onOpenLaporanDiagnosaKlinis={() => {
+            setLaporanInitialTab("diagnosaKlinis");
+            setLaporanModalOpen(true);
+          }}
           onOpenLaporanPemakaian={() => {
             setLaporanPemakaianModalOpen(true);
             void refresh();
@@ -3169,6 +3179,7 @@ export default function TindakanTable({
             loading={loading && filteredRecords.length === 0}
             filterSummaryLines={filterSummaryLines}
             pasienOptions={pasienOptions}
+            initialTab={laporanInitialTab}
             onOpenDetail={(rec, tab) => {
               if (!rec.id) return;
               // Tutup modal agar FocusScope Dialog tidak mencuri fokus dari drawer (portal).

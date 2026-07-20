@@ -68,6 +68,32 @@ export type MonthlyMatrixPerLabelDetails = NonNullable<
   MonthlyMatrixAgg["details"]
 >[number];
 
+export type ClinicalDiagnosisMatrixCell = {
+  nama: string;
+  no_rm: string;
+  dokter: string;
+  tindakan?: string;
+  diagnosa?: string;
+  kategori?: string;
+  kesimpulan_laporan?: string;
+  plan_medis?: string;
+  tanggal?: string;
+  status?: string;
+};
+
+export type ClinicalDiagnosisMatrixReport = {
+  diagnosaLabels: string[];
+  tindakanLabels: string[];
+  data: number[][];
+  rowTotals: number[];
+  colTotals: number[];
+  grandTotal: number;
+  details: ClinicalDiagnosisMatrixCell[][][];
+};
+
+export const CLINICAL_DIAGNOSIS_EMPTY_LABEL = "BELUM ADA DIAGNOSA" as const;
+export const CLINICAL_TINDAKAN_EMPTY_LABEL = "TINDAKAN TIDAK TERISI" as const;
+
 function isInYearMonth(
   tanggal: unknown,
   year: number,
@@ -308,7 +334,7 @@ function matrixDetailFromRow(
   row: TindakanJoinResult,
   pasienOpts?: readonly PasienOption[] | null,
   lookup?: PasienReportLookup | null,
-): NonNullable<MonthlyMatrixAgg["details"]>[number][number][number] {
+): ClinicalDiagnosisMatrixCell {
   const pasien =
     lookup && pasienOpts && pasienOpts.length > 0
       ? resolvePasienFromLookup(row as unknown as Record<string, unknown>, lookup)
@@ -333,6 +359,77 @@ function matrixDetailFromRow(
     kategori: row.kategori || undefined,
     kesimpulan_laporan: row.kesimpulan_laporan || undefined,
     plan_medis: row.plan_medis || undefined,
+    tanggal: String(row.tanggal ?? "").trim() || undefined,
+    status: String(row.status ?? "").trim() || undefined,
+  };
+}
+
+function normalizeClinicalDiagnosisLabel(row: TindakanJoinResult): string {
+  const label = String(row.diagnosa ?? "").trim();
+  return label || CLINICAL_DIAGNOSIS_EMPTY_LABEL;
+}
+
+function normalizeClinicalTindakanLabel(row: TindakanJoinResult): string {
+  const label = String(row.tindakan ?? "").trim().toUpperCase();
+  return label || CLINICAL_TINDAKAN_EMPTY_LABEL;
+}
+
+export function buildClinicalDiagnosisMatrixReport(
+  rows: readonly TindakanJoinResult[],
+  opts?: MonthlyMatrixPasienOpts,
+): ClinicalDiagnosisMatrixReport {
+  const byDiagnosa = new Map<string, Map<string, ClinicalDiagnosisMatrixCell[]>>();
+  const tindakanSet = new Set<string>();
+
+  for (const row of rows) {
+    const diagnosaLabel = normalizeClinicalDiagnosisLabel(row);
+    const tindakanLabel = normalizeClinicalTindakanLabel(row);
+    tindakanSet.add(tindakanLabel);
+    if (!byDiagnosa.has(diagnosaLabel)) {
+      byDiagnosa.set(diagnosaLabel, new Map<string, ClinicalDiagnosisMatrixCell[]>());
+    }
+    const byTindakan = byDiagnosa.get(diagnosaLabel)!;
+    if (!byTindakan.has(tindakanLabel)) {
+      byTindakan.set(tindakanLabel, []);
+    }
+    byTindakan.get(tindakanLabel)!.push(
+      matrixDetailFromRow(row, opts?.pasienOptions, opts?.pasienLookup),
+    );
+  }
+
+  const diagnosaLabels = [...byDiagnosa.keys()].sort((a, b) =>
+    a.localeCompare(b, "id", { sensitivity: "base" }),
+  );
+  const tindakanLabels = [...tindakanSet.keys()].sort((a, b) =>
+    a.localeCompare(b, "id", { sensitivity: "base" }),
+  );
+
+  const data = diagnosaLabels.map((diagnosaLabel) =>
+    tindakanLabels.map(
+      (tindakanLabel) =>
+        byDiagnosa.get(diagnosaLabel)?.get(tindakanLabel)?.length ?? 0,
+    ),
+  );
+  const details = diagnosaLabels.map((diagnosaLabel) =>
+    tindakanLabels.map(
+      (tindakanLabel) =>
+        byDiagnosa.get(diagnosaLabel)?.get(tindakanLabel) ?? [],
+    ),
+  );
+  const rowTotals = data.map((row) => row.reduce((a, b) => a + b, 0));
+  const colTotals = tindakanLabels.map((_, ci) =>
+    data.reduce((sum, row) => sum + (row[ci] ?? 0), 0),
+  );
+  const grandTotal = rowTotals.reduce((a, b) => a + b, 0);
+
+  return {
+    diagnosaLabels,
+    tindakanLabels,
+    data,
+    rowTotals,
+    colTotals,
+    grandTotal,
+    details,
   };
 }
 

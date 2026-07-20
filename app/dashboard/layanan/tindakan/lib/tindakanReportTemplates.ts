@@ -20,7 +20,10 @@ import {
   type LabTerbanyakMatrix,
   hasAnyLainnya,
 } from "./tindakanTerbanyakLab";
-import type { MonthlyMatrixAgg } from "./tindakanBulananMatrix";
+import type {
+  ClinicalDiagnosisMatrixReport,
+  MonthlyMatrixAgg,
+} from "./tindakanBulananMatrix";
 import { weekdaySun0Wib } from "./tindakanBulananMatrix";
 
 function escapeHtml(s: string): string {
@@ -755,6 +758,116 @@ export function buildBulananMatrixWhatsAppText(
   }
   lines.push("", `TOTAL= ${matrix.grandTotal} px`);
   return lines.join("\n");
+}
+
+export function buildClinicalDiagnosisMatrixHtml(
+  report: ClinicalDiagnosisMatrixReport,
+  subtitleLines: string[],
+): string {
+  const headCols = report.tindakanLabels
+    .map((label) => `<th>${escapeHtml(label)}</th>`)
+    .join("");
+  const bodyRows = report.diagnosaLabels
+    .map((diagnosaLabel, ri) => {
+      const cells = report.tindakanLabels
+        .map((_, ci) => {
+          const count = report.data[ri]?.[ci] ?? 0;
+          return `<td class="num">${count === 0 ? "—" : String(count)}</td>`;
+        })
+        .join("");
+      return `<tr>
+        <th>${escapeHtml(diagnosaLabel)}</th>
+        ${cells}
+        <td class="num"><strong>${report.rowTotals[ri] ?? 0}</strong></td>
+      </tr>`;
+    })
+    .join("\n");
+  const footerCells = report.colTotals
+    .map((count) => `<td class="num"><strong>${count === 0 ? "—" : String(count)}</strong></td>`)
+    .join("");
+  const table = `<table>
+    <thead>
+      <tr>
+        <th>Diagnosa Klinis</th>
+        ${headCols}
+        <th>Jumlah</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${bodyRows || `<tr><td colspan="${report.tindakanLabels.length + 2}" class="num">Tidak ada data.</td></tr>`}
+      <tr>
+        <th>JUMLAH</th>
+        ${footerCells}
+        <td class="num"><strong>${report.grandTotal}</strong></td>
+      </tr>
+    </tbody>
+  </table>`;
+
+  return wrapReportHtmlDocument({
+    title: "LAPORAN DIAGNOSA KLINIS X TINDAKAN CATHLAB",
+    subtitleLines,
+    bodyInnerHtml: table,
+  });
+}
+
+export function buildClinicalDiagnosisMatrixWhatsAppText(
+  report: ClinicalDiagnosisMatrixReport,
+  subtitleLines: string[],
+): string {
+  const lines = [
+    "*LAPORAN DIAGNOSA KLINIS X TINDAKAN CATHLAB*",
+    "",
+    ...subtitleLines,
+    "",
+  ];
+
+  report.diagnosaLabels.forEach((diagnosaLabel, ri) => {
+    const total = report.rowTotals[ri] ?? 0;
+    if (total <= 0) return;
+    const topTindakan = report.tindakanLabels
+      .map((tindakanLabel, ci) => ({
+        tindakanLabel,
+        count: report.data[ri]?.[ci] ?? 0,
+      }))
+      .filter((item) => item.count > 0)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3)
+      .map((item) => `${item.tindakanLabel}=${item.count}`)
+      .join(", ");
+    lines.push(
+      `${ri + 1}. ${diagnosaLabel} = ${total} kasus${topTindakan ? ` (${topTindakan})` : ""}`,
+    );
+  });
+
+  lines.push("", `TOTAL= ${report.grandTotal} kasus`);
+  return lines.join("\n");
+}
+
+export function downloadClinicalDiagnosisMatrixExcel(
+  report: ClinicalDiagnosisMatrixReport,
+  filename: string,
+): void {
+  const header = ["Diagnosa Klinis", ...report.tindakanLabels, "TOTAL"];
+  const rows = report.diagnosaLabels.map((diagnosaLabel, ri) => [
+    diagnosaLabel,
+    ...report.tindakanLabels.map((_, ci) => report.data[ri]?.[ci] ?? 0),
+    report.rowTotals[ri] ?? 0,
+  ]);
+  rows.push([
+    "JUMLAH",
+    ...report.colTotals,
+    report.grandTotal,
+  ]);
+
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "DiagnosaKlinis");
+
+  const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const finalBlob = new Blob([excelBuffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  saveAs(finalBlob, `${filename}.xlsx`);
 }
 
 

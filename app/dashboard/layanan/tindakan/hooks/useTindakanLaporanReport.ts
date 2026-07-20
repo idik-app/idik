@@ -8,7 +8,9 @@ import {
   aggregateMonthlyCaraBayar,
   aggregateMonthlyJenisOperasiWithBatal,
   aggregateMonthlyKategori,
+  buildClinicalDiagnosisMatrixReport,
   CARA_BAYAR_LABEL_BELUM_TERISI,
+  type ClinicalDiagnosisMatrixReport,
   filterLaporanRowsInYearMonth,
   rowMatchesMatrixLabel,
   type MatrixLaporanTabKind,
@@ -23,13 +25,21 @@ import {
   buildAnalisisGabunganHtml,
   buildAnalisisGabunganWhatsAppText,
   buildBulananCaraBayarHtml,
+  buildClinicalDiagnosisMatrixHtml,
+  buildClinicalDiagnosisMatrixWhatsAppText,
   buildBulananJenisOperasiHtml,
   buildBulananMatrixWhatsAppText,
   downloadAnalisisGabunganExcel,
+  downloadClinicalDiagnosisMatrixExcel,
   downloadMonthlyMatrixExcel,
 } from "../lib/tindakanReportTemplates";
 
-export type TindakanLaporanTab = "jenis" | "kategori" | "cara" | "analisis";
+export type TindakanLaporanTab =
+  | "jenis"
+  | "kategori"
+  | "cara"
+  | "analisis"
+  | "diagnosaKlinis";
 
 const ANALISIS_PAGE_SIZE = 20;
 
@@ -385,6 +395,18 @@ export function useTindakanLaporanReport({
     return reportRows.filter((r) => laporanRowMatchesSearch(r, query));
   }, [reportRows, searchQuery]);
 
+  const filteredClinicalRows = useMemo(() => {
+    if (!reportRows.length) return [];
+    if (!searchQuery.trim()) return reportRows;
+    const query = searchQuery.toLowerCase();
+    return reportRows.filter((r) => laporanRowMatchesSearch(r, query));
+  }, [reportRows, searchQuery]);
+
+  const clinicalDiagnosisMatrix = useMemo((): ClinicalDiagnosisMatrixReport | null => {
+    if (!enabled || !ym) return null;
+    return buildClinicalDiagnosisMatrixReport(filteredClinicalRows, matrixPasienOpts);
+  }, [enabled, ym, filteredClinicalRows, matrixPasienOpts]);
+
   const paginatedAnalisisRows = useMemo(() => {
     if (tab !== "analisis") return [];
     const start = (analisisPage - 1) * ANALISIS_PAGE_SIZE;
@@ -441,7 +463,9 @@ export function useTindakanLaporanReport({
       ? "Prosedur (Detail)"
       : tab === "kategori"
         ? "Kategori (Grup)"
-        : "Cara bayar";
+        : tab === "diagnosaKlinis"
+          ? "Diagnosa Klinis"
+          : "Cara bayar";
 
   const exportFileBase = useMemo(() => {
     const safe = monthYyyyMm.replace(/[^\d-]/g, "") || "bulan";
@@ -449,12 +473,18 @@ export function useTindakanLaporanReport({
     if (tab === "kategori") return `laporan-tindakan-kategori-${safe}`;
     if (tab === "cara") return `laporan-tindakan-cara-bayar-${safe}`;
     if (tab === "analisis") return `laporan-analisis-gabungan-${safe}`;
+    if (tab === "diagnosaKlinis") return `laporan-diagnosa-klinis-${safe}`;
     return `laporan-tindakan-kategori-${safe}`;
   }, [monthYyyyMm, tab]);
 
   const buildExportHtml = useCallback(() => {
     if (tab === "analisis") {
       return buildAnalisisGabunganHtml(filteredAnalisisRows, subtitleLines);
+    }
+    if (tab === "diagnosaKlinis") {
+      return clinicalDiagnosisMatrix
+        ? buildClinicalDiagnosisMatrixHtml(clinicalDiagnosisMatrix, subtitleLines)
+        : "";
     }
     if (!finalMatrix) return "";
     if (tab === "jenis")
@@ -472,6 +502,7 @@ export function useTindakanLaporanReport({
     tab,
     subtitleLines,
     filteredAnalisisRows,
+    clinicalDiagnosisMatrix,
   ]);
 
   const buildExportWhatsApp = useCallback(() => {
@@ -480,6 +511,14 @@ export function useTindakanLaporanReport({
         filteredAnalisisRows,
         subtitleLines,
       );
+    }
+    if (tab === "diagnosaKlinis") {
+      return clinicalDiagnosisMatrix
+        ? buildClinicalDiagnosisMatrixWhatsAppText(
+            clinicalDiagnosisMatrix,
+            subtitleLines,
+          )
+        : "";
     }
     if (!finalMatrix) return "";
     const title =
@@ -503,11 +542,19 @@ export function useTindakanLaporanReport({
     tab,
     subtitleLines,
     filteredAnalisisRows,
+    clinicalDiagnosisMatrix,
   ]);
 
   const handleDownloadExcel = useCallback(() => {
     if (tab === "analisis") {
       downloadAnalisisGabunganExcel(filteredAnalisisRows, exportFileBase);
+    } else if (tab === "diagnosaKlinis") {
+      if (clinicalDiagnosisMatrix) {
+        downloadClinicalDiagnosisMatrixExcel(
+          clinicalDiagnosisMatrix,
+          exportFileBase,
+        );
+      }
     } else if (finalMatrix) {
       const title =
         tab === "jenis"
@@ -530,12 +577,15 @@ export function useTindakanLaporanReport({
     tab,
     filteredAnalisisRows,
     exportFileBase,
+    clinicalDiagnosisMatrix,
   ]);
 
   const exportEmpty =
     !loading &&
     (tab === "analisis"
       ? filteredAnalisisRows.length === 0
+      : tab === "diagnosaKlinis"
+        ? !clinicalDiagnosisMatrix || clinicalDiagnosisMatrix.grandTotal === 0
       : !activeMatrix || activeMatrix.rowLabels.length === 0);
 
   const resetAnalisisPage = useCallback(() => {
@@ -560,6 +610,8 @@ export function useTindakanLaporanReport({
     activeMatrix,
     activeMatrixStatusBatal,
     filteredAnalisisRows,
+    filteredClinicalRows,
+    clinicalDiagnosisMatrix,
     paginatedAnalisisRows,
     totalAnalisisPages,
     analisisStats,

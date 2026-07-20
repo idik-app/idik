@@ -15,6 +15,7 @@ import type { WireframeTabId } from "../bridge/wireframeDrawerTabs";
 import ReportExportActionBar from "./ReportExportActionBar";
 import {
   CARA_BAYAR_LABEL_BELUM_TERISI,
+  type ClinicalDiagnosisMatrixReport,
   getMatrixCellPatientDetails,
   weekdaySun0Wib,
   type MatrixLaporanTabKind,
@@ -398,6 +399,124 @@ const LaporanMatrixTable = React.memo(
 );
 LaporanMatrixTable.displayName = "LaporanMatrixTable";
 
+const ClinicalDiagnosisTable = React.memo(
+  ({
+    report,
+  }: {
+    report: ClinicalDiagnosisMatrixReport;
+  }) => (
+    <table className="w-max min-w-full border-collapse text-[11px]">
+      <thead>
+        <tr className="bg-slate-100/90 dark:bg-white/5">
+          <th className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-1 text-left font-extrabold dark:border-white/10 dark:bg-zinc-900">
+            DIAGNOSA KLINIS
+          </th>
+          {report.tindakanLabels.map((label) => (
+            <th
+              key={label}
+              className="border border-slate-300/70 px-1 py-1 text-center font-extrabold dark:border-white/10"
+            >
+              {label}
+            </th>
+          ))}
+          <th className="border border-slate-300/70 px-1.5 py-1 text-center font-extrabold dark:border-white/10">
+            JUMLAH
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {report.diagnosaLabels.map((diagnosaLabel, ri) => (
+          <tr key={diagnosaLabel}>
+            <th
+              scope="row"
+              className="sticky left-0 z-[1] border border-slate-300/70 bg-white px-1.5 py-0.5 text-left font-semibold dark:border-white/10 dark:bg-zinc-900"
+            >
+              {diagnosaLabel}
+            </th>
+            {report.tindakanLabels.map((tindakanLabel, ci) => {
+              const count = report.data[ri]?.[ci] ?? 0;
+              const cellDetails = report.details[ri]?.[ci] ?? [];
+              return (
+                <td
+                  key={`${diagnosaLabel}:${tindakanLabel}`}
+                  className={cn(
+                    "border px-0.5 py-0.5 text-center tabular-nums transition-colors",
+                    "border-slate-300/70 dark:border-white/10 dark:text-white/80",
+                    count > 0 && "cursor-pointer hover:bg-emerald-500/10",
+                  )}
+                >
+                  {count > 0 ? (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button className="h-full w-full font-semibold focus:outline-none">
+                          {count}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className={cn(
+                          "w-72 p-2 text-[11px]",
+                          UI_LAYERS.dialogNestedPopover,
+                        )}
+                      >
+                        <div className="mb-1 border-b pb-1 font-bold text-emerald-600 dark:text-emerald-400">
+                          {diagnosaLabel} | {tindakanLabel}
+                        </div>
+                        <ul className="max-h-40 overflow-auto">
+                          {cellDetails.map((detail, idx) => (
+                            <li
+                              key={`${detail.no_rm}-${detail.nama}-${idx}`}
+                              className="border-b border-slate-100 py-1 last:border-0 dark:border-white/5"
+                            >
+                              <div className="font-semibold text-emerald-700 dark:text-emerald-400">
+                                {detail.nama}
+                              </div>
+                              <div className="text-[10px] opacity-70">
+                                RM: {detail.no_rm} | Dr: {detail.dokter}
+                              </div>
+                              <div className="text-[10px] opacity-70">
+                                {detail.tanggal || "-"} | {detail.status || "-"}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    ""
+                  )}
+                </td>
+              );
+            })}
+            <td className="border border-slate-300/70 px-1 py-0.5 text-center font-extrabold tabular-nums dark:border-white/10 dark:text-white">
+              {report.rowTotals[ri] ?? 0}
+            </td>
+          </tr>
+        ))}
+        <tr className="bg-slate-100/90 font-extrabold dark:bg-white/5">
+          <th
+            scope="row"
+            className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-0.5 text-left dark:border-white/10 dark:bg-zinc-900"
+          >
+            JUMLAH
+          </th>
+          {report.colTotals.map((count, ci) => (
+            <td
+              key={`total:${report.tindakanLabels[ci] ?? ci}`}
+              className="border border-slate-300/70 px-1 py-0.5 text-center tabular-nums dark:border-white/10"
+            >
+              {count || ""}
+            </td>
+          ))}
+          <td className="border border-slate-300/70 px-1 py-0.5 text-center dark:border-white/10">
+            {report.grandTotal}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  ),
+);
+ClinicalDiagnosisTable.displayName = "ClinicalDiagnosisTable";
+
 function formatCell(n: number): string {
   return n === 0 ? "" : String(n);
 }
@@ -409,6 +528,7 @@ export default function TindakanLaporanModal({
   loading,
   filterSummaryLines,
   pasienOptions = [],
+  initialTab,
   onOpenDetail,
 }: {
   open: boolean;
@@ -418,6 +538,7 @@ export default function TindakanLaporanModal({
   filterSummaryLines: readonly string[];
   /** Master pasien (compact) — laporan cara bayar memakai jenis + kelas dari sini bila baris terhubung. */
   pasienOptions?: readonly PasienOption[];
+  initialTab?: "jenis" | "kategori" | "cara" | "analisis" | "diagnosaKlinis";
   /** Buka drawer detail tindakan dari tabel Analisis (tab Klinis untuk isian diagnosa/dll). */
   onOpenDetail?: (
     row: TindakanJoinResult,
@@ -443,6 +564,7 @@ export default function TindakanLaporanModal({
     paginatedAnalisisRows,
     totalAnalisisPages,
     analisisStats,
+    clinicalDiagnosisMatrix,
     laporanCaraBelumTerisi,
     exportFileBase,
     buildExportHtml,
@@ -461,6 +583,12 @@ export default function TindakanLaporanModal({
   useEffect(() => {
     resetAnalisisPage();
   }, [searchQuery, tab, resetAnalisisPage]);
+
+  useEffect(() => {
+    if (open && initialTab && tab !== initialTab) {
+      setTab(initialTab);
+    }
+  }, [open, initialTab, tab, setTab]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -561,6 +689,18 @@ export default function TindakanLaporanModal({
               </button>
               <button
                 type="button"
+                onClick={() => setTab("diagnosaKlinis")}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
+                  tab === "diagnosaKlinis"
+                    ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
+                    : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                )}
+              >
+                Diagnosa Klinis
+              </button>
+              <button
+                type="button"
                 onClick={() => setTab("analisis")}
                 className={cn(
                   "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
@@ -592,7 +732,7 @@ export default function TindakanLaporanModal({
             {/* Search Bar (Point 2) */}
             <div className="flex flex-1 flex-col gap-0.5 min-w-[200px]">
               <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-900 dark:text-white/60">
-                Cari Tindakan / Kategori
+                Cari Tindakan / Kategori / Diagnosa
               </span>
               <div className="relative">
                 <Search
@@ -695,10 +835,20 @@ export default function TindakanLaporanModal({
               <div className="p-6 text-center text-sm font-semibold text-slate-600 dark:text-white/60">
                 Memuat data…
               </div>
-            ) : !ym || (tab !== "analisis" && !finalMatrix) ? (
+            ) : !ym || (tab !== "analisis" && tab !== "diagnosaKlinis" && !finalMatrix) ? (
               <div className="p-6 text-center text-sm font-semibold text-slate-600 dark:text-white/60">
                 Pilih bulan yang valid.
               </div>
+            ) : tab === "diagnosaKlinis" ? (
+              !clinicalDiagnosisMatrix || clinicalDiagnosisMatrix.grandTotal === 0 ? (
+                <div className="p-6 text-center text-sm font-semibold text-slate-600 dark:text-white/60">
+                  Belum ada data diagnosa klinis pada bulan ini.
+                </div>
+              ) : (
+                <div className="overflow-auto">
+                  <ClinicalDiagnosisTable report={clinicalDiagnosisMatrix} />
+                </div>
+              )
             ) : tab === "analisis" ? (
               <div className="flex flex-col gap-3 flex-1 min-h-0 p-3">
                 {analisisStats && (

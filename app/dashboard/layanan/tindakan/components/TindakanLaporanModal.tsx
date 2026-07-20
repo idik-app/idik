@@ -1,5 +1,5 @@
 import { FileSpreadsheet, X, Search, Activity, Users, CheckCircle2, Stethoscope, ChevronLeft, ChevronRight } from "lucide-react";
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -545,6 +545,7 @@ export default function TindakanLaporanModal({
     initialTab?: WireframeTabId,
   ) => void;
 }) {
+  const lastAppliedInitialTabRef = useRef<string | null>(null);
   const {
     tab,
     setTab,
@@ -585,8 +586,17 @@ export default function TindakanLaporanModal({
   }, [searchQuery, tab, resetAnalisisPage]);
 
   useEffect(() => {
-    if (open && initialTab && tab !== initialTab) {
+    if (!open) {
+      lastAppliedInitialTabRef.current = null;
+      return;
+    }
+    if (
+      initialTab &&
+      lastAppliedInitialTabRef.current !== initialTab &&
+      tab !== initialTab
+    ) {
       setTab(initialTab);
+      lastAppliedInitialTabRef.current = initialTab;
     }
   }, [open, initialTab, tab, setTab]);
 

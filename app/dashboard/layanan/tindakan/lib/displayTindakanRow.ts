@@ -417,6 +417,9 @@ export function mergePasienMasterIntoRowForReport(
   if (!next.diagnosa && p.diagnosa) {
     next.diagnosa = p.diagnosa.trim();
   }
+  if (!next.faktor_risiko && p.faktor_risiko) {
+    next.faktor_risiko = p.faktor_risiko.trim();
+  }
   return next;
 }
 

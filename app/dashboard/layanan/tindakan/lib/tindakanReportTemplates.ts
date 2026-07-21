@@ -24,7 +24,10 @@ import type {
   ClinicalDiagnosisMatrixReport,
   MonthlyMatrixAgg,
 } from "./tindakanBulananMatrix";
-import { weekdaySun0Wib } from "./tindakanBulananMatrix";
+import {
+  clinicalMatrixAxisMeta,
+  weekdaySun0Wib,
+} from "./tindakanBulananMatrix";
 
 function escapeHtml(s: string): string {
   return s
@@ -764,11 +767,12 @@ export function buildClinicalDiagnosisMatrixHtml(
   report: ClinicalDiagnosisMatrixReport,
   subtitleLines: string[],
 ): string {
+  const meta = clinicalMatrixAxisMeta(report.rowAxis);
   const headCols = report.tindakanLabels
     .map((label) => `<th>${escapeHtml(label)}</th>`)
     .join("");
   const bodyRows = report.diagnosaLabels
-    .map((diagnosaLabel, ri) => {
+    .map((rowLabel, ri) => {
       const cells = report.tindakanLabels
         .map((_, ci) => {
           const count = report.data[ri]?.[ci] ?? 0;
@@ -776,7 +780,7 @@ export function buildClinicalDiagnosisMatrixHtml(
         })
         .join("");
       return `<tr>
-        <th>${escapeHtml(diagnosaLabel)}</th>
+        <th>${escapeHtml(rowLabel)}</th>
         ${cells}
         <td class="num"><strong>${report.rowTotals[ri] ?? 0}</strong></td>
       </tr>`;
@@ -788,7 +792,7 @@ export function buildClinicalDiagnosisMatrixHtml(
   const table = `<table>
     <thead>
       <tr>
-        <th>Diagnosa Klinis</th>
+        <th>${escapeHtml(meta.rowHeaderLabel)}</th>
         ${headCols}
         <th>Jumlah</th>
       </tr>
@@ -804,7 +808,7 @@ export function buildClinicalDiagnosisMatrixHtml(
   </table>`;
 
   return wrapReportHtmlDocument({
-    title: "LAPORAN DIAGNOSA KLINIS X TINDAKAN CATHLAB",
+    title: meta.reportTitle,
     subtitleLines,
     bodyInnerHtml: table,
   });
@@ -814,14 +818,15 @@ export function buildClinicalDiagnosisMatrixWhatsAppText(
   report: ClinicalDiagnosisMatrixReport,
   subtitleLines: string[],
 ): string {
+  const meta = clinicalMatrixAxisMeta(report.rowAxis);
   const lines = [
-    "*LAPORAN DIAGNOSA KLINIS X TINDAKAN CATHLAB*",
+    `*${meta.reportTitle}*`,
     "",
     ...subtitleLines,
     "",
   ];
 
-  report.diagnosaLabels.forEach((diagnosaLabel, ri) => {
+  report.diagnosaLabels.forEach((rowLabel, ri) => {
     const total = report.rowTotals[ri] ?? 0;
     if (total <= 0) return;
     const topTindakan = report.tindakanLabels
@@ -835,7 +840,7 @@ export function buildClinicalDiagnosisMatrixWhatsAppText(
       .map((item) => `${item.tindakanLabel}=${item.count}`)
       .join(", ");
     lines.push(
-      `${ri + 1}. ${diagnosaLabel} = ${total} kasus${topTindakan ? ` (${topTindakan})` : ""}`,
+      `${ri + 1}. ${rowLabel} = ${total} kasus${topTindakan ? ` (${topTindakan})` : ""}`,
     );
   });
 
@@ -847,9 +852,10 @@ export function downloadClinicalDiagnosisMatrixExcel(
   report: ClinicalDiagnosisMatrixReport,
   filename: string,
 ): void {
-  const header = ["Diagnosa Klinis", ...report.tindakanLabels, "TOTAL"];
-  const rows = report.diagnosaLabels.map((diagnosaLabel, ri) => [
-    diagnosaLabel,
+  const meta = clinicalMatrixAxisMeta(report.rowAxis);
+  const header = [meta.rowHeaderLabel, ...report.tindakanLabels, "TOTAL"];
+  const rows = report.diagnosaLabels.map((rowLabel, ri) => [
+    rowLabel,
     ...report.tindakanLabels.map((_, ci) => report.data[ri]?.[ci] ?? 0),
     report.rowTotals[ri] ?? 0,
   ]);
@@ -861,7 +867,7 @@ export function downloadClinicalDiagnosisMatrixExcel(
 
   const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "DiagnosaKlinis");
+  XLSX.utils.book_append_sheet(wb, ws, meta.excelSheetName);
 
   const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
   const finalBlob = new Blob([excelBuffer], {

@@ -74,6 +74,7 @@ export type ClinicalDiagnosisMatrixCell = {
   dokter: string;
   tindakan?: string;
   diagnosa?: string;
+  faktor_risiko?: string;
   kategori?: string;
   kesimpulan_laporan?: string;
   plan_medis?: string;
@@ -81,7 +82,10 @@ export type ClinicalDiagnosisMatrixCell = {
   status?: string;
 };
 
+export type ClinicalMatrixRowAxis = "diagnosa" | "faktorRisiko";
+
 export type ClinicalDiagnosisMatrixReport = {
+  rowAxis: ClinicalMatrixRowAxis;
   diagnosaLabels: string[];
   tindakanLabels: string[];
   data: number[][];
@@ -92,7 +96,33 @@ export type ClinicalDiagnosisMatrixReport = {
 };
 
 export const CLINICAL_DIAGNOSIS_EMPTY_LABEL = "BELUM ADA DIAGNOSA" as const;
+export const CLINICAL_RISK_FACTOR_EMPTY_LABEL = "BELUM ADA FAKTOR RISIKO" as const;
 export const CLINICAL_TINDAKAN_EMPTY_LABEL = "TINDAKAN TIDAK TERISI" as const;
+
+export function clinicalMatrixAxisMeta(axis: ClinicalMatrixRowAxis): {
+  rowHeaderLabel: string;
+  reportTitle: string;
+  emptyMessage: string;
+  exportFileSuffix: string;
+  excelSheetName: string;
+} {
+  if (axis === "faktorRisiko") {
+    return {
+      rowHeaderLabel: "Faktor Risiko",
+      reportTitle: "LAPORAN FAKTOR RISIKO X TINDAKAN CATHLAB",
+      emptyMessage: "Belum ada data faktor risiko pada bulan ini.",
+      exportFileSuffix: "faktor-risiko",
+      excelSheetName: "FaktorRisiko",
+    };
+  }
+  return {
+    rowHeaderLabel: "Diagnosa Klinis",
+    reportTitle: "LAPORAN DIAGNOSA KLINIS X TINDAKAN CATHLAB",
+    emptyMessage: "Belum ada data diagnosa klinis pada bulan ini.",
+    exportFileSuffix: "diagnosa-klinis",
+    excelSheetName: "DiagnosaKlinis",
+  };
+}
 
 function isInYearMonth(
   tanggal: unknown,
@@ -356,6 +386,7 @@ function matrixDetailFromRow(
     dokter: row.dokter || "-",
     tindakan: String(row.tindakan || "").trim(),
     diagnosa: row.diagnosa || undefined,
+    faktor_risiko: row.faktor_risiko || undefined,
     kategori: row.kategori || undefined,
     kesimpulan_laporan: row.kesimpulan_laporan || undefined,
     plan_medis: row.plan_medis || undefined,
@@ -364,7 +395,14 @@ function matrixDetailFromRow(
   };
 }
 
-function normalizeClinicalDiagnosisLabel(row: TindakanJoinResult): string {
+function normalizeClinicalRowLabel(
+  row: TindakanJoinResult,
+  rowAxis: ClinicalMatrixRowAxis,
+): string {
+  if (rowAxis === "faktorRisiko") {
+    const label = String(row.faktor_risiko ?? "").trim();
+    return label || CLINICAL_RISK_FACTOR_EMPTY_LABEL;
+  }
   const label = String(row.diagnosa ?? "").trim();
   return label || CLINICAL_DIAGNOSIS_EMPTY_LABEL;
 }
@@ -374,21 +412,26 @@ function normalizeClinicalTindakanLabel(row: TindakanJoinResult): string {
   return label || CLINICAL_TINDAKAN_EMPTY_LABEL;
 }
 
+export type ClinicalMatrixBuildOpts = MonthlyMatrixPasienOpts & {
+  rowAxis?: ClinicalMatrixRowAxis;
+};
+
 export function buildClinicalDiagnosisMatrixReport(
   rows: readonly TindakanJoinResult[],
-  opts?: MonthlyMatrixPasienOpts,
+  opts?: ClinicalMatrixBuildOpts,
 ): ClinicalDiagnosisMatrixReport {
-  const byDiagnosa = new Map<string, Map<string, ClinicalDiagnosisMatrixCell[]>>();
+  const rowAxis = opts?.rowAxis ?? "diagnosa";
+  const byRowLabel = new Map<string, Map<string, ClinicalDiagnosisMatrixCell[]>>();
   const tindakanSet = new Set<string>();
 
   for (const row of rows) {
-    const diagnosaLabel = normalizeClinicalDiagnosisLabel(row);
+    const rowLabel = normalizeClinicalRowLabel(row, rowAxis);
     const tindakanLabel = normalizeClinicalTindakanLabel(row);
     tindakanSet.add(tindakanLabel);
-    if (!byDiagnosa.has(diagnosaLabel)) {
-      byDiagnosa.set(diagnosaLabel, new Map<string, ClinicalDiagnosisMatrixCell[]>());
+    if (!byRowLabel.has(rowLabel)) {
+      byRowLabel.set(rowLabel, new Map<string, ClinicalDiagnosisMatrixCell[]>());
     }
-    const byTindakan = byDiagnosa.get(diagnosaLabel)!;
+    const byTindakan = byRowLabel.get(rowLabel)!;
     if (!byTindakan.has(tindakanLabel)) {
       byTindakan.set(tindakanLabel, []);
     }
@@ -397,23 +440,23 @@ export function buildClinicalDiagnosisMatrixReport(
     );
   }
 
-  const diagnosaLabels = [...byDiagnosa.keys()].sort((a, b) =>
+  const diagnosaLabels = [...byRowLabel.keys()].sort((a, b) =>
     a.localeCompare(b, "id", { sensitivity: "base" }),
   );
   const tindakanLabels = [...tindakanSet.keys()].sort((a, b) =>
     a.localeCompare(b, "id", { sensitivity: "base" }),
   );
 
-  const data = diagnosaLabels.map((diagnosaLabel) =>
+  const data = diagnosaLabels.map((rowLabel) =>
     tindakanLabels.map(
       (tindakanLabel) =>
-        byDiagnosa.get(diagnosaLabel)?.get(tindakanLabel)?.length ?? 0,
+        byRowLabel.get(rowLabel)?.get(tindakanLabel)?.length ?? 0,
     ),
   );
-  const details = diagnosaLabels.map((diagnosaLabel) =>
+  const details = diagnosaLabels.map((rowLabel) =>
     tindakanLabels.map(
       (tindakanLabel) =>
-        byDiagnosa.get(diagnosaLabel)?.get(tindakanLabel) ?? [],
+        byRowLabel.get(rowLabel)?.get(tindakanLabel) ?? [],
     ),
   );
   const rowTotals = data.map((row) => row.reduce((a, b) => a + b, 0));
@@ -423,6 +466,7 @@ export function buildClinicalDiagnosisMatrixReport(
   const grandTotal = rowTotals.reduce((a, b) => a + b, 0);
 
   return {
+    rowAxis,
     diagnosaLabels,
     tindakanLabels,
     data,

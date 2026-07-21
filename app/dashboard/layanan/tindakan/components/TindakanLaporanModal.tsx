@@ -15,6 +15,7 @@ import type { WireframeTabId } from "../bridge/wireframeDrawerTabs";
 import ReportExportActionBar from "./ReportExportActionBar";
 import {
   CARA_BAYAR_LABEL_BELUM_TERISI,
+  clinicalMatrixAxisMeta,
   type ClinicalDiagnosisMatrixReport,
   getMatrixCellPatientDetails,
   weekdaySun0Wib,
@@ -404,41 +405,43 @@ const ClinicalDiagnosisTable = React.memo(
     report,
   }: {
     report: ClinicalDiagnosisMatrixReport;
-  }) => (
+  }) => {
+    const meta = clinicalMatrixAxisMeta(report.rowAxis);
+    return (
     <table className="w-max min-w-full border-collapse text-[11px]">
       <thead>
         <tr className="bg-slate-100/90 dark:bg-white/5">
-          <th className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-1 text-left font-extrabold dark:border-white/10 dark:bg-zinc-900">
-            DIAGNOSA KLINIS
+          <th className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-1 text-left font-extrabold dark:border-white/10 dark:bg-zinc-900 dark:text-white">
+            {meta.rowHeaderLabel.toUpperCase()}
           </th>
           {report.tindakanLabels.map((label) => (
             <th
               key={label}
-              className="border border-slate-300/70 px-1 py-1 text-center font-extrabold dark:border-white/10"
+              className="border border-slate-300/70 px-1 py-1 text-center font-extrabold dark:border-white/10 dark:text-white"
             >
               {label}
             </th>
           ))}
-          <th className="border border-slate-300/70 px-1.5 py-1 text-center font-extrabold dark:border-white/10">
+          <th className="border border-slate-300/70 px-1.5 py-1 text-center font-extrabold dark:border-white/10 dark:text-white">
             JUMLAH
           </th>
         </tr>
       </thead>
       <tbody>
-        {report.diagnosaLabels.map((diagnosaLabel, ri) => (
-          <tr key={diagnosaLabel}>
+        {report.diagnosaLabels.map((rowLabel, ri) => (
+          <tr key={rowLabel}>
             <th
               scope="row"
-              className="sticky left-0 z-[1] border border-slate-300/70 bg-white px-1.5 py-0.5 text-left font-semibold dark:border-white/10 dark:bg-zinc-900"
+              className="sticky left-0 z-[1] border border-slate-300/70 bg-white px-1.5 py-0.5 text-left font-semibold dark:border-white/10 dark:bg-zinc-900 dark:text-white"
             >
-              {diagnosaLabel}
+              {rowLabel}
             </th>
             {report.tindakanLabels.map((tindakanLabel, ci) => {
               const count = report.data[ri]?.[ci] ?? 0;
               const cellDetails = report.details[ri]?.[ci] ?? [];
               return (
                 <td
-                  key={`${diagnosaLabel}:${tindakanLabel}`}
+                  key={`${rowLabel}:${tindakanLabel}`}
                   className={cn(
                     "border px-0.5 py-0.5 text-center tabular-nums transition-colors",
                     "border-slate-300/70 dark:border-white/10 dark:text-white/80",
@@ -459,7 +462,7 @@ const ClinicalDiagnosisTable = React.memo(
                         )}
                       >
                         <div className="mb-1 border-b pb-1 font-bold text-emerald-600 dark:text-emerald-400">
-                          {diagnosaLabel} | {tindakanLabel}
+                          {rowLabel} | {tindakanLabel}
                         </div>
                         <ul className="max-h-40 overflow-auto">
                           {cellDetails.map((detail, idx) => (
@@ -470,10 +473,20 @@ const ClinicalDiagnosisTable = React.memo(
                               <div className="font-semibold text-emerald-700 dark:text-emerald-400">
                                 {detail.nama}
                               </div>
-                              <div className="text-[10px] opacity-70">
+                              <div className="text-[10px] opacity-70 dark:text-white/85">
                                 RM: {detail.no_rm} | Dr: {detail.dokter}
                               </div>
-                              <div className="text-[10px] opacity-70">
+                              {report.rowAxis === "diagnosa" && detail.faktor_risiko ? (
+                                <div className="text-[10px] italic opacity-70 dark:text-white/85">
+                                  FR: {detail.faktor_risiko}
+                                </div>
+                              ) : null}
+                              {report.rowAxis === "faktorRisiko" && detail.diagnosa ? (
+                                <div className="text-[10px] italic opacity-70 dark:text-white/85">
+                                  Dx: {detail.diagnosa}
+                                </div>
+                              ) : null}
+                              <div className="text-[10px] opacity-70 dark:text-white/85">
                                 {detail.tanggal || "-"} | {detail.status || "-"}
                               </div>
                             </li>
@@ -495,25 +508,26 @@ const ClinicalDiagnosisTable = React.memo(
         <tr className="bg-slate-100/90 font-extrabold dark:bg-white/5">
           <th
             scope="row"
-            className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-0.5 text-left dark:border-white/10 dark:bg-zinc-900"
+            className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-0.5 text-left dark:border-white/10 dark:bg-zinc-900 dark:text-white"
           >
             JUMLAH
           </th>
           {report.colTotals.map((count, ci) => (
             <td
               key={`total:${report.tindakanLabels[ci] ?? ci}`}
-              className="border border-slate-300/70 px-1 py-0.5 text-center tabular-nums dark:border-white/10"
+              className="border border-slate-300/70 px-1 py-0.5 text-center tabular-nums dark:border-white/10 dark:text-white"
             >
               {count || ""}
             </td>
           ))}
-          <td className="border border-slate-300/70 px-1 py-0.5 text-center dark:border-white/10">
+          <td className="border border-slate-300/70 px-1 py-0.5 text-center dark:border-white/10 dark:text-white">
             {report.grandTotal}
           </td>
         </tr>
       </tbody>
     </table>
-  ),
+    );
+  },
 );
 ClinicalDiagnosisTable.displayName = "ClinicalDiagnosisTable";
 
@@ -566,6 +580,9 @@ export default function TindakanLaporanModal({
     totalAnalisisPages,
     analisisStats,
     clinicalDiagnosisMatrix,
+    clinicalMatrixAxis,
+    setClinicalMatrixAxis,
+    clinicalMatrixMeta,
     laporanCaraBelumTerisi,
     exportFileBase,
     buildExportHtml,
@@ -764,6 +781,45 @@ export default function TindakanLaporanModal({
             </div>
           </div>
 
+          {tab === "diagnosaKlinis" ? (
+            <div
+              className={cn(
+                "flex shrink-0 flex-wrap items-center gap-2 rounded-lg border px-2.5 py-2",
+                "border-slate-200/80 bg-slate-50/60 dark:border-white/10 dark:bg-white/5",
+              )}
+            >
+              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-white/60">
+                Berdasarkan
+              </span>
+              <div className="flex rounded-lg border border-emerald-600/25 bg-white/90 p-0.5 dark:border-white/10 dark:bg-white/5">
+                <button
+                  type="button"
+                  onClick={() => setClinicalMatrixAxis("diagnosa")}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
+                    clinicalMatrixAxis === "diagnosa"
+                      ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
+                      : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                  )}
+                >
+                  Diagnosa Klinis
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setClinicalMatrixAxis("faktorRisiko")}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
+                    clinicalMatrixAxis === "faktorRisiko"
+                      ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
+                      : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                  )}
+                >
+                  Faktor Risiko
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {tab === "cara" && laporanCaraBelumTerisi.count > 0 ? (
             <div
               role="status"
@@ -852,7 +908,7 @@ export default function TindakanLaporanModal({
             ) : tab === "diagnosaKlinis" ? (
               !clinicalDiagnosisMatrix || clinicalDiagnosisMatrix.grandTotal === 0 ? (
                 <div className="p-6 text-center text-sm font-semibold text-slate-600 dark:text-white/60">
-                  Belum ada data diagnosa klinis pada bulan ini.
+                  {clinicalMatrixMeta.emptyMessage}
                 </div>
               ) : (
                 <div className="overflow-auto">

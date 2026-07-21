@@ -10,7 +10,9 @@ import {
   aggregateMonthlyKategori,
   buildClinicalDiagnosisMatrixReport,
   CARA_BAYAR_LABEL_BELUM_TERISI,
+  clinicalMatrixAxisMeta,
   type ClinicalDiagnosisMatrixReport,
+  type ClinicalMatrixRowAxis,
   filterLaporanRowsInYearMonth,
   rowMatchesMatrixLabel,
   type MatrixLaporanTabKind,
@@ -251,6 +253,8 @@ export function useTindakanLaporanReport({
   enabled = true,
 }: UseTindakanLaporanReportArgs) {
   const [tab, setTab] = useState<TindakanLaporanTab>("jenis");
+  const [clinicalMatrixAxis, setClinicalMatrixAxis] =
+    useState<ClinicalMatrixRowAxis>("diagnosa");
   const [monthYyyyMm, setMonthYyyyMm] = useState(currentMonthWibYyyyMm);
   const [searchQuery, setSearchQuery] = useState("");
   const [analisisPage, setAnalisisPage] = useState(1);
@@ -404,8 +408,16 @@ export function useTindakanLaporanReport({
 
   const clinicalDiagnosisMatrix = useMemo((): ClinicalDiagnosisMatrixReport | null => {
     if (!enabled || !ym) return null;
-    return buildClinicalDiagnosisMatrixReport(filteredClinicalRows, matrixPasienOpts);
-  }, [enabled, ym, filteredClinicalRows, matrixPasienOpts]);
+    return buildClinicalDiagnosisMatrixReport(filteredClinicalRows, {
+      ...matrixPasienOpts,
+      rowAxis: clinicalMatrixAxis,
+    });
+  }, [enabled, ym, filteredClinicalRows, matrixPasienOpts, clinicalMatrixAxis]);
+
+  const clinicalMatrixMeta = useMemo(
+    () => clinicalMatrixAxisMeta(clinicalMatrixAxis),
+    [clinicalMatrixAxis],
+  );
 
   const paginatedAnalisisRows = useMemo(() => {
     if (tab !== "analisis") return [];
@@ -464,7 +476,7 @@ export function useTindakanLaporanReport({
       : tab === "kategori"
         ? "Kategori (Grup)"
         : tab === "diagnosaKlinis"
-          ? "Diagnosa Klinis"
+          ? clinicalMatrixMeta.rowHeaderLabel
           : "Cara bayar";
 
   const exportFileBase = useMemo(() => {
@@ -473,9 +485,11 @@ export function useTindakanLaporanReport({
     if (tab === "kategori") return `laporan-tindakan-kategori-${safe}`;
     if (tab === "cara") return `laporan-tindakan-cara-bayar-${safe}`;
     if (tab === "analisis") return `laporan-analisis-gabungan-${safe}`;
-    if (tab === "diagnosaKlinis") return `laporan-diagnosa-klinis-${safe}`;
+    if (tab === "diagnosaKlinis") {
+      return `laporan-${clinicalMatrixMeta.exportFileSuffix}-${safe}`;
+    }
     return `laporan-tindakan-kategori-${safe}`;
-  }, [monthYyyyMm, tab]);
+  }, [monthYyyyMm, tab, clinicalMatrixMeta.exportFileSuffix]);
 
   const buildExportHtml = useCallback(() => {
     if (tab === "analisis") {
@@ -595,6 +609,9 @@ export function useTindakanLaporanReport({
   return {
     tab,
     setTab,
+    clinicalMatrixAxis,
+    setClinicalMatrixAxis,
+    clinicalMatrixMeta,
     monthYyyyMm,
     setMonthYyyyMm,
     searchQuery,

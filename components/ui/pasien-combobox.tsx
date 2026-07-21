@@ -22,6 +22,7 @@ export type PasienOption = {
   tgl_lahir?: string | null;
   umur?: number | null;
   diagnosa?: string | null;
+  faktor_risiko?: string | null;
 };
 
 export function formatPasienLabel(

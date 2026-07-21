@@ -1,5 +1,5 @@
 import { FileSpreadsheet, X, Search, Activity, Users, CheckCircle2, Stethoscope, ChevronLeft, ChevronRight } from "lucide-react";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,18 +17,122 @@ import {
   CARA_BAYAR_LABEL_BELUM_TERISI,
   clinicalMatrixAxisMeta,
   type ClinicalDiagnosisMatrixReport,
-  getMatrixCellPatientDetails,
   weekdaySun0Wib,
-  type MatrixLaporanTabKind,
   type MonthlyMatrixAgg,
-  type MonthlyMatrixPasienOpts,
 } from "../lib/tindakanBulananMatrix";
 import { useTindakanLaporanReport } from "../hooks/useTindakanLaporanReport";
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
-  PopoverTrigger,
 } from "../../../../../components/ui/popover";
+
+type MatrixPopoverPatient = {
+  nama: string;
+  no_rm: string;
+  dokter: string;
+  tindakan?: string;
+  diagnosa?: string;
+  kategori?: string;
+  kesimpulan_laporan?: string;
+  plan_medis?: string;
+  faktor_risiko?: string;
+  tanggal?: string;
+  status?: string;
+};
+
+type MatrixPopoverState = {
+  title: string;
+  patients: MatrixPopoverPatient[];
+  anchor: HTMLElement;
+  rowAxis?: ClinicalDiagnosisMatrixReport["rowAxis"];
+} | null;
+
+function MatrixCellPopover({
+  state,
+  onOpenChange,
+}: {
+  state: MatrixPopoverState;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const virtualRef = useRef<{ getBoundingClientRect: () => DOMRect }>({
+    getBoundingClientRect: () => new DOMRect(0, 0, 0, 0),
+  });
+
+  if (state?.anchor) {
+    virtualRef.current = state.anchor;
+  }
+
+  return (
+    <Popover open={Boolean(state)} onOpenChange={onOpenChange}>
+      {state ? <PopoverAnchor virtualRef={virtualRef} /> : null}
+      <PopoverContent
+        className={cn(
+          "w-72 p-2 text-[11px]",
+          UI_LAYERS.dialogNestedPopover,
+        )}
+      >
+        {state ? (
+          <>
+            <div className="mb-1 border-b pb-1 font-bold text-emerald-600 dark:text-emerald-400">
+              {state.title}
+            </div>
+            <ul className="max-h-40 overflow-auto">
+              {state.patients.length > 0 ? (
+                state.patients.map((detail, idx) => (
+                  <li
+                    key={`${detail.no_rm}-${detail.nama}-${idx}`}
+                    className="border-b border-slate-100 py-1 last:border-0 dark:border-white/5"
+                  >
+                    <div className="font-semibold text-emerald-700 dark:text-emerald-400">
+                      {detail.nama}
+                      {detail.tindakan ? ` | ${detail.tindakan}` : ""}
+                    </div>
+                    <div className="text-[10px] opacity-70 flex flex-wrap gap-x-2 dark:text-white/85">
+                      <span>RM: {detail.no_rm}</span>
+                      <span className="font-bold">Dr: {detail.dokter}</span>
+                    </div>
+                    {state.rowAxis === "diagnosa" && detail.faktor_risiko ? (
+                      <div className="text-[10px] italic opacity-70 dark:text-white/85">
+                        FR: {detail.faktor_risiko}
+                      </div>
+                    ) : null}
+                    {state.rowAxis === "faktorRisiko" && detail.diagnosa ? (
+                      <div className="text-[10px] italic opacity-70 dark:text-white/85">
+                        Dx: {detail.diagnosa}
+                      </div>
+                    ) : null}
+                    {(detail.diagnosa || detail.kategori) && !state.rowAxis ? (
+                      <div className="mt-1 flex flex-wrap gap-1 text-[9px]">
+                        {detail.diagnosa ? (
+                          <span className="rounded bg-slate-100 px-1 py-0.5 font-medium dark:bg-white/10 dark:text-white/70">
+                            {detail.diagnosa}
+                          </span>
+                        ) : null}
+                        {detail.kategori ? (
+                          <span className="rounded bg-emerald-100 px-1 py-0.5 font-bold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">
+                            {detail.kategori}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {detail.tanggal || detail.status ? (
+                      <div className="text-[10px] opacity-70 dark:text-white/85">
+                        {detail.tanggal || "-"} | {detail.status || "-"}
+                      </div>
+                    ) : null}
+                  </li>
+                ))
+              ) : (
+                <li className="py-1 italic opacity-50">Detail tidak tersedia</li>
+              )}
+            </ul>
+          </>
+        ) : null}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // --- Components ---
 
@@ -170,17 +274,17 @@ const TableRow = React.memo(
     ri,
     activeMatrix,
     formatCell,
-    matrixTab,
-    sourceRows,
-    matrixPasienOpts,
+    onCellActivate,
   }: {
     label: string;
     ri: number;
     activeMatrix: MonthlyMatrixAgg;
     formatCell: (n: number) => string;
-    matrixTab?: MatrixLaporanTabKind;
-    sourceRows?: readonly TindakanJoinResult[];
-    matrixPasienOpts?: MonthlyMatrixPasienOpts;
+    onCellActivate?: (payload: {
+      title: string;
+      patients: MatrixPopoverPatient[];
+      trigger: HTMLButtonElement;
+    }) => void;
   }) => {
     return (
       <tr>
@@ -200,22 +304,7 @@ const TableRow = React.memo(
             day,
           );
           const wkend = wd === 0 || wd === 6;
-
-          const fromMatrix = activeMatrix.details?.[ri]?.[di] ?? [];
-          const detailPasien =
-            fromMatrix.length > 0
-              ? fromMatrix
-              : c > 0 && matrixTab && sourceRows
-                ? getMatrixCellPatientDetails(
-                    sourceRows,
-                    matrixTab,
-                    label,
-                    activeMatrix.year,
-                    activeMatrix.month1to12,
-                    day,
-                    matrixPasienOpts,
-                  )
-                : [];
+          const detailPasien = activeMatrix.details?.[ri]?.[di] ?? [];
 
           return (
             <td
@@ -228,59 +317,19 @@ const TableRow = React.memo(
               )}
             >
               {c > 0 ? (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button className="h-full w-full focus:outline-none">
-                      {formatCell(c)}
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    className={cn(
-                      "w-64 p-2 text-[11px]",
-                      UI_LAYERS.dialogNestedPopover,
-                    )}
-                  >
-                    <div className="mb-1 border-b pb-1 font-bold text-emerald-600 dark:text-emerald-400">
-                      {label} - Tgl {day}
-                    </div>
-                    <ul className="max-h-32 overflow-auto">
-                      {detailPasien.length > 0 ? (
-                        detailPasien.map((p, pi) => (
-                          <li
-                            key={pi}
-                            className="border-b border-slate-100 py-1 last:border-0 dark:border-white/5"
-                          >
-                            <div className="font-semibold text-emerald-700 dark:text-emerald-400">
-                              {p.nama} | {p.tindakan || "-"}
-                            </div>
-                            <div className="text-[10px] opacity-70 flex flex-wrap gap-x-2">
-                              <span>RM: {p.no_rm}</span>
-                              <span className="font-bold">Dr: {p.dokter}</span>
-                            </div>
-                            {(p.diagnosa || p.kategori) && (
-                              <div className="mt-1 flex flex-wrap gap-1 text-[9px]">
-                                {p.diagnosa && (
-                                  <span className="rounded bg-slate-100 px-1 py-0.5 font-medium dark:bg-white/10 dark:text-white/70">
-                                    {p.diagnosa}
-                                  </span>
-                                )}
-                                {p.kategori && (
-                                  <span className="rounded bg-emerald-100 px-1 py-0.5 font-bold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">
-                                    {p.kategori}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </li>
-                        ))
-                      ) : (
-                        <li className="py-1 italic opacity-50">
-                          Detail tidak tersedia
-                        </li>
-                      )}
-                    </ul>
-                  </PopoverContent>
-                </Popover>
+                <button
+                  type="button"
+                  className="h-full w-full focus:outline-none"
+                  onClick={(event) => {
+                    onCellActivate?.({
+                      title: `${label} - Tgl ${day}`,
+                      patients: detailPasien,
+                      trigger: event.currentTarget,
+                    });
+                  }}
+                >
+                  {formatCell(c)}
+                </button>
               ) : (
                 formatCell(c)
               )}
@@ -300,15 +349,15 @@ const LaporanMatrixTable = React.memo(
   ({
     matrix,
     yAxisHeader,
-    matrixTab,
-    sourceRows,
-    matrixPasienOpts,
+    onCellActivate,
   }: {
     matrix: MonthlyMatrixAgg;
     yAxisHeader: string;
-    matrixTab?: MatrixLaporanTabKind;
-    sourceRows?: readonly TindakanJoinResult[];
-    matrixPasienOpts?: MonthlyMatrixPasienOpts;
+    onCellActivate?: (payload: {
+      title: string;
+      patients: MatrixPopoverPatient[];
+      trigger: HTMLButtonElement;
+    }) => void;
   }) => (
     <table className="w-max min-w-full border-collapse text-[11px]">
       <thead>
@@ -362,9 +411,7 @@ const LaporanMatrixTable = React.memo(
             ri={ri}
             activeMatrix={matrix}
             formatCell={formatCell}
-            matrixTab={matrixTab}
-            sourceRows={sourceRows}
-            matrixPasienOpts={matrixPasienOpts}
+            onCellActivate={onCellActivate}
           />
         ))}
         <tr className="bg-slate-100/90 font-extrabold dark:bg-white/5">
@@ -403,8 +450,15 @@ LaporanMatrixTable.displayName = "LaporanMatrixTable";
 const ClinicalDiagnosisTable = React.memo(
   ({
     report,
+    onCellActivate,
   }: {
     report: ClinicalDiagnosisMatrixReport;
+    onCellActivate?: (payload: {
+      title: string;
+      patients: MatrixPopoverPatient[];
+      trigger: HTMLButtonElement;
+      rowAxis: ClinicalDiagnosisMatrixReport["rowAxis"];
+    }) => void;
   }) => {
     const meta = clinicalMatrixAxisMeta(report.rowAxis);
     return (
@@ -449,51 +503,20 @@ const ClinicalDiagnosisTable = React.memo(
                   )}
                 >
                   {count > 0 ? (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button className="h-full w-full font-semibold focus:outline-none">
-                          {count}
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className={cn(
-                          "w-72 p-2 text-[11px]",
-                          UI_LAYERS.dialogNestedPopover,
-                        )}
-                      >
-                        <div className="mb-1 border-b pb-1 font-bold text-emerald-600 dark:text-emerald-400">
-                          {rowLabel} | {tindakanLabel}
-                        </div>
-                        <ul className="max-h-40 overflow-auto">
-                          {cellDetails.map((detail, idx) => (
-                            <li
-                              key={`${detail.no_rm}-${detail.nama}-${idx}`}
-                              className="border-b border-slate-100 py-1 last:border-0 dark:border-white/5"
-                            >
-                              <div className="font-semibold text-emerald-700 dark:text-emerald-400">
-                                {detail.nama}
-                              </div>
-                              <div className="text-[10px] opacity-70 dark:text-white/85">
-                                RM: {detail.no_rm} | Dr: {detail.dokter}
-                              </div>
-                              {report.rowAxis === "diagnosa" && detail.faktor_risiko ? (
-                                <div className="text-[10px] italic opacity-70 dark:text-white/85">
-                                  FR: {detail.faktor_risiko}
-                                </div>
-                              ) : null}
-                              {report.rowAxis === "faktorRisiko" && detail.diagnosa ? (
-                                <div className="text-[10px] italic opacity-70 dark:text-white/85">
-                                  Dx: {detail.diagnosa}
-                                </div>
-                              ) : null}
-                              <div className="text-[10px] opacity-70 dark:text-white/85">
-                                {detail.tanggal || "-"} | {detail.status || "-"}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      </PopoverContent>
-                    </Popover>
+                    <button
+                      type="button"
+                      className="h-full w-full font-semibold focus:outline-none"
+                      onClick={(event) => {
+                        onCellActivate?.({
+                          title: `${rowLabel} | ${tindakanLabel}`,
+                          patients: cellDetails,
+                          trigger: event.currentTarget,
+                          rowAxis: report.rowAxis,
+                        });
+                      }}
+                    >
+                      {count}
+                    </button>
                   ) : (
                     ""
                   )}
@@ -571,8 +594,6 @@ export default function TindakanLaporanModal({
     setAnalisisPage,
     resetAnalisisPage,
     ym,
-    reportRows,
-    matrixPasienOpts,
     finalMatrix,
     finalMatrixStatusBatal,
     filteredAnalisisRows,
@@ -616,6 +637,29 @@ export default function TindakanLaporanModal({
       lastAppliedInitialTabRef.current = initialTab;
     }
   }, [open, initialTab, tab, setTab]);
+
+  const [matrixPopover, setMatrixPopover] = useState<MatrixPopoverState>(null);
+
+  useEffect(() => {
+    setMatrixPopover(null);
+  }, [open, tab, monthYyyyMm, searchQuery, clinicalMatrixAxis]);
+
+  const handleMatrixCellActivate = React.useCallback(
+    (payload: {
+      title: string;
+      patients: MatrixPopoverPatient[];
+      trigger: HTMLButtonElement;
+      rowAxis?: ClinicalDiagnosisMatrixReport["rowAxis"];
+    }) => {
+      setMatrixPopover({
+        title: payload.title,
+        patients: payload.patients,
+        anchor: payload.trigger,
+        rowAxis: payload.rowAxis,
+      });
+    },
+    [],
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -912,7 +956,10 @@ export default function TindakanLaporanModal({
                 </div>
               ) : (
                 <div className="overflow-auto">
-                  <ClinicalDiagnosisTable report={clinicalDiagnosisMatrix} />
+                  <ClinicalDiagnosisTable
+                    report={clinicalDiagnosisMatrix}
+                    onCellActivate={handleMatrixCellActivate}
+                  />
                 </div>
               )
             ) : tab === "analisis" ? (
@@ -1011,13 +1058,7 @@ export default function TindakanLaporanModal({
                         ? "KATEGORI (GRUP)"
                         : "CARA BAYAR"
                   }
-                  matrixTab={
-                    tab === "jenis" || tab === "kategori" || tab === "cara"
-                      ? tab
-                      : undefined
-                  }
-                  sourceRows={reportRows}
-                  matrixPasienOpts={matrixPasienOpts}
+                  onCellActivate={handleMatrixCellActivate}
                 />
                 {tab === "jenis" &&
                 finalMatrixStatusBatal &&
@@ -1029,9 +1070,7 @@ export default function TindakanLaporanModal({
                     <LaporanMatrixTable
                       matrix={finalMatrixStatusBatal}
                       yAxisHeader="STATUS BATAL"
-                      matrixTab="jenis"
-                      sourceRows={reportRows}
-                      matrixPasienOpts={matrixPasienOpts}
+                      onCellActivate={handleMatrixCellActivate}
                     />
                   </div>
                 ) : null}
@@ -1039,6 +1078,12 @@ export default function TindakanLaporanModal({
             ) : null}
           </div>
         </div>
+        <MatrixCellPopover
+          state={matrixPopover}
+          onOpenChange={(next) => {
+            if (!next) setMatrixPopover(null);
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

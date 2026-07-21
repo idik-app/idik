@@ -282,43 +282,42 @@ export function useTindakanLaporanReport({
     (): MonthlyMatrixPasienOpts => ({
       pasienOptions,
       pasienLookup,
-      skipCellDetails: true,
     }),
     [pasienOptions, pasienLookup],
   );
 
   const jenisMatrixPair = useMemo(() => {
-    if (!enabled || !ym) return null;
+    if (!enabled || !ym || tab !== "jenis") return null;
     return aggregateMonthlyJenisOperasiWithBatal(
       reportRows,
       ym.y,
       ym.m,
       matrixPasienOpts,
     );
-  }, [enabled, reportRows, ym, matrixPasienOpts]);
+  }, [enabled, reportRows, ym, matrixPasienOpts, tab]);
 
   const matrixJenis = jenisMatrixPair?.main ?? null;
   const matrixStatusBatal = jenisMatrixPair?.batal ?? null;
 
   const matrixCara = useMemo(() => {
-    if (!enabled || !ym) return null;
+    if (!enabled || !ym || tab !== "cara") return null;
     return aggregateMonthlyCaraBayar(
       reportRows,
       ym.y,
       ym.m,
       matrixPasienOpts,
     );
-  }, [enabled, reportRows, ym, matrixPasienOpts]);
+  }, [enabled, reportRows, ym, matrixPasienOpts, tab]);
 
   const matrixKategori = useMemo(() => {
-    if (!enabled || !ym) return null;
+    if (!enabled || !ym || tab !== "kategori") return null;
     return aggregateMonthlyKategori(
       reportRows,
       ym.y,
       ym.m,
       matrixPasienOpts,
     );
-  }, [enabled, reportRows, ym, matrixPasienOpts]);
+  }, [enabled, reportRows, ym, matrixPasienOpts, tab]);
 
   const laporanCaraBelumTerisi = useMemo(() => {
     if (!matrixCara) {
@@ -407,12 +406,12 @@ export function useTindakanLaporanReport({
   }, [reportRows, searchQuery]);
 
   const clinicalDiagnosisMatrix = useMemo((): ClinicalDiagnosisMatrixReport | null => {
-    if (!enabled || !ym) return null;
+    if (!enabled || !ym || tab !== "diagnosaKlinis") return null;
     return buildClinicalDiagnosisMatrixReport(filteredClinicalRows, {
       ...matrixPasienOpts,
       rowAxis: clinicalMatrixAxis,
     });
-  }, [enabled, ym, filteredClinicalRows, matrixPasienOpts, clinicalMatrixAxis]);
+  }, [enabled, ym, tab, filteredClinicalRows, matrixPasienOpts, clinicalMatrixAxis]);
 
   const clinicalMatrixMeta = useMemo(
     () => clinicalMatrixAxisMeta(clinicalMatrixAxis),

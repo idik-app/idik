@@ -1031,3 +1031,193 @@ export function downloadMonthlyMatrixExcel(
   });
   saveAs(finalBlob, `${filename}.xlsx`);
 }
+
+export type MutuExportRow = {
+  tanggal: string;
+  numerator: string;
+  denominator: string;
+};
+
+export type MutuExportDefinition = {
+  badge: string;
+  title: string;
+  numeratorLabel: string;
+  denominatorLabel: string;
+  resultLabel: string;
+  targetLabel?: string;
+};
+
+function parseMutuNumeric(raw: string): number | null {
+  const normalized = String(raw ?? "").replace(/[^\d.-]/g, "").trim();
+  if (!normalized) return null;
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : null;
+}
+
+function formatMutuPercent(numeratorRaw: string, denominatorRaw: string): string {
+  const numerator = parseMutuNumeric(numeratorRaw);
+  const denominator = parseMutuNumeric(denominatorRaw);
+  if (numerator == null || denominator == null || denominator <= 0) return "—";
+  const percent = (numerator / denominator) * 100;
+  return `${percent.toFixed(percent % 1 === 0 ? 0 : 2)}%`;
+}
+
+export function buildMutuReportHtml(opts: {
+  definition: MutuExportDefinition;
+  monthLabel: string;
+  roomName: string;
+  rows: readonly MutuExportRow[];
+}): string {
+  const bodyRows = opts.rows
+    .map((row, index) => {
+      const result = formatMutuPercent(row.numerator, row.denominator);
+      return `<tr>
+        <td class="num">${index + 1}</td>
+        <td class="num">${escapeHtml(String(row.tanggal || index + 1))}</td>
+        <td class="num">${escapeHtml(String(row.numerator || "0"))}</td>
+        <td class="num">${escapeHtml(String(row.denominator || "0"))}</td>
+        <td class="num"><strong>${escapeHtml(result)}</strong></td>
+      </tr>`;
+    })
+    .join("\n");
+
+  const totalNumerator = opts.rows.reduce(
+    (sum, row) => sum + (parseMutuNumeric(row.numerator) ?? 0),
+    0,
+  );
+  const totalDenominator = opts.rows.reduce(
+    (sum, row) => sum + (parseMutuNumeric(row.denominator) ?? 0),
+    0,
+  );
+  const totalResult = formatMutuPercent(
+    String(totalNumerator),
+    String(totalDenominator),
+  );
+
+  const table = `<table>
+    <thead>
+      <tr>
+        <th>NO</th>
+        <th>TANGGAL</th>
+        <th>${escapeHtml(opts.definition.numeratorLabel)}</th>
+        <th>${escapeHtml(opts.definition.denominatorLabel)}</th>
+        <th>${escapeHtml(opts.definition.resultLabel)}</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${bodyRows || '<tr><td colspan="5" class="num">Tidak ada data.</td></tr>'}
+      <tr>
+        <th colspan="2">JUMLAH</th>
+        <td class="num"><strong>${totalNumerator}</strong></td>
+        <td class="num"><strong>${totalDenominator}</strong></td>
+        <td class="num"><strong>${escapeHtml(totalResult)}</strong></td>
+      </tr>
+    </tbody>
+  </table>`;
+
+  const subtitleLines = [
+    `BULAN : ${opts.monthLabel}`,
+    `RUANGAN : ${opts.roomName}`,
+    opts.definition.targetLabel ? opts.definition.targetLabel : "",
+  ].filter(Boolean);
+
+  return wrapReportHtmlDocument({
+    title: `${opts.definition.badge}. ${opts.definition.title}`,
+    subtitleLines,
+    bodyInnerHtml: table,
+  });
+}
+
+export function buildMutuReportWhatsAppText(opts: {
+  definition: MutuExportDefinition;
+  monthLabel: string;
+  roomName: string;
+  rows: readonly MutuExportRow[];
+}): string {
+  const lines = [
+    `*${opts.definition.badge}. ${opts.definition.title}*`,
+    "",
+    `Bulan: ${opts.monthLabel}`,
+    `Ruangan: ${opts.roomName}`,
+  ];
+  if (opts.definition.targetLabel) {
+    lines.push(opts.definition.targetLabel);
+  }
+  lines.push("");
+
+  opts.rows.forEach((row, index) => {
+    const result = formatMutuPercent(row.numerator, row.denominator);
+    lines.push(
+      `${index + 1}. Tgl ${row.tanggal || index + 1}: ${row.numerator || 0}/${row.denominator || 0} = ${result}`,
+    );
+  });
+
+  const totalNumerator = opts.rows.reduce(
+    (sum, row) => sum + (parseMutuNumeric(row.numerator) ?? 0),
+    0,
+  );
+  const totalDenominator = opts.rows.reduce(
+    (sum, row) => sum + (parseMutuNumeric(row.denominator) ?? 0),
+    0,
+  );
+  lines.push(
+    "",
+    `TOTAL: ${totalNumerator}/${totalDenominator} = ${formatMutuPercent(
+      String(totalNumerator),
+      String(totalDenominator),
+    )}`,
+  );
+  return lines.join("\n");
+}
+
+export function downloadMutuReportExcel(opts: {
+  definition: MutuExportDefinition;
+  monthLabel: string;
+  roomName: string;
+  rows: readonly MutuExportRow[];
+  filename: string;
+}): void {
+  const data: Array<Record<string, string | number>> = opts.rows.map((row, index) => ({
+    No: index + 1,
+    Tanggal: row.tanggal || String(index + 1),
+    [opts.definition.numeratorLabel]: parseMutuNumeric(row.numerator) ?? 0,
+    [opts.definition.denominatorLabel]: parseMutuNumeric(row.denominator) ?? 0,
+    [opts.definition.resultLabel]: formatMutuPercent(row.numerator, row.denominator),
+    Bulan: opts.monthLabel,
+    Ruangan: opts.roomName,
+  }));
+
+  const totalNumerator = opts.rows.reduce(
+    (sum, row) => sum + (parseMutuNumeric(row.numerator) ?? 0),
+    0,
+  );
+  const totalDenominator = opts.rows.reduce(
+    (sum, row) => sum + (parseMutuNumeric(row.denominator) ?? 0),
+    0,
+  );
+  data.push({
+    No: "JUMLAH",
+    Tanggal: "",
+    [opts.definition.numeratorLabel]: totalNumerator,
+    [opts.definition.denominatorLabel]: totalDenominator,
+    [opts.definition.resultLabel]: formatMutuPercent(
+      String(totalNumerator),
+      String(totalDenominator),
+    ),
+    Bulan: opts.monthLabel,
+    Ruangan: opts.roomName,
+  });
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    wb,
+    ws,
+    opts.definition.title.slice(0, 31) || "MutuReport",
+  );
+  const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const finalBlob = new Blob([excelBuffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  saveAs(finalBlob, `${opts.filename}.xlsx`);
+}

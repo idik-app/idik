@@ -89,6 +89,13 @@ const TindakanLaporanPemakaianModal = dynamic(
     ),
   { ssr: false, loading: () => null },
 );
+const TindakanLaporanMutuModal = dynamic(
+  () =>
+    import(
+      /* webpackPrefetch: true */ "../components/TindakanLaporanMutuModal"
+    ),
+  { ssr: false, loading: () => null },
+);
 const IntensiveDashboardView = dynamic(
   () => import("@/components/intensive/IntensiveDashboardView"),
   { ssr: false, loading: () => null },
@@ -1389,6 +1396,7 @@ export default function TindakanTable({
     useState<TindakanLaporanTab>("jenis");
   const [laporanPemakaianModalOpen, setLaporanPemakaianModalOpen] =
     useState(false);
+  const [laporanMutuModalOpen, setLaporanMutuModalOpen] = useState(false);
   const [creatingForPasien, setCreatingForPasien] = useState(false);
   const [lastAutoCreateKey, setLastAutoCreateKey] = useState("");
   /** Riwayat tindakan (RM duplikat): default tertutup; kunci = id baris / fallback key. */
@@ -3169,6 +3177,9 @@ export default function TindakanTable({
             setLaporanPemakaianModalOpen(true);
             void refresh();
           }}
+          onOpenLaporanMutu={() => {
+            setLaporanMutuModalOpen(true);
+          }}
           onPhoneDirectoryOpen={onPhoneDirectoryOpen}
         />
 
@@ -3209,6 +3220,12 @@ export default function TindakanTable({
             }}
           />
         )}
+        {laporanMutuModalOpen ? (
+          <TindakanLaporanMutuModal
+            open={laporanMutuModalOpen}
+            onOpenChange={setLaporanMutuModalOpen}
+          />
+        ) : null}
 
         {fastTrackModalOpen && (
           <FastTrackListModal

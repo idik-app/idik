@@ -19,6 +19,7 @@ import {
   Package,
   Filter,
   Phone,
+  ShieldCheck,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -68,6 +69,8 @@ interface Props {
   onOpenLaporanDiagnosaKlinis?: () => void;
   /** Buka modal laporan pemakaian alkes. */
   onOpenLaporanPemakaian?: () => void;
+  /** Buka modal laporan mutu. */
+  onOpenLaporanMutu?: () => void;
   onPhoneDirectoryOpen?: () => void;
   /** Status collapse untuk menghemat ruang vertikal di HP */
   isCollapsed?: boolean;
@@ -101,6 +104,7 @@ function TableToolbar({
   onOpenLaporan,
   onOpenLaporanDiagnosaKlinis,
   onOpenLaporanPemakaian,
+  onOpenLaporanMutu,
   onPhoneDirectoryOpen,
   isCollapsed = false,
 }: Props) {
@@ -138,6 +142,7 @@ function TableToolbar({
   const hasLaporanDiagnosaKlinis =
     typeof onOpenLaporanDiagnosaKlinis === "function";
   const hasLaporanPemakaian = typeof onOpenLaporanPemakaian === "function";
+  const hasLaporanMutu = typeof onOpenLaporanMutu === "function";
   const hasAnyLaporan =
     hasLaporanLab ||
     hasLaporanMatriks ||
@@ -578,6 +583,36 @@ function TableToolbar({
                                   />
                                   <span className="min-w-0 flex-1 font-extrabold tracking-wide">
                                     Laporan Pemakaian Alkes
+                                  </span>
+                                </button>
+                              </>
+                            ) : null}
+                            {hasLaporanMutu ? (
+                              <>
+                                <div
+                                  className="mx-2 border-t border-slate-200/80 dark:border-white/15"
+                                  role="separator"
+                                />
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className={cn(
+                                    "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
+                                    "text-slate-900 hover:bg-cyan-500/10 dark:text-white dark:hover:bg-cyan-500/15",
+                                    "focus-visible:bg-cyan-500/10 focus-visible:outline-none dark:focus-visible:bg-cyan-500/15",
+                                  )}
+                                  onClick={() => {
+                                    setLaporanMenuOpen(false);
+                                    onOpenLaporanMutu?.();
+                                  }}
+                                >
+                                  <ShieldCheck
+                                    size={16}
+                                    strokeWidth={2.25}
+                                    className="shrink-0 text-cyan-600 dark:text-cyan-400"
+                                  />
+                                  <span className="min-w-0 flex-1 font-extrabold tracking-wide">
+                                    Laporan MUTU
                                   </span>
                                 </button>
                               </>

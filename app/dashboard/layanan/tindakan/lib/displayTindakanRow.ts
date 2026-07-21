@@ -169,6 +169,19 @@ export function mapApiPasienRow(r: Record<string, unknown>): PasienOption | null
         ? r.usia
         : null;
 
+  const diagnosa =
+    typeof r.diagnosa === "string"
+      ? r.diagnosa
+      : r.diagnosa != null
+        ? String(r.diagnosa)
+        : null;
+  const faktor_risiko =
+    typeof r.faktor_risiko === "string"
+      ? r.faktor_risiko
+      : r.faktor_risiko != null
+        ? String(r.faktor_risiko)
+        : null;
+
   return {
     id,
     nama,
@@ -186,6 +199,10 @@ export function mapApiPasienRow(r: Record<string, unknown>): PasienOption | null
     ...(legacyPem != null && legacyPem !== "" ? { pembiayaan: legacyPem } : {}),
     ...(legacyKelas != null && legacyKelas !== ""
       ? { kelas: legacyKelas }
+      : {}),
+    ...(diagnosa != null && diagnosa !== "" ? { diagnosa } : {}),
+    ...(faktor_risiko != null && faktor_risiko !== ""
+      ? { faktor_risiko }
       : {}),
   };
 }

@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { UI_LAYERS } from "@/lib/ui/layers";
+import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import type { PasienOption } from "@/components/ui/pasien-combobox";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
@@ -71,6 +71,9 @@ function MatrixCellPopover({
           "w-72 p-2 text-[11px]",
           UI_LAYERS.dialogNestedPopover,
         )}
+        style={{ zIndex: Z_INDEX_VALUES.dialogNestedPopover }}
+        sideOffset={8}
+        collisionPadding={12}
       >
         {state ? (
           <>
@@ -664,7 +667,8 @@ export default function TindakanLaporanModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        overlayClassName={cn("bg-black/40 backdrop-blur-sm", UI_LAYERS.dialogOverlayTop)}
+        overlayClassName={cn("bg-black/40", UI_LAYERS.dialogOverlayTop)}
+        bodyClassName="flex h-full min-h-0 flex-col overflow-hidden p-0"
         className={cn(
           "h-[82vh] max-h-[82vh] w-[min(100vw-1rem,96vw)] max-w-[min(96vw,92rem)] overflow-hidden p-0 flex flex-col",
           "border-slate-300/60 bg-white dark:border-white/10 dark:bg-zinc-950",

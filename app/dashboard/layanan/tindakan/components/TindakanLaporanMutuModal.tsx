@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertCircle,
   FileSpreadsheet,
@@ -14,12 +15,7 @@ import {
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverAnchor,
-  PopoverContent,
-} from "@/components/ui/popover";
-import { UI_LAYERS } from "@/lib/ui/layers";
+import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
 import { cn } from "@/lib/utils";
 import ReportExportActionBar from "./ReportExportActionBar";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
@@ -267,6 +263,8 @@ function hasFilledMutuRows(rows: readonly MutuRow[]): boolean {
   );
 }
 
+const MUTU_POPOVER_WIDTH_PX = 320;
+
 function MutuPatientPopover({
   state,
   onOpenChange,
@@ -274,61 +272,112 @@ function MutuPatientPopover({
   state: PatientPopoverState;
   onOpenChange: (open: boolean) => void;
 }) {
-  const virtualRef = useRef<{ getBoundingClientRect: () => DOMRect }>({
-    getBoundingClientRect: () => new DOMRect(0, 0, 0, 0),
-  });
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
-  if (state?.anchor) {
-    virtualRef.current = state.anchor;
-  }
+  useLayoutEffect(() => {
+    if (!state?.anchor) {
+      setPos(null);
+      return;
+    }
+    const update = () => {
+      const rect = state.anchor.getBoundingClientRect();
+      const width = MUTU_POPOVER_WIDTH_PX;
+      const gap = 8;
+      const left = Math.min(
+        Math.max(8, rect.left + rect.width / 2 - width / 2),
+        window.innerWidth - width - 8,
+      );
+      const estimatedHeight = Math.min(
+        280,
+        56 + Math.max(1, state.patients.length) * 56,
+      );
+      const preferBelow = rect.bottom + gap + estimatedHeight <= window.innerHeight - 8;
+      const top = preferBelow
+        ? rect.bottom + gap
+        : Math.max(8, rect.top - gap - estimatedHeight);
+      setPos({ top, left });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [state]);
 
-  return (
-    <Popover open={Boolean(state)} onOpenChange={onOpenChange}>
-      {state ? <PopoverAnchor virtualRef={virtualRef} /> : null}
-      <PopoverContent
-        className={cn(
-          "w-80 border-slate-200/90 bg-white p-2.5 text-[11px] text-slate-800 shadow-xl",
-          UI_LAYERS.dialogNestedPopover,
+  useEffect(() => {
+    if (!state) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onOpenChange(false);
+    };
+    const onPointer = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (panelRef.current?.contains(target)) return;
+      if (state.anchor.contains(target)) return;
+      onOpenChange(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onPointer);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onPointer);
+    };
+  }, [state, onOpenChange]);
+
+  if (!state || !pos || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      ref={panelRef}
+      role="dialog"
+      aria-label={state.title}
+      style={{
+        position: "fixed",
+        top: pos.top,
+        left: pos.left,
+        width: MUTU_POPOVER_WIDTH_PX,
+        zIndex: Z_INDEX_VALUES.dialogNestedPopover,
+      }}
+      className={cn(
+        "rounded-xl border border-slate-200/90 bg-white p-2.5 text-[11px] text-slate-800 shadow-2xl",
+        "ring-1 ring-black/5",
+      )}
+    >
+      <div className="mb-1.5 border-b border-slate-200 pb-1.5 font-bold text-[#1B2B44]">
+        {state.title}
+      </div>
+      <ul className="custom-scrollbar max-h-48 overflow-auto pr-1">
+        {state.patients.length > 0 ? (
+          state.patients.map((detail, idx) => (
+            <li
+              key={`${detail.no_rm}-${detail.nama}-${idx}`}
+              className="border-b border-slate-100 py-1.5 last:border-0"
+            >
+              <div className="font-semibold text-[#2D4A6E]">
+                {detail.nama}
+                {detail.tindakan ? ` · ${detail.tindakan}` : ""}
+              </div>
+              <div className="mt-0.5 flex flex-wrap gap-x-2 text-[10px] text-slate-600">
+                <span>RM: {detail.no_rm}</span>
+                <span className="font-bold text-slate-800">
+                  Dr: {detail.dokter}
+                </span>
+              </div>
+              {detail.status ? (
+                <div className="mt-0.5 text-[10px] font-semibold text-slate-500">
+                  Status: {detail.status}
+                </div>
+              ) : null}
+            </li>
+          ))
+        ) : (
+          <li className="py-2 italic text-slate-400">Tidak ada pasien</li>
         )}
-        sideOffset={8}
-      >
-        {state ? (
-          <>
-            <div className="mb-1.5 border-b border-slate-200 pb-1.5 font-bold text-[#1B2B44]">
-              {state.title}
-            </div>
-            <ul className="custom-scrollbar max-h-48 overflow-auto pr-1">
-              {state.patients.length > 0 ? (
-                state.patients.map((detail, idx) => (
-                  <li
-                    key={`${detail.no_rm}-${detail.nama}-${idx}`}
-                    className="border-b border-slate-100 py-1.5 last:border-0"
-                  >
-                    <div className="font-semibold text-[#2D4A6E]">
-                      {detail.nama}
-                      {detail.tindakan ? ` · ${detail.tindakan}` : ""}
-                    </div>
-                    <div className="mt-0.5 flex flex-wrap gap-x-2 text-[10px] text-slate-600">
-                      <span>RM: {detail.no_rm}</span>
-                      <span className="font-bold text-slate-800">
-                        Dr: {detail.dokter}
-                      </span>
-                    </div>
-                    {detail.status ? (
-                      <div className="mt-0.5 text-[10px] font-semibold text-slate-500">
-                        Status: {detail.status}
-                      </div>
-                    ) : null}
-                  </li>
-                ))
-              ) : (
-                <li className="py-2 italic text-slate-400">Tidak ada pasien</li>
-              )}
-            </ul>
-          </>
-        ) : null}
-      </PopoverContent>
-    </Popover>
+      </ul>
+    </div>,
+    document.body,
   );
 }
 
@@ -500,8 +549,11 @@ export default function TindakanLaporanMutuModal({
   const isPenundaanElektifTab = activeTab === "penundaan-elektif";
 
   const penundaanElektifRows = useMemo(
-    () => buildPenundaanElektifRowsFromTindakan(rows, monthYyyyMm),
-    [rows, monthYyyyMm],
+    () =>
+      isPenundaanElektifTab
+        ? buildPenundaanElektifRowsFromTindakan(rows, monthYyyyMm)
+        : [],
+    [isPenundaanElektifTab, rows, monthYyyyMm],
   );
 
   const activeRows: MutuRow[] = isPenundaanElektifTab
@@ -651,12 +703,14 @@ export default function TindakanLaporanMutuModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         overlayClassName={cn("bg-[#2D3748]/45", UI_LAYERS.dialogOverlayTop)}
+        bodyClassName="flex h-full min-h-0 flex-col overflow-hidden p-0"
         className={cn(
           "flex h-[90vh] max-h-[90vh] w-[min(100vw-1rem,98vw)] max-w-[min(98vw,96rem)] flex-col overflow-hidden p-0",
           "rounded-2xl border-slate-200/90 bg-slate-50/95 text-slate-800 shadow-[0_24px_56px_rgba(15,23,42,0.18)]",
           UI_LAYERS.dialogContentTop,
         )}
       >
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Navy header — selaras drawer detail tindakan */}
         <div className="shrink-0 border-b border-white/10 bg-gradient-to-r from-[#1B2B44] to-[#2D4A6E] px-4 py-3 sm:px-5">
           <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
@@ -818,8 +872,13 @@ export default function TindakanLaporanMutuModal({
                 ) : null}
               </div>
 
-              {/* Scroll area — min-h-0 agar tubuh tabel bisa digulir sampai bawah */}
-              <div className="custom-scrollbar min-h-0 flex-1 overflow-auto bg-white/95">
+              {/* Scroll area — min-h-0 + overflow agar 31 hari bisa digulir */}
+              <div
+                className="custom-scrollbar min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-contain bg-white/95"
+                onScroll={() => {
+                  if (patientPopover) setPatientPopover(null);
+                }}
+              >
                 <table className="w-full min-w-[860px] border-collapse text-[11px]">
                   <thead className="sticky top-0 z-[2]">
                     <tr className="bg-[#E6ECF5]">
@@ -899,7 +958,6 @@ export default function TindakanLaporanMutuModal({
                               numeratorCount > 0 ? (
                                 <button
                                   type="button"
-                                  title="Lihat pasien tertunda"
                                   className="w-full rounded-md px-2 py-1 text-center font-bold text-indigo-800 underline-offset-2 hover:bg-indigo-50 hover:underline"
                                   onClick={(event) =>
                                     openPatientPopover(
@@ -938,7 +996,6 @@ export default function TindakanLaporanMutuModal({
                               denominatorCount > 0 ? (
                                 <button
                                   type="button"
-                                  title="Lihat pasien elektif"
                                   className="w-full rounded-md px-2 py-1 text-center font-bold text-[#1B2B44] underline-offset-2 hover:bg-slate-100 hover:underline"
                                   onClick={(event) =>
                                     openPatientPopover(
@@ -1083,6 +1140,7 @@ export default function TindakanLaporanMutuModal({
               </aside>
             ) : null}
           </div>
+        </div>
         </div>
 
         {patientPopover ? (

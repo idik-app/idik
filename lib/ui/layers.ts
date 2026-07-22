@@ -139,4 +139,5 @@ export const Z_INDEX_VALUES = {
   drawerPortal: 100_050,
   dialogOverlayTop: 100_000,
   dialogContentTop: 100_001,
+  dialogNestedPopover: 100_002,
 } as const;

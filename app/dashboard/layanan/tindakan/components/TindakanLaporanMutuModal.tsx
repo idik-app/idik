@@ -14,11 +14,20 @@ import {
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import { cn } from "@/lib/utils";
 import ReportExportActionBar from "./ReportExportActionBar";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
-import { buildPenundaanElektifRowsFromTindakan } from "../lib/tindakanMutuPenundaanElektif";
+import {
+  buildPenundaanElektifRowsFromTindakan,
+  type MutuPatientTooltip,
+  type MutuPenundaanElektifRow,
+} from "../lib/tindakanMutuPenundaanElektif";
 import {
   buildMutuReportHtml,
   buildMutuReportWhatsAppText,
@@ -46,10 +55,7 @@ type MutuStorage = {
   roomName: string;
   monthOverrides?: Record<string, number>;
   reportsByMonth: Partial<
-    Record<
-      string,
-      Partial<Record<MutuReportId, MutuReportData>>
-    >
+    Record<string, Partial<Record<MutuReportId, MutuReportData>>>
   >;
 };
 
@@ -64,6 +70,12 @@ type MutuDefinition = {
   exportFileSuffix: string;
 };
 
+type PatientPopoverState = {
+  title: string;
+  patients: MutuPatientTooltip[];
+  anchor: HTMLElement;
+} | null;
+
 const STORAGE_KEY = "idik_tindakan_laporan_mutu_v1";
 const API_PATH = "/api/tindakan-laporan-mutu";
 
@@ -72,7 +84,8 @@ const REPORT_DEFINITIONS: readonly MutuDefinition[] = [
     id: "penundaan-elektif",
     badge: "IMN",
     title: "PENUNDAAN PASIEN ELEKTIF",
-    numeratorLabel: "JUMLAH PASIEN YANG JADWAL OPERASINYA TERTUNDA LEBIH DARI 1 JAM",
+    numeratorLabel:
+      "JUMLAH PASIEN YANG JADWAL OPERASINYA TERTUNDA LEBIH DARI 1 JAM",
     denominatorLabel: "JUMLAH PASIEN ELEKTIF",
     resultLabel: "D/E x100%",
     targetLabel: "Target < 5%",
@@ -82,8 +95,10 @@ const REPORT_DEFINITIONS: readonly MutuDefinition[] = [
     id: "identifikasi-pasien",
     badge: "IMN",
     title: "KEPATUHAN IDENTIFIKASI PASIEN",
-    numeratorLabel: "JUMLAH PEMBERI PELAYANAN YG MELAKUKAN IDENTIFIKASI YG BENAR",
-    denominatorLabel: "JUMLAH PEMBERI PELAYANAN YG DIOBSERVASI DLM PERIODE OBSERVASI",
+    numeratorLabel:
+      "JUMLAH PEMBERI PELAYANAN YG MELAKUKAN IDENTIFIKASI YG BENAR",
+    denominatorLabel:
+      "JUMLAH PEMBERI PELAYANAN YG DIOBSERVASI DLM PERIODE OBSERVASI",
     resultLabel: "C/D x100%",
     exportFileSuffix: "imn-kepatuhan-identifikasi-pasien",
   },
@@ -190,9 +205,7 @@ function readStorage(): MutuStorage {
     return { roomName: "IDIK", reportsByMonth: {} };
   }
   const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return { roomName: "IDIK", reportsByMonth: {} };
-  }
+  if (!raw) return { roomName: "IDIK", reportsByMonth: {} };
   try {
     const parsed = JSON.parse(raw) as MutuStorage;
     return {
@@ -254,6 +267,71 @@ function hasFilledMutuRows(rows: readonly MutuRow[]): boolean {
   );
 }
 
+function MutuPatientPopover({
+  state,
+  onOpenChange,
+}: {
+  state: PatientPopoverState;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const virtualRef = useRef<{ getBoundingClientRect: () => DOMRect }>({
+    getBoundingClientRect: () => new DOMRect(0, 0, 0, 0),
+  });
+
+  if (state?.anchor) {
+    virtualRef.current = state.anchor;
+  }
+
+  return (
+    <Popover open={Boolean(state)} onOpenChange={onOpenChange}>
+      {state ? <PopoverAnchor virtualRef={virtualRef} /> : null}
+      <PopoverContent
+        className={cn(
+          "w-80 border-slate-200/90 bg-white p-2.5 text-[11px] text-slate-800 shadow-xl",
+          UI_LAYERS.dialogNestedPopover,
+        )}
+        sideOffset={8}
+      >
+        {state ? (
+          <>
+            <div className="mb-1.5 border-b border-slate-200 pb-1.5 font-bold text-[#1B2B44]">
+              {state.title}
+            </div>
+            <ul className="custom-scrollbar max-h-48 overflow-auto pr-1">
+              {state.patients.length > 0 ? (
+                state.patients.map((detail, idx) => (
+                  <li
+                    key={`${detail.no_rm}-${detail.nama}-${idx}`}
+                    className="border-b border-slate-100 py-1.5 last:border-0"
+                  >
+                    <div className="font-semibold text-[#2D4A6E]">
+                      {detail.nama}
+                      {detail.tindakan ? ` · ${detail.tindakan}` : ""}
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap gap-x-2 text-[10px] text-slate-600">
+                      <span>RM: {detail.no_rm}</span>
+                      <span className="font-bold text-slate-800">
+                        Dr: {detail.dokter}
+                      </span>
+                    </div>
+                    {detail.status ? (
+                      <div className="mt-0.5 text-[10px] font-semibold text-slate-500">
+                        Status: {detail.status}
+                      </div>
+                    ) : null}
+                  </li>
+                ))
+              ) : (
+                <li className="py-2 italic text-slate-400">Tidak ada pasien</li>
+              )}
+            </ul>
+          </>
+        ) : null}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export default function TindakanLaporanMutuModal({
   open,
   onOpenChange,
@@ -261,7 +339,6 @@ export default function TindakanLaporanMutuModal({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Baris tindakan (untuk auto-isi tab Penundaan Pasien Elektif). */
   rows?: readonly TindakanJoinResult[];
 }) {
   const [activeTab, setActiveTab] = useState<MutuReportId>("penundaan-elektif");
@@ -270,11 +347,12 @@ export default function TindakanLaporanMutuModal({
     roomName: "IDIK",
     reportsByMonth: {},
   }));
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [patientPopover, setPatientPopover] = useState<PatientPopoverState>(null);
   const loadedMonthRef = useRef<string | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextAutosaveRef = useRef(false);
@@ -288,7 +366,11 @@ export default function TindakanLaporanMutuModal({
     loadedMonthRef.current = null;
     setSaveError(null);
     setIsLoading(true);
-    const localState = ensureMonthState(readStorage(), monthYyyyMm, configuredDayCount);
+    const localState = ensureMonthState(
+      readStorage(),
+      monthYyyyMm,
+      configuredDayCount,
+    );
     setStorage(localState);
 
     void (async () => {
@@ -299,14 +381,16 @@ export default function TindakanLaporanMutuModal({
         );
         const json = await res.json();
         if (cancelled || !json?.ok) {
-          if (!cancelled && json?.message) {
-            setSaveError(String(json.message));
-          }
+          if (!cancelled && json?.message) setSaveError(String(json.message));
           return;
         }
         if (!json.data) return;
         setStorage((current) => {
-          const next = ensureMonthState(current, monthYyyyMm, Number(json.data.dayCount) || configuredDayCount);
+          const next = ensureMonthState(
+            current,
+            monthYyyyMm,
+            Number(json.data.dayCount) || configuredDayCount,
+          );
           skipNextAutosaveRef.current = true;
           return {
             ...next,
@@ -317,15 +401,18 @@ export default function TindakanLaporanMutuModal({
             },
             reportsByMonth: {
               ...next.reportsByMonth,
-              [monthYyyyMm]: json.data.reports ?? next.reportsByMonth[monthYyyyMm],
+              [monthYyyyMm]:
+                json.data.reports ?? next.reportsByMonth[monthYyyyMm],
             },
           };
         });
       } catch (error) {
         if (!cancelled) {
-          const message =
-            error instanceof Error ? error.message : "Gagal memuat laporan mutu.";
-          setSaveError(message);
+          setSaveError(
+            error instanceof Error
+              ? error.message
+              : "Gagal memuat laporan mutu.",
+          );
         }
       } finally {
         if (!cancelled) {
@@ -355,9 +442,7 @@ export default function TindakanLaporanMutuModal({
       return;
     }
 
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     setIsSaving(true);
     setSaveError(null);
 
@@ -376,13 +461,17 @@ export default function TindakanLaporanMutuModal({
           });
           const json = await res.json();
           if (!json?.ok) {
-            throw new Error(String(json?.message || "Gagal menyimpan laporan mutu."));
+            throw new Error(
+              String(json?.message || "Gagal menyimpan laporan mutu."),
+            );
           }
           setLastSaved(new Date());
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Gagal menyimpan laporan mutu.";
-          setSaveError(message);
+          setSaveError(
+            error instanceof Error
+              ? error.message
+              : "Gagal menyimpan laporan mutu.",
+          );
         } finally {
           setIsSaving(false);
         }
@@ -390,14 +479,18 @@ export default function TindakanLaporanMutuModal({
     }, 700);
 
     return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     };
   }, [storage, open, monthYyyyMm, configuredDayCount]);
 
+  useEffect(() => {
+    setPatientPopover(null);
+  }, [activeTab, monthYyyyMm, open]);
+
   const activeDefinition = useMemo(
-    () => REPORT_DEFINITIONS.find((item) => item.id === activeTab) ?? REPORT_DEFINITIONS[0],
+    () =>
+      REPORT_DEFINITIONS.find((item) => item.id === activeTab) ??
+      REPORT_DEFINITIONS[0],
     [activeTab],
   );
 
@@ -408,7 +501,7 @@ export default function TindakanLaporanMutuModal({
     [rows, monthYyyyMm],
   );
 
-  const activeRows = isPenundaanElektifTab
+  const activeRows: MutuRow[] = isPenundaanElektifTab
     ? penundaanElektifRows
     : storage.reportsByMonth[monthYyyyMm]?.[activeTab]?.rows ??
       createDefaultRows(configuredDayCount);
@@ -426,6 +519,7 @@ export default function TindakanLaporanMutuModal({
     () => !hasFilledMutuRows(activeRows),
     [activeRows],
   );
+
   const buildExportHtml = React.useCallback(
     () =>
       buildMutuReportHtml({
@@ -454,10 +548,18 @@ export default function TindakanLaporanMutuModal({
       rows: activeRows,
       filename: exportFileBase,
     });
-  }, [activeDefinition, activeRows, exportFileBase, monthYyyyMm, storage.roomName]);
+  }, [
+    activeDefinition,
+    activeRows,
+    exportFileBase,
+    monthYyyyMm,
+    storage.roomName,
+  ]);
 
   const updateStorage = (updater: (current: MutuStorage) => MutuStorage) => {
-    setStorage((current) => updater(ensureMonthState(current, monthYyyyMm, configuredDayCount)));
+    setStorage((current) =>
+      updater(ensureMonthState(current, monthYyyyMm, configuredDayCount)),
+    );
   };
 
   const handleCellChange = (
@@ -468,12 +570,18 @@ export default function TindakanLaporanMutuModal({
   ) => {
     updateStorage((current) => {
       const monthState = { ...(current.reportsByMonth[monthYyyyMm] ?? {}) };
-      const report = monthState[reportId] ?? { rows: createDefaultRows(configuredDayCount) };
-      const rows = [...report.rows];
-      const row = { ...(rows[rowIndex] ?? createDefaultRows(configuredDayCount)[rowIndex]) };
-      row[field] = field === "tanggal" ? value : value.replace(/[^\d.,-]/g, "");
-      rows[rowIndex] = row;
-      monthState[reportId] = { rows: normalizeRows(rows, configuredDayCount) };
+      const report =
+        monthState[reportId] ?? { rows: createDefaultRows(configuredDayCount) };
+      const nextRows = [...report.rows];
+      const row = {
+        ...(nextRows[rowIndex] ?? createDefaultRows(configuredDayCount)[rowIndex]),
+      };
+      row[field] =
+        field === "tanggal" ? value : value.replace(/[^\d.,-]/g, "");
+      nextRows[rowIndex] = row;
+      monthState[reportId] = {
+        rows: normalizeRows(nextRows, configuredDayCount),
+      };
       return {
         ...current,
         reportsByMonth: {
@@ -509,7 +617,10 @@ export default function TindakanLaporanMutuModal({
   };
 
   const handleResetTab = () => {
-    if (typeof window !== "undefined" && !window.confirm("Reset data tab MUTU aktif untuk bulan ini?")) {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm("Reset data tab MUTU aktif untuk bulan ini?")
+    ) {
       return;
     }
     updateStorage((current) => {
@@ -525,49 +636,45 @@ export default function TindakanLaporanMutuModal({
     });
   };
 
+  const openPatientPopover = (
+    title: string,
+    patients: MutuPatientTooltip[],
+    trigger: HTMLElement,
+  ) => {
+    setPatientPopover({ title, patients, anchor: trigger });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        overlayClassName={cn("bg-black/40 backdrop-blur-sm", UI_LAYERS.dialogOverlayTop)}
+        overlayClassName={cn("bg-[#2D3748]/45", UI_LAYERS.dialogOverlayTop)}
         className={cn(
-          "h-[88vh] max-h-[88vh] w-[min(100vw-1rem,98vw)] max-w-[min(98vw,96rem)] overflow-hidden p-0",
-          "border-slate-300/60 bg-white dark:border-white/10 dark:bg-zinc-950",
+          "flex h-[90vh] max-h-[90vh] w-[min(100vw-1rem,98vw)] max-w-[min(98vw,96rem)] flex-col overflow-hidden p-0",
+          "rounded-2xl border-slate-200/90 bg-slate-50/95 text-slate-800 shadow-[0_24px_56px_rgba(15,23,42,0.18)]",
           UI_LAYERS.dialogContentTop,
         )}
       >
-        <DialogPrimitive.Close
-          className={cn(
-            "absolute right-4 top-4 rounded-full p-2 transition-all duration-200",
-            "hover:bg-slate-100 active:scale-95 dark:hover:bg-white/5",
-            "text-slate-400 hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50",
-            UI_LAYERS.dialogNestedPopover,
-          )}
-        >
-          <X size={20} strokeWidth={2.5} />
-          <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
-
-        <div className="flex h-full min-h-0 flex-col p-4 text-slate-900 dark:text-white sm:p-6">
-          <div className="mb-3 flex shrink-0 flex-col gap-3 pr-10 lg:flex-row lg:items-start lg:justify-between">
+        {/* Navy header — selaras drawer detail tindakan */}
+        <div className="shrink-0 border-b border-white/10 bg-gradient-to-r from-[#1B2B44] to-[#2D4A6E] px-4 py-3 sm:px-5">
+          <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
             <DialogHeader className="space-y-1 text-left">
-              <DialogTitle className="flex items-center gap-2 text-left font-bold tracking-wide">
+              <DialogTitle className="flex items-center gap-2 text-left text-base font-bold tracking-wide text-white sm:text-lg">
                 <FileSpreadsheet
-                  className="shrink-0 text-emerald-600 dark:text-emerald-300"
-                  size={22}
+                  className="shrink-0 text-amber-100"
+                  size={20}
                   strokeWidth={2.25}
                   aria-hidden
                 />
                 Laporan MUTU
               </DialogTitle>
-              <p className="text-sm text-slate-600 dark:text-white/85">
-                Tabulasi indikator mutu bulanan dengan tabel yang bisa diedit per bulan.
+              <p className="text-[12px] font-medium text-slate-200">
+                Tabulasi indikator mutu bulanan · selaras drawer detail tindakan
               </p>
             </DialogHeader>
 
             <div className="flex flex-wrap items-end gap-2">
               <ReportExportActionBar
-                className="shrink-0"
+                className="shrink-0 [&_button]:border-white/25 [&_button]:bg-white/10 [&_button]:text-white [&_button:hover]:bg-white/20"
                 disabled={isLoading}
                 empty={exportEmpty}
                 fileNameBase={exportFileBase}
@@ -576,29 +683,24 @@ export default function TindakanLaporanMutuModal({
                 onDownloadExcel={handleDownloadExcel}
               />
               <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-900 dark:text-white/60">
-                  Bulan laporan
+                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                  Bulan
                 </span>
                 <input
                   type="month"
                   value={monthYyyyMm}
                   onChange={(event) => setMonthYyyyMm(event.target.value)}
-                  className={cn(
-                    "rounded-md border px-2 py-1 text-[13px] font-semibold font-mono",
-                    "border-emerald-300/80 bg-white text-slate-900 [color-scheme:light]",
-                    "dark:border-white/10 dark:bg-white/5 dark:text-white dark:[color-scheme:dark]",
-                  )}
+                  className="rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-[13px] font-semibold text-white [color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-white/30"
                 />
               </label>
-
               <button
                 type="button"
-                onClick={() => setSettingsOpen((value) => !value)}
+                onClick={() => setSettingsOpen((v) => !v)}
                 className={cn(
-                  "inline-flex h-9 items-center gap-2 rounded-md border px-3 text-xs font-extrabold transition",
+                  "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-extrabold transition",
                   settingsOpen
-                    ? "border-emerald-600 bg-emerald-600 text-white"
-                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10",
+                    ? "border-white/40 bg-white text-[#1B2B44]"
+                    : "border-white/25 bg-white/10 text-white hover:bg-white/20",
                 )}
               >
                 <Settings2 size={15} />
@@ -607,52 +709,77 @@ export default function TindakanLaporanMutuModal({
             </div>
           </div>
 
-          <div className="mb-3 flex shrink-0 flex-wrap items-center gap-2 text-xs">
-            <div className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white/85">
+          <DialogPrimitive.Close
+            className={cn(
+              "absolute right-3 top-3 rounded-lg border border-white/20 bg-white/10 p-1.5 text-slate-200 transition",
+              "hover:border-white/35 hover:bg-white/20 hover:text-white",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
+            )}
+          >
+            <X size={17} />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        </div>
+
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:p-4">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
+            <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 font-semibold text-slate-700 shadow-sm">
               {isLoading ? (
                 <>
-                  <Loader2 size={13} className="animate-spin" />
+                  <Loader2 size={13} className="animate-spin text-indigo-600" />
                   Memuat
                 </>
               ) : isSaving ? (
                 <>
-                  <Save size={13} />
+                  <Save size={13} className="text-[#2D4A6E]" />
                   Menyimpan
                 </>
               ) : (
                 <>
-                  <ShieldCheck size={13} className="text-emerald-600 dark:text-emerald-400" />
+                  <ShieldCheck size={13} className="text-indigo-700" />
                   Tersinkron Supabase
                 </>
               )}
             </div>
             {lastSaved ? (
-              <div className="text-slate-500 dark:text-white/60">
-                Tersimpan {new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit" }).format(lastSaved)}
+              <div className="text-slate-500">
+                Tersimpan{" "}
+                {new Intl.DateTimeFormat("id-ID", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }).format(lastSaved)}
               </div>
             ) : null}
             {saveError ? (
-              <div className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-300">
+              <div className="inline-flex items-center gap-1 font-semibold text-rose-700">
                 <AlertCircle size={13} />
                 {saveError}
               </div>
             ) : null}
           </div>
 
-          <div className="mb-3 flex shrink-0 flex-wrap gap-2 rounded-lg border border-emerald-200/80 bg-emerald-50/50 p-2 dark:border-white/10 dark:bg-white/5">
+          {/* Tab strip — gaya nav drawer */}
+          <div className="flex shrink-0 flex-wrap gap-1.5 rounded-xl border border-slate-300 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] p-2">
             {REPORT_DEFINITIONS.map((definition) => (
               <button
                 key={definition.id}
                 type="button"
                 onClick={() => setActiveTab(definition.id)}
                 className={cn(
-                  "rounded-md px-3 py-2 text-left text-[11px] font-extrabold transition",
+                  "rounded-lg border px-3 py-2 text-left text-[11px] font-extrabold transition",
                   activeTab === definition.id
-                    ? "bg-emerald-600 text-white dark:bg-emerald-600/80"
-                    : "text-slate-700 hover:bg-emerald-100 dark:text-white/80 dark:hover:bg-white/10",
+                    ? "border-slate-300 bg-white text-slate-900 shadow-sm"
+                    : "border-transparent text-slate-600 hover:bg-[#DDE6F2]",
                 )}
               >
-                <div className="text-[9px] uppercase tracking-wider opacity-75">
+                <div
+                  className={cn(
+                    "text-[9px] uppercase tracking-wider",
+                    activeTab === definition.id
+                      ? "text-indigo-700"
+                      : "text-slate-500",
+                  )}
+                >
                   {definition.badge}
                 </div>
                 <div>{definition.title}</div>
@@ -660,43 +787,52 @@ export default function TindakanLaporanMutuModal({
             ))}
           </div>
 
-          <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-            <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200/80 dark:border-white/10">
-              <div className="shrink-0 border-b border-slate-200/80 bg-white px-4 py-4 dark:border-white/10 dark:bg-zinc-950">
-                <div className="text-center">
-                  <h2 className="text-lg font-black tracking-wide">
-                    {activeDefinition.badge}. {activeDefinition.title}
-                  </h2>
-                </div>
-                <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-                  <div className="font-semibold">BULAN : {formatMonthLabel(monthYyyyMm)}</div>
-                  <div className="font-semibold md:text-right">RUANGAN : {storage.roomName || "IDIK"}</div>
+          <div
+            className={cn(
+              "grid min-h-0 flex-1 gap-3 overflow-hidden",
+              settingsOpen
+                ? "lg:grid-cols-[minmax(0,1fr)_17.5rem]"
+                : "grid-cols-1",
+            )}
+          >
+            {/* Panel konten */}
+            <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-100 via-[#E6E9EF] to-slate-200 shadow-sm">
+              <div className="shrink-0 border-b border-slate-200/80 bg-white/95 px-4 py-3">
+                <h2 className="text-center text-base font-black tracking-wide text-[#1B2B44] sm:text-lg">
+                  {activeDefinition.badge}. {activeDefinition.title}
+                </h2>
+                <div className="mt-2 grid grid-cols-1 gap-1 text-sm font-semibold text-slate-700 md:grid-cols-2">
+                  <div>BULAN : {formatMonthLabel(monthYyyyMm)}</div>
+                  <div className="md:text-right">
+                    RUANGAN : {storage.roomName || "IDIK"}
+                  </div>
                 </div>
                 {isPenundaanElektifTab ? (
-                  <p className="mt-3 text-center text-[11px] font-semibold text-slate-600 dark:text-white/85">
-                    Otomatis dari tabel tindakan: Tanggal = tanggal kasus · Tertunda = Status Dibatalkan (1) /
-                    Selesai (0) · Pasien elektif = jumlah pasien per tanggal.
+                  <p className="mt-2 text-center text-[11px] font-medium text-slate-600">
+                    Otomatis dari tabel tindakan · klik angka untuk melihat daftar
+                    pasien
                   </p>
                 ) : null}
               </div>
 
-              <div className="min-h-0 overflow-auto bg-white dark:bg-zinc-950">
+              {/* Scroll area — min-h-0 agar tubuh tabel bisa digulir sampai bawah */}
+              <div className="custom-scrollbar min-h-0 flex-1 overflow-auto bg-white/95">
                 <table className="w-full min-w-[860px] border-collapse text-[11px]">
-                  <thead className="sticky top-0 z-[2] bg-slate-50 dark:bg-zinc-900">
-                    <tr>
-                      <th className="border border-slate-300/80 px-2 py-2 text-center font-black dark:border-white/10">
+                  <thead className="sticky top-0 z-[2]">
+                    <tr className="bg-[#E6ECF5]">
+                      <th className="border border-slate-300/80 px-2 py-2.5 text-center font-black text-[#1B2B44]">
                         NO
                       </th>
-                      <th className="border border-slate-300/80 px-2 py-2 text-center font-black dark:border-white/10">
+                      <th className="border border-slate-300/80 px-2 py-2.5 text-center font-black text-[#1B2B44]">
                         TANGGAL
                       </th>
-                      <th className="border border-slate-300/80 px-2 py-2 text-center font-black dark:border-white/10">
+                      <th className="border border-slate-300/80 px-2 py-2.5 text-center font-black text-[#1B2B44]">
                         {activeDefinition.numeratorLabel}
                       </th>
-                      <th className="border border-slate-300/80 px-2 py-2 text-center font-black dark:border-white/10">
+                      <th className="border border-slate-300/80 px-2 py-2.5 text-center font-black text-[#1B2B44]">
                         {activeDefinition.denominatorLabel}
                       </th>
-                      <th className="border border-slate-300/80 px-2 py-2 text-center font-black dark:border-white/10">
+                      <th className="border border-slate-300/80 px-2 py-2.5 text-center font-black text-[#1B2B44]">
                         {activeDefinition.resultLabel}
                       </th>
                     </tr>
@@ -704,80 +840,141 @@ export default function TindakanLaporanMutuModal({
                   <tbody>
                     {activeRows.map((row, rowIndex) => {
                       const denominator = parsePositiveNumber(row.denominator);
-                      const percentLabel = formatPercent(row.numerator, row.denominator);
+                      const percentLabel = formatPercent(
+                        row.numerator,
+                        row.denominator,
+                      );
                       const overTarget =
                         activeDefinition.id === "penundaan-elektif" &&
                         denominator != null &&
                         denominator > 0 &&
                         parsePositiveNumber(row.numerator) != null &&
-                        ((parsePositiveNumber(row.numerator) ?? 0) / denominator) * 100 > 5;
+                        ((parsePositiveNumber(row.numerator) ?? 0) /
+                          denominator) *
+                          100 >
+                          5;
+                      const penundaanRow = isPenundaanElektifTab
+                        ? (penundaanElektifRows[rowIndex] as
+                            | MutuPenundaanElektifRow
+                            | undefined)
+                        : undefined;
+                      const numeratorCount =
+                        parsePositiveNumber(row.numerator) ?? 0;
+                      const denominatorCount =
+                        parsePositiveNumber(row.denominator) ?? 0;
+
                       return (
-                        <tr key={`${activeDefinition.id}-${monthYyyyMm}-${rowIndex}`}>
-                          <td className="border border-slate-300/80 px-2 py-1.5 text-center font-bold text-red-600 dark:border-white/10 dark:text-red-300">
+                        <tr
+                          key={`${activeDefinition.id}-${monthYyyyMm}-${rowIndex}`}
+                          className="odd:bg-white even:bg-slate-50/80 hover:bg-[#EEF3FA]"
+                        >
+                          <td className="border border-slate-300/80 px-2 py-1.5 text-center font-bold text-rose-700">
                             {rowIndex + 1}.
                           </td>
-                          <td className="border border-slate-300/80 px-2 py-1 dark:border-white/10">
+                          <td className="border border-slate-300/80 px-2 py-1">
                             {isPenundaanElektifTab ? (
-                              <div className="px-2 py-1 text-center font-semibold text-slate-900 dark:text-white">
+                              <div className="px-2 py-1 text-center font-semibold text-slate-800">
                                 {row.tanggal}
                               </div>
                             ) : (
                               <input
                                 value={row.tanggal}
                                 onChange={(event) =>
-                                  handleCellChange(activeDefinition.id, rowIndex, "tanggal", event.target.value)
+                                  handleCellChange(
+                                    activeDefinition.id,
+                                    rowIndex,
+                                    "tanggal",
+                                    event.target.value,
+                                  )
                                 }
-                                className={cn(
-                                  "w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold",
-                                  "text-slate-900 focus:border-emerald-500 focus:bg-emerald-50 focus:outline-none dark:text-white dark:focus:bg-white/10",
-                                )}
+                                className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold text-slate-800 focus:border-indigo-400 focus:bg-white focus:outline-none"
                               />
                             )}
                           </td>
-                          <td className="border border-slate-300/80 px-2 py-1 dark:border-white/10">
+                          <td className="border border-slate-300/80 px-2 py-1">
                             {isPenundaanElektifTab ? (
-                              <div className="px-2 py-1 text-center font-semibold text-slate-900 dark:text-white">
-                                {row.numerator || "0"}
-                              </div>
+                              numeratorCount > 0 ? (
+                                <button
+                                  type="button"
+                                  title="Lihat pasien tertunda"
+                                  className="w-full rounded-md px-2 py-1 text-center font-bold text-indigo-800 underline-offset-2 hover:bg-indigo-50 hover:underline"
+                                  onClick={(event) =>
+                                    openPatientPopover(
+                                      `Tertunda · Tgl ${row.tanggal}`,
+                                      penundaanRow?.patientsTertunda ?? [],
+                                      event.currentTarget,
+                                    )
+                                  }
+                                >
+                                  {row.numerator || "0"}
+                                </button>
+                              ) : (
+                                <div className="px-2 py-1 text-center font-semibold text-slate-500">
+                                  0
+                                </div>
+                              )
                             ) : (
                               <input
                                 inputMode="numeric"
                                 value={row.numerator}
                                 onChange={(event) =>
-                                  handleCellChange(activeDefinition.id, rowIndex, "numerator", event.target.value)
+                                  handleCellChange(
+                                    activeDefinition.id,
+                                    rowIndex,
+                                    "numerator",
+                                    event.target.value,
+                                  )
                                 }
-                                className={cn(
-                                  "w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold",
-                                  "text-slate-900 focus:border-emerald-500 focus:bg-emerald-50 focus:outline-none dark:text-white dark:focus:bg-white/10",
-                                )}
+                                className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold text-slate-800 focus:border-indigo-400 focus:bg-white focus:outline-none"
                                 placeholder="0"
                               />
                             )}
                           </td>
-                          <td className="border border-slate-300/80 px-2 py-1 dark:border-white/10">
+                          <td className="border border-slate-300/80 px-2 py-1">
                             {isPenundaanElektifTab ? (
-                              <div className="px-2 py-1 text-center font-semibold text-slate-900 dark:text-white">
-                                {row.denominator || "0"}
-                              </div>
+                              denominatorCount > 0 ? (
+                                <button
+                                  type="button"
+                                  title="Lihat pasien elektif"
+                                  className="w-full rounded-md px-2 py-1 text-center font-bold text-[#1B2B44] underline-offset-2 hover:bg-slate-100 hover:underline"
+                                  onClick={(event) =>
+                                    openPatientPopover(
+                                      `Pasien elektif · Tgl ${row.tanggal}`,
+                                      penundaanRow?.patientsElektif ?? [],
+                                      event.currentTarget,
+                                    )
+                                  }
+                                >
+                                  {row.denominator || "0"}
+                                </button>
+                              ) : (
+                                <div className="px-2 py-1 text-center font-semibold text-slate-500">
+                                  0
+                                </div>
+                              )
                             ) : (
                               <input
                                 inputMode="numeric"
                                 value={row.denominator}
                                 onChange={(event) =>
-                                  handleCellChange(activeDefinition.id, rowIndex, "denominator", event.target.value)
+                                  handleCellChange(
+                                    activeDefinition.id,
+                                    rowIndex,
+                                    "denominator",
+                                    event.target.value,
+                                  )
                                 }
-                                className={cn(
-                                  "w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold",
-                                  "text-slate-900 focus:border-emerald-500 focus:bg-emerald-50 focus:outline-none dark:text-white dark:focus:bg-white/10",
-                                )}
+                                className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold text-slate-800 focus:border-indigo-400 focus:bg-white focus:outline-none"
                                 placeholder="0"
                               />
                             )}
                           </td>
                           <td
                             className={cn(
-                              "border border-slate-300/80 px-2 py-1 text-center font-extrabold dark:border-white/10",
-                              overTarget ? "text-red-600 dark:text-red-300" : "text-slate-900 dark:text-white",
+                              "border border-slate-300/80 px-2 py-1 text-center font-extrabold",
+                              overTarget
+                                ? "text-rose-700"
+                                : "text-slate-800",
                             )}
                           >
                             {percentLabel}
@@ -790,103 +987,107 @@ export default function TindakanLaporanMutuModal({
               </div>
             </div>
 
-            <aside
-              className={cn(
-                "flex min-h-0 flex-col gap-3 rounded-xl border border-slate-200/80 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/5",
-                !settingsOpen && "lg:hidden",
-              )}
-            >
-              <div className="rounded-lg border border-emerald-200/80 bg-white p-3 dark:border-white/10 dark:bg-zinc-950">
-                <div className="mb-2 flex items-center gap-2 text-sm font-black">
-                  <ShieldCheck size={16} className="text-emerald-600 dark:text-emerald-400" />
-                  Ringkasan tab aktif
-                </div>
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="dark:text-white/85">{activeDefinition.resultLabel}</span>
-                    <span className="font-black dark:text-white">{summaryPercent}</span>
+            {settingsOpen ? (
+              <aside className="flex min-h-0 flex-col gap-3 overflow-auto rounded-2xl border border-slate-300 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] p-3">
+                <div className="rounded-xl border border-slate-200/80 bg-white/95 p-3 shadow-sm">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-black text-[#1B2B44]">
+                    <ShieldCheck size={16} className="text-indigo-700" />
+                    Ringkasan tab aktif
                   </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="dark:text-white/85">Total pembilang</span>
-                    <span className="font-black dark:text-white">{summary.numerator}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="dark:text-white/85">Total penyebut</span>
-                    <span className="font-black dark:text-white">{summary.denominator}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="dark:text-white/85">Baris terisi</span>
-                    <span className="font-black dark:text-white">{summary.filledRows}</span>
-                  </div>
-                  {activeDefinition.targetLabel ? (
-                    <div className="rounded-md bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-                      {activeDefinition.targetLabel}
+                  <div className="space-y-2 text-xs text-slate-700">
+                    <div className="flex items-center justify-between gap-2">
+                      <span>{activeDefinition.resultLabel}</span>
+                      <span className="font-black text-[#1B2B44]">
+                        {summaryPercent}
+                      </span>
                     </div>
-                  ) : null}
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Total pembilang</span>
+                      <span className="font-black">{summary.numerator}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Total penyebut</span>
+                      <span className="font-black">{summary.denominator}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span>Baris terisi</span>
+                      <span className="font-black">{summary.filledRows}</span>
+                    </div>
+                    {activeDefinition.targetLabel ? (
+                      <div className="rounded-md bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-900">
+                        {activeDefinition.targetLabel}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
 
-              <div className="rounded-lg border border-slate-200/80 bg-white p-3 dark:border-white/10 dark:bg-zinc-950">
-                <div className="mb-3 text-sm font-black">Pengaturan</div>
-                <div className="space-y-3">
-                  <label className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-white/60">
-                      Ruangan
-                    </span>
-                    <input
-                      value={storage.roomName}
-                      onChange={(event) =>
-                        setStorage((current) => ({
-                          ...current,
-                          roomName: event.target.value,
-                        }))
-                      }
+                <div className="rounded-xl border border-slate-200/80 bg-white/95 p-3 shadow-sm">
+                  <div className="mb-3 text-sm font-black text-[#1B2B44]">
+                    Pengaturan
+                  </div>
+                  <div className="space-y-3">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                        Ruangan
+                      </span>
+                      <input
+                        value={storage.roomName}
+                        onChange={(event) =>
+                          setStorage((current) => ({
+                            ...current,
+                            roomName: event.target.value,
+                          }))
+                        }
+                        className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                        placeholder="IDIK"
+                      />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                        Jumlah baris hari bulan ini
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={configuredDayCount}
+                        disabled={isPenundaanElektifTab}
+                        onChange={(event) =>
+                          handleDayCountChange(Number(event.target.value))
+                        }
+                        className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={handleResetTab}
+                      disabled={isPenundaanElektifTab}
                       className={cn(
-                        "rounded-md border px-2 py-1.5 text-sm font-semibold",
-                        "border-slate-300 bg-white text-slate-900",
-                        "dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-white/90",
+                        "inline-flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-extrabold transition",
+                        "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
+                        "disabled:cursor-not-allowed disabled:opacity-45",
                       )}
-                      placeholder="IDIK"
-                    />
-                  </label>
-
-                  <label className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-white/60">
-                      Jumlah baris hari bulan ini
-                    </span>
-                    <input
-                      type="number"
-                      min={1}
-                      max={31}
-                      value={configuredDayCount}
-                      onChange={(event) => handleDayCountChange(Number(event.target.value))}
-                      className={cn(
-                        "rounded-md border px-2 py-1.5 text-sm font-semibold",
-                        "border-slate-300 bg-white text-slate-900",
-                        "dark:border-white/10 dark:bg-white/5 dark:text-white",
-                      )}
-                    />
-                  </label>
-
-                  <button
-                    type="button"
-                    onClick={handleResetTab}
-                    disabled={isPenundaanElektifTab}
-                    className={cn(
-                      "inline-flex w-full items-center justify-center gap-2 rounded-md border px-3 py-2 text-xs font-extrabold transition",
-                      "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100",
-                      "dark:border-rose-400/30 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-950/60",
-                      "disabled:cursor-not-allowed disabled:opacity-45",
-                    )}
-                  >
-                    <RotateCcw size={14} />
-                    {isPenundaanElektifTab ? "Tab otomatis dari tindakan" : "Reset tab aktif"}
-                  </button>
+                    >
+                      <RotateCcw size={14} />
+                      {isPenundaanElektifTab
+                        ? "Tab otomatis dari tindakan"
+                        : "Reset tab aktif"}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </aside>
+              </aside>
+            ) : null}
           </div>
         </div>
+
+        <MutuPatientPopover
+          state={patientPopover}
+          onOpenChange={(next) => {
+            if (!next) setPatientPopover(null);
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

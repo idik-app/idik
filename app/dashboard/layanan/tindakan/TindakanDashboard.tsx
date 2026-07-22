@@ -259,81 +259,93 @@ export default function TindakanDashboard() {
         </section>
       </main>
 
-      <TindakanDetailDrawer
-        open={drawerOpen}
-        initialTab={adapter.detailInitialTab as any}
-        record={
-          (adapter.selectedRecord as TindakanJoinResult | null) ??
-          (filteredSummary?.allRows?.find(
-            (r) => String(r.id) === String(adapter.detailOpenId),
-          ) as TindakanJoinResult | null) ??
-          null
-        }
-        allTindakanRows={
-          Array.isArray(adapter.tindakanList)
-            ? (adapter.tindakanList as TindakanJoinResult[])
-            : []
-        }
-        onClose={() => {
-          adapter.closeDetailDrawer();
-          void adapter.refresh();
-        }}
-        onRecordPatch={adapter.syncListAfterAutosave}
-        patchTindakanFields={adapter.saveEditor}
-      />
+      {drawerOpen ? (
+        <TindakanDetailDrawer
+          open={drawerOpen}
+          initialTab={adapter.detailInitialTab as any}
+          record={
+            (adapter.selectedRecord as TindakanJoinResult | null) ??
+            (filteredSummary?.allRows?.find(
+              (r) => String(r.id) === String(adapter.detailOpenId),
+            ) as TindakanJoinResult | null) ??
+            null
+          }
+          allTindakanRows={
+            Array.isArray(adapter.tindakanList)
+              ? (adapter.tindakanList as TindakanJoinResult[])
+              : []
+          }
+          onClose={() => {
+            adapter.closeDetailDrawer();
+            void adapter.refresh();
+          }}
+          onRecordPatch={adapter.syncListAfterAutosave}
+          patchTindakanFields={adapter.saveEditor}
+        />
+      ) : null}
 
-      <TindakanHariIniModal
-        open={todayModalOpen}
-        onOpenChange={setTodayModalOpen}
-        rows={
-          (filteredSummary?.allRows as TindakanJoinResult[]) ??
-          (Array.isArray(adapter.tindakanList)
-            ? (adapter.tindakanList as TindakanJoinResult[])
-            : [])
-        }
-        loading={Boolean(adapter.loading)}
-        themeTone={themeTone}
-        onRecordPatch={adapter.syncListAfterAutosave}
-      />
+      {todayModalOpen ? (
+        <TindakanHariIniModal
+          open={todayModalOpen}
+          onOpenChange={setTodayModalOpen}
+          rows={
+            (filteredSummary?.allRows as TindakanJoinResult[]) ??
+            (Array.isArray(adapter.tindakanList)
+              ? (adapter.tindakanList as TindakanJoinResult[])
+              : [])
+          }
+          loading={Boolean(adapter.loading)}
+          themeTone={themeTone}
+          onRecordPatch={adapter.syncListAfterAutosave}
+        />
+      ) : null}
 
-      <FastTrackListModal
-        open={fastTrackModalOpen}
-        onOpenChange={setFastTrackModalOpen}
-        rows={
-          (filteredSummary?.allRows as TindakanJoinResult[]) ??
-          (Array.isArray(adapter.tindakanList)
-            ? (adapter.tindakanList as TindakanJoinResult[])
-            : [])
-        }
-        loading={Boolean(adapter.loading)}
-        doctorOptionsMaster={[]} // Will be loaded inside if needed or pass from context
-        onRecordPatch={adapter.syncListAfterAutosave}
-      />
+      {fastTrackModalOpen ? (
+        <FastTrackListModal
+          open={fastTrackModalOpen}
+          onOpenChange={setFastTrackModalOpen}
+          rows={
+            (filteredSummary?.allRows as TindakanJoinResult[]) ??
+            (Array.isArray(adapter.tindakanList)
+              ? (adapter.tindakanList as TindakanJoinResult[])
+              : [])
+          }
+          loading={Boolean(adapter.loading)}
+          doctorOptionsMaster={[]} // Will be loaded inside if needed or pass from context
+          onRecordPatch={adapter.syncListAfterAutosave}
+        />
+      ) : null}
 
-      <TindakanWeeklyPpciModal
-        open={weeklyPpciModalOpen}
-        onOpenChange={setWeeklyPpciModalOpen}
-        rows={
-          (filteredSummary?.allRows as TindakanJoinResult[]) ??
-          (Array.isArray(adapter.tindakanList)
-            ? (adapter.tindakanList as TindakanJoinResult[])
-            : [])
-        }
-        loading={Boolean(adapter.loading)}
-        onRecordPatch={adapter.syncListAfterAutosave}
-      />
+      {weeklyPpciModalOpen ? (
+        <TindakanWeeklyPpciModal
+          open={weeklyPpciModalOpen}
+          onOpenChange={setWeeklyPpciModalOpen}
+          rows={
+            (filteredSummary?.allRows as TindakanJoinResult[]) ??
+            (Array.isArray(adapter.tindakanList)
+              ? (adapter.tindakanList as TindakanJoinResult[])
+              : [])
+          }
+          loading={Boolean(adapter.loading)}
+          onRecordPatch={adapter.syncListAfterAutosave}
+        />
+      ) : null}
 
-      <TindakanDashboardModal
-        open={phoneDirectoryOpen}
-        onOpenChange={setPhoneDirectoryOpen}
-        themeTone={themeTone}
-      />
+      {phoneDirectoryOpen ? (
+        <TindakanDashboardModal
+          open={phoneDirectoryOpen}
+          onOpenChange={setPhoneDirectoryOpen}
+          themeTone={themeTone}
+        />
+      ) : null}
 
-      <TindakanRoleAccessModal
-        open={roleAccessOpen}
-        target={roleAccessTarget}
-        onOpenChange={setRoleAccessOpen}
-      />
+      {roleAccessOpen ? (
+        <TindakanRoleAccessModal
+          open={roleAccessOpen}
+          target={roleAccessTarget}
+          onOpenChange={setRoleAccessOpen}
+        />
+      ) : null}
     </div>
     </PhoneDirectoryProvider>
   );

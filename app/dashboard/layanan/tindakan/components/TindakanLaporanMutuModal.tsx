@@ -347,7 +347,10 @@ export default function TindakanLaporanMutuModal({
     roomName: "IDIK",
     reportsByMonth: {},
   }));
-  const [settingsOpen, setSettingsOpen] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(min-width: 1024px)").matches;
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -1082,12 +1085,14 @@ export default function TindakanLaporanMutuModal({
           </div>
         </div>
 
-        <MutuPatientPopover
-          state={patientPopover}
-          onOpenChange={(next) => {
-            if (!next) setPatientPopover(null);
-          }}
-        />
+        {patientPopover ? (
+          <MutuPatientPopover
+            state={patientPopover}
+            onOpenChange={(next) => {
+              if (!next) setPatientPopover(null);
+            }}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );

@@ -20,6 +20,7 @@ import {
   Filter,
   Phone,
   ShieldCheck,
+  RefreshCw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -116,9 +117,9 @@ function TableToolbar({
   const [isPciOnly, setIsPciOnly] = useState(false);
   const [status, setStatus] = useState("");
   const [searchValue, setSearchValue] = useState("");
-  const [, setCountdown] = useState(POLL_INTERVAL_SEC);
   const [isPageVisible, setIsPageVisible] = useState(true);
   const [isUserTyping, setIsUserTyping] = useState(false);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [addPasienOpen, setAddPasienOpen] = useState(false);
   const [tarifOpen, setTarifOpen] = useState(false);
   const [diagnosaOpen, setDiagnosaOpen] = useState(false);
@@ -136,6 +137,9 @@ function TableToolbar({
   const laporanMenuPortalRef = useRef<HTMLDivElement | null>(null);
 
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPageVisibleRef = useRef(true);
+  const isUserTypingRef = useRef(false);
+  const onRefreshRef = useRef(onRefresh);
 
   const hasLaporanLab = typeof onOpenTindakanTerbanyakLab === "function";
   const hasLaporanMatriks = typeof onOpenLaporan === "function";
@@ -147,7 +151,8 @@ function TableToolbar({
     hasLaporanLab ||
     hasLaporanMatriks ||
     hasLaporanDiagnosaKlinis ||
-    hasLaporanPemakaian;
+    hasLaporanPemakaian ||
+    hasLaporanMutu;
 
   useEffect(() => setLaporanMenuMounted(true), []);
 
@@ -209,6 +214,32 @@ function TableToolbar({
   };
 
   const isAnySyncing = isSyncing || isSyncingMasterPasien;
+  const isRefreshBusy = isManualRefreshing || isAnySyncing;
+
+  /** Muat ulang data tabel (SWR) tanpa reload halaman. */
+  const handleRefreshTable = async () => {
+    if (typeof onRefresh !== "function" || isManualRefreshing) return;
+    setIsManualRefreshing(true);
+    try {
+      await Promise.resolve(onRefresh());
+    } catch (err) {
+      console.error("[TableToolbar] Manual refresh error:", err);
+    } finally {
+      setIsManualRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    isPageVisibleRef.current = isPageVisible;
+  }, [isPageVisible]);
+
+  useEffect(() => {
+    isUserTypingRef.current = isUserTyping;
+  }, [isUserTyping]);
+
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  }, [onRefresh]);
 
   /** Tab terlihat — jangan polling saat background (hemat request & fokus UX). */
   useEffect(() => {
@@ -218,31 +249,22 @@ function TableToolbar({
     return () => document.removeEventListener("visibilitychange", sync);
   }, []);
 
-  /** ⏱ Polling ringan: hanya saat tab fokus, jeda saat user mengetik di cari. */
+  /**
+   * Auto-refresh berkala tanpa setState tiap detik (hindari re-render toolbar penuh).
+   * Hanya jalan saat tab fokus dan user tidak sedang mengetik di pencarian.
+   */
   useEffect(() => {
     const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (!isPageVisible) return prev;
-        if (isUserTyping) return prev;
-        if (prev <= 1) {
-          queueMicrotask(() => {
-            Promise.resolve(
-              typeof onRefresh === "function" ? onRefresh() : undefined,
-            )
-              .catch((err) => {
-                console.error("[TableToolbar] Refresh error:", err);
-              })
-              .finally(() => {
-                setCountdown(POLL_INTERVAL_SEC);
-              });
-          });
-          return POLL_INTERVAL_SEC;
-        }
-        return prev - 1;
+      if (!isPageVisibleRef.current) return;
+      if (isUserTypingRef.current) return;
+      const refresh = onRefreshRef.current;
+      if (typeof refresh !== "function") return;
+      void Promise.resolve(refresh()).catch((err) => {
+        console.error("[TableToolbar] Refresh error:", err);
       });
-    }, 1000);
+    }, POLL_INTERVAL_SEC * 1000);
     return () => clearInterval(interval);
-  }, [isPageVisible, isUserTyping, onRefresh]);
+  }, []);
 
   /** ⏸ Pause auto-refresh ketika mengetik */
   const handleUserTyping = (val: string) => {
@@ -306,13 +328,13 @@ function TableToolbar({
       )}
     >
       <AnimatePresence initial={false}>
-        {(!isCollapsed || typeof window === "undefined") && (
+        {!isCollapsed && (
           <motion.div
-            initial={isCollapsed ? { height: 0, opacity: 0 } : false}
+            initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className={cn(isCollapsed ? "overflow-hidden" : "overflow-visible")}
+            className="overflow-hidden"
           >
             <div className="flex flex-col gap-0.5 px-1 py-0.5 sm:px-1.5 sm:py-1">
               <div
@@ -1191,6 +1213,38 @@ function TableToolbar({
                   </button>
                 </div>
 
+                {/* Refresh tabel tanpa reload halaman */}
+                {typeof onRefresh === "function" ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleRefreshTable();
+                    }}
+                    disabled={isRefreshBusy}
+                    aria-busy={isRefreshBusy}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all",
+                      "border border-cyan-600/50 bg-cyan-600 text-white shadow-sm",
+                      "hover:bg-cyan-500 hover:brightness-105 active:scale-[0.98]",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
+                      "disabled:cursor-wait disabled:opacity-70",
+                      "dark:border-cyan-400/40 dark:bg-cyan-700 dark:hover:bg-cyan-600",
+                    )}
+                    title="Segarkan data tabel (tanpa reload halaman)"
+                  >
+                    <RefreshCw
+                      size={13}
+                      strokeWidth={2.75}
+                      className={cn(
+                        "shrink-0",
+                        isRefreshBusy && "animate-spin",
+                      )}
+                      aria-hidden
+                    />
+                    <span>{isManualRefreshing ? "Refresh…" : "Refresh"}</span>
+                  </button>
+                ) : null}
+
                 {/* 🔄 Reset All Filters */}
                 {(searchValue ||
                   dokter ||
@@ -1231,30 +1285,42 @@ function TableToolbar({
         )}
       </AnimatePresence>
 
-      <TambahPasienQuickModal
-        open={addPasienOpen}
-        onClose={() => setAddPasienOpen(false)}
-        onSaved={handleSavedPasien}
-      />
+      {addPasienOpen ? (
+        <TambahPasienQuickModal
+          open={addPasienOpen}
+          onClose={() => setAddPasienOpen(false)}
+          onSaved={handleSavedPasien}
+        />
+      ) : null}
 
-      <TarifModal open={tarifOpen} onClose={() => setTarifOpen(false)} />
+      {tarifOpen ? (
+        <TarifModal open={tarifOpen} onClose={() => setTarifOpen(false)} />
+      ) : null}
 
-      <DiagnosaModal
-        open={diagnosaOpen}
-        onClose={() => setDiagnosaOpen(false)}
-      />
+      {diagnosaOpen ? (
+        <DiagnosaModal
+          open={diagnosaOpen}
+          onClose={() => setDiagnosaOpen(false)}
+        />
+      ) : null}
 
-      <SeverityLevelModal
-        open={severityLevelOpen}
-        onClose={() => setSeverityLevelOpen(false)}
-      />
+      {severityLevelOpen ? (
+        <SeverityLevelModal
+          open={severityLevelOpen}
+          onClose={() => setSeverityLevelOpen(false)}
+        />
+      ) : null}
 
-      <IndenanModal open={indenanOpen} onClose={() => setIndenanOpen(false)} />
+      {indenanOpen ? (
+        <IndenanModal open={indenanOpen} onClose={() => setIndenanOpen(false)} />
+      ) : null}
 
-      <JadwalCathModal
-        open={jadwalCathOpen}
-        onClose={() => setJadwalCathOpen(false)}
-      />
+      {jadwalCathOpen ? (
+        <JadwalCathModal
+          open={jadwalCathOpen}
+          onClose={() => setJadwalCathOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

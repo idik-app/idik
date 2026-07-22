@@ -67,33 +67,23 @@ import TablePagination from "../components/TablePagination";
 import type { TindakanLaporanTab } from "../hooks/useTindakanLaporanReport";
 
 const FastTrackListModal = dynamic(
-  () => import(/* webpackPrefetch: true */ "../components/FastTrackListModal"),
+  () => import("../components/FastTrackListModal"),
   { ssr: false, loading: () => null },
 );
 const TindakanTerbanyakLabModal = dynamic(
-  () =>
-    import(
-      /* webpackPrefetch: true */ "../components/TindakanTerbanyakLabModal"
-    ),
+  () => import("../components/TindakanTerbanyakLabModal"),
   { ssr: false, loading: () => null },
 );
 const TindakanLaporanModal = dynamic(
-  () =>
-    import(/* webpackPrefetch: true */ "../components/TindakanLaporanModal"),
+  () => import("../components/TindakanLaporanModal"),
   { ssr: false, loading: () => null },
 );
 const TindakanLaporanPemakaianModal = dynamic(
-  () =>
-    import(
-      /* webpackPrefetch: true */ "../components/TindakanLaporanPemakaianModal"
-    ),
+  () => import("../components/TindakanLaporanPemakaianModal"),
   { ssr: false, loading: () => null },
 );
 const TindakanLaporanMutuModal = dynamic(
-  () =>
-    import(
-      /* webpackPrefetch: true */ "../components/TindakanLaporanMutuModal"
-    ),
+  () => import("../components/TindakanLaporanMutuModal"),
   { ssr: false, loading: () => null },
 );
 const IntensiveDashboardView = dynamic(
@@ -3847,14 +3837,12 @@ export default function TindakanTable({
                                   </div>
                                 )}
 
-                                {/* CONSOLIDATED NAVIGATION ARC — Right Side */}
+                                {/* CONSOLIDATED NAVIGATION ARC — Right Side (mount only when open) */}
+                                {arcOpen ? (
                                 <div
                                   className={cn(
                                     "absolute top-1/2 right-[-10px] z-20 h-0 w-0 -translate-y-1/2 overflow-visible",
-                                    "transition-opacity duration-150 ease-out",
-                                    arcOpen
-                                      ? "pointer-events-auto opacity-100"
-                                      : "pointer-events-none opacity-0",
+                                    "pointer-events-auto opacity-100",
                                   )}
                                 >
                                   {[
@@ -3950,16 +3938,11 @@ export default function TindakanTable({
                                         key={item.id}
                                         style={{
                                           transform: `rotate(${angle}deg) translate(${RADIUS_PX}px) rotate(${-angle}deg)`,
-                                          transitionDelay: arcOpen
-                                            ? `${idx * 18}ms`
-                                            : "0ms",
+                                          transitionDelay: `${idx * 18}ms`,
                                         }}
                                         className={cn(
                                           "absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-1/2",
-                                          "transition-transform transition-opacity duration-150 ease-out",
-                                          arcOpen
-                                            ? "scale-100 opacity-100"
-                                            : "scale-0 opacity-0",
+                                          "scale-100 opacity-100 transition-transform transition-opacity duration-150 ease-out",
                                         )}
                                       >
                                         <button
@@ -3995,13 +3978,14 @@ export default function TindakanTable({
                                     );
                                   })}
                                 </div>
+                                ) : null}
 
-                                {/* ACTION GROUP — Near Pasien Field */}
+                                {/* ACTION GROUP — Near Pasien Field (mount only when arc open) */}
+                                {arcOpen ? (
                                 <div
                                   className={cn(
                                     "absolute -right-8 top-1/2 z-20 flex -translate-y-1/2 items-center gap-1",
-                                    "transition-opacity duration-150 ease-out",
-                                    arcOpen ? "opacity-100" : "opacity-0",
+                                    "opacity-100",
                                   )}
                                 >
                                   {id && pemakaianOrderByTindakanId[id] ? (
@@ -4057,6 +4041,7 @@ export default function TindakanTable({
                                     <Trash2 className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
+                                ) : null}
 
                                 {/* Alkes Warning / Preparation Indicator */}
                                 {(() => {
@@ -4453,14 +4438,13 @@ export default function TindakanTable({
                                  </div>
                                </div>
 
-                               {/* Anesthesia icon OUTSIDE the zoom container but INSIDE the TD */}
+                               {/* Anesthesia icon — mount only when arc open or sudah terisi */}
+                               {anestesiArcRowKey === key ||
+                               Boolean(String(rec.dokter_anestesi ?? "").trim()) ? (
                                <div
                                  className={cn(
                                    "pointer-events-auto absolute right-1.5 top-1/2 z-[110] -translate-y-1/2",
-                                   "transition-all duration-200",
-                                   anestesiArcRowKey === key || !!rec.dokter_anestesi
-                                     ? "opacity-100 scale-100"
-                                     : "opacity-0 scale-50 pointer-events-none",
+                                   "opacity-100 scale-100",
                                  )}
                                  data-no-row-click="true"
                                >
@@ -4482,6 +4466,7 @@ export default function TindakanTable({
                                    }
                                  />
                                </div>
+                               ) : null}
                              </div>
                            </td>
                               <td
@@ -5094,8 +5079,9 @@ export default function TindakanTable({
         )}
       </div>
 
+      {icuModalRow ? (
       <Dialog
-        open={icuModalRow !== null}
+        open
         onOpenChange={(open) => {
           if (!open) setIcuModalRow(null);
         }}
@@ -5105,31 +5091,30 @@ export default function TindakanTable({
           bodyClassName="p-0 h-full max-h-[100dvh] overflow-hidden"
         >
           <DialogTitle className="sr-only">Monitoring ICU</DialogTitle>
-          {icuModalRow ? (
-            <IntensiveDashboardView
-              embedded
-              roomSlug={resolveRoomSlugFromRuanganLabel(icuModalRow.ruangan)}
-              tindakanId={
+          <IntensiveDashboardView
+            embedded
+            roomSlug={resolveRoomSlugFromRuanganLabel(icuModalRow.ruangan)}
+            tindakanId={
+              String(
+                (icuModalRow as unknown as Record<string, unknown>).id ?? "",
+              ).trim() || undefined
+            }
+            patientHeadline={
+              pasienLabelByRowId[
                 String(
-                  (icuModalRow as unknown as Record<string, unknown>).id ?? "",
-                ).trim() || undefined
-              }
-              patientHeadline={
-                pasienLabelByRowId[
-                  String(
-                    (icuModalRow as unknown as Record<string, unknown>).id ??
-                      "",
-                  )
-                ] ??
-                buildPasienLabelFromRow(
-                  icuModalRow as unknown as Record<string, unknown>,
+                  (icuModalRow as unknown as Record<string, unknown>).id ??
+                    "",
                 )
-              }
-              onRequestClose={() => setIcuModalRow(null)}
-            />
-          ) : null}
+              ] ??
+              buildPasienLabelFromRow(
+                icuModalRow as unknown as Record<string, unknown>,
+              )
+            }
+            onRequestClose={() => setIcuModalRow(null)}
+          />
         </DialogContent>
       </Dialog>
+      ) : null}
 
       {pemakaianModalInitial ? (
         <PemakaianAlkesModal

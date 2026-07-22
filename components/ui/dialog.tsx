@@ -5,7 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { cn } from "@/lib/utils";
-import { UI_LAYERS } from "@/lib/ui/layers";
+import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
 
 /**
  * Komponen Dialog bergaya JARVIS Gold–Cyan Hybrid.
@@ -40,7 +40,7 @@ export function DialogContent({
             UI_LAYERS.dialogOverlayTop,
             overlayClassName,
           )}
-          style={{ zIndex: 99999 }}
+          style={{ zIndex: Z_INDEX_VALUES.dialogOverlayTop }}
         />
       )}
 
@@ -51,7 +51,7 @@ export function DialogContent({
           UI_LAYERS.dialogContentTop,
           className,
         )}
-        style={{ zIndex: 100001 }}
+        style={{ zIndex: Z_INDEX_VALUES.dialogContentTop }}
         onPointerDownOutside={(e) => {
           // Hanya tutup jika klik benar-benar di luar (overlay), 
           // bukan karena bubbling dari dalam konten.

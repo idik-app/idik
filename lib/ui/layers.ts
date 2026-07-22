@@ -137,4 +137,6 @@ export const Z_INDEX_VALUES = {
   intensiveIccuAlertBackdrop: 100_230,
   intensiveIccuAlert: 100_231,
   drawerPortal: 100_050,
+  dialogOverlayTop: 100_000,
+  dialogContentTop: 100_001,
 } as const;

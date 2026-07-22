@@ -105,9 +105,9 @@ function TindakanHeader({
         </div>
 
         <AnimatePresence initial={false}>
-          {(!isCollapsed || typeof window === "undefined") && (
+          {!isCollapsed && (
             <motion.div
-              initial={isCollapsed ? { height: 0, opacity: 0 } : false}
+              initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}

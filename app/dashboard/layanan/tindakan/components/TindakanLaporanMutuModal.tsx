@@ -263,7 +263,17 @@ function hasFilledMutuRows(rows: readonly MutuRow[]): boolean {
   );
 }
 
-const MUTU_POPOVER_WIDTH_PX = 340;
+const MUTU_POPOVER_WIDTH_PX = 360;
+const MUTU_POPOVER_LIST_MAX_H = 300;
+
+function clampPopoverPos(top: number, left: number, panelH = 360) {
+  const maxLeft = Math.max(8, window.innerWidth - MUTU_POPOVER_WIDTH_PX - 8);
+  const maxTop = Math.max(8, window.innerHeight - Math.min(panelH, window.innerHeight - 16) - 8);
+  return {
+    top: Math.min(Math.max(8, top), maxTop),
+    left: Math.min(Math.max(8, left), maxLeft),
+  };
+}
 
 function MutuPatientPopover({
   state,
@@ -273,44 +283,29 @@ function MutuPatientPopover({
   onOpenChange: (open: boolean) => void;
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const listRef = useRef<HTMLUListElement | null>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    origTop: number;
+    origLeft: number;
+  } | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
 
+  // Posisi awal sekali saat dibuka — tidak ikut scroll tabel.
   useLayoutEffect(() => {
     if (!state?.anchor) {
       setPos(null);
       return;
     }
-    const update = (event?: Event) => {
-      // Scroll di dalam panel tooltip tidak perlu reposition / jangan diganggu.
-      if (
-        event?.target instanceof Node &&
-        panelRef.current?.contains(event.target)
-      ) {
-        return;
-      }
-      const rect = state.anchor.getBoundingClientRect();
-      const width = MUTU_POPOVER_WIDTH_PX;
-      const gap = 8;
-      const left = Math.min(
-        Math.max(8, rect.left + rect.width / 2 - width / 2),
-        window.innerWidth - width - 8,
-      );
-      const maxPanelH = Math.min(360, window.innerHeight - 24);
-      const preferBelow = rect.bottom + gap + 160 <= window.innerHeight - 8;
-      const top = preferBelow
-        ? Math.min(rect.bottom + gap, window.innerHeight - maxPanelH - 8)
-        : Math.max(8, rect.top - gap - Math.min(maxPanelH, 220));
-      setPos({ top, left });
-    };
-    update();
-    window.addEventListener("resize", update);
-    // Capture scroll agar tooltip tetap menempel ke sel saat tabel digulir (tidak ditutup).
-    window.addEventListener("scroll", update, true);
-    return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
-    };
+    const rect = state.anchor.getBoundingClientRect();
+    const gap = 10;
+    const preferBelow = rect.bottom + gap + 200 <= window.innerHeight - 8;
+    const rawTop = preferBelow
+      ? rect.bottom + gap
+      : Math.max(8, rect.top - gap - 220);
+    const rawLeft = rect.left + rect.width / 2 - MUTU_POPOVER_WIDTH_PX / 2;
+    setPos(clampPopoverPos(rawTop, rawLeft));
   }, [state]);
 
   useEffect(() => {
@@ -319,6 +314,7 @@ function MutuPatientPopover({
       if (e.key === "Escape") onOpenChange(false);
     };
     const onPointer = (e: MouseEvent) => {
+      if (dragRef.current) return;
       const target = e.target as Node;
       if (panelRef.current?.contains(target)) return;
       if (state.anchor.contains(target)) return;
@@ -332,9 +328,32 @@ function MutuPatientPopover({
     };
   }, [state, onOpenChange]);
 
-  if (!state || !pos || typeof document === "undefined") return null;
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e: MouseEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      e.preventDefault();
+      const next = clampPopoverPos(
+        drag.origTop + (e.clientY - drag.startY),
+        drag.origLeft + (e.clientX - drag.startX),
+        panelRef.current?.offsetHeight ?? 360,
+      );
+      setPos(next);
+    };
+    const onUp = () => {
+      dragRef.current = null;
+      setDragging(false);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, [dragging]);
 
-  const maxListH = Math.min(280, window.innerHeight - pos.top - 72);
+  if (!state || !pos || typeof document === "undefined") return null;
 
   return createPortal(
     <div
@@ -349,22 +368,59 @@ function MutuPatientPopover({
         zIndex: Z_INDEX_VALUES.dialogNestedPopover,
       }}
       className={cn(
-        "rounded-xl border border-slate-200/90 bg-white p-2.5 text-[11px] text-slate-800 shadow-2xl",
+        "flex max-h-[min(70vh,420px)] flex-col rounded-xl border border-slate-200/90 bg-white p-2.5 text-[11px] text-slate-800 shadow-2xl",
         "ring-1 ring-black/5",
+        dragging && "cursor-grabbing select-none",
       )}
       onWheel={(e) => {
-        // Biarkan daftar di dalam scroll; cegah scroll chaining ke tabel yang menutup UX.
+        // Isolasi scroll: jangan teruskan ke tabel di belakang.
         e.stopPropagation();
       }}
     >
-      <div className="mb-1.5 shrink-0 border-b border-slate-200 pb-1.5 font-bold text-[#1B2B44]">
-        {state.title}
+      <div
+        className={cn(
+          "mb-1.5 flex shrink-0 cursor-grab items-center justify-between gap-2 border-b border-slate-200 pb-1.5",
+          "active:cursor-grabbing",
+        )}
+        onMouseDown={(e) => {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          e.stopPropagation();
+          dragRef.current = {
+            startX: e.clientX,
+            startY: e.clientY,
+            origTop: pos.top,
+            origLeft: pos.left,
+          };
+          setDragging(true);
+        }}
+      >
+        <div className="min-w-0 flex-1 font-bold text-[#1B2B44]">
+          {state.title}
+        </div>
+        <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
+          Geser
+        </span>
+        <button
+          type="button"
+          className="shrink-0 rounded-md p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          aria-label="Tutup daftar pasien"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenChange(false);
+          }}
+        >
+          <X size={14} strokeWidth={2.5} />
+        </button>
       </div>
       <ul
-        ref={listRef}
-        className="custom-scrollbar overflow-y-auto overscroll-contain pr-1"
-        style={{ maxHeight: Math.max(120, maxListH) }}
+        className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1"
+        style={{ maxHeight: MUTU_POPOVER_LIST_MAX_H }}
         onWheel={(e) => {
+          e.stopPropagation();
+        }}
+        onTouchMove={(e) => {
           e.stopPropagation();
         }}
       >

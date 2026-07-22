@@ -17,6 +17,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { UI_LAYERS } from "@/lib/ui/layers";
 import { cn } from "@/lib/utils";
 import ReportExportActionBar from "./ReportExportActionBar";
+import type { TindakanJoinResult } from "../bridge/mapping.types";
+import { buildPenundaanElektifRowsFromTindakan } from "../lib/tindakanMutuPenundaanElektif";
 import {
   buildMutuReportHtml,
   buildMutuReportWhatsAppText,
@@ -255,9 +257,12 @@ function hasFilledMutuRows(rows: readonly MutuRow[]): boolean {
 export default function TindakanLaporanMutuModal({
   open,
   onOpenChange,
+  rows = [],
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Baris tindakan (untuk auto-isi tab Penundaan Pasien Elektif). */
+  rows?: readonly TindakanJoinResult[];
 }) {
   const [activeTab, setActiveTab] = useState<MutuReportId>("penundaan-elektif");
   const [monthYyyyMm, setMonthYyyyMm] = useState(currentMonthWibYyyyMm);
@@ -396,8 +401,17 @@ export default function TindakanLaporanMutuModal({
     [activeTab],
   );
 
-  const activeRows =
-    storage.reportsByMonth[monthYyyyMm]?.[activeTab]?.rows ?? createDefaultRows(configuredDayCount);
+  const isPenundaanElektifTab = activeTab === "penundaan-elektif";
+
+  const penundaanElektifRows = useMemo(
+    () => buildPenundaanElektifRowsFromTindakan(rows, monthYyyyMm),
+    [rows, monthYyyyMm],
+  );
+
+  const activeRows = isPenundaanElektifTab
+    ? penundaanElektifRows
+    : storage.reportsByMonth[monthYyyyMm]?.[activeTab]?.rows ??
+      createDefaultRows(configuredDayCount);
 
   const summary = useMemo(() => summarizeRows(activeRows), [activeRows]);
   const summaryPercent = useMemo(
@@ -658,6 +672,12 @@ export default function TindakanLaporanMutuModal({
                   <div className="font-semibold">BULAN : {formatMonthLabel(monthYyyyMm)}</div>
                   <div className="font-semibold md:text-right">RUANGAN : {storage.roomName || "IDIK"}</div>
                 </div>
+                {isPenundaanElektifTab ? (
+                  <p className="mt-3 text-center text-[11px] font-semibold text-slate-600 dark:text-white/85">
+                    Otomatis dari tabel tindakan: Tanggal = tanggal kasus · Tertunda = Status Dibatalkan (1) /
+                    Selesai (0) · Pasien elektif = jumlah pasien per tanggal.
+                  </p>
+                ) : null}
               </div>
 
               <div className="min-h-0 overflow-auto bg-white dark:bg-zinc-950">
@@ -697,44 +717,62 @@ export default function TindakanLaporanMutuModal({
                             {rowIndex + 1}.
                           </td>
                           <td className="border border-slate-300/80 px-2 py-1 dark:border-white/10">
-                            <input
-                              value={row.tanggal}
-                              onChange={(event) =>
-                                handleCellChange(activeDefinition.id, rowIndex, "tanggal", event.target.value)
-                              }
-                              className={cn(
-                                "w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold",
-                                "text-slate-900 focus:border-emerald-500 focus:bg-emerald-50 focus:outline-none dark:text-white dark:focus:bg-white/10",
-                              )}
-                            />
+                            {isPenundaanElektifTab ? (
+                              <div className="px-2 py-1 text-center font-semibold text-slate-900 dark:text-white">
+                                {row.tanggal}
+                              </div>
+                            ) : (
+                              <input
+                                value={row.tanggal}
+                                onChange={(event) =>
+                                  handleCellChange(activeDefinition.id, rowIndex, "tanggal", event.target.value)
+                                }
+                                className={cn(
+                                  "w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold",
+                                  "text-slate-900 focus:border-emerald-500 focus:bg-emerald-50 focus:outline-none dark:text-white dark:focus:bg-white/10",
+                                )}
+                              />
+                            )}
                           </td>
                           <td className="border border-slate-300/80 px-2 py-1 dark:border-white/10">
-                            <input
-                              inputMode="numeric"
-                              value={row.numerator}
-                              onChange={(event) =>
-                                handleCellChange(activeDefinition.id, rowIndex, "numerator", event.target.value)
-                              }
-                              className={cn(
-                                "w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold",
-                                "text-slate-900 focus:border-emerald-500 focus:bg-emerald-50 focus:outline-none dark:text-white dark:focus:bg-white/10",
-                              )}
-                              placeholder="0"
-                            />
+                            {isPenundaanElektifTab ? (
+                              <div className="px-2 py-1 text-center font-semibold text-slate-900 dark:text-white">
+                                {row.numerator || "0"}
+                              </div>
+                            ) : (
+                              <input
+                                inputMode="numeric"
+                                value={row.numerator}
+                                onChange={(event) =>
+                                  handleCellChange(activeDefinition.id, rowIndex, "numerator", event.target.value)
+                                }
+                                className={cn(
+                                  "w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold",
+                                  "text-slate-900 focus:border-emerald-500 focus:bg-emerald-50 focus:outline-none dark:text-white dark:focus:bg-white/10",
+                                )}
+                                placeholder="0"
+                              />
+                            )}
                           </td>
                           <td className="border border-slate-300/80 px-2 py-1 dark:border-white/10">
-                            <input
-                              inputMode="numeric"
-                              value={row.denominator}
-                              onChange={(event) =>
-                                handleCellChange(activeDefinition.id, rowIndex, "denominator", event.target.value)
-                              }
-                              className={cn(
-                                "w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold",
-                                "text-slate-900 focus:border-emerald-500 focus:bg-emerald-50 focus:outline-none dark:text-white dark:focus:bg-white/10",
-                              )}
-                              placeholder="0"
-                            />
+                            {isPenundaanElektifTab ? (
+                              <div className="px-2 py-1 text-center font-semibold text-slate-900 dark:text-white">
+                                {row.denominator || "0"}
+                              </div>
+                            ) : (
+                              <input
+                                inputMode="numeric"
+                                value={row.denominator}
+                                onChange={(event) =>
+                                  handleCellChange(activeDefinition.id, rowIndex, "denominator", event.target.value)
+                                }
+                                className={cn(
+                                  "w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold",
+                                  "text-slate-900 focus:border-emerald-500 focus:bg-emerald-50 focus:outline-none dark:text-white dark:focus:bg-white/10",
+                                )}
+                                placeholder="0"
+                              />
+                            )}
                           </td>
                           <td
                             className={cn(
@@ -833,14 +871,16 @@ export default function TindakanLaporanMutuModal({
                   <button
                     type="button"
                     onClick={handleResetTab}
+                    disabled={isPenundaanElektifTab}
                     className={cn(
                       "inline-flex w-full items-center justify-center gap-2 rounded-md border px-3 py-2 text-xs font-extrabold transition",
                       "border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100",
                       "dark:border-rose-400/30 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-950/60",
+                      "disabled:cursor-not-allowed disabled:opacity-45",
                     )}
                   >
                     <RotateCcw size={14} />
-                    Reset tab aktif
+                    {isPenundaanElektifTab ? "Tab otomatis dari tindakan" : "Reset tab aktif"}
                   </button>
                 </div>
               </div>

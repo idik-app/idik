@@ -3224,6 +3224,7 @@ export default function TindakanTable({
           <TindakanLaporanMutuModal
             open={laporanMutuModalOpen}
             onOpenChange={setLaporanMutuModalOpen}
+            rows={filteredRecords}
           />
         ) : null}
 

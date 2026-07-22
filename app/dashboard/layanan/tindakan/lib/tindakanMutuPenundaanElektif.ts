@@ -7,6 +7,8 @@ export type MutuPatientTooltip = {
   dokter: string;
   tindakan?: string;
   status?: string;
+  /** Catatan baris tindakan / alasan status (mis. pembatalan). */
+  keterangan?: string;
   tanggal?: string;
 };
 
@@ -38,12 +40,21 @@ function isStatusBatal(status: string | null | undefined): boolean {
 }
 
 function patientFromRow(row: TindakanJoinResult): MutuPatientTooltip {
+  const statusKet = String(row.status_keterangan ?? "").trim();
+  const ket = String(row.keterangan ?? "").trim();
+  const keteranganParts = [statusKet, ket].filter(Boolean);
+  const keterangan =
+    keteranganParts.length > 0
+      ? [...new Set(keteranganParts)].join(" · ")
+      : undefined;
+
   return {
     nama: String(row.nama_pasien ?? "").trim() || "Tanpa Nama",
     no_rm: String(row.no_rm ?? "").trim() || "-",
     dokter: String(row.dokter ?? "").trim() || "-",
     tindakan: String(row.tindakan ?? "").trim() || undefined,
     status: String(row.status ?? "").trim() || undefined,
+    keterangan,
     tanggal: tanggalBarisKeYmdWib(row.tanggal) || undefined,
   };
 }

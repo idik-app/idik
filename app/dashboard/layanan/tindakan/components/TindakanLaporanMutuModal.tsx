@@ -263,7 +263,7 @@ function hasFilledMutuRows(rows: readonly MutuRow[]): boolean {
   );
 }
 
-const MUTU_POPOVER_WIDTH_PX = 320;
+const MUTU_POPOVER_WIDTH_PX = 340;
 
 function MutuPatientPopover({
   state,
@@ -273,6 +273,7 @@ function MutuPatientPopover({
   onOpenChange: (open: boolean) => void;
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useLayoutEffect(() => {
@@ -280,7 +281,14 @@ function MutuPatientPopover({
       setPos(null);
       return;
     }
-    const update = () => {
+    const update = (event?: Event) => {
+      // Scroll di dalam panel tooltip tidak perlu reposition / jangan diganggu.
+      if (
+        event?.target instanceof Node &&
+        panelRef.current?.contains(event.target)
+      ) {
+        return;
+      }
       const rect = state.anchor.getBoundingClientRect();
       const width = MUTU_POPOVER_WIDTH_PX;
       const gap = 8;
@@ -288,18 +296,16 @@ function MutuPatientPopover({
         Math.max(8, rect.left + rect.width / 2 - width / 2),
         window.innerWidth - width - 8,
       );
-      const estimatedHeight = Math.min(
-        280,
-        56 + Math.max(1, state.patients.length) * 56,
-      );
-      const preferBelow = rect.bottom + gap + estimatedHeight <= window.innerHeight - 8;
+      const maxPanelH = Math.min(360, window.innerHeight - 24);
+      const preferBelow = rect.bottom + gap + 160 <= window.innerHeight - 8;
       const top = preferBelow
-        ? rect.bottom + gap
-        : Math.max(8, rect.top - gap - estimatedHeight);
+        ? Math.min(rect.bottom + gap, window.innerHeight - maxPanelH - 8)
+        : Math.max(8, rect.top - gap - Math.min(maxPanelH, 220));
       setPos({ top, left });
     };
     update();
     window.addEventListener("resize", update);
+    // Capture scroll agar tooltip tetap menempel ke sel saat tabel digulir (tidak ditutup).
     window.addEventListener("scroll", update, true);
     return () => {
       window.removeEventListener("resize", update);
@@ -328,6 +334,8 @@ function MutuPatientPopover({
 
   if (!state || !pos || typeof document === "undefined") return null;
 
+  const maxListH = Math.min(280, window.innerHeight - pos.top - 72);
+
   return createPortal(
     <div
       ref={panelRef}
@@ -344,11 +352,22 @@ function MutuPatientPopover({
         "rounded-xl border border-slate-200/90 bg-white p-2.5 text-[11px] text-slate-800 shadow-2xl",
         "ring-1 ring-black/5",
       )}
+      onWheel={(e) => {
+        // Biarkan daftar di dalam scroll; cegah scroll chaining ke tabel yang menutup UX.
+        e.stopPropagation();
+      }}
     >
-      <div className="mb-1.5 border-b border-slate-200 pb-1.5 font-bold text-[#1B2B44]">
+      <div className="mb-1.5 shrink-0 border-b border-slate-200 pb-1.5 font-bold text-[#1B2B44]">
         {state.title}
       </div>
-      <ul className="custom-scrollbar max-h-48 overflow-auto pr-1">
+      <ul
+        ref={listRef}
+        className="custom-scrollbar overflow-y-auto overscroll-contain pr-1"
+        style={{ maxHeight: Math.max(120, maxListH) }}
+        onWheel={(e) => {
+          e.stopPropagation();
+        }}
+      >
         {state.patients.length > 0 ? (
           state.patients.map((detail, idx) => (
             <li
@@ -366,8 +385,21 @@ function MutuPatientPopover({
                 </span>
               </div>
               {detail.status ? (
-                <div className="mt-0.5 text-[10px] font-semibold text-slate-500">
-                  Status: {detail.status}
+                <div className="mt-0.5 text-[10px] font-semibold text-slate-600">
+                  Status:{" "}
+                  <span className="text-slate-800">{detail.status}</span>
+                </div>
+              ) : null}
+              {detail.keterangan ? (
+                <div className="mt-0.5 text-[10px] leading-snug text-slate-600">
+                  <span className="font-semibold text-slate-500">
+                    Keterangan:{" "}
+                  </span>
+                  <span className="text-slate-800">{detail.keterangan}</span>
+                </div>
+              ) : detail.status ? (
+                <div className="mt-0.5 text-[10px] italic text-slate-400">
+                  Keterangan: —
                 </div>
               ) : null}
             </li>
@@ -875,9 +907,6 @@ export default function TindakanLaporanMutuModal({
               {/* Scroll area — min-h-0 + overflow agar 31 hari bisa digulir */}
               <div
                 className="custom-scrollbar min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-contain bg-white/95"
-                onScroll={() => {
-                  if (patientPopover) setPatientPopover(null);
-                }}
               >
                 <table className="w-full min-w-[860px] border-collapse text-[11px]">
                   <thead className="sticky top-0 z-[2]">

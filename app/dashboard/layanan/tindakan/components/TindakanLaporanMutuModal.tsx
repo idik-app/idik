@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   AlertCircle,
   FileSpreadsheet,
@@ -263,24 +262,18 @@ function hasFilledMutuRows(rows: readonly MutuRow[]): boolean {
   );
 }
 
-const MUTU_POPOVER_WIDTH_PX = 360;
-const MUTU_POPOVER_LIST_MAX_H = 300;
-
-function clampPopoverPos(top: number, left: number, panelH = 360) {
-  const maxLeft = Math.max(8, window.innerWidth - MUTU_POPOVER_WIDTH_PX - 8);
-  const maxTop = Math.max(8, window.innerHeight - Math.min(panelH, window.innerHeight - 16) - 8);
-  return {
-    top: Math.min(Math.max(8, top), maxTop),
-    left: Math.min(Math.max(8, left), maxLeft),
-  };
-}
+﻿const MUTU_POPOVER_WIDTH_PX = 360;
+const MUTU_POPOVER_LIST_H_PX = 280;
 
 function MutuPatientPopover({
   state,
   onOpenChange,
+  containerRef,
 }: {
   state: PatientPopoverState;
   onOpenChange: (open: boolean) => void;
+  /** Layer di dalam Dialog agar RemoveScroll mengizinkan wheel/scroll. */
+  containerRef: React.RefObject<HTMLElement | null>;
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{
@@ -292,21 +285,44 @@ function MutuPatientPopover({
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [dragging, setDragging] = useState(false);
 
-  // Posisi awal sekali saat dibuka — tidak ikut scroll tabel.
+  const clampInContainer = React.useCallback(
+    (top: number, left: number, panelH = 360) => {
+      const container = containerRef.current;
+      if (!container) {
+        return { top: Math.max(8, top), left: Math.max(8, left) };
+      }
+      const cw = container.clientWidth;
+      const ch = container.clientHeight;
+      const maxLeft = Math.max(8, cw - MUTU_POPOVER_WIDTH_PX - 8);
+      const maxTop = Math.max(8, ch - Math.min(panelH, ch - 16) - 8);
+      return {
+        top: Math.min(Math.max(8, top), maxTop),
+        left: Math.min(Math.max(8, left), maxLeft),
+      };
+    },
+    [containerRef],
+  );
+
   useLayoutEffect(() => {
     if (!state?.anchor) {
       setPos(null);
       return;
     }
-    const rect = state.anchor.getBoundingClientRect();
+    const container = containerRef.current;
+    if (!container) return;
+    const cRect = container.getBoundingClientRect();
+    const aRect = state.anchor.getBoundingClientRect();
     const gap = 10;
-    const preferBelow = rect.bottom + gap + 200 <= window.innerHeight - 8;
+    const localBottom = aRect.bottom - cRect.top;
+    const localTop = aRect.top - cRect.top;
+    const localLeft =
+      aRect.left - cRect.left + aRect.width / 2 - MUTU_POPOVER_WIDTH_PX / 2;
+    const preferBelow = localBottom + gap + 200 <= cRect.height - 8;
     const rawTop = preferBelow
-      ? rect.bottom + gap
-      : Math.max(8, rect.top - gap - 220);
-    const rawLeft = rect.left + rect.width / 2 - MUTU_POPOVER_WIDTH_PX / 2;
-    setPos(clampPopoverPos(rawTop, rawLeft));
-  }, [state]);
+      ? localBottom + gap
+      : Math.max(8, localTop - gap - 220);
+    setPos(clampInContainer(rawTop, localLeft));
+  }, [state, containerRef, clampInContainer]);
 
   useEffect(() => {
     if (!state) return;
@@ -334,12 +350,13 @@ function MutuPatientPopover({
       const drag = dragRef.current;
       if (!drag) return;
       e.preventDefault();
-      const next = clampPopoverPos(
-        drag.origTop + (e.clientY - drag.startY),
-        drag.origLeft + (e.clientX - drag.startX),
-        panelRef.current?.offsetHeight ?? 360,
+      setPos(
+        clampInContainer(
+          drag.origTop + (e.clientY - drag.startY),
+          drag.origLeft + (e.clientX - drag.startX),
+          panelRef.current?.offsetHeight ?? 360,
+        ),
       );
-      setPos(next);
     };
     const onUp = () => {
       dragRef.current = null;
@@ -351,31 +368,29 @@ function MutuPatientPopover({
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
     };
-  }, [dragging]);
+  }, [dragging, clampInContainer]);
 
-  if (!state || !pos || typeof document === "undefined") return null;
+  if (!state || !pos) return null;
 
-  return createPortal(
+  return (
     <div
       ref={panelRef}
       role="dialog"
       aria-label={state.title}
+      data-mutu-patient-popover="1"
       style={{
-        position: "fixed",
+        position: "absolute",
         top: pos.top,
         left: pos.left,
         width: MUTU_POPOVER_WIDTH_PX,
         zIndex: Z_INDEX_VALUES.dialogNestedPopover,
       }}
       className={cn(
-        "flex max-h-[min(70vh,420px)] flex-col rounded-xl border border-slate-200/90 bg-white p-2.5 text-[11px] text-slate-800 shadow-2xl",
+        "flex flex-col rounded-xl border border-slate-200/90 bg-white p-2.5 text-[11px] text-slate-800 shadow-2xl",
         "ring-1 ring-black/5",
         dragging && "cursor-grabbing select-none",
       )}
-      onWheel={(e) => {
-        // Isolasi scroll: jangan teruskan ke tabel di belakang.
-        e.stopPropagation();
-      }}
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <div
         className={cn(
@@ -415,12 +430,14 @@ function MutuPatientPopover({
         </button>
       </div>
       <ul
-        className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1"
-        style={{ maxHeight: MUTU_POPOVER_LIST_MAX_H }}
-        onWheel={(e) => {
-          e.stopPropagation();
+        tabIndex={0}
+        className="custom-scrollbar touch-pan-y overflow-y-scroll overscroll-y-contain pr-1 outline-none"
+        style={{
+          height: MUTU_POPOVER_LIST_H_PX,
+          maxHeight: MUTU_POPOVER_LIST_H_PX,
+          WebkitOverflowScrolling: "touch",
         }}
-        onTouchMove={(e) => {
+        onWheel={(e) => {
           e.stopPropagation();
         }}
       >
@@ -464,8 +481,7 @@ function MutuPatientPopover({
           <li className="py-2 italic text-slate-400">Tidak ada pasien</li>
         )}
       </ul>
-    </div>,
-    document.body,
+    </div>
   );
 }
 
@@ -496,6 +512,7 @@ export default function TindakanLaporanMutuModal({
   const loadedMonthRef = useRef<string | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipNextAutosaveRef = useRef(false);
+  const popoverLayerRef = useRef<HTMLDivElement | null>(null);
 
   const configuredDayCount =
     storage.monthOverrides?.[monthYyyyMm] ?? getDaysInMonth(monthYyyyMm);
@@ -791,14 +808,24 @@ export default function TindakanLaporanMutuModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         overlayClassName={cn("bg-[#2D3748]/45", UI_LAYERS.dialogOverlayTop)}
-        bodyClassName="flex h-full min-h-0 flex-col overflow-hidden p-0"
+        bodyClassName={cn(
+          "relative flex h-full min-h-0 flex-col p-0",
+          patientPopover ? "overflow-visible" : "overflow-hidden",
+        )}
         className={cn(
-          "flex h-[90vh] max-h-[90vh] w-[min(100vw-1rem,98vw)] max-w-[min(98vw,96rem)] flex-col overflow-hidden p-0",
+          "flex h-[90vh] max-h-[90vh] w-[min(100vw-1rem,98vw)] max-w-[min(98vw,96rem)] flex-col p-0",
+          patientPopover ? "overflow-visible" : "overflow-hidden",
           "rounded-2xl border-slate-200/90 bg-slate-50/95 text-slate-800 shadow-[0_24px_56px_rgba(15,23,42,0.18)]",
           UI_LAYERS.dialogContentTop,
         )}
       >
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div
+          ref={popoverLayerRef}
+          className={cn(
+            "relative flex min-h-0 flex-1 flex-col",
+            patientPopover ? "overflow-visible" : "overflow-hidden",
+          )}
+        >
         {/* Navy header — selaras drawer detail tindakan */}
         <div className="shrink-0 border-b border-white/10 bg-gradient-to-r from-[#1B2B44] to-[#2D4A6E] px-4 py-3 sm:px-5">
           <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
@@ -1226,16 +1253,17 @@ export default function TindakanLaporanMutuModal({
             ) : null}
           </div>
         </div>
-        </div>
 
         {patientPopover ? (
           <MutuPatientPopover
             state={patientPopover}
+            containerRef={popoverLayerRef}
             onOpenChange={(next) => {
               if (!next) setPatientPopover(null);
             }}
           />
         ) : null}
+        </div>
       </DialogContent>
     </Dialog>
   );

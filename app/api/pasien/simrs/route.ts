@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const baseUrl = process.env.SIMRS_API_URL || process.env.NEXT_PUBLIC_SIMRS_API_URL || "http://10.250.10.107/apibdrs/apibdrs/getPasien";
+    const baseUrl = process.env.SIMRS_API_URL || process.env.NEXT_PUBLIC_SIMRS_API_URL || "https://simrs.inkai-jatim.org/apibdrs/apibdrs/getPasien";
     const cleanBaseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
     const simrsUrl = `${cleanBaseUrl}/${encodeURIComponent(noRm)}`;
     console.log(`[SIMRS Proxy] Requesting: ${simrsUrl}`);

@@ -140,7 +140,7 @@ async function fetchPasienSimrs(rm: string): Promise<any | null> {
     // Fallback: Ambil langsung dari browser (Client-side Fetch)
     // Ini sangat berguna jika aplikasi di-deploy di cloud/Vercel (tidak punya akses ke IP lokal RS),
     // tetapi komputer/browser pengguna berada di dalam Jaringan RS (Intranet) dan dapat mengakses IP tersebut.
-    const baseUrl = process.env.NEXT_PUBLIC_SIMRS_API_URL || "http://10.250.10.107/apibdrs/apibdrs/getPasien";
+    const baseUrl = process.env.NEXT_PUBLIC_SIMRS_API_URL || "https://simrs.inkai-jatim.org/apibdrs/apibdrs/getPasien";
     const cleanBaseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
     try {
       const directUrl = `${cleanBaseUrl}/${encodeURIComponent(rm)}`;

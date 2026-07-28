@@ -614,6 +614,11 @@ export default function TindakanLaporanModal({
     handleDownloadExcel,
     exportEmpty,
     analisisPageSize,
+    filters,
+    setFilters,
+    resetFilters,
+    filterOptions,
+    activeFiltersCount,
   } = useTindakanLaporanReport({
     rows,
     pasienOptions,
@@ -621,6 +626,8 @@ export default function TindakanLaporanModal({
     filterSummaryLines,
     enabled: open,
   });
+
+  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
 
   useEffect(() => {
     resetAnalisisPage();
@@ -803,6 +810,203 @@ export default function TindakanLaporanModal({
                 )}
               />
             </label>
+
+            {/* Filter Popover Dropdown */}
+            <Popover open={filterPopoverOpen} onOpenChange={setFilterPopoverOpen}>
+              <PopoverAnchor>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-900 dark:text-white/60">
+                    Saring Kustom
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setFilterPopoverOpen(true)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-md border px-3 py-1 text-[13px] font-semibold",
+                      activeFiltersCount > 0
+                        ? "border-emerald-500 bg-emerald-500 text-white"
+                        : "border-emerald-300/80 bg-white text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-white/5 dark:text-white/80"
+                    )}
+                  >
+                    <Activity size={14} />
+                    <span>Filter {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ""}</span>
+                  </button>
+                </div>
+              </PopoverAnchor>
+              <PopoverContent
+                className="w-[340px] p-3 text-slate-900 dark:text-white"
+                sideOffset={6}
+                align="start"
+              >
+                <div className="flex items-center justify-between border-b pb-2 mb-2 dark:border-white/10">
+                  <h4 className="font-extrabold text-[12px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                    <Activity size={14} /> Multi-Criteria Filter
+                  </h4>
+                  {activeFiltersCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className="text-[10px] font-bold text-red-500 hover:underline"
+                    >
+                      Reset Semua
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1 text-[11px]">
+                  {/* Utama: Tindakan & Diagnosa */}
+                  <div className="space-y-1.5">
+                    <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider">Layanan Utama</span>
+                    <div>
+                      <label className="block font-medium mb-0.5">Tindakan</label>
+                      <select
+                        multiple
+                        value={filters.tindakan}
+                        onChange={(e) => {
+                          const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
+                          setFilters((prev) => ({ ...prev, tindakan: values }));
+                        }}
+                        className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
+                      >
+                        {filterOptions.tindakan.map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block font-medium mb-0.5">Diagnosa</label>
+                      <select
+                        multiple
+                        value={filters.diagnosa}
+                        onChange={(e) => {
+                          const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
+                          setFilters((prev) => ({ ...prev, diagnosa: values }));
+                        }}
+                        className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
+                      >
+                        {filterOptions.diagnosa.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Tim Medis */}
+                  <div className="space-y-1.5 pt-2 border-t dark:border-white/10">
+                    <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider">Tim Medis</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block font-medium mb-0.5">Dokter Operator</label>
+                        <select
+                          multiple
+                          value={filters.dokter}
+                          onChange={(e) => {
+                            const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
+                            setFilters((prev) => ({ ...prev, dokter: values }));
+                          }}
+                          className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
+                        >
+                          {filterOptions.dokter.map((doc) => (
+                            <option key={doc} value={doc}>{doc}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block font-medium mb-0.5">Asisten</label>
+                        <select
+                          multiple
+                          value={filters.asisten}
+                          onChange={(e) => {
+                            const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
+                            setFilters((prev) => ({ ...prev, asisten: values }));
+                          }}
+                          className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
+                        >
+                          {filterOptions.asisten.map((as) => (
+                            <option key={as} value={as}>{as}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dokumen & Lokasi */}
+                  <div className="space-y-1.5 pt-2 border-t dark:border-white/10">
+                    <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider">Administrasi & Lokasi</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block font-medium mb-0.5">Ruangan / Lab</label>
+                        <select
+                          multiple
+                          value={filters.ruangan}
+                          onChange={(e) => {
+                            const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
+                            setFilters((prev) => ({ ...prev, ruangan: values }));
+                          }}
+                          className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
+                        >
+                          {filterOptions.ruangan.map((r) => (
+                            <option key={r} value={r}>{r}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block font-medium mb-0.5">PDF Laporan</label>
+                        <select
+                          value={filters.hasPdfReport === null ? "semua" : String(filters.hasPdfReport)}
+                          onChange={(e) => {
+                            const val = e.target.value === "semua" ? null : e.target.value === "true";
+                            setFilters((prev) => ({ ...prev, hasPdfReport: val }));
+                          }}
+                          className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10 font-bold"
+                        >
+                          <option value="semua">Semua Dokumen</option>
+                          <option value="true">Ada PDF</option>
+                          <option value="false">Tidak ada PDF</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Presets Cepat */}
+                  <div className="pt-2 border-t dark:border-white/10">
+                    <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider block mb-1">Preset Cepat</span>
+                    <div className="flex flex-wrap gap-1">
+                      {[
+                        { id: "semua", label: "Semua Kasus" },
+                        { id: "belum_lengkap", label: "Belum Lengkap" },
+                        { id: "kompleks", label: "Kasus Kompleks" },
+                        { id: "batal", label: "Tindakan Batal" },
+                      ].map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setFilters((prev) => ({ ...prev, statusKelengkapan: item.id as any }))}
+                          className={cn(
+                            "rounded px-2 py-0.5 text-[9px] font-extrabold border transition-all",
+                            filters.statusKelengkapan === item.id
+                              ? "bg-emerald-600 text-white border-emerald-600"
+                              : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300/60 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-white/80 dark:border-white/5"
+                          )}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-3 pt-2 border-t dark:border-white/10 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setFilterPopoverOpen(false)}
+                    className="rounded bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3 py-1 text-[11px]"
+                  >
+                    Selesai
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
 
             {/* Search Bar (Point 2) */}
             <div className="flex flex-1 flex-col gap-0.5 min-w-[200px]">

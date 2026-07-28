@@ -236,6 +236,28 @@ function finalizeMatrixTotals(matrix: MonthlyMatrixAgg): MonthlyMatrixAgg {
   return { ...matrix, rowTotals, colTotals, grandTotal };
 }
 
+export type LaporanFilterState = {
+  tindakan: string[];
+  diagnosa: string[];
+  dokter: string[];
+  ruangan: string[];
+  severity: string[];
+  asisten: string[];
+  hasPdfReport: boolean | null; // null = semua, true = ada pdf, false = tidak ada pdf
+  statusKelengkapan: "semua" | "belum_lengkap" | "kompleks" | "batal";
+};
+
+const DEFAULT_FILTERS: LaporanFilterState = {
+  tindakan: [],
+  diagnosa: [],
+  dokter: [],
+  ruangan: [],
+  severity: [],
+  asisten: [],
+  hasPdfReport: null,
+  statusKelengkapan: "semua",
+};
+
 export type UseTindakanLaporanReportArgs = {
   rows: readonly TindakanJoinResult[];
   pasienOptions?: readonly PasienOption[];
@@ -258,6 +280,7 @@ export function useTindakanLaporanReport({
   const [monthYyyyMm, setMonthYyyyMm] = useState(currentMonthWibYyyyMm);
   const [searchQuery, setSearchQuery] = useState("");
   const [analisisPage, setAnalisisPage] = useState(1);
+  const [filters, setFilters] = useState<LaporanFilterState>(DEFAULT_FILTERS);
 
   const ym = useMemo(() => parseYyyyMm(monthYyyyMm), [monthYyyyMm]);
 
@@ -271,12 +294,78 @@ export function useTindakanLaporanReport({
     return filterLaporanRowsInYearMonth(rows, ym.y, ym.m);
   }, [enabled, rows, ym]);
 
-  const reportRows = useMemo(() => {
+  const reportRowsBase = useMemo(() => {
     if (!pasienOptions.length) return monthScopedRows;
     return monthScopedRows.map((r) =>
       mergePasienMasterIntoRowForReport(r, pasienOptions, pasienLookup),
     );
   }, [monthScopedRows, pasienOptions, pasienLookup]);
+
+  // Ekstrak opsi unik untuk UI Filter Dropdown
+  const filterOptions = useMemo(() => {
+    const tindakans = new Set<string>();
+    const diagnosas = new Set<string>();
+    const dokters = new Set<string>();
+    const ruangans = new Set<string>();
+    const severities = new Set<string>();
+    const asistens = new Set<string>();
+
+    reportRowsBase.forEach((r) => {
+      if (r.tindakan) tindakans.add(r.tindakan.trim().toUpperCase());
+      if (r.diagnosa) diagnosas.add(r.diagnosa.trim());
+      if (r.dokter) dokters.add(r.dokter.trim());
+      if (r.ruangan) ruangans.add(r.ruangan.trim());
+      if (r.severity_level) severities.add(r.severity_level.trim());
+      if (r.asisten) asistens.add(r.asisten.trim());
+    });
+
+    return {
+      tindakan: [...tindakans].sort(),
+      diagnosa: [...diagnosas].sort(),
+      dokter: [...dokters].sort(),
+      ruangan: [...ruangans].sort(),
+      severity: [...severities].sort(),
+      asisten: [...asistens].sort(),
+    };
+  }, [reportRowsBase]);
+
+  // Terapkan Filter Multi-kriteria
+  const reportRows = useMemo(() => {
+    return reportRowsBase.filter((row) => {
+      if (filters.tindakan.length > 0 && !filters.tindakan.includes((row.tindakan || "").trim().toUpperCase())) {
+        return false;
+      }
+      if (filters.diagnosa.length > 0 && !filters.diagnosa.includes(row.diagnosa || "")) {
+        return false;
+      }
+      if (filters.dokter.length > 0 && !filters.dokter.includes(row.dokter || "")) {
+        return false;
+      }
+      if (filters.ruangan.length > 0 && !filters.ruangan.includes(row.ruangan || "")) {
+        return false;
+      }
+      if (filters.severity.length > 0 && !filters.severity.includes(row.severity_level || "")) {
+        return false;
+      }
+      if (filters.asisten.length > 0 && !filters.asisten.includes(row.asisten || "")) {
+        return false;
+      }
+      if (filters.hasPdfReport !== null) {
+        const hasPdf = !!row.pci_report_link && row.pci_report_link.trim() !== "";
+        if (filters.hasPdfReport !== hasPdf) return false;
+      }
+      if (filters.statusKelengkapan === "belum_lengkap") {
+        const isMissingField = !row.diagnosa || !row.kesimpulan_laporan || !row.pembiayaan;
+        if (!isMissingField) return false;
+      } else if (filters.statusKelengkapan === "kompleks") {
+        const isComplex = row.severity_level === "High" || (row.total_kontras && Number(row.total_kontras) > 100);
+        if (!isComplex) return false;
+      } else if (filters.statusKelengkapan === "batal") {
+        if (row.status !== "Batal" && row.status !== "Dibatalkan") return false;
+      }
+      return true;
+    });
+  }, [reportRowsBase, filters]);
 
   const matrixPasienOpts = useMemo(
     (): MonthlyMatrixPasienOpts => ({
@@ -564,8 +653,8 @@ export function useTindakanLaporanReport({
     } else if (tab === "diagnosaKlinis") {
       if (clinicalDiagnosisMatrix) {
         downloadClinicalDiagnosisMatrixExcel(
-          clinicalDiagnosisMatrix,
-          exportFileBase,
+            clinicalDiagnosisMatrix,
+            exportFileBase,
         );
       }
     } else if (finalMatrix) {
@@ -605,6 +694,23 @@ export function useTindakanLaporanReport({
     setAnalisisPage(1);
   }, []);
 
+  const resetFilters = useCallback(() => {
+    setFilters(DEFAULT_FILTERS);
+  }, []);
+
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (filters.tindakan.length > 0) count += 1;
+    if (filters.diagnosa.length > 0) count += 1;
+    if (filters.dokter.length > 0) count += 1;
+    if (filters.ruangan.length > 0) count += 1;
+    if (filters.severity.length > 0) count += 1;
+    if (filters.asisten.length > 0) count += 1;
+    if (filters.hasPdfReport !== null) count += 1;
+    if (filters.statusKelengkapan !== "semua") count += 1;
+    return count;
+  }, [filters]);
+
   return {
     tab,
     setTab,
@@ -640,6 +746,11 @@ export function useTindakanLaporanReport({
     handleDownloadExcel,
     exportEmpty,
     resetAnalisisPage,
+    filters,
+    setFilters,
+    resetFilters,
+    filterOptions,
+    activeFiltersCount,
     analisisPageSize: ANALISIS_PAGE_SIZE,
   };
 }

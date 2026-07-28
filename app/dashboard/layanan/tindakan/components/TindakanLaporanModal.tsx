@@ -671,620 +671,642 @@ export default function TindakanLaporanModal({
     [],
   );
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        overlayClassName={cn("bg-black/40", UI_LAYERS.dialogOverlayTop)}
-        bodyClassName="flex h-full min-h-0 flex-col overflow-hidden p-0"
+  const mountPoint = typeof document !== "undefined" ? (document.fullscreenElement as HTMLElement || document.body) : null;
+
+  if (!open || !mountPoint) return null;
+
+  const content = (
+    <AnimatePresence>
+      <div
         className={cn(
-          "h-[82vh] max-h-[82vh] w-[min(100vw-1rem,96vw)] max-w-[min(96vw,92rem)] overflow-hidden p-0 flex flex-col",
-          "border-slate-300/60 bg-white dark:border-white/10 dark:bg-zinc-950",
-          UI_LAYERS.dialogContentTop
+          "fixed inset-0 pointer-events-none",
+          UI_LAYERS.drawerPortal
         )}
+        style={{ zIndex: Z_INDEX_VALUES.drawerPortal }}
       >
-        <DialogPrimitive.Close
-          className={cn(
-            "absolute right-4 top-4 rounded-full p-2 transition-all duration-200",
-            "hover:bg-slate-100 active:scale-95 dark:hover:bg-white/5",
-            "text-slate-400 hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50",
-            "z-[51]", // Pastikan di atas tapi tidak menumpuk secara visual
-          )}
-        >
-          <X size={20} strokeWidth={2.5} />
-          <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
+        {/* Backdrop */}
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          type="button"
+          aria-label="Tutup laporan tindakan"
+          className="absolute inset-0 bg-[#2D3748]/45 pointer-events-auto"
+          onClick={() => onOpenChange(false)}
+        />
 
-        <div
-          className={cn(
-            "flex min-h-0 flex-1 flex-col gap-3 p-4 sm:p-6",
-            "text-slate-900 dark:text-white",
-          )}
-        >
-          <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between pr-8">
-            <div className="min-w-0 space-y-1 text-left sm:pr-2">
-              <DialogHeader className="space-y-1 text-left">
-                <DialogTitle className="flex items-center gap-2 text-left font-bold tracking-wide">
-                  <FileSpreadsheet
-                    className="shrink-0 text-emerald-600 dark:text-emerald-300"
-                    size={22}
-                    strokeWidth={2.25}
-                    aria-hidden
-                  />
-                  Laporan tindakan
-                </DialogTitle>
-              </DialogHeader>
-            </div>
-            <ReportExportActionBar
-              className="shrink-0 sm:pt-0.5"
-              disabled={loading || !ym}
-              empty={exportEmpty}
-              fileNameBase={exportFileBase}
-              buildHtml={buildExportHtml}
-              buildWhatsAppText={buildExportWhatsApp}
-              onDownloadExcel={handleDownloadExcel}
-            />
-          </div>
-
-          <div
+        {/* Center Container */}
+        <div className="absolute inset-0 z-[1] flex items-center justify-center pointer-events-none px-2 sm:px-4">
+          <motion.div
+            role="dialog"
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{
+              type: "spring",
+              damping: 20,
+              stiffness: 400,
+              opacity: { duration: 0.15 }
+            }}
             className={cn(
-              "flex shrink-0 flex-wrap items-center gap-4 rounded-lg border p-2.5",
-              "border-emerald-200/80 bg-emerald-50/50 dark:border-white/10 dark:bg-white/5",
+              "pointer-events-auto flex h-[85vh] max-h-[85vh] min-w-0 w-full max-w-[92rem] cursor-default flex-col rounded-2xl border antialiased [text-rendering:optimizeLegibility]",
+              "border-slate-200/90 bg-slate-50/90 shadow-[0_24px_56px_rgba(15,23,42,0.15),0_0_1px_rgba(15,23,42,0.1)]",
+              "font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
             )}
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex rounded-lg border border-emerald-600/25 bg-white/90 p-0.5 dark:border-white/10 dark:bg-white/5">
-              <button
-                type="button"
-                onClick={() => setTab("jenis")}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
-                  tab === "jenis"
-                    ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
-                    : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
-                )}
-              >
-                Prosedur (Detail)
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab("kategori")}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
-                  tab === "kategori"
-                    ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
-                    : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
-                )}
-              >
-                Kategori (Grup)
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab("cara")}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
-                  tab === "cara"
-                    ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
-                    : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
-                )}
-              >
-                Cara bayar
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab("diagnosaKlinis")}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
-                  tab === "diagnosaKlinis"
-                    ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
-                    : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
-                )}
-              >
-                Diagnosa Klinis
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab("analisis")}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
-                  tab === "analisis"
-                    ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
-                    : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
-                )}
-              >
-                Analisis Gabungan
-              </button>
-            </div>
-
-            <label className="flex flex-col gap-0.5">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-900 dark:text-white/60">
-                Bulan laporan
-              </span>
-              <input
-                type="month"
-                value={monthYyyyMm}
-                onChange={(e) => setMonthYyyyMm(e.target.value)}
-                className={cn(
-                  "rounded-md border px-2 py-1 text-[13px] font-semibold font-mono",
-                  "border-emerald-300/80 bg-white text-slate-900 [color-scheme:light]",
-                  "dark:border-white/10 dark:bg-white/5 dark:text-white dark:[color-scheme:dark]",
-                )}
-              />
-            </label>
-
-            {/* Filter Popover Dropdown */}
-            <Popover open={filterPopoverOpen} onOpenChange={setFilterPopoverOpen}>
-              <PopoverAnchor>
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-900 dark:text-white/60">
-                    Saring Kustom
-                  </span>
+            {/* Header */}
+            <div className="shrink-0 border-b px-4 py-3 border-white/10 bg-gradient-to-r from-[#1B2B44] to-[#2D4A6E] rounded-t-2xl">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <FileSpreadsheet className="shrink-0 text-emerald-300" size={20} />
+                  <span className="font-bold text-white text-sm tracking-wide">Laporan Tindakan Bulanan</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ReportExportActionBar
+                    className="shrink-0 text-white"
+                    disabled={loading || !ym}
+                    empty={exportEmpty}
+                    fileNameBase={exportFileBase}
+                    buildHtml={buildExportHtml}
+                    buildWhatsAppText={buildExportWhatsApp}
+                    onDownloadExcel={handleDownloadExcel}
+                  />
                   <button
                     type="button"
-                    onClick={() => setFilterPopoverOpen(true)}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-md border px-3 py-1 text-[13px] font-semibold",
-                      activeFiltersCount > 0
-                        ? "border-emerald-500 bg-emerald-500 text-white"
-                        : "border-emerald-300/80 bg-white text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-white/5 dark:text-white/80"
-                    )}
+                    onClick={() => onOpenChange(false)}
+                    className="rounded-lg border border-white/20 bg-white/10 p-1.5 text-slate-100 hover:border-white/35 hover:bg-white/20 hover:text-white"
                   >
-                    <Activity size={14} />
-                    <span>Filter {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ""}</span>
+                    <X size={16} strokeWidth={2.5} />
                   </button>
                 </div>
-              </PopoverAnchor>
-              <PopoverContent
-                className="w-[340px] p-3 text-slate-900 dark:text-white"
-                sideOffset={6}
-                align="start"
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 min-h-0 flex flex-col p-4 sm:p-6 overflow-y-auto">
+              <div
+                className={cn(
+                  "flex shrink-0 flex-wrap items-center gap-4 rounded-lg border p-2.5 mb-4",
+                  "border-emerald-200/80 bg-emerald-50/50 dark:border-white/10 dark:bg-white/5",
+                )}
               >
-                <div className="flex items-center justify-between border-b pb-2 mb-2 dark:border-white/10">
-                  <h4 className="font-extrabold text-[12px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                    <Activity size={14} /> Multi-Criteria Filter
-                  </h4>
-                  {activeFiltersCount > 0 && (
+                <div className="flex rounded-lg border border-emerald-600/25 bg-white/90 p-0.5 dark:border-white/10 dark:bg-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setTab("jenis")}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
+                      tab === "jenis"
+                        ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
+                        : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                    )}
+                  >
+                    Prosedur (Detail)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab("kategori")}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
+                      tab === "kategori"
+                        ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
+                        : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                    )}
+                  >
+                    Kategori (Grup)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab("cara")}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
+                      tab === "cara"
+                        ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
+                        : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                    )}
+                  >
+                    Cara bayar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab("diagnosaKlinis")}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
+                      tab === "diagnosaKlinis"
+                        ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
+                        : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                    )}
+                  >
+                    Diagnosa Klinis
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTab("analisis")}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
+                      tab === "analisis"
+                        ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
+                        : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                    )}
+                  >
+                    Analisis Gabungan
+                  </button>
+                </div>
+
+                <label className="flex flex-col gap-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-900 dark:text-white/60">
+                    Bulan laporan
+                  </span>
+                  <input
+                    type="month"
+                    value={monthYyyyMm}
+                    onChange={(e) => setMonthYyyyMm(e.target.value)}
+                    className={cn(
+                      "rounded-md border px-2 py-1 text-[13px] font-semibold font-mono",
+                      "border-emerald-300/80 bg-white text-slate-900 [color-scheme:light]",
+                      "dark:border-white/10 dark:bg-white/5 dark:text-white dark:[color-scheme:dark]",
+                    )}
+                  />
+                </label>
+
+                {/* Filter Popover Dropdown */}
+                <Popover open={filterPopoverOpen} onOpenChange={setFilterPopoverOpen}>
+                  <PopoverAnchor>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-900 dark:text-white/60">
+                        Saring Kustom
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setFilterPopoverOpen(true)}
+                        className={cn(
+                          "flex items-center gap-1.5 rounded-md border px-3 py-1 text-[13px] font-semibold",
+                          activeFiltersCount > 0
+                            ? "border-emerald-500 bg-emerald-500 text-white"
+                            : "border-emerald-300/80 bg-white text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-white/5 dark:text-white/80"
+                        )}
+                      >
+                        <Activity size={14} />
+                        <span>Filter {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ""}</span>
+                      </button>
+                    </div>
+                  </PopoverAnchor>
+                  <PopoverContent
+                    className="w-[340px] p-3 text-slate-900 dark:text-white bg-slate-950 border border-cyan-800/40"
+                    sideOffset={6}
+                    align="start"
+                  >
+                    <div className="flex items-center justify-between border-b pb-2 mb-2 dark:border-white/10">
+                      <h4 className="font-extrabold text-[12px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                        <Activity size={14} /> Multi-Criteria Filter
+                      </h4>
+                      {activeFiltersCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={resetFilters}
+                          className="text-[10px] font-bold text-red-500 hover:underline"
+                        >
+                          Reset Semua
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1 text-[11px]">
+                      {/* Utama: Tindakan & Diagnosa */}
+                      <div className="space-y-1.5">
+                        <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider">Layanan Utama</span>
+                        <div>
+                          <label className="block font-medium mb-0.5">Tindakan</label>
+                          <select
+                            multiple
+                            value={filters.tindakan}
+                            onChange={(e) => {
+                              const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
+                              setFilters((prev) => ({ ...prev, tindakan: values }));
+                            }}
+                            className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
+                          >
+                            {filterOptions.tindakan.map((t) => (
+                              <option key={t} value={t}>{t}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block font-medium mb-0.5">Diagnosa</label>
+                          <select
+                            multiple
+                            value={filters.diagnosa}
+                            onChange={(e) => {
+                              const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
+                              setFilters((prev) => ({ ...prev, diagnosa: values }));
+                            }}
+                            className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
+                          >
+                            {filterOptions.diagnosa.map((d) => (
+                              <option key={d} value={d}>{d}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Tim Medis */}
+                      <div className="space-y-1.5 pt-2 border-t dark:border-white/10">
+                        <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider">Tim Medis</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block font-medium mb-0.5">Dokter Operator</label>
+                            <select
+                              multiple
+                              value={filters.dokter}
+                              onChange={(e) => {
+                                const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
+                                setFilters((prev) => ({ ...prev, dokter: values }));
+                              }}
+                              className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
+                            >
+                              {filterOptions.dokter.map((doc) => (
+                                <option key={doc} value={doc}>{doc}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block font-medium mb-0.5">Asisten</label>
+                            <select
+                              multiple
+                              value={filters.asisten}
+                              onChange={(e) => {
+                                const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
+                                setFilters((prev) => ({ ...prev, asisten: values }));
+                              }}
+                              className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
+                            >
+                              {filterOptions.asisten.map((as) => (
+                                <option key={as} value={as}>{as}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Dokumen & Lokasi */}
+                      <div className="space-y-1.5 pt-2 border-t dark:border-white/10">
+                        <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider">Administrasi & Lokasi</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block font-medium mb-0.5">Ruangan / Lab</label>
+                            <select
+                              multiple
+                              value={filters.ruangan}
+                              onChange={(e) => {
+                                const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
+                                setFilters((prev) => ({ ...prev, ruangan: values }));
+                              }}
+                              className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
+                            >
+                              {filterOptions.ruangan.map((r) => (
+                                <option key={r} value={r}>{r}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block font-medium mb-0.5">PDF Laporan</label>
+                            <select
+                              value={filters.hasPdfReport === null ? "semua" : String(filters.hasPdfReport)}
+                              onChange={(e) => {
+                                const val = e.target.value === "semua" ? null : e.target.value === "true";
+                                setFilters((prev) => ({ ...prev, hasPdfReport: val }));
+                              }}
+                              className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10 font-bold"
+                            >
+                              <option value="semua">Semua Dokumen</option>
+                              <option value="true">Ada PDF</option>
+                              <option value="false">Tidak ada PDF</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Presets Cepat */}
+                      <div className="pt-2 border-t dark:border-white/10">
+                        <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider block mb-1">Preset Cepat</span>
+                        <div className="flex flex-wrap gap-1">
+                          {[
+                            { id: "semua", label: "Semua Kasus" },
+                            { id: "belum_lengkap", label: "Belum Lengkap" },
+                            { id: "kompleks", label: "Kasus Kompleks" },
+                            { id: "batal", label: "Tindakan Batal" },
+                          ].map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => setFilters((prev) => ({ ...prev, statusKelengkapan: item.id as any }))}
+                              className={cn(
+                                "rounded px-2 py-0.5 text-[9px] font-extrabold border transition-all",
+                                filters.statusKelengkapan === item.id
+                                  ? "bg-emerald-600 text-white border-emerald-600"
+                                  : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300/60 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-white/80 dark:border-white/5"
+                              )}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t dark:border-white/10 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setFilterPopoverOpen(false)}
+                        className="rounded bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3 py-1 text-[11px]"
+                      >
+                        Selesai
+                      </button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Search Bar */}
+                <div className="flex flex-1 flex-col gap-0.5 min-w-[200px]">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-900 dark:text-white/60">
+                    Cari Tindakan / Kategori / Diagnosa
+                  </span>
+                  <div className="relative">
+                    <Search
+                      size={14}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Ketik nama tindakan..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className={cn(
+                        "w-full rounded-md border py-1 pl-8 pr-2 text-[13px] font-semibold",
+                        "border-emerald-300/80 bg-white text-slate-900",
+                        "dark:border-white/10 dark:bg-white/5 dark:text-white",
+                      )}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {tab === "diagnosaKlinis" ? (
+                <div
+                  className={cn(
+                    "flex shrink-0 flex-wrap items-center gap-2 rounded-lg border px-2.5 py-2 mb-4",
+                    "border-slate-200/80 bg-slate-50/60 dark:border-white/10 dark:bg-white/5",
+                  )}
+                >
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-white/60">
+                    Berdasarkan
+                  </span>
+                  <div className="flex rounded-lg border border-emerald-600/25 bg-white/90 p-0.5 dark:border-white/10 dark:bg-white/5">
                     <button
                       type="button"
-                      onClick={resetFilters}
-                      className="text-[10px] font-bold text-red-500 hover:underline"
+                      onClick={() => setClinicalMatrixAxis("diagnosa")}
+                      className={cn(
+                        "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
+                        clinicalMatrixAxis === "diagnosa"
+                          ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
+                          : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                      )}
                     >
-                      Reset Semua
+                      Diagnosa Klinis
                     </button>
-                  )}
-                </div>
-
-                <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1 text-[11px]">
-                  {/* Utama: Tindakan & Diagnosa */}
-                  <div className="space-y-1.5">
-                    <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider">Layanan Utama</span>
-                    <div>
-                      <label className="block font-medium mb-0.5">Tindakan</label>
-                      <select
-                        multiple
-                        value={filters.tindakan}
-                        onChange={(e) => {
-                          const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
-                          setFilters((prev) => ({ ...prev, tindakan: values }));
-                        }}
-                        className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
-                      >
-                        {filterOptions.tindakan.map((t) => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block font-medium mb-0.5">Diagnosa</label>
-                      <select
-                        multiple
-                        value={filters.diagnosa}
-                        onChange={(e) => {
-                          const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
-                          setFilters((prev) => ({ ...prev, diagnosa: values }));
-                        }}
-                        className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
-                      >
-                        {filterOptions.diagnosa.map((d) => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Tim Medis */}
-                  <div className="space-y-1.5 pt-2 border-t dark:border-white/10">
-                    <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider">Tim Medis</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block font-medium mb-0.5">Dokter Operator</label>
-                        <select
-                          multiple
-                          value={filters.dokter}
-                          onChange={(e) => {
-                            const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
-                            setFilters((prev) => ({ ...prev, dokter: values }));
-                          }}
-                          className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
-                        >
-                          {filterOptions.dokter.map((doc) => (
-                            <option key={doc} value={doc}>{doc}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block font-medium mb-0.5">Asisten</label>
-                        <select
-                          multiple
-                          value={filters.asisten}
-                          onChange={(e) => {
-                            const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
-                            setFilters((prev) => ({ ...prev, asisten: values }));
-                          }}
-                          className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
-                        >
-                          {filterOptions.asisten.map((as) => (
-                            <option key={as} value={as}>{as}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Dokumen & Lokasi */}
-                  <div className="space-y-1.5 pt-2 border-t dark:border-white/10">
-                    <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider">Administrasi & Lokasi</span>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block font-medium mb-0.5">Ruangan / Lab</label>
-                        <select
-                          multiple
-                          value={filters.ruangan}
-                          onChange={(e) => {
-                            const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
-                            setFilters((prev) => ({ ...prev, ruangan: values }));
-                          }}
-                          className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
-                        >
-                          {filterOptions.ruangan.map((r) => (
-                            <option key={r} value={r}>{r}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block font-medium mb-0.5">PDF Laporan</label>
-                        <select
-                          value={filters.hasPdfReport === null ? "semua" : String(filters.hasPdfReport)}
-                          onChange={(e) => {
-                            const val = e.target.value === "semua" ? null : e.target.value === "true";
-                            setFilters((prev) => ({ ...prev, hasPdfReport: val }));
-                          }}
-                          className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10 font-bold"
-                        >
-                          <option value="semua">Semua Dokumen</option>
-                          <option value="true">Ada PDF</option>
-                          <option value="false">Tidak ada PDF</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Presets Cepat */}
-                  <div className="pt-2 border-t dark:border-white/10">
-                    <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider block mb-1">Preset Cepat</span>
-                    <div className="flex flex-wrap gap-1">
-                      {[
-                        { id: "semua", label: "Semua Kasus" },
-                        { id: "belum_lengkap", label: "Belum Lengkap" },
-                        { id: "kompleks", label: "Kasus Kompleks" },
-                        { id: "batal", label: "Tindakan Batal" },
-                      ].map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setFilters((prev) => ({ ...prev, statusKelengkapan: item.id as any }))}
-                          className={cn(
-                            "rounded px-2 py-0.5 text-[9px] font-extrabold border transition-all",
-                            filters.statusKelengkapan === item.id
-                              ? "bg-emerald-600 text-white border-emerald-600"
-                              : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300/60 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-white/80 dark:border-white/5"
-                          )}
-                        >
-                          {item.label}
-                        </button>
-                      ))}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setClinicalMatrixAxis("faktorRisiko")}
+                      className={cn(
+                        "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
+                        clinicalMatrixAxis === "faktorRisiko"
+                          ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
+                          : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                      )}
+                    >
+                      Faktor Risiko
+                    </button>
                   </div>
                 </div>
-
-                <div className="mt-3 pt-2 border-t dark:border-white/10 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setFilterPopoverOpen(false)}
-                    className="rounded bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3 py-1 text-[11px]"
-                  >
-                    Selesai
-                  </button>
-                </div>
-              </PopoverContent>
-            </Popover>
-
-            {/* Search Bar (Point 2) */}
-            <div className="flex flex-1 flex-col gap-0.5 min-w-[200px]">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-900 dark:text-white/60">
-                Cari Tindakan / Kategori / Diagnosa
-              </span>
-              <div className="relative">
-                <Search
-                  size={14}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-                <input
-                  type="text"
-                  placeholder="Ketik nama tindakan..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className={cn(
-                    "w-full rounded-md border py-1 pl-8 pr-2 text-[13px] font-semibold",
-                    "border-emerald-300/80 bg-white text-slate-900",
-                    "dark:border-white/10 dark:bg-white/5 dark:text-white",
-                  )}
-                />
-              </div>
-            </div>
-          </div>
-
-          {tab === "diagnosaKlinis" ? (
-            <div
-              className={cn(
-                "flex shrink-0 flex-wrap items-center gap-2 rounded-lg border px-2.5 py-2",
-                "border-slate-200/80 bg-slate-50/60 dark:border-white/10 dark:bg-white/5",
-              )}
-            >
-              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-white/60">
-                Berdasarkan
-              </span>
-              <div className="flex rounded-lg border border-emerald-600/25 bg-white/90 p-0.5 dark:border-white/10 dark:bg-white/5">
-                <button
-                  type="button"
-                  onClick={() => setClinicalMatrixAxis("diagnosa")}
-                  className={cn(
-                    "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
-                    clinicalMatrixAxis === "diagnosa"
-                      ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
-                      : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
-                  )}
-                >
-                  Diagnosa Klinis
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setClinicalMatrixAxis("faktorRisiko")}
-                  className={cn(
-                    "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
-                    clinicalMatrixAxis === "faktorRisiko"
-                      ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
-                      : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
-                  )}
-                >
-                  Faktor Risiko
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          {tab === "cara" && laporanCaraBelumTerisi.count > 0 ? (
-            <div
-              role="status"
-              className={cn(
-                "shrink-0 rounded-lg border px-3 py-2 text-[11px] font-semibold leading-snug",
-                laporanCaraBelumTerisi.strong
-                  ? "border-amber-500/80 bg-amber-100/90 text-amber-950 dark:border-amber-400/60 dark:bg-amber-950/50 dark:text-white"
-                  : "border-slate-300/80 bg-slate-100/80 text-slate-800 dark:border-white/20 dark:bg-white/10 dark:text-white",
-              )}
-            >
-              {laporanCaraBelumTerisi.count} kasus dalam periode ini tidak punya
-              jenis/kelas pembiayaan yang terbaca (kosong di tindakan dan tidak
-              terisi di master pasien, atau tidak terhubung ke master). Mereka
-              masuk baris{" "}
-              <span className="font-extrabold">
-                {CARA_BAYAR_LABEL_BELUM_TERISI}
-              </span>
-              , bukan UMUM. Lengkapi data pasien (jenis pembiayaan + kelas) atau
-              hubungkan kasus ke RM / pasien_id agar laporan akurat.
-              {laporanCaraBelumTerisi.strong ? (
-                <span className="mt-1 block font-extrabold">
-                  Proporsi besar — periksa master pasien dan tautan kasus.
-                </span>
               ) : null}
-              {laporanCaraBelumTerisi.rmList.length > 0 ? (
-                <div className="mt-2 border-t border-current/15 pt-2 dark:border-white/15">
-                  <div className="mb-1 text-[10px] font-extrabold uppercase tracking-wide opacity-90">
-                    RM / pasien (data belum lengkap)
+
+              {tab === "cara" && laporanCaraBelumTerisi.count > 0 ? (
+                <div
+                  role="status"
+                  className={cn(
+                    "shrink-0 rounded-lg border px-3 py-2 text-[11px] font-semibold leading-snug mb-4",
+                    laporanCaraBelumTerisi.strong
+                      ? "border-amber-500/80 bg-amber-100/90 text-amber-950 dark:border-amber-400/60 dark:bg-amber-950/50 dark:text-white"
+                      : "border-slate-300/80 bg-slate-100/80 text-slate-800 dark:border-white/20 dark:bg-white/10 dark:text-white",
+                  )}
+                >
+                  {laporanCaraBelumTerisi.count} kasus dalam periode ini tidak punya
+                  jenis/kelas pembiayaan yang terbaca (kosong di tindakan dan tidak
+                  terisi di master pasien, atau tidak terhubung ke master). Mereka
+                  masuk baris{" "}
+                  <span className="font-extrabold">
+                    {CARA_BAYAR_LABEL_BELUM_TERISI}
+                  </span>
+                  , bukan UMUM. Lengkapi data pasien (jenis pembiayaan + kelas) atau
+                  hubungkan kasus ke RM / pasien_id agar laporan akurat.
+                  {laporanCaraBelumTerisi.strong ? (
+                    <span className="mt-1 block font-extrabold">
+                      Proporsi besar — periksa master pasien and tautan kasus.
+                    </span>
+                  ) : null}
+                  {laporanCaraBelumTerisi.rmList.length > 0 ? (
+                    <div className="mt-2 border-t border-current/15 pt-2 dark:border-white/15">
+                      <div className="mb-1 text-[10px] font-extrabold uppercase tracking-wide opacity-90">
+                        RM / pasien (data belum lengkap)
+                      </div>
+                      <ul
+                        className={cn(
+                          "max-h-32 space-y-1 overflow-y-auto pr-1 text-left",
+                          "scrollbar-thin scrollbar-thumb-slate-400/50 dark:scrollbar-thumb-white/25",
+                        )}
+                      >
+                        {laporanCaraBelumTerisi.rmList.map((item) => (
+                          <li
+                            key={item.key}
+                            className="break-words tabular-nums text-[11px] font-semibold leading-snug"
+                          >
+                            <span className="font-mono text-emerald-800 dark:text-emerald-300">
+                              {item.rmLabel}
+                            </span>
+                            <span className="text-slate-600 dark:text-white/80">
+                              {" "}
+                              · {item.nama}
+                              {item.kasus > 1 ? (
+                                <span className="opacity-80"> ({item.kasus} kasus)</span>
+                              ) : null}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {filterSummaryLines.length > 0 ? (
+                <ul
+                  className={cn(
+                    "shrink-0 list-inside list-disc text-[11px] font-semibold mb-4",
+                    "text-slate-600 dark:text-white/85",
+                  )}
+                >
+                  {filterSummaryLines.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              ) : null}
+
+              <div
+                className={cn(
+                  "min-h-0 flex-1 rounded-lg border border-slate-200/80 dark:border-white/10 flex flex-col",
+                  tab !== "analisis" ? "overflow-auto" : "overflow-hidden"
+                )}
+              >
+                {loading ? (
+                  <div className="p-6 text-center text-sm font-semibold text-slate-600 dark:text-white/60">
+                    Memuat data…
                   </div>
-                  <ul
-                    className={cn(
-                      "max-h-32 space-y-1 overflow-y-auto pr-1 text-left",
-                      "scrollbar-thin scrollbar-thumb-slate-400/50 dark:scrollbar-thumb-white/25",
+                ) : !ym || (tab !== "analisis" && tab !== "diagnosaKlinis" && !finalMatrix) ? (
+                  <div className="p-6 text-center text-sm font-semibold text-slate-600 dark:text-white/60">
+                    Pilih bulan yang valid.
+                  </div>
+                ) : tab === "diagnosaKlinis" ? (
+                  !clinicalDiagnosisMatrix || clinicalDiagnosisMatrix.grandTotal === 0 ? (
+                    <div className="p-6 text-center text-sm font-semibold text-slate-600 dark:text-white/60">
+                      {clinicalMatrixMeta.emptyMessage}
+                    </div>
+                  ) : (
+                    <div className="overflow-auto">
+                      <ClinicalDiagnosisTable
+                        report={clinicalDiagnosisMatrix}
+                        onCellActivate={handleMatrixCellActivate}
+                      />
+                    </div>
+                  )
+                ) : tab === "analisis" ? (
+                  <div className="flex flex-col gap-3 flex-1 min-h-0 p-3">
+                    {analisisStats && (
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 shrink-0">
+                        <div className="flex flex-col gap-1 rounded-lg border border-slate-200/60 bg-slate-50/50 p-2 dark:border-white/5 dark:bg-white/5">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">
+                            <Users size={12} className="text-emerald-600 dark:text-emerald-400" />
+                            Total Pasien
+                          </div>
+                          <div className="text-lg font-black tabular-nums text-slate-900 dark:text-white">
+                            {analisisStats.total}
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1 rounded-lg border border-slate-200/60 bg-slate-50/50 p-2 dark:border-white/5 dark:bg-white/5">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">
+                            <CheckCircle2 size={12} className="text-emerald-600 dark:text-emerald-400" />
+                            Selesai
+                          </div>
+                          <div className="flex items-baseline gap-2">
+                            <div className="text-lg font-black tabular-nums text-slate-900 dark:text-white">
+                              {analisisStats.selesai}
+                            </div>
+                            <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                              {analisisStats.successRate}%
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1 rounded-lg border border-slate-200/60 bg-slate-50/50 p-2 dark:border-white/5 dark:bg-white/5">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">
+                            <Stethoscope size={12} className="text-emerald-600 dark:text-emerald-400" />
+                            Top Dokter
+                          </div>
+                          <div className="truncate text-[11px] font-black text-slate-900 dark:text-white" title={analisisStats.topDoctor?.[0]}>
+                            {analisisStats.topDoctor?.[0] || "-"}
+                          </div>
+                          <div className="text-[10px] font-bold text-slate-400 dark:text-white/30">
+                            {analisisStats.topDoctor?.[1] || 0} Kasus
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1 rounded-lg border border-slate-200/60 bg-slate-50/50 p-2 dark:border-white/5 dark:bg-white/5">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">
+                            <Activity size={12} className="text-emerald-600 dark:text-emerald-400" />
+                            Insight
+                          </div>
+                          <div className="text-[10px] font-bold leading-tight text-slate-600 dark:text-white/60">
+                            {searchQuery.trim() ? `Filter: "${searchQuery}"` : "Semua data bulan ini"}
+                          </div>
+                        </div>
+                      </div>
                     )}
-                  >
-                    {laporanCaraBelumTerisi.rmList.map((item) => (
-                      <li
-                        key={item.key}
-                        className="break-words tabular-nums text-[11px] font-semibold leading-snug"
-                      >
-                        <span className="font-mono text-emerald-800 dark:text-emerald-300">
-                          {item.rmLabel}
-                        </span>
-                        <span className="text-slate-600 dark:text-white/80">
-                          {" "}
-                          · {item.nama}
-                          {item.kasus > 1 ? (
-                            <span className="opacity-80"> ({item.kasus} kasus)</span>
-                          ) : null}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {filterSummaryLines.length > 0 ? (
-            <ul
-              className={cn(
-                "shrink-0 list-inside list-disc text-[11px] font-semibold",
-                "text-slate-600 dark:text-white/85",
-              )}
-            >
-              {filterSummaryLines.map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
-          ) : null}
-
-          <div
-            className={cn(
-              "min-h-0 flex-1 rounded-lg border border-slate-200/80 dark:border-white/10 flex flex-col",
-              tab !== "analisis" ? "overflow-auto" : "overflow-hidden"
-            )}
-          >
-            {loading ? (
-              <div className="p-6 text-center text-sm font-semibold text-slate-600 dark:text-white/60">
-                Memuat data…
-              </div>
-            ) : !ym || (tab !== "analisis" && tab !== "diagnosaKlinis" && !finalMatrix) ? (
-              <div className="p-6 text-center text-sm font-semibold text-slate-600 dark:text-white/60">
-                Pilih bulan yang valid.
-              </div>
-            ) : tab === "diagnosaKlinis" ? (
-              !clinicalDiagnosisMatrix || clinicalDiagnosisMatrix.grandTotal === 0 ? (
-                <div className="p-6 text-center text-sm font-semibold text-slate-600 dark:text-white/60">
-                  {clinicalMatrixMeta.emptyMessage}
-                </div>
-              ) : (
-                <div className="overflow-auto">
-                  <ClinicalDiagnosisTable
-                    report={clinicalDiagnosisMatrix}
-                    onCellActivate={handleMatrixCellActivate}
-                  />
-                </div>
-              )
-            ) : tab === "analisis" ? (
-              <div className="flex flex-col gap-3 flex-1 min-h-0 p-3">
-                {analisisStats && (
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 shrink-0">
-                    <div className="flex flex-col gap-1 rounded-lg border border-slate-200/60 bg-slate-50/50 p-2 dark:border-white/5 dark:bg-white/5">
-                      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">
-                        <Users size={12} className="text-emerald-600 dark:text-emerald-400" />
-                        Total Pasien
-                      </div>
-                      <div className="text-lg font-black tabular-nums text-slate-900 dark:text-white">
-                        {analisisStats.total}
-                      </div>
+                    
+                    <div className="h-[38vh] overflow-auto rounded border border-slate-200/60 dark:border-white/5">
+                      <AnalisisTable
+                        rows={paginatedAnalisisRows}
+                        onOpenDetail={onOpenDetail}
+                      />
                     </div>
-                    <div className="flex flex-col gap-1 rounded-lg border border-slate-200/60 bg-slate-50/50 p-2 dark:border-white/5 dark:bg-white/5">
-                      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">
-                        <CheckCircle2 size={12} className="text-emerald-600 dark:text-emerald-400" />
-                        Selesai
-                      </div>
-                      <div className="flex items-baseline gap-2">
-                        <div className="text-lg font-black tabular-nums text-slate-900 dark:text-white">
-                          {analisisStats.selesai}
+                    
+                    {totalAnalisisPages > 1 && (
+                      <div className="flex items-center justify-between border-t border-slate-200/60 p-2 dark:border-white/5 shrink-0">
+                        <div className="text-[10px] font-medium text-slate-500 dark:text-white/40">
+                          Menampilkan {((analisisPage - 1) * analisisPageSize) + 1} - {Math.min(analisisPage * analisisPageSize, filteredAnalisisRows.length)} dari {filteredAnalisisRows.length} data
                         </div>
-                        <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                          {analisisStats.successRate}%
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setAnalisisPage(p => Math.max(1, p - 1))}
+                            disabled={analisisPage === 1}
+                            className="rounded border border-slate-200 p-1 hover:bg-slate-100 disabled:opacity-30 dark:border-white/10 dark:hover:bg-white/5"
+                          >
+                            <ChevronLeft size={14} />
+                          </button>
+                          <div className="text-[11px] font-bold px-2">
+                            {analisisPage} / {totalAnalisisPages}
+                          </div>
+                          <button
+                            onClick={() => setAnalisisPage(p => Math.min(totalAnalisisPages, p + 1))}
+                            disabled={analisisPage === totalAnalisisPages}
+                            className="rounded border border-slate-200 p-1 hover:bg-slate-100 disabled:opacity-30 dark:border-white/10 dark:hover:bg-white/5"
+                          >
+                            <ChevronRight size={14} />
+                          </button>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex flex-col gap-1 rounded-lg border border-slate-200/60 bg-slate-50/50 p-2 dark:border-white/5 dark:bg-white/5">
-                      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">
-                        <Stethoscope size={12} className="text-emerald-600 dark:text-emerald-400" />
-                        Top Dokter
-                      </div>
-                      <div className="truncate text-[11px] font-black text-slate-900 dark:text-white" title={analisisStats.topDoctor?.[0]}>
-                        {analisisStats.topDoctor?.[0] || "-"}
-                      </div>
-                      <div className="text-[10px] font-bold text-slate-400 dark:text-white/30">
-                        {analisisStats.topDoctor?.[1] || 0} Kasus
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1 rounded-lg border border-slate-200/60 bg-slate-50/50 p-2 dark:border-white/5 dark:bg-white/5">
-                      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">
-                        <Activity size={12} className="text-emerald-600 dark:text-emerald-400" />
-                        Insight
-                      </div>
-                      <div className="text-[10px] font-bold leading-tight text-slate-600 dark:text-white/60">
-                        {searchQuery.trim() ? `Filter: "${searchQuery}"` : "Semua data bulan ini"}
-                      </div>
-                    </div>
+                    )}
                   </div>
-                )}
-                
-                <div className="h-[38vh] overflow-auto rounded border border-slate-200/60 dark:border-white/5">
-                  <AnalisisTable
-                    rows={paginatedAnalisisRows}
-                    onOpenDetail={onOpenDetail}
-                  />
-                </div>
-                
-                {totalAnalisisPages > 1 && (
-                  <div className="flex items-center justify-between border-t border-slate-200/60 p-2 dark:border-white/5 shrink-0">
-                    <div className="text-[10px] font-medium text-slate-500 dark:text-white/40">
-                      Menampilkan {((analisisPage - 1) * analisisPageSize) + 1} - {Math.min(analisisPage * analisisPageSize, filteredAnalisisRows.length)} dari {filteredAnalisisRows.length} data
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setAnalisisPage(p => Math.max(1, p - 1))}
-                        disabled={analisisPage === 1}
-                        className="rounded border border-slate-200 p-1 hover:bg-slate-100 disabled:opacity-30 dark:border-white/10 dark:hover:bg-white/5"
-                      >
-                        <ChevronLeft size={14} />
-                      </button>
-                      <div className="text-[11px] font-bold px-2">
-                        {analisisPage} / {totalAnalisisPages}
-                      </div>
-                      <button
-                        onClick={() => setAnalisisPage(p => Math.min(totalAnalisisPages, p + 1))}
-                        disabled={analisisPage === totalAnalisisPages}
-                        className="rounded border border-slate-200 p-1 hover:bg-slate-100 disabled:opacity-30 dark:border-white/10 dark:hover:bg-white/5"
-                      >
-                        <ChevronRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : finalMatrix ? (
-              <div className="flex flex-col gap-4">
-                <LaporanMatrixTable
-                  matrix={finalMatrix}
-                  yAxisHeader={
-                    tab === "jenis"
-                      ? "PROSEDUR (DETAIL)"
-                      : tab === "kategori"
-                        ? "KATEGORI (GRUP)"
-                        : "CARA BAYAR"
-                  }
-                  onCellActivate={handleMatrixCellActivate}
-                />
-                {tab === "jenis" &&
-                finalMatrixStatusBatal &&
-                finalMatrixStatusBatal.rowLabels.length > 0 ? (
-                  <div className="flex flex-col gap-2 border-t border-slate-200/80 pt-4 dark:border-white/10">
-                    <h3 className="sticky left-0 text-[11px] font-extrabold uppercase tracking-wide text-red-700 dark:text-red-300">
-                      Status Batal / Dibatalkan
-                    </h3>
+                ) : finalMatrix ? (
+                  <div className="flex flex-col gap-4">
                     <LaporanMatrixTable
-                      matrix={finalMatrixStatusBatal}
-                      yAxisHeader="STATUS BATAL"
+                      matrix={finalMatrix}
+                      yAxisHeader={
+                        tab === "jenis"
+                          ? "PROSEDUR (DETAIL)"
+                          : tab === "kategori"
+                            ? "KATEGORI (GRUP)"
+                            : "CARA BAYAR"
+                      }
                       onCellActivate={handleMatrixCellActivate}
                     />
+                    {tab === "jenis" &&
+                    finalMatrixStatusBatal &&
+                    finalMatrixStatusBatal.rowLabels.length > 0 ? (
+                      <div className="flex flex-col gap-2 border-t border-slate-200/80 pt-4 dark:border-white/10">
+                        <h3 className="sticky left-0 text-[11px] font-extrabold uppercase tracking-wide text-red-700 dark:text-red-300">
+                          Status Batal / Dibatalkan
+                        </h3>
+                        <LaporanMatrixTable
+                          matrix={finalMatrixStatusBatal}
+                          yAxisHeader="STATUS BATAL"
+                          onCellActivate={handleMatrixCellActivate}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
-            ) : null}
-          </div>
+            </div>
+          </motion.div>
         </div>
         <MatrixCellPopover
           state={matrixPopover}
@@ -1292,7 +1314,9 @@ export default function TindakanLaporanModal({
             if (!next) setMatrixPopover(null);
           }}
         />
-      </DialogContent>
-    </Dialog>
+      </div>
+    </AnimatePresence>
   );
+
+  return createPortal(content, mountPoint);
 }

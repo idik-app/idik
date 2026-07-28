@@ -1,6 +1,7 @@
 import { FileSpreadsheet, X, Search, Activity, Users, CheckCircle2, Stethoscope, ChevronLeft, ChevronRight } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Dialog,
   DialogContent,

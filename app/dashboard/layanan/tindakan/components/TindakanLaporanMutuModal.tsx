@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertCircle,
   FileSpreadsheet,
@@ -804,467 +806,472 @@ export default function TindakanLaporanMutuModal({
     setPatientPopover({ title, patients, anchor: trigger });
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        overlayClassName={cn("bg-[#2D3748]/45", UI_LAYERS.dialogOverlayTop)}
-        bodyClassName={cn(
-          "relative flex h-full min-h-0 flex-col p-0",
-          patientPopover ? "overflow-visible" : "overflow-hidden",
-        )}
+  const mountPoint = typeof document !== "undefined" ? (document.fullscreenElement as HTMLElement || document.body) : null;
+
+  if (!open || !mountPoint) return null;
+
+  const content = (
+    <AnimatePresence>
+      <div
         className={cn(
-          "flex h-[90vh] max-h-[90vh] w-[min(100vw-1rem,98vw)] max-w-[min(98vw,96rem)] flex-col p-0",
-          patientPopover ? "overflow-visible" : "overflow-hidden",
-          "rounded-2xl border-slate-200/90 bg-slate-50/95 text-slate-800 shadow-[0_24px_56px_rgba(15,23,42,0.18)]",
-          UI_LAYERS.dialogContentTop,
+          "fixed inset-0 pointer-events-none",
+          UI_LAYERS.drawerPortal
         )}
+        style={{ zIndex: Z_INDEX_VALUES.drawerPortal }}
       >
-        <div
-          ref={popoverLayerRef}
-          className={cn(
-            "relative flex min-h-0 flex-1 flex-col",
-            patientPopover ? "overflow-visible" : "overflow-hidden",
-          )}
-        >
-        {/* Navy header — selaras drawer detail tindakan */}
-        <div className="shrink-0 border-b border-white/10 bg-gradient-to-r from-[#1B2B44] to-[#2D4A6E] px-4 py-3 sm:px-5">
-          <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
-            <DialogHeader className="space-y-1 text-left">
-              <DialogTitle className="flex items-center gap-2 text-left text-base font-bold tracking-wide text-white sm:text-lg">
-                <FileSpreadsheet
-                  className="shrink-0 text-amber-100"
-                  size={20}
-                  strokeWidth={2.25}
-                  aria-hidden
-                />
-                Laporan MUTU
-              </DialogTitle>
-              <p className="text-[12px] font-medium text-slate-200">
-                Tabulasi indikator mutu bulanan · selaras drawer detail tindakan
-              </p>
-            </DialogHeader>
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          type="button"
+          aria-label="Tutup laporan mutu"
+          className="absolute inset-0 bg-[#2D3748]/45 pointer-events-auto"
+          onClick={() => onOpenChange(false)}
+        />
 
-            <div className="flex flex-wrap items-end gap-2">
-              <ReportExportActionBar
-                className="shrink-0 [&_button]:border-white/25 [&_button]:bg-white/10 [&_button]:text-white [&_button:hover]:bg-white/20"
-                disabled={isLoading}
-                empty={exportEmpty}
-                fileNameBase={exportFileBase}
-                buildHtml={buildExportHtml}
-                buildWhatsAppText={buildExportWhatsApp}
-                onDownloadExcel={handleDownloadExcel}
-              />
-              <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
-                  Bulan
-                </span>
-                <input
-                  type="month"
-                  value={monthYyyyMm}
-                  onChange={(event) => setMonthYyyyMm(event.target.value)}
-                  className="rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-[13px] font-semibold text-white [color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-white/30"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => setSettingsOpen((v) => !v)}
-                className={cn(
-                  "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-extrabold transition",
-                  settingsOpen
-                    ? "border-white/40 bg-white text-[#1B2B44]"
-                    : "border-white/25 bg-white/10 text-white hover:bg-white/20",
-                )}
-              >
-                <Settings2 size={15} />
-                Pengaturan
-              </button>
-            </div>
-          </div>
-
-          <DialogPrimitive.Close
+        <div className="absolute inset-0 z-[1] flex items-center justify-center pointer-events-none px-2 sm:px-4">
+          <motion.div
+            role="dialog"
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{
+              type: "spring",
+              damping: 20,
+              stiffness: 400,
+              opacity: { duration: 0.15 }
+            }}
             className={cn(
-              "absolute right-3 top-3 rounded-lg border border-white/20 bg-white/10 p-1.5 text-slate-200 transition",
-              "hover:border-white/35 hover:bg-white/20 hover:text-white",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
+              "pointer-events-auto flex h-[85vh] max-h-[85vh] min-w-0 w-full max-w-[92rem] cursor-default flex-col rounded-2xl border antialiased [text-rendering:optimizeLegibility]",
+              "border-slate-200/90 bg-slate-50/90 shadow-[0_24px_56px_rgba(15,23,42,0.15),0_0_1px_rgba(15,23,42,0.1)]",
+              "font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
             )}
+            onClick={(e) => e.stopPropagation()}
           >
-            <X size={17} />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
-        </div>
-
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:p-4">
-          <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
-            <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 font-semibold text-slate-700 shadow-sm">
-              {isLoading ? (
-                <>
-                  <Loader2 size={13} className="animate-spin text-indigo-600" />
-                  Memuat
-                </>
-              ) : isSaving ? (
-                <>
-                  <Save size={13} className="text-[#2D4A6E]" />
-                  Menyimpan
-                </>
-              ) : (
-                <>
-                  <ShieldCheck size={13} className="text-indigo-700" />
-                  Tersinkron Supabase
-                </>
+            <div
+              ref={popoverLayerRef}
+              className={cn(
+                "relative flex min-h-0 flex-1 flex-col rounded-2xl overflow-hidden",
+                patientPopover ? "overflow-visible" : "overflow-hidden",
               )}
-            </div>
-            {lastSaved ? (
-              <div className="text-slate-500">
-                Tersimpan{" "}
-                {new Intl.DateTimeFormat("id-ID", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }).format(lastSaved)}
-              </div>
-            ) : null}
-            {saveError ? (
-              <div className="inline-flex items-center gap-1 font-semibold text-rose-700">
-                <AlertCircle size={13} />
-                {saveError}
-              </div>
-            ) : null}
-          </div>
-
-          {/* Tab strip — gaya nav drawer */}
-          <div className="flex shrink-0 flex-wrap gap-1.5 rounded-xl border border-slate-300 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] p-2">
-            {REPORT_DEFINITIONS.map((definition) => (
-              <button
-                key={definition.id}
-                type="button"
-                onClick={() => setActiveTab(definition.id)}
-                className={cn(
-                  "rounded-lg border px-3 py-2 text-left text-[11px] font-extrabold transition",
-                  activeTab === definition.id
-                    ? "border-slate-300 bg-white text-slate-900 shadow-sm"
-                    : "border-transparent text-slate-600 hover:bg-[#DDE6F2]",
-                )}
-              >
-                <div
-                  className={cn(
-                    "text-[9px] uppercase tracking-wider",
-                    activeTab === definition.id
-                      ? "text-indigo-700"
-                      : "text-slate-500",
-                  )}
-                >
-                  {definition.badge}
-                </div>
-                <div>{definition.title}</div>
-              </button>
-            ))}
-          </div>
-
-          <div
-            className={cn(
-              "grid min-h-0 flex-1 gap-3 overflow-hidden",
-              settingsOpen
-                ? "lg:grid-cols-[minmax(0,1fr)_17.5rem]"
-                : "grid-cols-1",
-            )}
-          >
-            {/* Panel konten */}
-            <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-gradient-to-br from-slate-100 via-[#E6E9EF] to-slate-200 shadow-sm">
-              <div className="shrink-0 border-b border-slate-200/80 bg-white/95 px-4 py-3">
-                <h2 className="text-center text-base font-black tracking-wide text-[#1B2B44] sm:text-lg">
-                  {activeDefinition.badge}. {activeDefinition.title}
-                </h2>
-                <div className="mt-2 grid grid-cols-1 gap-1 text-sm font-semibold text-slate-700 md:grid-cols-2">
-                  <div>BULAN : {formatMonthLabel(monthYyyyMm)}</div>
-                  <div className="md:text-right">
-                    RUANGAN : {storage.roomName || "IDIK"}
+            >
+              {/* Navy header — selaras drawer detail tindakan */}
+              <div className="shrink-0 border-b border-white/10 bg-gradient-to-r from-[#1B2B44] to-[#2D4A6E] px-4 py-3 sm:px-5">
+                <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
+                  <div className="space-y-1 text-left">
+                    <h2 className="flex items-center gap-2 text-left text-base font-bold tracking-wide text-white sm:text-lg">
+                      <FileSpreadsheet
+                        className="shrink-0 text-amber-100"
+                        size={20}
+                        strokeWidth={2.25}
+                        aria-hidden
+                      />
+                      Laporan MUTU
+                    </h2>
+                    <p className="text-[12px] font-medium text-slate-200">
+                      Tabulasi indikator mutu bulanan · selaras drawer detail tindakan
+                    </p>
                   </div>
-                </div>
-                {isPenundaanElektifTab ? (
-                  <p className="mt-2 text-center text-[11px] font-medium text-slate-600">
-                    Otomatis dari tabel tindakan · klik angka untuk melihat daftar
-                    pasien
-                  </p>
-                ) : null}
-              </div>
 
-              {/* Scroll area — min-h-0 + overflow agar 31 hari bisa digulir */}
-              <div
-                className="custom-scrollbar min-h-0 flex-1 overflow-x-auto overflow-y-auto overscroll-contain bg-white/95"
-              >
-                <table className="w-full min-w-[860px] border-collapse text-[11px]">
-                  <thead className="sticky top-0 z-[2]">
-                    <tr className="bg-[#E6ECF5]">
-                      <th className="border border-slate-300/80 px-2 py-2.5 text-center font-black text-[#1B2B44]">
-                        NO
-                      </th>
-                      <th className="border border-slate-300/80 px-2 py-2.5 text-center font-black text-[#1B2B44]">
-                        TANGGAL
-                      </th>
-                      <th className="border border-slate-300/80 px-2 py-2.5 text-center font-black text-[#1B2B44]">
-                        {activeDefinition.numeratorLabel}
-                      </th>
-                      <th className="border border-slate-300/80 px-2 py-2.5 text-center font-black text-[#1B2B44]">
-                        {activeDefinition.denominatorLabel}
-                      </th>
-                      <th className="border border-slate-300/80 px-2 py-2.5 text-center font-black text-[#1B2B44]">
-                        {activeDefinition.resultLabel}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeRows.map((row, rowIndex) => {
-                      const denominator = parsePositiveNumber(row.denominator);
-                      const percentLabel = formatPercent(
-                        row.numerator,
-                        row.denominator,
-                      );
-                      const overTarget =
-                        activeDefinition.id === "penundaan-elektif" &&
-                        denominator != null &&
-                        denominator > 0 &&
-                        parsePositiveNumber(row.numerator) != null &&
-                        ((parsePositiveNumber(row.numerator) ?? 0) /
-                          denominator) *
-                          100 >
-                          5;
-                      const penundaanRow = isPenundaanElektifTab
-                        ? (penundaanElektifRows[rowIndex] as
-                            | MutuPenundaanElektifRow
-                            | undefined)
-                        : undefined;
-                      const numeratorCount =
-                        parsePositiveNumber(row.numerator) ?? 0;
-                      const denominatorCount =
-                        parsePositiveNumber(row.denominator) ?? 0;
-
-                      return (
-                        <tr
-                          key={`${activeDefinition.id}-${monthYyyyMm}-${rowIndex}`}
-                          className="odd:bg-white even:bg-slate-50/80 hover:bg-[#EEF3FA]"
-                        >
-                          <td className="border border-slate-300/80 px-2 py-1.5 text-center font-bold text-rose-700">
-                            {rowIndex + 1}.
-                          </td>
-                          <td className="border border-slate-300/80 px-2 py-1">
-                            {isPenundaanElektifTab ? (
-                              <div className="px-2 py-1 text-center font-semibold text-slate-800">
-                                {row.tanggal}
-                              </div>
-                            ) : (
-                              <input
-                                value={row.tanggal}
-                                onChange={(event) =>
-                                  handleCellChange(
-                                    activeDefinition.id,
-                                    rowIndex,
-                                    "tanggal",
-                                    event.target.value,
-                                  )
-                                }
-                                className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold text-slate-800 focus:border-indigo-400 focus:bg-white focus:outline-none"
-                              />
-                            )}
-                          </td>
-                          <td className="border border-slate-300/80 px-2 py-1">
-                            {isPenundaanElektifTab ? (
-                              numeratorCount > 0 ? (
-                                <button
-                                  type="button"
-                                  className="w-full rounded-md px-2 py-1 text-center font-bold text-indigo-800 underline-offset-2 hover:bg-indigo-50 hover:underline"
-                                  onClick={(event) =>
-                                    openPatientPopover(
-                                      `Tertunda · Tgl ${row.tanggal}`,
-                                      penundaanRow?.patientsTertunda ?? [],
-                                      event.currentTarget,
-                                    )
-                                  }
-                                >
-                                  {row.numerator || "0"}
-                                </button>
-                              ) : (
-                                <div className="px-2 py-1 text-center font-semibold text-slate-500">
-                                  0
-                                </div>
-                              )
-                            ) : (
-                              <input
-                                inputMode="numeric"
-                                value={row.numerator}
-                                onChange={(event) =>
-                                  handleCellChange(
-                                    activeDefinition.id,
-                                    rowIndex,
-                                    "numerator",
-                                    event.target.value,
-                                  )
-                                }
-                                className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold text-slate-800 focus:border-indigo-400 focus:bg-white focus:outline-none"
-                                placeholder="0"
-                              />
-                            )}
-                          </td>
-                          <td className="border border-slate-300/80 px-2 py-1">
-                            {isPenundaanElektifTab ? (
-                              denominatorCount > 0 ? (
-                                <button
-                                  type="button"
-                                  className="w-full rounded-md px-2 py-1 text-center font-bold text-[#1B2B44] underline-offset-2 hover:bg-slate-100 hover:underline"
-                                  onClick={(event) =>
-                                    openPatientPopover(
-                                      `Pasien elektif · Tgl ${row.tanggal}`,
-                                      penundaanRow?.patientsElektif ?? [],
-                                      event.currentTarget,
-                                    )
-                                  }
-                                >
-                                  {row.denominator || "0"}
-                                </button>
-                              ) : (
-                                <div className="px-2 py-1 text-center font-semibold text-slate-500">
-                                  0
-                                </div>
-                              )
-                            ) : (
-                              <input
-                                inputMode="numeric"
-                                value={row.denominator}
-                                onChange={(event) =>
-                                  handleCellChange(
-                                    activeDefinition.id,
-                                    rowIndex,
-                                    "denominator",
-                                    event.target.value,
-                                  )
-                                }
-                                className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold text-slate-800 focus:border-indigo-400 focus:bg-white focus:outline-none"
-                                placeholder="0"
-                              />
-                            )}
-                          </td>
-                          <td
-                            className={cn(
-                              "border border-slate-300/80 px-2 py-1 text-center font-extrabold",
-                              overTarget
-                                ? "text-rose-700"
-                                : "text-slate-800",
-                            )}
-                          >
-                            {percentLabel}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {settingsOpen ? (
-              <aside className="flex min-h-0 flex-col gap-3 overflow-auto rounded-2xl border border-slate-300 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] p-3">
-                <div className="rounded-xl border border-slate-200/80 bg-white/95 p-3 shadow-sm">
-                  <div className="mb-2 flex items-center gap-2 text-sm font-black text-[#1B2B44]">
-                    <ShieldCheck size={16} className="text-indigo-700" />
-                    Ringkasan tab aktif
-                  </div>
-                  <div className="space-y-2 text-xs text-slate-700">
-                    <div className="flex items-center justify-between gap-2">
-                      <span>{activeDefinition.resultLabel}</span>
-                      <span className="font-black text-[#1B2B44]">
-                        {summaryPercent}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span>Total pembilang</span>
-                      <span className="font-black">{summary.numerator}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span>Total penyebut</span>
-                      <span className="font-black">{summary.denominator}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span>Baris terisi</span>
-                      <span className="font-black">{summary.filledRows}</span>
-                    </div>
-                    {activeDefinition.targetLabel ? (
-                      <div className="rounded-md bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-900">
-                        {activeDefinition.targetLabel}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-slate-200/80 bg-white/95 p-3 shadow-sm">
-                  <div className="mb-3 text-sm font-black text-[#1B2B44]">
-                    Pengaturan
-                  </div>
-                  <div className="space-y-3">
+                  <div className="flex flex-wrap items-end gap-2">
+                    <ReportExportActionBar
+                      className="shrink-0 [&_button]:border-white/25 [&_button]:bg-white/10 [&_button]:text-white [&_button:hover]:bg-white/20"
+                      disabled={isLoading}
+                      empty={exportEmpty}
+                      fileNameBase={exportFileBase}
+                      buildHtml={buildExportHtml}
+                      buildWhatsAppText={buildExportWhatsApp}
+                      onDownloadExcel={handleDownloadExcel}
+                    />
                     <label className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                        Ruangan
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                        Bulan
                       </span>
                       <input
-                        value={storage.roomName}
-                        onChange={(event) =>
-                          setStorage((current) => ({
-                            ...current,
-                            roomName: event.target.value,
-                          }))
-                        }
-                        className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                        placeholder="IDIK"
+                        type="month"
+                        value={monthYyyyMm}
+                        onChange={(event) => setMonthYyyyMm(event.target.value)}
+                        className="rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-[13px] font-semibold text-white [color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-white/30"
                       />
                     </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                        Jumlah baris hari bulan ini
-                      </span>
-                      <input
-                        type="number"
-                        min={1}
-                        max={31}
-                        value={configuredDayCount}
-                        disabled={isPenundaanElektifTab}
-                        onChange={(event) =>
-                          handleDayCountChange(Number(event.target.value))
-                        }
-                        className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                      />
-                    </label>
-
                     <button
                       type="button"
-                      onClick={handleResetTab}
-                      disabled={isPenundaanElektifTab}
+                      onClick={() => setSettingsOpen((v) => !v)}
                       className={cn(
-                        "inline-flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-extrabold transition",
-                        "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
-                        "disabled:cursor-not-allowed disabled:opacity-45",
+                        "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-extrabold transition",
+                        settingsOpen
+                          ? "border-white/40 bg-white text-[#1B2B44]"
+                          : "border-white/25 bg-white/10 text-white hover:bg-white/20",
                       )}
                     >
-                      <RotateCcw size={14} />
-                      {isPenundaanElektifTab
-                        ? "Tab otomatis dari tindakan"
-                        : "Reset tab aktif"}
+                      <Settings2 size={15} />
+                      Pengaturan
                     </button>
                   </div>
                 </div>
-              </aside>
-            ) : null}
-          </div>
-        </div>
 
-        {patientPopover ? (
-          <MutuPatientPopover
-            state={patientPopover}
-            containerRef={popoverLayerRef}
-            onOpenChange={(next) => {
-              if (!next) setPatientPopover(null);
-            }}
-          />
-        ) : null}
+                <button
+                  type="button"
+                  onClick={() => onOpenChange(false)}
+                  className={cn(
+                    "absolute right-3 top-3 rounded-lg border border-white/20 bg-white/10 p-1.5 text-slate-200 transition-all duration-200",
+                    "hover:border-white/35 hover:bg-white/20 hover:text-white",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
+                  )}
+                >
+                  <X size={17} />
+                  <span className="sr-only">Close</span>
+                </button>
+              </div>
+
+              <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:p-4 bg-slate-50">
+                <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
+                  <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 font-semibold text-slate-700 shadow-sm">
+                    {isLoading ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin text-indigo-600" />
+                        Memuat
+                      </>
+                    ) : isSaving ? (
+                      <>
+                        <Save size={13} className="text-[#2D4A6E]" />
+                        Menyimpan
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck size={13} className="text-indigo-700" />
+                        Tersinkron Supabase
+                      </>
+                    )}
+                  </div>
+                  {lastSaved ? (
+                    <div className="text-slate-500">
+                      Tersimpan{" "}
+                      {new Intl.DateTimeFormat("id-ID", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }).format(lastSaved)}
+                    </div>
+                  ) : null}
+                  {saveError ? (
+                    <div className="inline-flex items-center gap-1 font-semibold text-rose-700">
+                      <AlertCircle size={13} />
+                      {saveError}
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Tab strip — gaya nav drawer */}
+                <div className="flex shrink-0 flex-wrap gap-1.5 rounded-xl border border-slate-300 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] p-2">
+                  {REPORT_DEFINITIONS.map((definition) => (
+                    <button
+                      key={definition.id}
+                      type="button"
+                      onClick={() => setActiveTab(definition.id)}
+                      className={cn(
+                        "rounded-lg border px-3 py-2 text-left text-[11px] font-extrabold transition",
+                        activeTab === definition.id
+                          ? "border-slate-300 bg-white text-slate-900 shadow-sm"
+                          : "border-transparent text-slate-600 hover:bg-[#DDE6F2]",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "text-[9px] uppercase tracking-wider",
+                          activeTab === definition.id
+                            ? "text-rose-700"
+                            : "text-slate-500",
+                        )}
+                      >
+                        {definition.badge}
+                      </div>
+                      <div className="mt-0.5 truncate max-w-[200px]" title={definition.title}>
+                        {definition.title}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex min-h-0 flex-1 gap-3 overflow-hidden">
+                  <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-300 bg-white p-3 shadow-sm">
+                    <div className="mb-2 shrink-0 rounded-lg bg-indigo-50/50 p-2 text-xs font-semibold text-[#1B2B44]">
+                      {activeDefinition.numeratorLabel}
+                    </div>
+
+                    <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200">
+                      <table className="w-full border-collapse text-xs">
+                        <thead className="sticky top-0 z-10 bg-slate-100">
+                          <tr>
+                            <th className="border border-slate-300 px-2 py-1 text-center w-[45px] shrink-0 text-[#1B2B44]">
+                              HARI
+                            </th>
+                            <th className="border border-slate-300 px-2 py-1 text-center text-[#1B2B44]">
+                              TANGGAL
+                            </th>
+                            <th className="border border-slate-300 px-2 py-1 text-center text-indigo-900 w-[180px]">
+                              PEMBILANG
+                            </th>
+                            <th className="border border-slate-300 px-2 py-1 text-center text-[#1B2B44] w-[180px]">
+                              PENYEBUT
+                            </th>
+                            <th className="border border-slate-300 px-2 py-1 text-center text-[#1B2B44] w-[90px] shrink-0">
+                              PERSENTASE
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {activeRows.map((row, rowIndex) => {
+                            const isPenundaanElektifTab = activeDefinition.id === "penundaan-elektif";
+                            const penundaanRow = isPenundaanElektifTab
+                              ? penundaanReportRows[rowIndex]
+                              : null;
+
+                            const numeratorCount = Number(row.numerator || 0);
+                            const denominatorCount = Number(row.denominator || 0);
+
+                            let percentVal = 0;
+                            if (denominatorCount > 0) {
+                              percentVal = (numeratorCount / denominatorCount) * 100;
+                            }
+
+                            const overTarget = isPenundaanElektifTab && percentVal >= 5;
+                            const percentLabel = denominatorCount > 0
+                              ? `${percentVal.toFixed(1)}%`
+                              : "—";
+
+                            return (
+                              <tr
+                                key={`${activeDefinition.id}-${monthYyyyMm}-${rowIndex}`}
+                                className="odd:bg-white even:bg-slate-50/80 hover:bg-[#EEF3FA]"
+                              >
+                                <td className="border border-slate-300/80 px-2 py-1.5 text-center font-bold text-rose-700">
+                                  {rowIndex + 1}.
+                                </td>
+                                <td className="border border-slate-300/80 px-2 py-1">
+                                  {isPenundaanElektifTab ? (
+                                    <div className="px-2 py-1 text-center font-semibold text-slate-800">
+                                      {row.tanggal}
+                                    </div>
+                                  ) : (
+                                    <input
+                                      value={row.tanggal}
+                                      onChange={(event) =>
+                                        handleCellChange(
+                                          activeDefinition.id,
+                                          rowIndex,
+                                          "tanggal",
+                                          event.target.value,
+                                        )
+                                      }
+                                      className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold text-slate-800 focus:border-indigo-400 focus:bg-white focus:outline-none"
+                                    />
+                                  )}
+                                </td>
+                                <td className="border border-slate-300/80 px-2 py-1">
+                                  {isPenundaanElektifTab ? (
+                                    numeratorCount > 0 ? (
+                                      <button
+                                        type="button"
+                                        className="w-full rounded-md px-2 py-1 text-center font-bold text-indigo-800 underline-offset-2 hover:bg-indigo-50 hover:underline"
+                                        onClick={(event) =>
+                                          openPatientPopover(
+                                            `Tertunda · Tgl ${row.tanggal}`,
+                                            penundaanRow?.patientsTertunda ?? [],
+                                            event.currentTarget,
+                                          )
+                                        }
+                                      >
+                                        {row.numerator || "0"}
+                                      </button>
+                                    ) : (
+                                      <div className="px-2 py-1 text-center font-semibold text-slate-500">
+                                        0
+                                      </div>
+                                    )
+                                  ) : (
+                                    <input
+                                      inputMode="numeric"
+                                      value={row.numerator}
+                                      onChange={(event) =>
+                                        handleCellChange(
+                                          activeDefinition.id,
+                                          rowIndex,
+                                          "numerator",
+                                          event.target.value,
+                                        )
+                                      }
+                                      className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold text-slate-800 focus:border-indigo-400 focus:bg-white focus:outline-none"
+                                      placeholder="0"
+                                    />
+                                  )}
+                                </td>
+                                <td className="border border-slate-300/80 px-2 py-1">
+                                  {isPenundaanElektifTab ? (
+                                    denominatorCount > 0 ? (
+                                      <button
+                                        type="button"
+                                        className="w-full rounded-md px-2 py-1 text-center font-bold text-[#1B2B44] underline-offset-2 hover:bg-slate-100 hover:underline"
+                                        onClick={(event) =>
+                                          openPatientPopover(
+                                            `Pasien elektif · Tgl ${row.tanggal}`,
+                                            penundaanRow?.patientsElektif ?? [],
+                                            event.currentTarget,
+                                          )
+                                        }
+                                      >
+                                        {row.denominator || "0"}
+                                      </button>
+                                    ) : (
+                                      <div className="px-2 py-1 text-center font-semibold text-slate-500">
+                                        0
+                                      </div>
+                                    )
+                                  ) : (
+                                    <input
+                                      inputMode="numeric"
+                                      value={row.denominator}
+                                      onChange={(event) =>
+                                        handleCellChange(
+                                          activeDefinition.id,
+                                          rowIndex,
+                                          "denominator",
+                                          event.target.value,
+                                        )
+                                      }
+                                      className="w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-center font-semibold text-slate-800 focus:border-indigo-400 focus:bg-white focus:outline-none"
+                                      placeholder="0"
+                                    />
+                                  )}
+                                </td>
+                                <td
+                                  className={cn(
+                                    "border border-slate-300/80 px-2 py-1 text-center font-extrabold",
+                                    overTarget
+                                      ? "text-rose-700"
+                                      : "text-slate-800",
+                                  )}
+                                >
+                                  {percentLabel}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {settingsOpen ? (
+                    <aside className="flex min-h-0 flex-col gap-3 overflow-auto rounded-2xl border border-slate-300 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] p-3">
+                      <div className="rounded-xl border border-slate-200/80 bg-white/95 p-3 shadow-sm">
+                        <div className="mb-2 flex items-center gap-2 text-sm font-black text-[#1B2B44]">
+                          <ShieldCheck size={16} className="text-indigo-700" />
+                          Ringkasan tab aktif
+                        </div>
+                        <div className="space-y-2 text-xs text-slate-700">
+                          <div className="flex items-center justify-between gap-2">
+                            <span>{activeDefinition.resultLabel}</span>
+                            <span className="font-black text-[#1B2B44]">
+                              {summaryPercent}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span>Total pembilang</span>
+                            <span className="font-black">{summary.numerator}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span>Total penyebut</span>
+                            <span className="font-black">{summary.denominator}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span>Baris terisi</span>
+                            <span className="font-black">{summary.filledRows}</span>
+                          </div>
+                          {activeDefinition.targetLabel ? (
+                            <div className="rounded-md bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-900">
+                              {activeDefinition.targetLabel}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-200/80 bg-white/95 p-3 shadow-sm">
+                        <div className="mb-3 text-sm font-black text-[#1B2B44]">
+                          Pengaturan
+                        </div>
+                        <div className="space-y-3">
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                              Ruangan
+                            </span>
+                            <input
+                              value={storage.roomName}
+                              onChange={(event) =>
+                                setStorage((current) => ({
+                                  ...current,
+                                  roomName: event.target.value,
+                                }))
+                              }
+                              className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                              placeholder="IDIK"
+                            />
+                          </label>
+
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                              Jumlah baris hari bulan ini
+                            </span>
+                            <input
+                              type="number"
+                              min={1}
+                              max={31}
+                              value={configuredDayCount}
+                              disabled={isPenundaanElektifTab}
+                              onChange={(event) =>
+                                handleDayCountChange(Number(event.target.value))
+                              }
+                              className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm font-semibold text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                            />
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={handleResetTab}
+                            disabled={isPenundaanElektifTab}
+                            className={cn(
+                              "inline-flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-extrabold transition",
+                              "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
+                              "disabled:cursor-not-allowed disabled:opacity-45",
+                            )}
+                          >
+                            <RotateCcw size={14} />
+                            {isPenundaanElektifTab
+                              ? "Tab otomatis dari tindakan"
+                              : "Reset tab aktif"}
+                          </button>
+                        </div>
+                      </div>
+                    </aside>
+                  ) : null}
+                </div>
+              </div>
+
+              {patientPopover ? (
+                <MutuPatientPopover
+                  state={patientPopover}
+                  containerRef={popoverLayerRef}
+                  onOpenChange={(next) => {
+                    if (!next) setPatientPopover(null);
+                  }}
+                />
+              ) : null}
+            </div>
+          </motion.div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </AnimatePresence>
   );
+
+  return createPortal(content, mountPoint);
 }

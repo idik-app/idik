@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useMemo, useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { Package, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
   Dialog,
@@ -11,7 +13,7 @@ import {
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import type { PasienOption } from "@/components/ui/pasien-combobox";
 import { cn } from "@/lib/utils";
-import { UI_LAYERS } from "@/lib/ui/layers";
+import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import type { WireframeTabId } from "../bridge/wireframeDrawerTabs";
 import ReportExportActionBar from "./ReportExportActionBar";
@@ -622,489 +624,413 @@ export default function TindakanLaporanPemakaianModal({
     });
   }, [filteredRows, parsePemakaian]);
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        onInteractOutside={(e) => {
-          // Mencegah modal tertutup saat mengklik elemen di luar (seperti drawer detail)
-          // Radix UI menganggap klik pada portal lain (drawer) sebagai 'outside'
-          e.preventDefault();
-        }}
-        onEscapeKeyDown={(e) => {
-          // Mencegah modal tertutup saat menekan Escape
-          // Ini sering terjadi saat ingin menutup drawer tapi modal ikut tertutup
-          e.preventDefault();
-        }}
-        overlayClassName={UI_LAYERS.dialogOverlayTop}
+  const mountPoint = typeof document !== "undefined" ? (document.fullscreenElement as HTMLElement || document.body) : null;
+
+  if (!open || !mountPoint) return null;
+
+  const content = (
+    <AnimatePresence>
+      <div
         className={cn(
-          "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-          "h-[90vh] w-[98vw] max-w-[1400px] overflow-hidden p-0 flex flex-col border-slate-300/60 bg-white dark:border-amber-500/35 dark:bg-black rounded-xl focus:outline-none",
-          UI_LAYERS.dialogContentTop,
+          "fixed inset-0 pointer-events-none",
+          UI_LAYERS.drawerPortal
         )}
+        style={{ zIndex: Z_INDEX_VALUES.drawerPortal }}
       >
-        <DialogPrimitive.Close
-          className={cn(
-            "absolute right-4 top-4 rounded-full p-2 transition-all duration-200",
-            "hover:bg-slate-100 active:scale-95 dark:hover:bg-white/5",
-            "text-slate-400 hover:text-slate-600 dark:text-white/30 dark:hover:text-white/60",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50",
-            "z-[51]",
-          )}
-        >
-          <X size={20} strokeWidth={2.5} />
-          <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
-        <div className="flex flex-col h-full p-2 sm:p-3 text-slate-900 dark:text-white bg-white dark:bg-black">
-          <div className="flex shrink-0 flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between border-b pb-1.5 dark:border-white/10">
-            <DialogHeader className="space-y-0 text-left sm:pr-2">
-              <DialogTitle className="flex items-center gap-2 text-left text-sm font-bold tracking-wide">
-                <Package
-                  className="shrink-0 text-amber-600 dark:text-amber-400"
-                  size={18}
-                  strokeWidth={2.25}
-                />
-                Laporan Pemakaian Alkes
-              </DialogTitle>
-            </DialogHeader>
-            <div className="flex items-center gap-1.5 scale-90 origin-right">
-              <ReportExportActionBar
-                disabled={loading}
-                empty={!loading && filteredRows.length === 0}
-                fileNameBase={`laporan-pemakaian-alkes-${new Date().toISOString().slice(0, 10)}`}
-                buildHtml={buildExportHtml}
-                buildWhatsAppText={buildExportWhatsApp}
-                onDownloadExcel={onDownloadExcel}
-              />
-            </div>
-          </div>
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          type="button"
+          aria-label="Tutup laporan pemakaian"
+          className="absolute inset-0 bg-[#2D3748]/45 pointer-events-auto"
+          onClick={() => onOpenChange(false)}
+        />
 
-          <div className="flex shrink-0 flex-wrap items-end gap-2 rounded-lg border p-1.5 border-amber-200/80 bg-amber-50/50 dark:border-amber-900/50 dark:bg-black/30">
-            <div className="flex flex-col gap-0.5 w-[200px]">
-              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
-                Cari Pasien / RM / Dokter
-              </span>
-              <div className="relative">
-                <Search
-                  className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40"
-                  size={10}
-                />
-                <input
-                  type="text"
-                  placeholder="Cari..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full rounded-md border border-amber-300/80 bg-white pl-6 pr-1 py-0.5 text-[11px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-white/20 dark:bg-black dark:text-white dark:placeholder:text-white/30"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-0.5 w-[115px]">
-              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
-                Dari
-              </span>
-              <div className="relative group">
-                <input
-                  type="date"
-                  value={filterTanggalFrom}
-                  onClick={(e) => openNativeDatePicker(e.currentTarget)}
-                  onChange={(e) => setFilterTanggalFrom(e.target.value)}
-                  className="w-full rounded-md border border-amber-300/80 bg-white pl-1.5 pr-6 py-0.5 text-[11px] font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-white/20 dark:bg-black dark:text-white"
-                />
-                {filterTanggalFrom && (
-                  <button
-                    type="button"
-                    onClick={() => setFilterTanggalFrom("")}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
-                  >
-                    <X size={10} strokeWidth={2.5} />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-0.5 w-[115px]">
-              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
-                Sampai
-              </span>
-              <div className="relative group">
-                <input
-                  type="date"
-                  value={filterTanggalTo}
-                  onClick={(e) => openNativeDatePicker(e.currentTarget)}
-                  onChange={(e) => setFilterTanggalTo(e.target.value)}
-                  className="w-full rounded-md border border-amber-300/80 bg-white pl-1.5 pr-6 py-0.5 text-[11px] font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-white/20 dark:bg-black dark:text-white"
-                />
-                {filterTanggalTo && (
-                  <button
-                    type="button"
-                    onClick={() => setFilterTanggalTo("")}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
-                  >
-                    <X size={10} strokeWidth={2.5} />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-0.5 w-[140px]">
-              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
-                Dokter
-              </span>
-              <select
-                value={filterDokter}
-                onChange={(e) => setFilterDokter(e.target.value)}
-                className="w-full rounded-md border border-amber-300/80 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 dark:border-white/20 dark:bg-black dark:text-white"
-              >
-                <option value="">Semua Dokter</option>
-                {doctorOptions.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-0.5 w-[120px]">
-              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
-                Kategori
-              </span>
-              <select
-                value={filterKategori}
-                onChange={(e) => setFilterKategori(e.target.value)}
-                className="w-full rounded-md border border-amber-300/80 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 dark:border-white/20 dark:bg-black dark:text-white"
-              >
-                <option value="">Semua Alkes</option>
-                {kategoriOptions.map((k) => (
-                  <option key={k} value={k}>
-                    {k}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-col gap-0.5 w-[120px]">
-              <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
-                Keterangan
-              </span>
-              <select
-                value={filterKeterangan}
-                onChange={(e) => setFilterKeterangan(e.target.value)}
-                className="w-full rounded-md border border-amber-300/80 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 dark:border-white/20 dark:bg-black dark:text-white"
-              >
-                <option value="">Semua Ket.</option>
-                {KETERANGAN_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200/80 dark:border-white/15 mb-2">
-            {loading ? (
-              <div className="p-3 text-center text-[11px] font-semibold text-slate-600 dark:text-white/85">
-                Memuat data…
-              </div>
-            ) : filteredRows.length === 0 ? (
-              <div className="p-3 text-center text-[11px] font-semibold text-slate-600 dark:text-white/85">
-                Tidak ada data pemakaian alkes.
-              </div>
-            ) : (
-              <table className="w-full border-collapse text-[9px] table-fixed">
-                <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-white/10">
-                  <tr>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[30px] shrink-0">
-                      NO
-                    </th>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[75px] shrink-0">
-                      TANGGAL
-                    </th>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[130px] shrink-0">
-                      PASIEN
-                    </th>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[110px] shrink-0">
-                      DIAGNOSA
-                    </th>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[90px] shrink-0">
-                      STATUS
-                    </th>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[55px] shrink-0">
-                      KASUS
-                    </th>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[130px] shrink-0">
-                      OPERATOR
-                    </th>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[180px]">
-                      KONSOLIDASI
-                    </th>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[90px] shrink-0">
-                      Alasan Pakai Konsolidasi
-                    </th>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[180px]">
-                      NON KONSOLIDASI
-                    </th>
-                    <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[90px] shrink-0">
-                      Alasan Pakai non Konsolidasi
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-white/10">
-                  {paginatedRows.map((r, idx) => {
-                    const rawPemakaian = String(r.pemakaian ?? "");
-                    let finalPemakaian = rawPemakaian;
-                    const upperPemakaian = rawPemakaian.toUpperCase();
-
-                    // Otomatisasi label di UI berdasarkan kata kunci
-                    const hasKonsolidasi =
-                      upperPemakaian.includes("[KONSOLIDASI]");
-                    const hasNonKonsolidasi =
-                      upperPemakaian.includes("[NON KONSOLIDASI]") ||
-                      upperPemakaian.includes("NON KONSOLIDASI");
-
-                    const matchKonsolidasi =
-                      DISTRIBUTOR_KONSOLIDASI_KEYWORDS.find((k) =>
-                        upperPemakaian.includes(k),
-                      );
-                    const matchNonKonsolidasi =
-                      DISTRIBUTOR_NON_KONSOLIDASI_KEYWORDS.find((k) =>
-                        upperPemakaian.includes(k),
-                      );
-
-                    // Koreksi jika ada label yang salah (misal ONYX tapi tertulis NON KONSOLIDASI)
-                    if (matchKonsolidasi) {
-                      if (hasNonKonsolidasi) {
-                        finalPemakaian = rawPemakaian
-                          .replace(/\[NON KONSOLIDASI\]/gi, "[KONSOLIDASI]")
-                          .replace(/NON KONSOLIDASI/gi, "[KONSOLIDASI]");
-                      } else if (!hasKonsolidasi) {
-                        finalPemakaian = rawPemakaian.replace(
-                          new RegExp(matchKonsolidasi, "gi"),
-                          (m) => `${m} [KONSOLIDASI]`,
-                        );
-                      }
-                    } else if (matchNonKonsolidasi) {
-                      if (hasKonsolidasi) {
-                        finalPemakaian = rawPemakaian.replace(
-                          /\[KONSOLIDASI\]/gi,
-                          "\nNON KONSOLIDASI",
-                        );
-                      } else if (!hasNonKonsolidasi) {
-                        finalPemakaian = rawPemakaian.replace(
-                          new RegExp(matchNonKonsolidasi, "gi"),
-                          (m) => `${m}\nNON KONSOLIDASI`,
-                        );
-                      }
-                    }
-
-                    const parsed = parsePemakaian(finalPemakaian);
-                    const diagnosa = String(r.diagnosa || "").trim();
-                    
-                    // Logic Jenis Pembiayaan + Kelas Perawatan (selaras drawer detail)
-                    const jp = (r.pembiayaan || (r as any).jenis_pembiayaan || "").trim();
-                    const kls = (r.kelas || (r as any).kelas_perawatan || "").trim();
-                    let displayBayar = (r.kelas_pembiayaan || "").trim();
-                    
-                    if (!displayBayar) {
-                      if (jp && kls) displayBayar = `${jp} - ${kls}`;
-                      else displayBayar = jp || kls || "";
-                    }
-                    
-                    const statusRaw = String(r.status || "").trim();
-                    const status = (statusRaw.toUpperCase() === "MENUNGGU" || !statusRaw)
-                      ? (displayBayar || "—")
-                      : (displayBayar || statusRaw || "—");
-                    
-                    // Logic Kasus: CITO vs ELEKTIF
-                    // CITO: PPCI atau di luar jam 07.00 - 15.00
-                    // ELEKTIF: PCI/PTCA/PPCI di jam 07.00 - 15.00
-                    const timeOut = String(r.fast_track_time_out || "").trim();
-                    const tindakanNama = String(r.tindakan || "").toUpperCase();
-                    let kasus = "—";
-                    
-                    if (timeOut) {
-                      const hour = parseInt(timeOut.split(":")[0]);
-                      const isOfficeHours = hour >= 7 && hour < 15;
-                      
-                      if (!isOfficeHours) {
-                        kasus = "CITO";
-                      } else {
-                        // Di jam kantor (07.00 - 15.00)
-                        if (tindakanNama.includes("PPCI") && !tindakanNama.includes("PCI") && !tindakanNama.includes("PTCA")) {
-                          // Jika murni PPCI tanpa embel-embel PCI/PTCA (opsional, mengikuti prompt "PPCI dan diluar jam 15.00")
-                          // Namun prompt kedua bilang PPCI di jam 07-15 adalah ELEKTIF.
-                          kasus = "ELEKTIF";
-                        } else {
-                          kasus = "ELEKTIF";
-                        }
-                      }
-                    } else if (tindakanNama.includes("PPCI")) {
-                      // Fallback jika jam tidak ada tapi tindakan PPCI
-                      kasus = "CITO";
-                    }
-                    
-                    // Gunakan data dari reportRows yang sudah di-merge dengan master pasien
-                    const rowData = r;
-                    const namaPasien = normalizeNamaPasien(displayNamaPasien(rowData as any));
-                    const rmPasien = displayRm(rowData as any);
-                    
-                    return (
-                      <tr
-                        key={r.id}
-                        className={cn(
-                          "hover:bg-slate-50 dark:hover:bg-white/5",
-                          onOpenDetail && "cursor-pointer"
-                        )}
-                        onClick={() => onOpenDetail?.(r, "klinis")}
-                      >
-                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 text-center">
-                          {(currentPage - 1) * itemsPerPage + idx + 1}
-                        </td>
-                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20">
-                          {tanggalBarisKeYmdWib(r.tanggal)}
-                        </td>
-                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20">
-                          <div className="font-bold leading-tight">
-                            {namaPasien}
-                          </div>
-                          <div className="text-[8px] opacity-70">
-                            ({rmPasien})
-                          </div>
-                        </td>
-                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 leading-tight">
-                          {diagnosa || "—"}
-                        </td>
-                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 leading-tight break-words">
-                          {status || "—"}
-                        </td>
-                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 leading-tight">
-                          {kasus || "—"}
-                        </td>
-                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 leading-tight">
-                          {r.dokter || "—"}
-                        </td>
-                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 whitespace-pre-wrap leading-tight text-[8px]">
-                          {formatBlockText(parsed.KONSOLIDASI.join("\n\n"))}
-                        </td>
-                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 leading-tight">
-                          {parsed.KONSOLIDASI.length > 0
-                            ? "STOK TERSEDIA"
-                            : "—"}
-                        </td>
-                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 whitespace-pre-wrap leading-tight text-[8px]">
-                          {formatBlockText(parsed.NON_KONSOLIDASI.join("\n\n"))}
-                        </td>
-                        <td className="border border-slate-300/70 px-1 py-0.5 align-top dark:border-white/20 leading-tight">
-                          {parsed.NON_KONSOLIDASI.length > 0
-                            ? "Tidak ada ukuran yang lain"
-                            : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+        <div className="absolute inset-0 z-[1] flex items-center justify-center pointer-events-none px-2 sm:px-4">
+          <motion.div
+            role="dialog"
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{
+              type: "spring",
+              damping: 20,
+              stiffness: 400,
+              opacity: { duration: 0.15 }
+            }}
+            className={cn(
+              "pointer-events-auto flex h-[85vh] max-h-[85vh] min-w-0 w-full max-w-[92rem] cursor-default flex-col rounded-2xl border antialiased [text-rendering:optimizeLegibility]",
+              "border-slate-200/90 bg-slate-50/90 shadow-[0_24px_56px_rgba(15,23,42,0.15),0_0_1px_rgba(15,23,42,0.1)]",
+              "font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
             )}
-          </div>
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="shrink-0 border-b px-4 py-3 border-white/10 bg-gradient-to-r from-[#1B2B44] to-[#2D4A6E] rounded-t-2xl">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <Package className="shrink-0 text-amber-300" size={20} />
+                  <span className="font-bold text-white text-sm tracking-wide">Laporan Pemakaian Alkes</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ReportExportActionBar
+                    disabled={loading}
+                    empty={!loading && filteredRows.length === 0}
+                    fileNameBase={`laporan-pemakaian-alkes-${new Date().toISOString().slice(0, 10)}`}
+                    buildHtml={buildExportHtml}
+                    buildWhatsAppText={buildExportWhatsApp}
+                    onDownloadExcel={onDownloadExcel}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onOpenChange(false)}
+                    className="rounded-lg border border-white/20 bg-white/10 p-1.5 text-slate-100 hover:border-white/35 hover:bg-white/20 hover:text-white"
+                  >
+                    <X size={16} strokeWidth={2.5} />
+                  </button>
+                </div>
+              </div>
+            </div>
 
-          {filteredRows.length > 0 && (
-            <div className="flex shrink-0 items-center justify-between rounded-lg border border-slate-200/80 bg-slate-50/50 px-2 py-1 dark:border-white/10 dark:bg-white/5">
-              <div className="flex items-center gap-2">
-                <div className="text-[9px] font-medium text-slate-500 dark:text-white/60">
-                  <span className="font-bold text-slate-900 dark:text-white">
-                    {Math.min(
-                      (currentPage - 1) * itemsPerPage + 1,
-                      filteredRows.length,
-                    )}
+            {/* Body */}
+            <div className="flex-1 min-h-0 flex flex-col p-4 sm:p-6 overflow-y-auto">
+              <div className="flex shrink-0 flex-wrap items-end gap-2 rounded-lg border p-1.5 border-amber-200/80 bg-amber-50/50 dark:border-amber-900/50 dark:bg-black/30 mb-4">
+                <div className="flex flex-col gap-0.5 w-[200px]">
+                  <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                    Cari Pasien / RM / Dokter
                   </span>
-                  -
-                  <span className="font-bold text-slate-900 dark:text-white">
-                    {Math.min(currentPage * itemsPerPage, filteredRows.length)}
-                  </span>
-                  /
-                  <span className="font-bold text-slate-900 dark:text-white">
-                    {filteredRows.length}
-                  </span>
+                  <div className="relative">
+                    <Search
+                      className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40"
+                      size={10}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Cari..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full rounded-md border border-amber-300/80 bg-white pl-6 pr-1 py-0.5 text-[11px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-white/20 dark:bg-black dark:text-white dark:placeholder:text-white/30"
+                    />
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-1 border-l pl-2 border-slate-300 dark:border-white/10">
-                  <span className="text-[9px] text-slate-500 dark:text-white/40 font-medium">
-                    Baris:
+                <div className="flex flex-col gap-0.5 w-[115px]">
+                  <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                    Dari
+                  </span>
+                  <div className="relative group">
+                    <input
+                      type="date"
+                      value={filterTanggalFrom}
+                      onClick={(e) => openNativeDatePicker(e.currentTarget)}
+                      onChange={(e) => setFilterTanggalFrom(e.target.value)}
+                      className="w-full rounded-md border border-amber-300/80 bg-white pl-1.5 pr-6 py-0.5 text-[11px] font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-white/20 dark:bg-black dark:text-white"
+                    />
+                    {filterTanggalFrom && (
+                      <button
+                        type="button"
+                        onClick={() => setFilterTanggalFrom("")}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                      >
+                        <X size={10} strokeWidth={2.5} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-0.5 w-[115px]">
+                  <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                    Sampai
+                  </span>
+                  <div className="relative group">
+                    <input
+                      type="date"
+                      value={filterTanggalTo}
+                      onClick={(e) => openNativeDatePicker(e.currentTarget)}
+                      onChange={(e) => setFilterTanggalTo(e.target.value)}
+                      className="w-full rounded-md border border-amber-300/80 bg-white pl-1.5 pr-6 py-0.5 text-[11px] font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-white/20 dark:bg-black dark:text-white"
+                    />
+                    {filterTanggalTo && (
+                      <button
+                        type="button"
+                        onClick={() => setFilterTanggalTo("")}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                      >
+                        <X size={10} strokeWidth={2.5} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-0.5 w-[140px]">
+                  <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                    Dokter
                   </span>
                   <select
-                    value={itemsPerPage}
-                    onChange={(e) => {
-                      setItemsPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="bg-transparent text-[9px] font-bold text-slate-700 dark:text-white focus:outline-none cursor-pointer"
+                    value={filterDokter}
+                    onChange={(e) => setFilterDokter(e.target.value)}
+                    className="w-full rounded-md border border-amber-300/80 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 dark:border-white/20 dark:bg-black dark:text-white"
                   >
-                    {[10, 25, 50, 100, 250].map((v) => (
-                      <option
-                        key={v}
-                        value={v}
-                        className="bg-white dark:bg-black"
-                      >
-                        {v}
+                    <option value="">Semua Dokter</option>
+                    {doctorOptions.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-0.5 w-[120px]">
+                  <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                    Kategori
+                  </span>
+                  <select
+                    value={filterKategori}
+                    onChange={(e) => setFilterKategori(e.target.value)}
+                    className="w-full rounded-md border border-amber-300/80 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 dark:border-white/20 dark:bg-black dark:text-white"
+                  >
+                    <option value="">Semua Alkes</option>
+                    {kategoriOptions.map((k) => (
+                      <option key={k} value={k}>
+                        {k}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-0.5 w-[120px]">
+                  <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                    Keterangan
+                  </span>
+                  <select
+                    value={filterKeterangan}
+                    onChange={(e) => setFilterKeterangan(e.target.value)}
+                    className="w-full rounded-md border border-amber-300/80 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 dark:border-white/20 dark:bg-black dark:text-white"
+                  >
+                    <option value="">Semua Ket.</option>
+                    {KETERANGAN_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
                       </option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="flex h-5 w-5 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 dark:border-white/20 dark:bg-black dark:text-white dark:hover:bg-white/10"
-                >
-                  <ChevronLeft size={12} />
-                </button>
+              <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200/80 dark:border-white/15 mb-4">
+                {loading ? (
+                  <div className="p-3 text-center text-[11px] font-semibold text-slate-600 dark:text-white/85">
+                    Memuat data…
+                  </div>
+                ) : filteredRows.length === 0 ? (
+                  <div className="p-3 text-center text-[11px] font-semibold text-slate-600 dark:text-white/85">
+                    Tidak ada data pemakaian alkes.
+                  </div>
+                ) : (
+                  <table className="w-full border-collapse text-[9px] table-fixed">
+                    <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-white/10">
+                      <tr>
+                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[30px] shrink-0">
+                          NO
+                        </th>
+                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[75px] shrink-0">
+                          TANGGAL
+                        </th>
+                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[130px] shrink-0">
+                          PASIEN
+                        </th>
+                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[110px] shrink-0">
+                          DIAGNOSA
+                        </th>
+                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[90px] shrink-0">
+                          STATUS
+                        </th>
+                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[55px] shrink-0">
+                          KASUS
+                        </th>
+                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[130px] shrink-0">
+                          OPERATOR
+                        </th>
+                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[180px]">
+                          KONSOLIDASI
+                        </th>
+                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[90px] shrink-0">
+                          Alasan Pakai Konsolidasi
+                        </th>
+                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[180px]">
+                          NON KONSOLIDASI
+                        </th>
+                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[90px] shrink-0">
+                          Alasan Pakai non Konsolidasi
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedRows.map((row, idx) => {
+                        const globalIdx = (currentPage - 1) * itemsPerPage + idx + 1;
+                        const pemakaian = parsePemakaian(row.consumable);
 
-                <div className="flex items-center gap-0.5">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum = currentPage;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={cn(
-                          "flex h-5 min-w-[20px] items-center justify-center rounded border text-[9px] font-bold transition-colors",
-                          currentPage === pageNum
-                            ? "border-amber-500 bg-amber-500 text-white"
-                            : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/20 dark:bg-black dark:text-white dark:hover:bg-white/10",
-                        )}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <button
-                  onClick={() =>
-                    setCurrentPage((p) => Math.min(totalPages, p + 1))
-                  }
-                  disabled={currentPage === totalPages}
-                  className="flex h-5 w-5 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 dark:border-white/20 dark:bg-black dark:text-white dark:hover:bg-white/10"
-                >
-                  <ChevronRight size={12} />
-                </button>
+                        return (
+                          <tr
+                            key={row.id ? String(row.id) : idx}
+                            className={cn(
+                              "hover:bg-slate-50 dark:hover:bg-white/5",
+                              onOpenDetail && "cursor-pointer"
+                            )}
+                            onClick={() => onOpenDetail?.(row, "biaya")}
+                          >
+                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 tabular-nums">
+                              {globalIdx}
+                            </td>
+                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 font-semibold text-slate-500 dark:text-white/60">
+                              {row.tanggal ? tanggalBarisKeYmdWib(row.tanggal) : "—"}
+                            </td>
+                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20">
+                              <div className="font-bold text-amber-700 dark:text-amber-400">
+                                {displayNamaPasien(row)}
+                              </div>
+                              <div className="text-[8px] opacity-75 tabular-nums">
+                                RM: {displayRm(row)}
+                              </div>
+                            </td>
+                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 truncate font-semibold" title={row.diagnosa || ""}>
+                              {row.diagnosa || "—"}
+                            </td>
+                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20">
+                              <span className="rounded bg-slate-100 px-1 py-0.5 font-bold text-slate-700 dark:bg-white/10 dark:text-white/70">
+                                {row.kelas_pembiayaan || row.pembiayaan || "—"}
+                              </span>
+                            </td>
+                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 font-bold uppercase truncate" title={row.tindakan || ""}>
+                              {row.tindakan || "—"}
+                            </td>
+                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 font-semibold truncate" title={row.dokter || ""}>
+                              {row.dokter || "—"}
+                            </td>
+                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 font-medium leading-relaxed">
+                              {formatBlockText(pemakaian.konsolidasiText)}
+                            </td>
+                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 italic text-slate-500 dark:text-white/50 leading-snug">
+                              {row.alasan_alkes_konsolidasi || "—"}
+                            </td>
+                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 font-medium leading-relaxed">
+                              {formatBlockText(pemakaian.nonKonsolidasiText)}
+                            </td>
+                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 italic text-slate-500 dark:text-white/50 leading-snug">
+                              {row.alasan_alkes_non_konsolidasi || "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
               </div>
+
+              {filteredRows.length > 0 && (
+                <div className="flex shrink-0 items-center justify-between rounded-lg border border-slate-200/80 bg-slate-50/50 px-2 py-1 dark:border-white/10 dark:bg-white/5">
+                  <div className="flex items-center gap-2">
+                    <div className="text-[9px] font-medium text-slate-500 dark:text-white/60">
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {Math.min(
+                          (currentPage - 1) * itemsPerPage + 1,
+                          filteredRows.length,
+                        )}
+                      </span>
+                      -
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {Math.min(currentPage * itemsPerPage, filteredRows.length)}
+                      </span>
+                      /
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {filteredRows.length}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1 border-l pl-2 border-slate-300 dark:border-white/10">
+                      <span className="text-[9px] text-slate-500 dark:text-white/40 font-medium">
+                        Baris:
+                      </span>
+                      <select
+                        value={itemsPerPage}
+                        onChange={(e) => {
+                          setItemsPerPage(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="bg-transparent text-[9px] font-bold text-slate-700 dark:text-white focus:outline-none cursor-pointer"
+                      >
+                        {[10, 25, 50, 100, 250].map((v) => (
+                          <option
+                            key={v}
+                            value={v}
+                            className="bg-white dark:bg-black"
+                          >
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="flex h-5 w-5 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 dark:border-white/20 dark:bg-black dark:text-white dark:hover:bg-white/10"
+                    >
+                      <ChevronLeft size={12} />
+                    </button>
+
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum = currentPage;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={cn(
+                              "flex h-5 min-w-[20px] items-center justify-center rounded border text-[9px] font-bold transition-colors",
+                              currentPage === pageNum
+                                ? "border-amber-500 bg-amber-500 text-white"
+                                : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/20 dark:bg-black dark:text-white dark:hover:bg-white/10",
+                            )}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={currentPage === totalPages}
+                      className="flex h-5 w-5 items-center justify-center rounded border border-slate-300 bg-white text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-40 dark:border-white/20 dark:bg-black dark:text-white dark:hover:bg-white/10"
+                    >
+                      <ChevronRight size={12} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </motion.div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </AnimatePresence>
   );
+
+  return createPortal(content, mountPoint);
 }

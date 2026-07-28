@@ -296,7 +296,7 @@ const TableRow = React.memo(
         <th
           scope="row"
           className={cn(
-            "sticky left-0 z-[1] border border-slate-300/70 bg-slate-100 px-1.5 py-0.5 text-left font-semibold dark:border-white/10 dark:bg-zinc-900 dark:text-white",
+            "sticky left-0 z-[1] border border-slate-300/70 bg-slate-100 px-1.5 py-0.5 text-left font-semibold text-slate-900",
           )}
         >
           {label}
@@ -315,16 +315,15 @@ const TableRow = React.memo(
             <td
               key={di}
               className={cn(
-                "border px-0.5 py-0.5 text-center tabular-nums transition-colors",
-                "border-slate-300/70 dark:border-white/10 dark:text-white/80",
-                wkend ? "bg-amber-50/50 dark:bg-amber-950/20" : "",
-                c > 0 ? "cursor-pointer hover:bg-emerald-500/10" : "",
+                "border px-0.5 py-0.5 text-center tabular-nums transition-colors text-slate-800 border-slate-300",
+                wkend ? "bg-amber-100/50" : "bg-white",
+                c > 0 ? "cursor-pointer hover:bg-slate-100 font-bold" : "opacity-40",
               )}
             >
               {c > 0 ? (
                 <button
                   type="button"
-                  className="h-full w-full focus:outline-none"
+                  className="h-full w-full focus:outline-none text-[#1B2B44] font-extrabold"
                   onClick={(event) => {
                     onCellActivate?.({
                       title: `${label} - Tgl ${day}`,
@@ -341,7 +340,7 @@ const TableRow = React.memo(
             </td>
           );
         })}
-        <td className="border border-slate-300/70 px-1 py-0.5 text-center font-extrabold tabular-nums dark:border-white/10 dark:text-white">
+        <td className="border border-slate-300 px-1 py-0.5 text-center font-extrabold tabular-nums text-slate-900 bg-slate-100">
           {formatCell(activeMatrix.rowTotals[ri] ?? 0)}
         </td>
       </tr>
@@ -364,24 +363,24 @@ const LaporanMatrixTable = React.memo(
       trigger: HTMLButtonElement;
     }) => void;
   }) => (
-    <table className="w-max min-w-full border-collapse text-[11px]">
+    <table className="w-max min-w-full border-collapse text-[11px] text-slate-800 bg-white">
       <thead>
-        <tr className="bg-slate-100/90 dark:bg-white/5">
+        <tr className="bg-slate-100 text-slate-900 border-slate-300">
           <th
             rowSpan={2}
-            className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-1 text-left font-extrabold dark:border-white/10 dark:bg-zinc-900 bg-slate-100 text-slate-900 dark:text-white"
+            className="sticky left-0 z-[1] border border-slate-300 px-1.5 py-1 text-left font-extrabold bg-slate-100 text-slate-900"
           >
             {yAxisHeader}
           </th>
           <th
             colSpan={matrix.daysInMonth}
-            className="border border-slate-300/70 px-1 py-0.5 text-center font-extrabold dark:border-white/10"
+            className="border border-slate-300 px-1 py-0.5 text-center font-extrabold bg-slate-100 text-slate-900"
           >
             TANGGAL
           </th>
           <th
             rowSpan={2}
-            className="border border-slate-300/70 px-1.5 py-1 text-center font-extrabold dark:border-white/10"
+            className="border border-slate-300 px-1.5 py-1 text-center font-extrabold bg-slate-100 text-slate-900"
           >
             JUMLAH
           </th>
@@ -395,11 +394,10 @@ const LaporanMatrixTable = React.memo(
               <th
                 key={day}
                 className={cn(
-                  "border px-0.5 py-0.5 text-center font-bold tabular-nums",
-                  "border-slate-300/70 dark:border-white/10",
+                  "border px-0.5 py-0.5 text-center font-bold tabular-nums border-slate-300 text-slate-900",
                   wkend
-                    ? "bg-amber-100/90 dark:bg-amber-950/30"
-                    : "bg-slate-50/80 dark:bg-white/5",
+                    ? "bg-amber-100/90 text-amber-950"
+                    : "bg-slate-50 text-slate-850",
                 )}
               >
                 {day}
@@ -419,10 +417,10 @@ const LaporanMatrixTable = React.memo(
             onCellActivate={onCellActivate}
           />
         ))}
-        <tr className="bg-slate-100/90 font-extrabold dark:bg-white/5">
+        <tr className="bg-slate-100 font-extrabold text-slate-900">
           <th
             scope="row"
-            className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-0.5 text-left dark:border-white/10 dark:bg-zinc-900"
+            className="sticky left-0 z-[1] border border-slate-300 px-1.5 py-0.5 text-left bg-slate-100 text-slate-900"
           >
             JUMLAH
           </th>
@@ -434,15 +432,15 @@ const LaporanMatrixTable = React.memo(
               <td
                 key={di}
                 className={cn(
-                  "border px-0.5 py-0.5 text-center tabular-nums dark:border-white/10",
-                  wkend ? "bg-amber-100/80 dark:bg-amber-950/30" : "",
+                  "border px-0.5 py-0.5 text-center tabular-nums border-slate-300",
+                  wkend ? "bg-amber-100 text-amber-950" : "bg-slate-50",
                 )}
               >
                 {formatCell(c)}
               </td>
             );
           })}
-          <td className="border border-slate-300/70 px-1 py-0.5 text-center dark:border-white/10">
+          <td className="border border-slate-300 px-1 py-0.5 text-center bg-slate-100 text-slate-900">
             {formatCell(matrix.grandTotal)}
           </td>
         </tr>

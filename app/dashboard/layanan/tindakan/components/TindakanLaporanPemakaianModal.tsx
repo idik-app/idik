@@ -695,15 +695,15 @@ export default function TindakanLaporanPemakaianModal({
             </div>
 
             {/* Body */}
-            <div className="flex-1 min-h-0 flex flex-col p-4 sm:p-6 overflow-y-auto">
-              <div className="flex shrink-0 flex-wrap items-end gap-2 rounded-lg border p-1.5 border-amber-200/80 bg-amber-50/50 dark:border-amber-900/50 dark:bg-black/30 mb-4">
+            <div className="flex-1 min-h-0 flex flex-col p-4 sm:p-6 overflow-y-auto bg-slate-50">
+              <div className="flex shrink-0 flex-wrap items-end gap-2 rounded-xl border p-2 border-slate-300 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] shadow-sm mb-4">
                 <div className="flex flex-col gap-0.5 w-[200px]">
-                  <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                  <span className="text-[8px] font-bold uppercase tracking-wide text-slate-500 pl-0.5">
                     Cari Pasien / RM / Dokter
                   </span>
                   <div className="relative">
                     <Search
-                      className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/40"
+                      className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400"
                       size={10}
                     />
                     <input
@@ -711,13 +711,13 @@ export default function TindakanLaporanPemakaianModal({
                       placeholder="Cari..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full rounded-md border border-amber-300/80 bg-white pl-6 pr-1 py-0.5 text-[11px] font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-white/20 dark:bg-black dark:text-white dark:placeholder:text-white/30"
+                      className="w-full rounded-md border border-slate-300 bg-white pl-6 pr-1 py-0.5 text-[11px] font-bold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#1b2b44]/20"
                     />
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-0.5 w-[115px]">
-                  <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                  <span className="text-[8px] font-bold uppercase tracking-wide text-slate-500 pl-0.5">
                     Dari
                   </span>
                   <div className="relative group">
@@ -726,13 +726,13 @@ export default function TindakanLaporanPemakaianModal({
                       value={filterTanggalFrom}
                       onClick={(e) => openNativeDatePicker(e.currentTarget)}
                       onChange={(e) => setFilterTanggalFrom(e.target.value)}
-                      className="w-full rounded-md border border-amber-300/80 bg-white pl-1.5 pr-6 py-0.5 text-[11px] font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-white/20 dark:bg-black dark:text-white"
+                      className="w-full rounded-md border border-slate-300 bg-white pl-1.5 pr-6 py-0.5 text-[11px] font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#1b2b44]/20"
                     />
                     {filterTanggalFrom && (
                       <button
                         type="button"
                         onClick={() => setFilterTanggalFrom("")}
-                        className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50"
                       >
                         <X size={10} strokeWidth={2.5} />
                       </button>
@@ -741,7 +741,7 @@ export default function TindakanLaporanPemakaianModal({
                 </div>
 
                 <div className="flex flex-col gap-0.5 w-[115px]">
-                  <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                  <span className="text-[8px] font-bold uppercase tracking-wide text-slate-500 pl-0.5">
                     Sampai
                   </span>
                   <div className="relative group">
@@ -750,13 +750,13 @@ export default function TindakanLaporanPemakaianModal({
                       value={filterTanggalTo}
                       onClick={(e) => openNativeDatePicker(e.currentTarget)}
                       onChange={(e) => setFilterTanggalTo(e.target.value)}
-                      className="w-full rounded-md border border-amber-300/80 bg-white pl-1.5 pr-6 py-0.5 text-[11px] font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500 dark:border-white/20 dark:bg-black dark:text-white"
+                      className="w-full rounded-md border border-slate-300 bg-white pl-1.5 pr-6 py-0.5 text-[11px] font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#1b2b44]/20"
                     />
                     {filterTanggalTo && (
                       <button
                         type="button"
                         onClick={() => setFilterTanggalTo("")}
-                        className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50"
                       >
                         <X size={10} strokeWidth={2.5} />
                       </button>
@@ -765,13 +765,13 @@ export default function TindakanLaporanPemakaianModal({
                 </div>
 
                 <div className="flex flex-col gap-0.5 w-[140px]">
-                  <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                  <span className="text-[8px] font-bold uppercase tracking-wide text-slate-500 pl-0.5">
                     Dokter
                   </span>
                   <select
                     value={filterDokter}
                     onChange={(e) => setFilterDokter(e.target.value)}
-                    className="w-full rounded-md border border-amber-300/80 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 dark:border-white/20 dark:bg-black dark:text-white"
+                    className="w-full rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 focus:outline-none"
                   >
                     <option value="">Semua Dokter</option>
                     {doctorOptions.map((d) => (
@@ -783,13 +783,13 @@ export default function TindakanLaporanPemakaianModal({
                 </div>
 
                 <div className="flex flex-col gap-0.5 w-[120px]">
-                  <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                  <span className="text-[8px] font-bold uppercase tracking-wide text-slate-500 pl-0.5">
                     Kategori
                   </span>
                   <select
                     value={filterKategori}
                     onChange={(e) => setFilterKategori(e.target.value)}
-                    className="w-full rounded-md border border-amber-300/80 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 dark:border-white/20 dark:bg-black dark:text-white"
+                    className="w-full rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 focus:outline-none"
                   >
                     <option value="">Semua Alkes</option>
                     {kategoriOptions.map((k) => (
@@ -801,13 +801,13 @@ export default function TindakanLaporanPemakaianModal({
                 </div>
 
                 <div className="flex flex-col gap-0.5 w-[120px]">
-                  <span className="text-[8px] font-bold uppercase tracking-wide text-amber-900 dark:text-amber-200/90 pl-0.5">
+                  <span className="text-[8px] font-bold uppercase tracking-wide text-slate-500 pl-0.5">
                     Keterangan
                   </span>
                   <select
                     value={filterKeterangan}
                     onChange={(e) => setFilterKeterangan(e.target.value)}
-                    className="w-full rounded-md border border-amber-300/80 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 dark:border-white/20 dark:bg-black dark:text-white"
+                    className="w-full rounded-md border border-slate-300 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-900 focus:outline-none"
                   >
                     <option value="">Semua Ket.</option>
                     {KETERANGAN_OPTIONS.map((opt) => (
@@ -819,50 +819,50 @@ export default function TindakanLaporanPemakaianModal({
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200/80 dark:border-white/15 mb-4">
+              <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 bg-white mb-4">
                 {loading ? (
-                  <div className="p-3 text-center text-[11px] font-semibold text-slate-600 dark:text-white/85">
+                  <div className="p-3 text-center text-[11px] font-semibold text-slate-600">
                     Memuat data…
                   </div>
                 ) : filteredRows.length === 0 ? (
-                  <div className="p-3 text-center text-[11px] font-semibold text-slate-600 dark:text-white/85">
+                  <div className="p-3 text-center text-[11px] font-semibold text-slate-600">
                     Tidak ada data pemakaian alkes.
                   </div>
                 ) : (
-                  <table className="w-full border-collapse text-[9px] table-fixed">
-                    <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-white/10">
-                      <tr>
-                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[30px] shrink-0">
+                  <table className="w-full border-collapse text-[9px] table-fixed text-slate-800 bg-white">
+                    <thead className="sticky top-0 z-10 bg-slate-100 border-slate-300">
+                      <tr className="bg-slate-100 text-slate-900 border-slate-300">
+                        <th className="border border-slate-300 px-1 py-1 text-left w-[30px] shrink-0 bg-slate-100 text-slate-900">
                           NO
                         </th>
-                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[75px] shrink-0">
+                        <th className="border border-slate-300 px-1 py-1 text-left w-[75px] shrink-0 bg-slate-100 text-slate-900">
                           TANGGAL
                         </th>
-                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[130px] shrink-0">
+                        <th className="border border-slate-300 px-1 py-1 text-left w-[130px] shrink-0 bg-slate-100 text-slate-900">
                           PASIEN
                         </th>
-                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[110px] shrink-0">
+                        <th className="border border-slate-300 px-1 py-1 text-left w-[110px] shrink-0 bg-slate-100 text-slate-900">
                           DIAGNOSA
                         </th>
-                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[90px] shrink-0">
+                        <th className="border border-slate-300 px-1 py-1 text-left w-[90px] shrink-0 bg-slate-100 text-slate-900">
                           STATUS
                         </th>
-                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[55px] shrink-0">
+                        <th className="border border-slate-300 px-1 py-1 text-left w-[55px] shrink-0 bg-slate-100 text-slate-900">
                           KASUS
                         </th>
-                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[130px] shrink-0">
+                        <th className="border border-slate-300 px-1 py-1 text-left w-[130px] shrink-0 bg-slate-100 text-slate-900">
                           OPERATOR
                         </th>
-                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[180px]">
+                        <th className="border border-slate-300 px-1 py-1 text-left w-[180px] bg-slate-100 text-slate-900">
                           KONSOLIDASI
                         </th>
-                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[90px] shrink-0">
+                        <th className="border border-slate-300 px-1 py-1 text-left w-[90px] shrink-0 bg-slate-100 text-slate-900">
                           Alasan Pakai Konsolidasi
                         </th>
-                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[180px]">
+                        <th className="border border-slate-300 px-1 py-1 text-left w-[180px] bg-slate-100 text-slate-900">
                           NON KONSOLIDASI
                         </th>
-                        <th className="border border-slate-300/70 px-1 py-1 text-left dark:border-white/20 w-[90px] shrink-0">
+                        <th className="border border-slate-300 px-1 py-1 text-left w-[90px] shrink-0 bg-slate-100 text-slate-900">
                           Alasan Pakai non Konsolidasi
                         </th>
                       </tr>
@@ -876,49 +876,49 @@ export default function TindakanLaporanPemakaianModal({
                           <tr
                             key={row.id ? String(row.id) : idx}
                             className={cn(
-                              "hover:bg-slate-50 dark:hover:bg-white/5",
+                              "hover:bg-slate-50 border-slate-200",
                               onOpenDetail && "cursor-pointer"
                             )}
                             onClick={() => onOpenDetail?.(row, "biaya")}
                           >
-                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 tabular-nums">
+                            <td className="border border-slate-300 px-1 py-1 text-slate-800 tabular-nums bg-white">
                               {globalIdx}
                             </td>
-                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 font-semibold text-slate-500 dark:text-white/60">
+                            <td className="border border-slate-300 px-1 py-1 text-slate-500 font-semibold bg-white">
                               {row.tanggal ? tanggalBarisKeYmdWib(row.tanggal) : "—"}
                             </td>
-                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20">
-                              <div className="font-bold text-amber-700 dark:text-amber-400">
+                            <td className="border border-slate-300 px-1 py-1 bg-white">
+                              <div className="font-bold text-amber-750">
                                 {displayNamaPasien(row)}
                               </div>
-                              <div className="text-[8px] opacity-75 tabular-nums">
+                              <div className="text-[8px] text-slate-500 tabular-nums">
                                 RM: {displayRm(row)}
                               </div>
                             </td>
-                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 truncate font-semibold" title={row.diagnosa || ""}>
+                            <td className="border border-slate-300 px-1 py-1 text-slate-850 truncate font-semibold bg-white" title={row.diagnosa || ""}>
                               {row.diagnosa || "—"}
                             </td>
-                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20">
-                              <span className="rounded bg-slate-100 px-1 py-0.5 font-bold text-slate-700 dark:bg-white/10 dark:text-white/70">
+                            <td className="border border-slate-300 px-1 py-1 bg-white">
+                              <span className="rounded bg-slate-100 px-1 py-0.5 font-bold text-slate-700">
                                 {row.kelas_pembiayaan || row.pembiayaan || "—"}
                               </span>
                             </td>
-                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 font-bold uppercase truncate" title={row.tindakan || ""}>
+                            <td className="border border-slate-300 px-1 py-1 text-slate-800 font-bold uppercase truncate bg-white" title={row.tindakan || ""}>
                               {row.tindakan || "—"}
                             </td>
-                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 font-semibold truncate" title={row.dokter || ""}>
+                            <td className="border border-slate-300 px-1 py-1 text-slate-800 font-semibold truncate bg-white" title={row.dokter || ""}>
                               {row.dokter || "—"}
                             </td>
-                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 font-medium leading-relaxed">
+                            <td className="border border-slate-300 px-1 py-1 text-slate-800 font-medium leading-relaxed bg-white">
                               {formatBlockText(pemakaian.konsolidasiText)}
                             </td>
-                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 italic text-slate-500 dark:text-white/50 leading-snug">
+                            <td className="border border-slate-300 px-1 py-1 italic text-slate-500 leading-snug bg-white">
                               {row.alasan_alkes_konsolidasi || "—"}
                             </td>
-                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 font-medium leading-relaxed">
+                            <td className="border border-slate-300 px-1 py-1 text-slate-800 font-medium leading-relaxed bg-white">
                               {formatBlockText(pemakaian.nonKonsolidasiText)}
                             </td>
-                            <td className="border border-slate-300/70 px-1 py-1 dark:border-white/20 italic text-slate-500 dark:text-white/50 leading-snug">
+                            <td className="border border-slate-300 px-1 py-1 italic text-slate-500 leading-snug bg-white">
                               {row.alasan_alkes_non_konsolidasi || "—"}
                             </td>
                           </tr>
@@ -930,27 +930,27 @@ export default function TindakanLaporanPemakaianModal({
               </div>
 
               {filteredRows.length > 0 && (
-                <div className="flex shrink-0 items-center justify-between rounded-lg border border-slate-200/80 bg-slate-50/50 px-2 py-1 dark:border-white/10 dark:bg-white/5">
+                <div className="flex shrink-0 items-center justify-between rounded-lg border border-slate-200 bg-white px-2 py-1 shadow-sm">
                   <div className="flex items-center gap-2">
-                    <div className="text-[9px] font-medium text-slate-500 dark:text-white/60">
-                      <span className="font-bold text-slate-900 dark:text-white">
+                    <div className="text-[9px] font-medium text-slate-500">
+                      <span className="font-bold text-slate-900">
                         {Math.min(
                           (currentPage - 1) * itemsPerPage + 1,
                           filteredRows.length,
                         )}
                       </span>
                       -
-                      <span className="font-bold text-slate-900 dark:text-white">
+                      <span className="font-bold text-slate-900">
                         {Math.min(currentPage * itemsPerPage, filteredRows.length)}
                       </span>
                       /
-                      <span className="font-bold text-slate-900 dark:text-white">
+                      <span className="font-bold text-slate-900">
                         {filteredRows.length}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-1 border-l pl-2 border-slate-300 dark:border-white/10">
-                      <span className="text-[9px] text-slate-500 dark:text-white/40 font-medium">
+                    <div className="flex items-center gap-1 border-l pl-2 border-slate-300">
+                      <span className="text-[9px] text-slate-500 font-medium">
                         Baris:
                       </span>
                       <select

@@ -465,21 +465,21 @@ const ClinicalDiagnosisTable = React.memo(
   }) => {
     const meta = clinicalMatrixAxisMeta(report.rowAxis);
     return (
-    <table className="w-max min-w-full border-collapse text-[11px]">
+    <table className="w-max min-w-full border-collapse text-[11px] text-slate-800 bg-white">
       <thead>
-        <tr className="bg-slate-100/90 dark:bg-white/5">
-          <th className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-1 text-left font-extrabold dark:border-white/10 dark:bg-zinc-900 dark:text-white">
+        <tr className="bg-slate-100 text-slate-900 border-slate-300">
+          <th className="sticky left-0 z-[1] border border-slate-300 px-1.5 py-1 text-left font-extrabold bg-slate-100 text-slate-900">
             {meta.rowHeaderLabel.toUpperCase()}
           </th>
           {report.tindakanLabels.map((label) => (
             <th
               key={label}
-              className="border border-slate-300/70 px-1 py-1 text-center font-extrabold dark:border-white/10 dark:text-white"
+              className="border border-slate-300 px-1 py-1 text-center font-extrabold bg-slate-100 text-slate-900"
             >
               {label}
             </th>
           ))}
-          <th className="border border-slate-300/70 px-1.5 py-1 text-center font-extrabold dark:border-white/10 dark:text-white">
+          <th className="border border-slate-300 px-1.5 py-1 text-center font-extrabold bg-slate-100 text-slate-900">
             JUMLAH
           </th>
         </tr>
@@ -489,7 +489,7 @@ const ClinicalDiagnosisTable = React.memo(
           <tr key={rowLabel}>
             <th
               scope="row"
-              className="sticky left-0 z-[1] border border-slate-300/70 bg-white px-1.5 py-0.5 text-left font-semibold dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+              className="sticky left-0 z-[1] border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-left font-semibold text-slate-900"
             >
               {rowLabel}
             </th>
@@ -500,15 +500,14 @@ const ClinicalDiagnosisTable = React.memo(
                 <td
                   key={`${rowLabel}:${tindakanLabel}`}
                   className={cn(
-                    "border px-0.5 py-0.5 text-center tabular-nums transition-colors",
-                    "border-slate-300/70 dark:border-white/10 dark:text-white/80",
-                    count > 0 && "cursor-pointer hover:bg-emerald-500/10",
+                    "border px-0.5 py-0.5 text-center tabular-nums transition-colors text-slate-800 border-slate-300 bg-white",
+                    count > 0 && "cursor-pointer hover:bg-slate-100",
                   )}
                 >
                   {count > 0 ? (
                     <button
                       type="button"
-                      className="h-full w-full font-semibold focus:outline-none"
+                      className="h-full w-full font-extrabold text-[#1B2B44] focus:outline-none"
                       onClick={(event) => {
                         onCellActivate?.({
                           title: `${rowLabel} | ${tindakanLabel}`,
@@ -526,27 +525,27 @@ const ClinicalDiagnosisTable = React.memo(
                 </td>
               );
             })}
-            <td className="border border-slate-300/70 px-1 py-0.5 text-center font-extrabold tabular-nums dark:border-white/10 dark:text-white">
+            <td className="border border-slate-300 px-1 py-0.5 text-center font-extrabold tabular-nums bg-slate-50 text-slate-900">
               {report.rowTotals[ri] ?? 0}
             </td>
           </tr>
         ))}
-        <tr className="bg-slate-100/90 font-extrabold dark:bg-white/5">
+        <tr className="bg-slate-100 font-extrabold text-slate-900">
           <th
             scope="row"
-            className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-0.5 text-left dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+            className="sticky left-0 z-[1] border border-slate-300 px-1.5 py-0.5 text-left bg-slate-100 text-slate-900"
           >
             JUMLAH
           </th>
           {report.colTotals.map((count, ci) => (
             <td
               key={`total:${report.tindakanLabels[ci] ?? ci}`}
-              className="border border-slate-300/70 px-1 py-0.5 text-center tabular-nums dark:border-white/10 dark:text-white"
+              className="border border-slate-300 px-1 py-0.5 text-center tabular-nums bg-slate-50 text-slate-900"
             >
               {count || ""}
             </td>
           ))}
-          <td className="border border-slate-300/70 px-1 py-0.5 text-center dark:border-white/10 dark:text-white">
+          <td className="border border-slate-300 px-1 py-0.5 text-center bg-slate-100 text-slate-900">
             {report.grandTotal}
           </td>
         </tr>

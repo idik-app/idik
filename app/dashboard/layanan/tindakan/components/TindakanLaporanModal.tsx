@@ -747,22 +747,21 @@ export default function TindakanLaporanModal({
             </div>
 
             {/* Body */}
-            <div className="flex-1 min-h-0 flex flex-col p-4 sm:p-6 overflow-y-auto">
+            <div className="flex-1 min-h-0 flex flex-col p-4 sm:p-6 overflow-y-auto bg-slate-50">
               <div
                 className={cn(
-                  "flex shrink-0 flex-wrap items-center gap-4 rounded-lg border p-2.5 mb-4",
-                  "border-emerald-200/80 bg-emerald-50/50 dark:border-white/10 dark:bg-white/5",
+                  "flex shrink-0 flex-wrap items-center gap-4 rounded-xl border p-2 mb-4 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] border-slate-300 shadow-sm",
                 )}
               >
-                <div className="flex rounded-lg border border-emerald-600/25 bg-white/90 p-0.5 dark:border-white/10 dark:bg-white/5">
+                <div className="flex rounded-lg border border-slate-300 bg-white/90 p-0.5 shadow-sm">
                   <button
                     type="button"
                     onClick={() => setTab("jenis")}
                     className={cn(
                       "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
                       tab === "jenis"
-                        ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
-                        : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                        ? "bg-[#1B2B44] text-white shadow-sm"
+                        : "text-slate-600 hover:bg-[#DDE6F2]",
                     )}
                   >
                     Prosedur (Detail)
@@ -773,8 +772,8 @@ export default function TindakanLaporanModal({
                     className={cn(
                       "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
                       tab === "kategori"
-                        ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
-                        : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                        ? "bg-[#1B2B44] text-white shadow-sm"
+                        : "text-slate-600 hover:bg-[#DDE6F2]",
                     )}
                   >
                     Kategori (Grup)
@@ -785,8 +784,8 @@ export default function TindakanLaporanModal({
                     className={cn(
                       "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
                       tab === "cara"
-                        ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
-                        : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                        ? "bg-[#1B2B44] text-white shadow-sm"
+                        : "text-slate-600 hover:bg-[#DDE6F2]",
                     )}
                   >
                     Cara bayar
@@ -797,8 +796,8 @@ export default function TindakanLaporanModal({
                     className={cn(
                       "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
                       tab === "diagnosaKlinis"
-                        ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
-                        : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                        ? "bg-[#1B2B44] text-white shadow-sm"
+                        : "text-slate-600 hover:bg-[#DDE6F2]",
                     )}
                   >
                     Diagnosa Klinis
@@ -809,8 +808,8 @@ export default function TindakanLaporanModal({
                     className={cn(
                       "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
                       tab === "analisis"
-                        ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
-                        : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                        ? "bg-[#1B2B44] text-white shadow-sm"
+                        : "text-slate-600 hover:bg-[#DDE6F2]",
                     )}
                   >
                     Analisis Gabungan
@@ -818,7 +817,7 @@ export default function TindakanLaporanModal({
                 </div>
 
                 <label className="flex flex-col gap-0.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-900 dark:text-white/60">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
                     Bulan laporan
                   </span>
                   <input
@@ -826,9 +825,8 @@ export default function TindakanLaporanModal({
                     value={monthYyyyMm}
                     onChange={(e) => setMonthYyyyMm(e.target.value)}
                     className={cn(
-                      "rounded-md border px-2 py-1 text-[13px] font-semibold font-mono",
-                      "border-emerald-300/80 bg-white text-slate-900 [color-scheme:light]",
-                      "dark:border-white/10 dark:bg-white/5 dark:text-white dark:[color-scheme:dark]",
+                      "rounded-md border px-2 py-1 text-[11px] font-bold font-mono h-7",
+                      "border-slate-300 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#1b2b44]/25",
                     )}
                   />
                 </label>
@@ -837,20 +835,20 @@ export default function TindakanLaporanModal({
                 <Popover open={filterPopoverOpen} onOpenChange={setFilterPopoverOpen}>
                   <PopoverAnchor>
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-900 dark:text-white/60">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
                         Saring Kustom
                       </span>
                       <button
                         type="button"
                         onClick={() => setFilterPopoverOpen(true)}
                         className={cn(
-                          "flex items-center gap-1.5 rounded-md border px-3 py-1 text-[13px] font-semibold",
+                          "flex items-center gap-1.5 rounded-md border px-3 py-1 text-[11px] font-bold h-7 transition",
                           activeFiltersCount > 0
-                            ? "border-emerald-500 bg-emerald-500 text-white"
-                            : "border-emerald-300/80 bg-white text-slate-700 hover:bg-emerald-50 dark:border-white/10 dark:bg-white/5 dark:text-white/80"
+                            ? "border-amber-500 bg-amber-500 text-white shadow-sm"
+                            : "border-slate-300 bg-white text-slate-700 hover:bg-[#DDE6F2]"
                         )}
                       >
-                        <Activity size={14} />
+                        <Activity size={12} />
                         <span>Filter {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ""}</span>
                       </button>
                     </div>

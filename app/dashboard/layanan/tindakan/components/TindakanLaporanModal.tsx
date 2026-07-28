@@ -296,7 +296,7 @@ const TableRow = React.memo(
         <th
           scope="row"
           className={cn(
-            "sticky left-0 z-[1] border border-slate-300/70 bg-white px-1.5 py-0.5 text-left font-semibold dark:border-white/10 dark:bg-zinc-900",
+            "sticky left-0 z-[1] border border-slate-300/70 bg-slate-100 px-1.5 py-0.5 text-left font-semibold dark:border-white/10 dark:bg-zinc-900 dark:text-white",
           )}
         >
           {label}
@@ -369,7 +369,7 @@ const LaporanMatrixTable = React.memo(
         <tr className="bg-slate-100/90 dark:bg-white/5">
           <th
             rowSpan={2}
-            className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-1 text-left font-extrabold dark:border-white/10 dark:bg-zinc-900"
+            className="sticky left-0 z-[1] border border-slate-300/70 px-1.5 py-1 text-left font-extrabold dark:border-white/10 dark:bg-zinc-900 bg-slate-100 text-slate-900 dark:text-white"
           >
             {yAxisHeader}
           </th>
@@ -854,26 +854,26 @@ export default function TindakanLaporanModal({
                     </div>
                   </PopoverAnchor>
                   <PopoverContent
-                    className="w-[340px] p-3 text-slate-900 dark:text-white bg-slate-950 border border-cyan-800/40"
+                    className="w-[340px] p-3 text-slate-900 bg-white border border-slate-300 shadow-xl rounded-xl z-[9999]"
                     sideOffset={6}
                     align="start"
                   >
-                    <div className="flex items-center justify-between border-b pb-2 mb-2 dark:border-white/10">
-                      <h4 className="font-extrabold text-[12px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                        <Activity size={14} /> Multi-Criteria Filter
+                    <div className="flex items-center justify-between border-b pb-2 mb-2 border-slate-200">
+                      <h4 className="font-extrabold text-[12px] text-slate-900 flex items-center gap-1.5">
+                        <Activity size={14} className="text-[#1B2B44]" /> Multi-Criteria Filter
                       </h4>
                       {activeFiltersCount > 0 && (
                         <button
                           type="button"
                           onClick={resetFilters}
-                          className="text-[10px] font-bold text-red-500 hover:underline"
+                          className="text-[10px] font-bold text-rose-600 hover:underline"
                         >
                           Reset Semua
                         </button>
                       )}
                     </div>
 
-                    <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1 text-[11px]">
+                    <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1 text-[11px] text-slate-800">
                       {/* Utama: Tindakan & Diagnosa */}
                       <div className="space-y-1.5">
                         <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider">Layanan Utama</span>
@@ -1005,7 +1005,7 @@ export default function TindakanLaporanModal({
                               className={cn(
                                 "rounded px-2 py-0.5 text-[9px] font-extrabold border transition-all",
                                 filters.statusKelengkapan === item.id
-                                  ? "bg-emerald-600 text-white border-emerald-600"
+                                  ? "bg-[#1B2B44] text-white border-[#1B2B44]"
                                   : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300/60 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-white/80 dark:border-white/5"
                               )}
                             >
@@ -1016,11 +1016,11 @@ export default function TindakanLaporanModal({
                       </div>
                     </div>
 
-                    <div className="mt-3 pt-2 border-t dark:border-white/10 flex justify-end">
+                    <div className="mt-3 pt-2 border-t border-slate-200 flex justify-end">
                       <button
                         type="button"
                         onClick={() => setFilterPopoverOpen(false)}
-                        className="rounded bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-3 py-1 text-[11px]"
+                        className="rounded bg-[#1B2B44] hover:bg-[#2D4A6E] text-white font-extrabold px-3 py-1 text-[11px]"
                       >
                         Selesai
                       </button>
@@ -1030,7 +1030,7 @@ export default function TindakanLaporanModal({
 
                 {/* Search Bar */}
                 <div className="flex flex-1 flex-col gap-0.5 min-w-[200px]">
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-900 dark:text-white/60">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
                     Cari Tindakan / Kategori / Diagnosa
                   </span>
                   <div className="relative">
@@ -1044,9 +1044,8 @@ export default function TindakanLaporanModal({
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className={cn(
-                        "w-full rounded-md border py-1 pl-8 pr-2 text-[13px] font-semibold",
-                        "border-emerald-300/80 bg-white text-slate-900",
-                        "dark:border-white/10 dark:bg-white/5 dark:text-white",
+                        "w-full rounded-md border py-1 pl-8 pr-2 text-[11px] font-bold h-7 focus:outline-none focus:ring-2 focus:ring-[#1b2b44]/25",
+                        "border-slate-300 bg-white text-slate-900",
                       )}
                     />
                   </div>
@@ -1056,22 +1055,21 @@ export default function TindakanLaporanModal({
               {tab === "diagnosaKlinis" ? (
                 <div
                   className={cn(
-                    "flex shrink-0 flex-wrap items-center gap-2 rounded-lg border px-2.5 py-2 mb-4",
-                    "border-slate-200/80 bg-slate-50/60 dark:border-white/10 dark:bg-white/5",
+                    "flex shrink-0 flex-wrap items-center gap-2 rounded-lg border px-2.5 py-1 mb-4 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] border-slate-300 shadow-sm",
                   )}
                 >
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600 dark:text-white/60">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
                     Berdasarkan
                   </span>
-                  <div className="flex rounded-lg border border-emerald-600/25 bg-white/90 p-0.5 dark:border-white/10 dark:bg-white/5">
+                  <div className="flex rounded-lg border border-slate-300 bg-white/90 p-0.5 shadow-sm">
                     <button
                       type="button"
                       onClick={() => setClinicalMatrixAxis("diagnosa")}
                       className={cn(
                         "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
                         clinicalMatrixAxis === "diagnosa"
-                          ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
-                          : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                          ? "bg-[#1B2B44] text-white shadow-sm"
+                          : "text-slate-600 hover:bg-[#DDE6F2]",
                       )}
                     >
                       Diagnosa Klinis
@@ -1082,8 +1080,8 @@ export default function TindakanLaporanModal({
                       className={cn(
                         "rounded-md px-2.5 py-1 text-[11px] font-extrabold transition",
                         clinicalMatrixAxis === "faktorRisiko"
-                          ? "bg-emerald-600 text-white dark:bg-emerald-600/80 dark:text-white"
-                          : "text-slate-700 hover:bg-emerald-50 dark:text-white/70 dark:hover:bg-white/10",
+                          ? "bg-[#1B2B44] text-white shadow-sm"
+                          : "text-slate-600 hover:bg-[#DDE6F2]",
                       )}
                     >
                       Faktor Risiko

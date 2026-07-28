@@ -1024,7 +1024,7 @@ export default function TindakanLaporanMutuModal({
                           {activeRows.map((row, rowIndex) => {
                             const isPenundaanElektifTab = activeDefinition.id === "penundaan-elektif";
                             const penundaanRow = isPenundaanElektifTab
-                              ? penundaanReportRows[rowIndex]
+                              ? penundaanElektifRows[rowIndex]
                               : null;
 
                             const numeratorCount = Number(row.numerator || 0);

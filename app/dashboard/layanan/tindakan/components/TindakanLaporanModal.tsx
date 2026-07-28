@@ -157,14 +157,14 @@ const AnalisisTable = React.memo(
     const openable = Boolean(onOpenDetail);
     return (
     <div className="flex flex-col">
-      <table className="w-full border-collapse text-[11px]">
-        <thead className="sticky top-0 z-[2] bg-slate-100 dark:bg-zinc-900">
+      <table className="w-full border-collapse text-[11px] text-slate-800 bg-white">
+        <thead className="sticky top-0 z-[2] bg-slate-100 border-slate-300">
           <tr>
-            <th className="border border-slate-300/70 px-2 py-1.5 text-left font-bold dark:border-white/10">Tgl</th>
-            <th className="border border-slate-300/70 px-2 py-1.5 text-left font-bold dark:border-white/10">Pasien & Klinis</th>
-            <th className="border border-slate-300/70 px-2 py-1.5 text-left font-bold dark:border-white/10">Tindakan & Kategori</th>
-            <th className="border border-slate-300/70 px-2 py-1.5 text-left font-bold dark:border-white/10">Tim Medis</th>
-            <th className="border border-slate-300/70 px-2 py-1.5 text-left font-bold dark:border-white/10">Administrasi</th>
+            <th className="border border-slate-300 px-2 py-1.5 text-left font-bold text-slate-900 bg-slate-100">Tgl</th>
+            <th className="border border-slate-300 px-2 py-1.5 text-left font-bold text-slate-900 bg-slate-100">Pasien & Klinis</th>
+            <th className="border border-slate-300 px-2 py-1.5 text-left font-bold text-slate-900 bg-slate-100">Tindakan & Kategori</th>
+            <th className="border border-slate-300 px-2 py-1.5 text-left font-bold text-slate-900 bg-slate-100">Tim Medis</th>
+            <th className="border border-slate-300 px-2 py-1.5 text-left font-bold text-slate-900 bg-slate-100">Administrasi</th>
           </tr>
         </thead>
         <tbody>
@@ -173,7 +173,7 @@ const AnalisisTable = React.memo(
               <tr
                 key={r.id ? String(r.id) : idx}
                 className={cn(
-                  "hover:bg-slate-50 dark:hover:bg-white/5",
+                  "hover:bg-slate-50 border-slate-200",
                   openable && r.id && "cursor-pointer",
                 )}
                 onClick={() => {
@@ -181,76 +181,76 @@ const AnalisisTable = React.memo(
                   onOpenDetail(r, "klinis");
                 }}
               >
-                <td className="border border-slate-300/70 px-2 py-1 dark:border-white/10">
-                  <div className="text-[10px] font-medium text-slate-500 dark:text-white/40">
+                <td className="border border-slate-300 px-2 py-1 text-slate-800 bg-white">
+                  <div className="text-[10px] font-medium text-slate-500">
                     {r.tanggal ? new Intl.DateTimeFormat("id-ID", { weekday: 'long' }).format(new Date(r.tanggal)) : "-"}
                   </div>
-                  <div className="font-bold">
+                  <div className="font-bold text-slate-800">
                     {r.tanggal ? new Intl.DateTimeFormat("id-ID", { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(r.tanggal)) : "-"}
                   </div>
                 </td>
-                <td className="border border-slate-300/70 px-2 py-1 dark:border-white/10">
-                  <div className="font-bold text-emerald-700 dark:text-emerald-400">{r.nama_pasien || "-"}</div>
-                  <div className="text-[10px] opacity-70">RM: {r.no_rm || "-"}</div>
-                  <div className="mt-1 border-t border-slate-100 pt-1 dark:border-white/5">
-                    <span className="font-medium text-slate-500 dark:text-white/50">Diag: </span>
-                    <span className="font-bold">{r.diagnosa || "-"}</span>
+                <td className="border border-slate-300 px-2 py-1 text-slate-800 bg-white">
+                  <div className="font-bold text-emerald-700">{r.nama_pasien || "-"}</div>
+                  <div className="text-[10px] text-slate-500">RM: {r.no_rm || "-"}</div>
+                  <div className="mt-1 border-t border-slate-150 pt-1">
+                    <span className="font-medium text-slate-500">Diag: </span>
+                    <span className="font-bold text-slate-700">{r.diagnosa || "-"}</span>
                     {r.faktor_risiko && (
                       <div className="text-[9px] text-slate-400 italic">FR: {r.faktor_risiko}</div>
                     )}
                   </div>
                 </td>
-                <td className="border border-slate-300/70 px-2 py-1 dark:border-white/10">
-                  <div className="font-bold">{r.tindakan || "-"}</div>
+                <td className="border border-slate-300 px-2 py-1 text-slate-800 bg-white">
+                  <div className="font-bold text-slate-800">{r.tindakan || "-"}</div>
                   <div className="mt-1 flex flex-wrap gap-1">
-                    <span className="rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-bold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300">
+                    <span className="rounded bg-slate-100 px-1 py-0.5 text-[9px] font-bold text-slate-700">
                       {r.kategori || "TANPA KATEGORI"}
                     </span>
                     {r.severity_level && (
-                      <span className="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-bold text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
+                      <span className="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-bold text-amber-800">
                         Sev: {r.severity_level}
                       </span>
                     )}
                     {r.total_kontras && (
-                      <span className="rounded bg-blue-100 px-1 py-0.5 text-[9px] font-bold text-blue-800 dark:bg-blue-900/50 dark:text-blue-300">
+                      <span className="rounded bg-blue-100 px-1 py-0.5 text-[9px] font-bold text-blue-800">
                         Contrast: {r.total_kontras}ml
                       </span>
                     )}
                   </div>
                   {r.kesimpulan_laporan && (
-                    <div className="mt-1.5 border-t border-slate-100 pt-1 text-[10px] leading-relaxed dark:border-white/5">
-                      <div className="font-bold text-slate-500 uppercase text-[8px] tracking-wider dark:text-white/40">Kesimpulan:</div>
-                      <div className="italic text-slate-600 dark:text-white/70 line-clamp-2">{r.kesimpulan_laporan}</div>
+                    <div className="mt-1.5 border-t border-slate-150 pt-1 text-[10px] leading-relaxed">
+                      <div className="font-bold text-slate-400 uppercase text-[8px] tracking-wider">Kesimpulan:</div>
+                      <div className="italic text-slate-600 line-clamp-2">{r.kesimpulan_laporan}</div>
                     </div>
                   )}
                   {r.plan_medis && (
                     <div className="mt-1 text-[10px] leading-relaxed">
-                      <div className="font-bold text-emerald-600 uppercase text-[8px] tracking-wider dark:text-emerald-400/60">Plan:</div>
-                      <div className="text-emerald-700 dark:text-emerald-400 line-clamp-1">{r.plan_medis}</div>
+                      <div className="font-bold text-emerald-600 uppercase text-[8px] tracking-wider">Plan:</div>
+                      <div className="text-emerald-700 line-clamp-1">{r.plan_medis}</div>
                     </div>
                   )}
                 </td>
-                <td className="border border-slate-300/70 px-2 py-1 dark:border-white/10">
-                  <div className="font-medium text-emerald-600 dark:text-emerald-400">Dr: {r.dokter || "-"}</div>
-                  <div className="mt-1 text-[10px] leading-tight text-slate-500 dark:text-white/50">
+                <td className="border border-slate-300 px-2 py-1 text-slate-800 bg-white">
+                  <div className="font-semibold text-slate-800">Dr: {r.dokter || "-"}</div>
+                  <div className="mt-1 text-[10px] leading-tight text-slate-500">
                     {r.asisten && <div>As: {r.asisten}</div>}
                     {r.sirkuler && <div>Sir: {r.sirkuler}</div>}
                     {r.logger && <div>Log: {r.logger}</div>}
                   </div>
                 </td>
-                <td className="border border-slate-300/70 px-2 py-1 dark:border-white/10">
-                  <div className="font-medium">{r.kelas_pembiayaan || r.pembiayaan || "-"}</div>
+                <td className="border border-slate-300 px-2 py-1 text-slate-800 bg-white">
+                  <div className="font-medium text-slate-700">{r.kelas_pembiayaan || r.pembiayaan || "-"}</div>
                   <div className="mt-1 flex flex-wrap gap-1">
                     <span className={cn(
                       "rounded px-1 py-0.5 text-[9px] font-bold",
                       r.status === "Selesai" 
-                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300" 
-                        : "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300"
+                        ? "bg-emerald-100 text-emerald-800" 
+                        : "bg-amber-100 text-amber-800"
                     )}>
                       {r.status || "-"}
                     </span>
                     {r.ruangan && (
-                      <span className="rounded bg-slate-100 px-1 py-0.5 text-[9px] font-bold text-slate-700 dark:bg-white/10 dark:text-white/70">
+                      <span className="rounded bg-slate-100 px-1 py-0.5 text-[9px] font-bold text-slate-700">
                         {r.ruangan} {r.cath && `(${r.cath})`}
                       </span>
                     )}
@@ -260,7 +260,7 @@ const AnalisisTable = React.memo(
             ))
           ) : (
             <tr>
-              <td colSpan={5} className="p-6 text-center italic opacity-50">
+              <td colSpan={5} className="p-6 text-center italic opacity-50 text-slate-500">
                 Tidak ada data yang cocok dengan kriteria pencarian.
               </td>
             </tr>
@@ -1189,47 +1189,47 @@ export default function TindakanLaporanModal({
                   <div className="flex flex-col gap-3 flex-1 min-h-0 p-3">
                     {analisisStats && (
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 shrink-0">
-                        <div className="flex flex-col gap-1 rounded-lg border border-slate-200/60 bg-slate-50/50 p-2 dark:border-white/5 dark:bg-white/5">
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">
-                            <Users size={12} className="text-emerald-600 dark:text-emerald-400" />
+                        <div className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                            <Users size={12} className="text-[#1B2B44]" />
                             Total Pasien
                           </div>
-                          <div className="text-lg font-black tabular-nums text-slate-900 dark:text-white">
+                          <div className="text-lg font-black tabular-nums text-slate-900">
                             {analisisStats.total}
                           </div>
                         </div>
-                        <div className="flex flex-col gap-1 rounded-lg border border-slate-200/60 bg-slate-50/50 p-2 dark:border-white/5 dark:bg-white/5">
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">
-                            <CheckCircle2 size={12} className="text-emerald-600 dark:text-emerald-400" />
+                        <div className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                            <CheckCircle2 size={12} className="text-emerald-600" />
                             Selesai
                           </div>
                           <div className="flex items-baseline gap-2">
-                            <div className="text-lg font-black tabular-nums text-slate-900 dark:text-white">
+                            <div className="text-lg font-black tabular-nums text-slate-900">
                               {analisisStats.selesai}
                             </div>
-                            <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                            <div className="text-[10px] font-bold text-emerald-600">
                               {analisisStats.successRate}%
                             </div>
                           </div>
                         </div>
-                        <div className="flex flex-col gap-1 rounded-lg border border-slate-200/60 bg-slate-50/50 p-2 dark:border-white/5 dark:bg-white/5">
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">
-                            <Stethoscope size={12} className="text-emerald-600 dark:text-emerald-400" />
+                        <div className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                            <Stethoscope size={12} className="text-[#1B2B44]" />
                             Top Dokter
                           </div>
-                          <div className="truncate text-[11px] font-black text-slate-900 dark:text-white" title={analisisStats.topDoctor?.[0]}>
+                          <div className="truncate text-[11px] font-black text-slate-900" title={analisisStats.topDoctor?.[0]}>
                             {analisisStats.topDoctor?.[0] || "-"}
                           </div>
-                          <div className="text-[10px] font-bold text-slate-400 dark:text-white/30">
+                          <div className="text-[10px] font-bold text-slate-400">
                             {analisisStats.topDoctor?.[1] || 0} Kasus
                           </div>
                         </div>
-                        <div className="flex flex-col gap-1 rounded-lg border border-slate-200/60 bg-slate-50/50 p-2 dark:border-white/5 dark:bg-white/5">
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-white/40">
-                            <Activity size={12} className="text-emerald-600 dark:text-emerald-400" />
+                        <div className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                            <Activity size={12} className="text-[#1B2B44]" />
                             Insight
                           </div>
-                          <div className="text-[10px] font-bold leading-tight text-slate-600 dark:text-white/60">
+                          <div className="text-[10px] font-bold leading-tight text-slate-600">
                             {searchQuery.trim() ? `Filter: "${searchQuery}"` : "Semua data bulan ini"}
                           </div>
                         </div>

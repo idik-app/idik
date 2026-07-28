@@ -713,7 +713,7 @@ export default function TindakanLaporanModal({
             }}
             className={cn(
               "pointer-events-auto flex h-[85vh] max-h-[85vh] min-w-0 w-full max-w-[92rem] cursor-default flex-col rounded-2xl border antialiased [text-rendering:optimizeLegibility]",
-              "border-slate-200/90 bg-slate-50/90 shadow-[0_24px_56px_rgba(15,23,42,0.15),0_0_1px_rgba(15,23,42,0.1)]",
+              "border-slate-200 bg-white shadow-[0_24px_56px_rgba(15,23,42,0.3)] dark:border-white/10 dark:bg-[#0c0f17]",
               "font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
             )}
             onClick={(e) => e.stopPropagation()}

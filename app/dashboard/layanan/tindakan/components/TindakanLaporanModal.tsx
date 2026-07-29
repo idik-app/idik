@@ -847,7 +847,7 @@ export default function TindakanLaporanModal({
                     </div>
                   </PopoverAnchor>
                   <PopoverContent
-                    className="w-[340px] p-3 text-slate-900 bg-white border border-slate-300 shadow-xl rounded-xl z-[100060]"
+                    className="w-[340px] p-3 text-slate-900 dark:text-slate-900 bg-white dark:bg-white border border-slate-300 dark:border-slate-300 shadow-xl rounded-xl z-[100060]"
                     style={{ zIndex: 100060 }}
                     sideOffset={6}
                     align="start"
@@ -860,119 +860,169 @@ export default function TindakanLaporanModal({
                         <button
                           type="button"
                           onClick={resetFilters}
-                          className="text-[10px] font-bold text-rose-600 hover:underline"
+                          className="text-[10px] font-bold text-rose-600 hover:text-rose-700 hover:underline"
                         >
                           Reset Semua
                         </button>
                       )}
                     </div>
 
-                    <div className="max-h-[300px] overflow-y-auto space-y-3 pr-1 text-[11px] text-slate-800">
+                    <div className="max-h-[350px] overflow-y-auto space-y-3 pr-1 text-[11px] text-slate-800">
                       {/* Utama: Tindakan & Diagnosa */}
-                      <div className="space-y-1.5">
-                        <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider">Layanan Utama</span>
+                      <div className="space-y-2">
+                        <span className="font-bold text-[10px] uppercase text-slate-500 tracking-wider block">Layanan Utama</span>
                         <div>
-                          <label className="block font-medium mb-0.5">Tindakan</label>
-                          <select
-                            multiple
-                            value={filters.tindakan}
-                            onChange={(e) => {
-                              const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
-                              setFilters((prev) => ({ ...prev, tindakan: values }));
-                            }}
-                            className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
-                          >
-                            {filterOptions.tindakan.map((t) => (
-                              <option key={t} value={t}>{t}</option>
-                            ))}
-                          </select>
+                          <label className="block font-bold text-[10px] text-slate-600 mb-1">Tindakan</label>
+                          <div className="w-full h-24 overflow-y-auto border border-slate-200 bg-slate-50 text-slate-800 rounded-md p-1.5 space-y-1">
+                            {filterOptions.tindakan.map((t) => {
+                              const isChecked = filters.tindakan.includes(t);
+                              return (
+                                <label key={t} className="flex items-center gap-2 cursor-pointer hover:bg-slate-200/60 px-1.5 py-0.5 rounded text-[10px] font-semibold text-slate-800">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => {
+                                      setFilters((prev) => {
+                                        const next = isChecked
+                                          ? prev.tindakan.filter((x) => x !== t)
+                                          : [...prev.tindakan, t];
+                                        return { ...prev, tindakan: next };
+                                      });
+                                    }}
+                                    className="rounded border-slate-300 text-[#1B2B44] focus:ring-[#1B2B44]/25 h-3 w-3 cursor-pointer"
+                                  />
+                                  <span>{t}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
                         </div>
                         <div>
-                          <label className="block font-medium mb-0.5">Diagnosa</label>
-                          <select
-                            multiple
-                            value={filters.diagnosa}
-                            onChange={(e) => {
-                              const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
-                              setFilters((prev) => ({ ...prev, diagnosa: values }));
-                            }}
-                            className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
-                          >
-                            {filterOptions.diagnosa.map((d) => (
-                              <option key={d} value={d}>{d}</option>
-                            ))}
-                          </select>
+                          <label className="block font-bold text-[10px] text-slate-600 mb-1">Diagnosa</label>
+                          <div className="w-full h-24 overflow-y-auto border border-slate-200 bg-slate-50 text-slate-800 rounded-md p-1.5 space-y-1">
+                            {filterOptions.diagnosa.map((d) => {
+                              const isChecked = filters.diagnosa.includes(d);
+                              return (
+                                <label key={d} className="flex items-center gap-2 cursor-pointer hover:bg-slate-200/60 px-1.5 py-0.5 rounded text-[10px] font-semibold text-slate-800">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => {
+                                      setFilters((prev) => {
+                                        const next = isChecked
+                                          ? prev.diagnosa.filter((x) => x !== d)
+                                          : [...prev.diagnosa, d];
+                                        return { ...prev, diagnosa: next };
+                                      });
+                                    }}
+                                    className="rounded border-slate-300 text-[#1B2B44] focus:ring-[#1B2B44]/25 h-3 w-3 cursor-pointer"
+                                  />
+                                  <span>{d}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
 
                       {/* Tim Medis */}
-                      <div className="space-y-1.5 pt-2 border-t dark:border-white/10">
-                        <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider">Tim Medis</span>
+                      <div className="space-y-2 pt-2 border-t border-slate-200">
+                        <span className="font-bold text-[10px] uppercase text-slate-500 tracking-wider block">Tim Medis</span>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block font-medium mb-0.5">Dokter Operator</label>
-                            <select
-                              multiple
-                              value={filters.dokter}
-                              onChange={(e) => {
-                                const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
-                                setFilters((prev) => ({ ...prev, dokter: values }));
-                              }}
-                              className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
-                            >
-                              {filterOptions.dokter.map((doc) => (
-                                <option key={doc} value={doc}>{doc}</option>
-                              ))}
-                            </select>
+                            <label className="block font-bold text-[10px] text-slate-600 mb-1">Dokter Operator</label>
+                            <div className="w-full h-24 overflow-y-auto border border-slate-200 bg-slate-50 text-slate-800 rounded-md p-1.5 space-y-1">
+                              {filterOptions.dokter.map((doc) => {
+                                const isChecked = filters.dokter.includes(doc);
+                                return (
+                                  <label key={doc} className="flex items-center gap-2 cursor-pointer hover:bg-slate-200/60 px-1.5 py-0.5 rounded text-[10px] font-semibold text-slate-800">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        setFilters((prev) => {
+                                          const next = isChecked
+                                            ? prev.dokter.filter((x) => x !== doc)
+                                            : [...prev.dokter, doc];
+                                          return { ...prev, dokter: next };
+                                        });
+                                      }}
+                                      className="rounded border-slate-300 text-[#1B2B44] focus:ring-[#1B2B44]/25 h-3 w-3 cursor-pointer"
+                                    />
+                                    <span className="truncate" title={doc}>{doc}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
                           </div>
                           <div>
-                            <label className="block font-medium mb-0.5">Asisten</label>
-                            <select
-                              multiple
-                              value={filters.asisten}
-                              onChange={(e) => {
-                                const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
-                                setFilters((prev) => ({ ...prev, asisten: values }));
-                              }}
-                              className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
-                            >
-                              {filterOptions.asisten.map((as) => (
-                                <option key={as} value={as}>{as}</option>
-                              ))}
-                            </select>
+                            <label className="block font-bold text-[10px] text-slate-600 mb-1">Asisten</label>
+                            <div className="w-full h-24 overflow-y-auto border border-slate-200 bg-slate-50 text-slate-800 rounded-md p-1.5 space-y-1">
+                              {filterOptions.asisten.map((as) => {
+                                const isChecked = filters.asisten.includes(as);
+                                return (
+                                  <label key={as} className="flex items-center gap-2 cursor-pointer hover:bg-slate-200/60 px-1.5 py-0.5 rounded text-[10px] font-semibold text-slate-800">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        setFilters((prev) => {
+                                          const next = isChecked
+                                            ? prev.asisten.filter((x) => x !== as)
+                                            : [...prev.asisten, as];
+                                          return { ...prev, asisten: next };
+                                        });
+                                      }}
+                                      className="rounded border-slate-300 text-[#1B2B44] focus:ring-[#1B2B44]/25 h-3 w-3 cursor-pointer"
+                                    />
+                                    <span className="truncate" title={as}>{as}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                       </div>
 
                       {/* Dokumen & Lokasi */}
-                      <div className="space-y-1.5 pt-2 border-t dark:border-white/10">
-                        <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider">Administrasi & Lokasi</span>
+                      <div className="space-y-2 pt-2 border-t border-slate-200">
+                        <span className="font-bold text-[10px] uppercase text-slate-500 tracking-wider block">Administrasi & Lokasi</span>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block font-medium mb-0.5">Ruangan / Lab</label>
-                            <select
-                              multiple
-                              value={filters.ruangan}
-                              onChange={(e) => {
-                                const values = Array.from(e.target.selectedOptions, (opt) => opt.value);
-                                setFilters((prev) => ({ ...prev, ruangan: values }));
-                              }}
-                              className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10"
-                            >
-                              {filterOptions.ruangan.map((r) => (
-                                <option key={r} value={r}>{r}</option>
-                              ))}
-                            </select>
+                            <label className="block font-bold text-[10px] text-slate-600 mb-1">Ruangan / Lab</label>
+                            <div className="w-full h-20 overflow-y-auto border border-slate-200 bg-slate-50 text-slate-800 rounded-md p-1.5 space-y-1">
+                              {filterOptions.ruangan.map((r) => {
+                                const isChecked = filters.ruangan.includes(r);
+                                return (
+                                  <label key={r} className="flex items-center gap-2 cursor-pointer hover:bg-slate-200/60 px-1.5 py-0.5 rounded text-[10px] font-semibold text-slate-800">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        setFilters((prev) => {
+                                          const next = isChecked
+                                            ? prev.ruangan.filter((x) => x !== r)
+                                            : [...prev.ruangan, r];
+                                          return { ...prev, ruangan: next };
+                                        });
+                                      }}
+                                      className="rounded border-slate-300 text-[#1B2B44] focus:ring-[#1B2B44]/25 h-3 w-3 cursor-pointer"
+                                    />
+                                    <span className="truncate" title={r}>{r}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
                           </div>
                           <div>
-                            <label className="block font-medium mb-0.5">PDF Laporan</label>
+                            <label className="block font-bold text-[10px] text-slate-600 mb-1">PDF Laporan</label>
                             <select
                               value={filters.hasPdfReport === null ? "semua" : String(filters.hasPdfReport)}
                               onChange={(e) => {
                                 const val = e.target.value === "semua" ? null : e.target.value === "true";
                                 setFilters((prev) => ({ ...prev, hasPdfReport: val }));
                               }}
-                              className="w-full rounded border p-1 bg-slate-50 dark:bg-zinc-900 border-slate-300/60 dark:border-white/10 font-bold"
+                              className="w-full rounded border p-1 bg-white text-slate-900 border-slate-300 font-bold focus:outline-none text-[11px]"
                             >
                               <option value="semua">Semua Dokumen</option>
                               <option value="true">Ada PDF</option>
@@ -983,8 +1033,8 @@ export default function TindakanLaporanModal({
                       </div>
 
                       {/* Presets Cepat */}
-                      <div className="pt-2 border-t dark:border-white/10">
-                        <span className="font-bold text-[10px] uppercase text-slate-400 tracking-wider block mb-1">Preset Cepat</span>
+                      <div className="pt-2 border-t border-slate-200">
+                        <span className="font-bold text-[10px] uppercase text-slate-500 tracking-wider block mb-1">Preset Cepat</span>
                         <div className="flex flex-wrap gap-1">
                           {[
                             { id: "semua", label: "Semua Kasus" },
@@ -1000,7 +1050,7 @@ export default function TindakanLaporanModal({
                                 "rounded px-2 py-0.5 text-[9px] font-extrabold border transition-all",
                                 filters.statusKelengkapan === item.id
                                   ? "bg-[#1B2B44] text-white border-[#1B2B44]"
-                                  : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300/60 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-white/80 dark:border-white/5"
+                                  : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300"
                               )}
                             >
                               {item.label}
@@ -1014,7 +1064,7 @@ export default function TindakanLaporanModal({
                       <button
                         type="button"
                         onClick={() => setFilterPopoverOpen(false)}
-                        className="rounded bg-[#1B2B44] hover:bg-[#2D4A6E] text-white font-extrabold px-3 py-1 text-[11px]"
+                        className="rounded bg-[#1B2B44] hover:bg-[#2D4A6E] text-white font-extrabold px-3 py-1.5 text-[11px] shadow-sm transition-colors"
                       >
                         Selesai
                       </button>

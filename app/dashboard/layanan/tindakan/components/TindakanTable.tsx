@@ -3184,9 +3184,10 @@ export default function TindakanTable({
             initialTab={laporanInitialTab}
             onOpenDetail={(rec, tab) => {
               if (!rec.id) return;
-              // Tutup modal agar FocusScope Dialog tidak mencuri fokus dari drawer (portal).
-              setLaporanModalOpen(false);
               openDetail(rec.id, tab);
+              setTimeout(() => {
+                setLaporanModalOpen(false);
+              }, 50);
             }}
           />
         ) : null}
@@ -3204,9 +3205,10 @@ export default function TindakanTable({
             pasienOptions={pasienOptions}
             onOpenDetail={(rec, tab) => {
               if (!rec.id) return;
-              // Tutup modal agar FocusScope Dialog tidak mencuri fokus dari drawer (portal).
-              setLaporanPemakaianModalOpen(false);
               adapter.openDetail(rec.id, tab);
+              setTimeout(() => {
+                setLaporanPemakaianModalOpen(false);
+              }, 50);
             }}
           />
         )}

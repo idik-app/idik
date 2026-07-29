@@ -69,48 +69,45 @@ function MatrixCellPopover({
     <Popover open={Boolean(state)} onOpenChange={onOpenChange}>
       {state ? <PopoverAnchor virtualRef={virtualRef} /> : null}
       <PopoverContent
-        className={cn(
-          "w-72 p-2 text-[11px]",
-          UI_LAYERS.dialogNestedPopover,
-        )}
-        style={{ zIndex: Z_INDEX_VALUES.dialogNestedPopover }}
+        className="w-72 p-3 text-[11px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white shadow-xl rounded-xl z-[100060]"
+        style={{ zIndex: 100060 }}
         sideOffset={8}
         collisionPadding={12}
       >
         {state ? (
           <>
-            <div className="mb-1 border-b pb-1 font-bold text-emerald-600 dark:text-emerald-400">
+            <div className="mb-1.5 border-b pb-1 font-bold text-emerald-600 dark:text-emerald-400 border-slate-100 dark:border-white/5">
               {state.title}
             </div>
-            <ul className="max-h-40 overflow-auto">
+            <ul className="max-h-40 overflow-auto space-y-1 pr-0.5">
               {state.patients.length > 0 ? (
                 state.patients.map((detail, idx) => (
                   <li
                     key={`${detail.no_rm}-${detail.nama}-${idx}`}
-                    className="border-b border-slate-100 py-1 last:border-0 dark:border-white/5"
+                    className="border-b border-slate-100 pb-1.5 pt-1 last:border-0 last:pb-0 dark:border-white/5"
                   >
-                    <div className="font-semibold text-emerald-700 dark:text-emerald-400">
+                    <div className="font-bold text-emerald-700 dark:text-emerald-400">
                       {detail.nama}
                       {detail.tindakan ? ` | ${detail.tindakan}` : ""}
                     </div>
-                    <div className="text-[10px] opacity-70 flex flex-wrap gap-x-2 dark:text-white/85">
+                    <div className="text-[10px] flex flex-wrap gap-x-2 text-slate-500 dark:text-white/70">
                       <span>RM: {detail.no_rm}</span>
                       <span className="font-bold">Dr: {detail.dokter}</span>
                     </div>
                     {state.rowAxis === "diagnosa" && detail.faktor_risiko ? (
-                      <div className="text-[10px] italic opacity-70 dark:text-white/85">
+                      <div className="text-[10px] italic text-slate-500 dark:text-white/70">
                         FR: {detail.faktor_risiko}
                       </div>
                     ) : null}
                     {state.rowAxis === "faktorRisiko" && detail.diagnosa ? (
-                      <div className="text-[10px] italic opacity-70 dark:text-white/85">
+                      <div className="text-[10px] italic text-slate-500 dark:text-white/70">
                         Dx: {detail.diagnosa}
                       </div>
                     ) : null}
                     {(detail.diagnosa || detail.kategori) && !state.rowAxis ? (
                       <div className="mt-1 flex flex-wrap gap-1 text-[9px]">
                         {detail.diagnosa ? (
-                          <span className="rounded bg-slate-100 px-1 py-0.5 font-medium dark:bg-white/10 dark:text-white/70">
+                          <span className="rounded bg-slate-100 px-1 py-0.5 font-medium text-slate-700 dark:bg-white/10 dark:text-white/70">
                             {detail.diagnosa}
                           </span>
                         ) : null}
@@ -122,14 +119,14 @@ function MatrixCellPopover({
                       </div>
                     ) : null}
                     {detail.tanggal || detail.status ? (
-                      <div className="text-[10px] opacity-70 dark:text-white/85">
+                      <div className="mt-0.5 text-[9px] text-slate-400 dark:text-white/50">
                         {detail.tanggal || "-"} | {detail.status || "-"}
                       </div>
                     ) : null}
                   </li>
                 ))
               ) : (
-                <li className="py-1 italic opacity-50">Detail tidak tersedia</li>
+                <li className="py-1 italic text-slate-400 dark:text-white/40">Detail tidak tersedia</li>
               )}
             </ul>
           </>
@@ -639,13 +636,12 @@ export default function TindakanLaporanModal({
     }
     if (
       initialTab &&
-      lastAppliedInitialTabRef.current !== initialTab &&
-      tab !== initialTab
+      lastAppliedInitialTabRef.current !== initialTab
     ) {
       setTab(initialTab);
       lastAppliedInitialTabRef.current = initialTab;
     }
-  }, [open, initialTab, tab, setTab]);
+  }, [open, initialTab, setTab]);
 
   const [matrixPopover, setMatrixPopover] = useState<MatrixPopoverState>(null);
 
@@ -851,7 +847,8 @@ export default function TindakanLaporanModal({
                     </div>
                   </PopoverAnchor>
                   <PopoverContent
-                    className="w-[340px] p-3 text-slate-900 bg-white border border-slate-300 shadow-xl rounded-xl z-[9999]"
+                    className="w-[340px] p-3 text-slate-900 bg-white border border-slate-300 shadow-xl rounded-xl z-[100060]"
+                    style={{ zIndex: 100060 }}
                     sideOffset={6}
                     align="start"
                   >
@@ -1236,7 +1233,7 @@ export default function TindakanLaporanModal({
                       </div>
                     )}
                     
-                    <div className="h-[38vh] overflow-auto rounded border border-slate-200/60 dark:border-white/5">
+                    <div className="h-[38vh] overflow-auto rounded border border-slate-200 bg-white">
                       <AnalisisTable
                         rows={paginatedAnalisisRows}
                         onOpenDetail={onOpenDetail}

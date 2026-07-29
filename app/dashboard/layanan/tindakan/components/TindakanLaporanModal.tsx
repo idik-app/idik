@@ -1319,6 +1319,41 @@ export default function TindakanLaporanModal({
                   </div>
                 ) : finalMatrix ? (
                   <div className="flex flex-col gap-4">
+                    {tab === "jenis" && (
+                      <div className="flex flex-wrap items-center gap-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm w-fit">
+                        <div className="flex items-center gap-2">
+                          <div className="rounded-lg bg-emerald-50 p-1.5 text-emerald-600">
+                            <Users size={14} />
+                          </div>
+                          <div>
+                            <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Prosedur Selesai</div>
+                            <div className="text-xs font-black text-slate-800 tabular-nums">{finalMatrix?.grandTotal ?? 0} Pasien</div>
+                          </div>
+                        </div>
+                        <div className="h-6 w-px bg-slate-200" />
+                        <div className="flex items-center gap-2">
+                          <div className="rounded-lg bg-red-50 p-1.5 text-red-600">
+                            <Users size={14} />
+                          </div>
+                          <div>
+                            <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Tindakan Batal</div>
+                            <div className="text-xs font-black text-slate-800 tabular-nums">{finalMatrixStatusBatal?.grandTotal ?? 0} Pasien</div>
+                          </div>
+                        </div>
+                        <div className="h-6 w-px bg-slate-200" />
+                        <div className="flex items-center gap-2">
+                          <div className="rounded-lg bg-indigo-50 p-1.5 text-indigo-600">
+                            <Users size={14} />
+                          </div>
+                          <div>
+                            <div className="text-[9px] font-bold uppercase tracking-wider text-indigo-500">Total Pasien</div>
+                            <div className="text-xs font-black text-indigo-700 tabular-nums">
+                              {(finalMatrix?.grandTotal ?? 0) + (finalMatrixStatusBatal?.grandTotal ?? 0)} Pasien
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <LaporanMatrixTable
                       matrix={finalMatrix}
                       yAxisHeader={

@@ -870,7 +870,7 @@ export default function TindakanLaporanPemakaianModal({
                     <tbody>
                       {paginatedRows.map((row, idx) => {
                         const globalIdx = (currentPage - 1) * itemsPerPage + idx + 1;
-                        const pemakaian = parsePemakaian(row.consumable);
+                        const pemakaian = parsePemakaian(row.pemakaian || "");
 
                         return (
                           <tr
@@ -889,10 +889,10 @@ export default function TindakanLaporanPemakaianModal({
                             </td>
                             <td className="border border-slate-300 px-1 py-1 bg-white">
                               <div className="font-bold text-amber-750">
-                                {displayNamaPasien(row)}
+                                {displayNamaPasien(row as any)}
                               </div>
                               <div className="text-[8px] text-slate-500 tabular-nums">
-                                RM: {displayRm(row)}
+                                RM: {displayRm(row as any)}
                               </div>
                             </td>
                             <td className="border border-slate-300 px-1 py-1 text-slate-850 truncate font-semibold bg-white" title={row.diagnosa || ""}>
@@ -913,13 +913,13 @@ export default function TindakanLaporanPemakaianModal({
                               {formatBlockText(pemakaian.konsolidasiText)}
                             </td>
                             <td className="border border-slate-300 px-1 py-1 italic text-slate-500 leading-snug bg-white">
-                              {row.alasan_alkes_konsolidasi || "—"}
+                              {(row as any).alasan_alkes_konsolidasi || "—"}
                             </td>
                             <td className="border border-slate-300 px-1 py-1 text-slate-800 font-medium leading-relaxed bg-white">
                               {formatBlockText(pemakaian.nonKonsolidasiText)}
                             </td>
                             <td className="border border-slate-300 px-1 py-1 italic text-slate-500 leading-snug bg-white">
-                              {row.alasan_alkes_non_konsolidasi || "—"}
+                              {(row as any).alasan_alkes_non_konsolidasi || "—"}
                             </td>
                           </tr>
                         );

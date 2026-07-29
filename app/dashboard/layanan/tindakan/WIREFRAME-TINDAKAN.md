@@ -131,4 +131,44 @@ Toolbar
 
 ---
 
-*Terakhir diselaraskan dengan implementasi di `TableToolbar`, `FastTrackListModal`, `TindakanHariIniModal`, `TindakanTerbanyakLabModal`, `ReportExportActionBar`.*
+## 8. Modal Laporan Pasien (Dashboard & Detail Tindakan)
+
+*(Dibuka dari dropdown "LAPORAN" di toolbar tabel — Laporan Pasien)*
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│  📋 Laporan Pasien Cathlab                [ Cetak ] [ Unduh Excel ] [ Kirim WA ]  │
+│  Tabulasi pasien, filter tanggal awal-akhir, ringkasan dashboard & detail drawer │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│ ┌─ Dashboard KPI Ringkasan (Panel Navy/Indigo) ────────────────────────────────┐ │
+│ │  Total Pasien   │ Total Tindakan  │ Distribusi Pembiayaan │ Distribusi Status │ │
+│ │   [  240  ]     │    [  285  ]    │ BPJS: 190 (79%)       │ Selesai: 220      │ │
+│ │                 │                 │ Mandiri: 30 (12%)     │ Terjadwal: 15     │ │
+│ │                 │                 │ Jaminan: 20 (9%)      │ Draft: 5          │ │
+│ └──────────────────────────────────────────────────────────────────────────────┘ │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│ ┌─ Filter Pencarian (Mendukung Checklist Pilihan Ganda) ───────────────────────┐ │
+│ │ Tanggal: [tanggal-dari] s/d [tanggal-sampai]  Pencarian: [ Cari RM, Nama... ] │ │
+│ │ Dokter: [ 2 terpilih ▼ ]  Pembiayaan: [ Semua ▼ ]  Status: [ Selesai ▼ ]     │ │
+│ │   ┌───────────────────────┐                                                  │ │
+│ │   │ 🔍 Cari dokter...     │                                                  │ │
+│ │   │ 🗹 Dr. Budi            │                                                  │ │
+│ │   │ 🗹 Dr. Andi            │                                                  │ │
+│ │   │ ▢ Dr. Citra           │                                                  │ │
+│ │   └───────────────────────┘                                                  │ │
+│ └──────────────────────────────────────────────────────────────────────────────┘ │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│ ┌─ Tabel Pasien (Klik baris membuka detail drawer) ────────────────────────────┐ │
+│ │ No │ Tanggal & Waktu │ No RM  │ Nama Pasien    │ Dokter Operator │ Tindakan  │...│ │
+│ │────│─────────────────│────────│────────────────│─────────────────│───────────│───│ │
+│ │ 1  │ 28-07-2026 09:00│ 123456 │ Tn. Ahmad      │ Dr. Budi        │ EVLA Kiri │...│ │
+│ │ 2  │ 28-07-2026 10:30│ 789012 │ Ny. Siti       │ Dr. Andi        │ EVLA      │...│ │
+│ │ …  │                 │        │                │                 │           │   │ │
+│ └──────────────────────────────────────────────────────────────────────────────┘ │
+│  Halaman: [ < ] 1 [ 2 ] 3 [ > ]     Tampilkan: [ 1000 ▼ ] baris (pilihan s/d 1000) │
+└──────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+*Terakhir diselaraskan dengan implementasi di `TableToolbar`, `FastTrackListModal`, `TindakanHariIniModal`, `TindakanTerbanyakLabModal`, `TindakanLaporanPasienModal`, `ReportExportActionBar`.*

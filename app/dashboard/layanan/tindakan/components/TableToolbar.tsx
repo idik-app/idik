@@ -21,6 +21,7 @@ import {
   Phone,
   ShieldCheck,
   RefreshCw,
+  Users,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -72,6 +73,8 @@ interface Props {
   onOpenLaporanPemakaian?: () => void;
   /** Buka modal laporan mutu. */
   onOpenLaporanMutu?: () => void;
+  /** Buka modal laporan pasien. */
+  onOpenLaporanPasien?: () => void;
   onPhoneDirectoryOpen?: () => void;
   /** Status collapse untuk menghemat ruang vertikal di HP */
   isCollapsed?: boolean;
@@ -106,6 +109,7 @@ function TableToolbar({
   onOpenLaporanDiagnosaKlinis,
   onOpenLaporanPemakaian,
   onOpenLaporanMutu,
+  onOpenLaporanPasien,
   onPhoneDirectoryOpen,
   isCollapsed = false,
 }: Props) {
@@ -147,12 +151,14 @@ function TableToolbar({
     typeof onOpenLaporanDiagnosaKlinis === "function";
   const hasLaporanPemakaian = typeof onOpenLaporanPemakaian === "function";
   const hasLaporanMutu = typeof onOpenLaporanMutu === "function";
+  const hasLaporanPasien = typeof onOpenLaporanPasien === "function";
   const hasAnyLaporan =
     hasLaporanLab ||
     hasLaporanMatriks ||
     hasLaporanDiagnosaKlinis ||
     hasLaporanPemakaian ||
-    hasLaporanMutu;
+    hasLaporanMutu ||
+    hasLaporanPasien;
 
   useEffect(() => setLaporanMenuMounted(true), []);
 
@@ -635,6 +641,36 @@ function TableToolbar({
                                   />
                                   <span className="min-w-0 flex-1 font-extrabold tracking-wide">
                                     Laporan MUTU
+                                  </span>
+                                </button>
+                              </>
+                            ) : null}
+                            {hasLaporanPasien ? (
+                              <>
+                                <div
+                                  className="mx-2 border-t border-slate-200/80 dark:border-white/15"
+                                  role="separator"
+                                />
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className={cn(
+                                    "flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold",
+                                    "text-slate-900 hover:bg-blue-500/10 dark:text-white dark:hover:bg-blue-500/15",
+                                    "focus-visible:bg-blue-500/10 focus-visible:outline-none dark:focus-visible:bg-blue-500/15",
+                                  )}
+                                  onClick={() => {
+                                    setLaporanMenuOpen(false);
+                                    onOpenLaporanPasien?.();
+                                  }}
+                                >
+                                  <Users
+                                    size={16}
+                                    strokeWidth={2.25}
+                                    className="shrink-0 text-blue-600 dark:text-blue-400"
+                                  />
+                                  <span className="min-w-0 flex-1 font-extrabold tracking-wide">
+                                    Laporan Pasien
                                   </span>
                                 </button>
                               </>

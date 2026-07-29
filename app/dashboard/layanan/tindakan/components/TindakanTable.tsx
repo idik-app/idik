@@ -86,6 +86,10 @@ const TindakanLaporanMutuModal = dynamic(
   () => import("../components/TindakanLaporanMutuModal"),
   { ssr: false, loading: () => null },
 );
+const TindakanLaporanPasienModal = dynamic(
+  () => import("../components/TindakanLaporanPasienModal"),
+  { ssr: false, loading: () => null },
+);
 const IntensiveDashboardView = dynamic(
   () => import("@/components/intensive/IntensiveDashboardView"),
   { ssr: false, loading: () => null },
@@ -1387,6 +1391,7 @@ export default function TindakanTable({
   const [laporanPemakaianModalOpen, setLaporanPemakaianModalOpen] =
     useState(false);
   const [laporanMutuModalOpen, setLaporanMutuModalOpen] = useState(false);
+  const [laporanPasienModalOpen, setLaporanPasienModalOpen] = useState(false);
   const [creatingForPasien, setCreatingForPasien] = useState(false);
   const [lastAutoCreateKey, setLastAutoCreateKey] = useState("");
   /** Riwayat tindakan (RM duplikat): default tertutup; kunci = id baris / fallback key. */
@@ -3170,6 +3175,9 @@ export default function TindakanTable({
           onOpenLaporanMutu={() => {
             setLaporanMutuModalOpen(true);
           }}
+          onOpenLaporanPasien={() => {
+            setLaporanPasienModalOpen(true);
+          }}
           onPhoneDirectoryOpen={onPhoneDirectoryOpen}
         />
 
@@ -3217,6 +3225,21 @@ export default function TindakanTable({
             open={laporanMutuModalOpen}
             onOpenChange={setLaporanMutuModalOpen}
             rows={filteredRecords}
+          />
+        ) : null}
+        {laporanPasienModalOpen ? (
+          <TindakanLaporanPasienModal
+            open={laporanPasienModalOpen}
+            onOpenChange={setLaporanPasienModalOpen}
+            rows={rowsForPemakaianLink}
+            pasienOptions={pasienOptions}
+            onOpenDetail={(rec, tab) => {
+              if (!rec.id) return;
+              adapter.openDetail(rec.id, tab);
+              setTimeout(() => {
+                setLaporanPasienModalOpen(false);
+              }, 50);
+            }}
           />
         ) : null}
 

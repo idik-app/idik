@@ -760,7 +760,7 @@ export default function TindakanLaporanPasienModal({
     // Status breakdown
     const statusMap: Record<string, number> = {};
     filteredRows.forEach((r) => {
-      const s = r.status || "DRAFT";
+      const s = String(r.status || "DRAFT").toUpperCase();
       statusMap[s] = (statusMap[s] || 0) + 1;
     });
 
@@ -850,6 +850,26 @@ export default function TindakanLaporanPasienModal({
       : null;
 
   if (!open || !mountPoint) return null;
+
+  const showPasienCard = visibleColumns.includes("nama_pasien") || visibleColumns.includes("no_rm");
+  const showProsedurCard = visibleColumns.includes("tindakan");
+  const showPembiayaanCard = visibleColumns.includes("pembiayaan");
+  const showStatusCard = visibleColumns.includes("status");
+
+  // Fallback: If no cards are selected, default to showing all of them to avoid blank space
+  const noCardsSelected = !showPasienCard && !showProsedurCard && !showPembiayaanCard && !showStatusCard;
+
+  const actualShowPasien = showPasienCard || noCardsSelected;
+  const actualShowProsedur = showProsedurCard || noCardsSelected;
+  const actualShowPembiayaan = showPembiayaanCard || noCardsSelected;
+  const actualShowStatus = showStatusCard || noCardsSelected;
+
+  const visibleCardsCount = [
+    actualShowPasien,
+    actualShowProsedur,
+    actualShowPembiayaan,
+    actualShowStatus,
+  ].filter(Boolean).length;
 
   const content = (
     <AnimatePresence>
@@ -947,104 +967,117 @@ export default function TindakanLaporanPasienModal({
               {/* Main dashboard content area */}
               <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:p-4 bg-slate-50 dark:bg-zinc-950">
                 {/* 1. KPI Cards Row */}
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 shrink-0">
+                <div className={cn(
+                  "grid gap-3 shrink-0 grid-cols-1",
+                  visibleCardsCount === 2 && "sm:grid-cols-2",
+                  visibleCardsCount === 3 && "sm:grid-cols-3",
+                  visibleCardsCount >= 4 && "sm:grid-cols-2 lg:grid-cols-4"
+                )}>
                   {/* Card 1: Total Pasien */}
-                  <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Total Pasien Unik
+                  {actualShowPasien && (
+                    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Total Pasien Unik
+                      </div>
+                      <div className="mt-1 flex items-baseline gap-2">
+                        <span className="text-2xl font-black text-slate-800 dark:text-white">
+                          {kpis.totalPasien}
+                        </span>
+                        <span className="text-[10px] font-semibold text-slate-500">Pasien</span>
+                      </div>
+                      <div className="mt-1.5 text-[9px] text-slate-400">
+                        Berdasarkan nomor rekam medis
+                      </div>
                     </div>
-                    <div className="mt-1 flex items-baseline gap-2">
-                      <span className="text-2xl font-black text-slate-800 dark:text-white">
-                        {kpis.totalPasien}
-                      </span>
-                      <span className="text-[10px] font-semibold text-slate-500">Pasien</span>
-                    </div>
-                    <div className="mt-1.5 text-[9px] text-slate-400">
-                      Berdasarkan nomor rekam medis
-                    </div>
-                  </div>
+                  )}
 
                   {/* Card 2: Total Tindakan */}
-                  <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Total Prosedur
+                  {actualShowProsedur && (
+                    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Total Prosedur
+                      </div>
+                      <div className="mt-1 flex items-baseline gap-2">
+                        <span className="text-2xl font-black text-indigo-700 dark:text-indigo-400">
+                          {kpis.totalTindakan}
+                        </span>
+                        <span className="text-[10px] font-semibold text-slate-500">Tindakan</span>
+                      </div>
+                      <div className="mt-1.5 text-[9px] text-slate-400">
+                        Seluruh jenis prosedur terdaftar
+                      </div>
                     </div>
-                    <div className="mt-1 flex items-baseline gap-2">
-                      <span className="text-2xl font-black text-indigo-700 dark:text-indigo-400">
-                        {kpis.totalTindakan}
-                      </span>
-                      <span className="text-[10px] font-semibold text-slate-500">Tindakan</span>
-                    </div>
-                    <div className="mt-1.5 text-[9px] text-slate-400">
-                      Seluruh jenis prosedur terdaftar
-                    </div>
-                  </div>
+                  )}
 
                   {/* Card 3: Distribusi Pembiayaan */}
-                  <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Top Pembiayaan
+                  {actualShowPembiayaan && (
+                    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Top Pembiayaan
+                      </div>
+                      <div className="mt-1.5 space-y-1">
+                        {kpis.bayarSorted.length > 0 ? (
+                          kpis.bayarSorted.map(([type, count]) => {
+                            const percent =
+                              kpis.totalTindakan > 0 ? (count / kpis.totalTindakan) * 100 : 0;
+                            return (
+                              <div key={type} className="flex items-center justify-between text-[10px]">
+                                <span className="font-semibold text-slate-600 dark:text-slate-300 truncate max-w-[100px]">
+                                  {type}
+                                </span>
+                                <span className="font-bold text-slate-800 dark:text-white">
+                                  {count} ({percent.toFixed(0)}%)
+                                </span>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-[10px] italic text-slate-400 py-1">Tidak ada data</div>
+                        )}
+                      </div>
                     </div>
-                    <div className="mt-1.5 space-y-1">
-                      {kpis.bayarSorted.length > 0 ? (
-                        kpis.bayarSorted.map(([type, count]) => {
-                          const percent =
-                            kpis.totalTindakan > 0 ? (count / kpis.totalTindakan) * 100 : 0;
-                          return (
-                            <div key={type} className="flex items-center justify-between text-[10px]">
-                              <span className="font-semibold text-slate-600 dark:text-slate-300 truncate max-w-[100px]">
-                                {type}
-                              </span>
-                              <span className="font-bold text-slate-800 dark:text-white">
-                                {count} ({percent.toFixed(0)}%)
-                              </span>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="text-[10px] italic text-slate-400 py-1">Tidak ada data</div>
-                      )}
-                    </div>
-                  </div>
+                  )}
 
                   {/* Card 4: Distribusi Status */}
-                  <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Status Tindakan
+                  {actualShowStatus && (
+                    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Status Tindakan
+                      </div>
+                      <div className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Selesai:</span>
+                          <span className="font-bold text-emerald-600">
+                            {kpis.statusMap["SELESAI"] || 0}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Terjadwal:</span>
+                          <span className="font-bold text-blue-600">
+                            {kpis.statusMap["TERJADWAL"] || 0}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Draft:</span>
+                          <span className="font-bold text-amber-600">
+                            {kpis.statusMap["DRAFT"] || 0}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Lainnya:</span>
+                          <span className="font-bold text-slate-700 dark:text-slate-300">
+                            {Object.entries(kpis.statusMap).reduce(
+                              (acc, [status, count]) =>
+                                !["SELESAI", "TERJADWAL", "DRAFT"].includes(status)
+                                  ? acc + count
+                                  : acc,
+                              0
+                            )}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="mt-1.5 grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Selesai:</span>
-                        <span className="font-bold text-emerald-600">
-                          {kpis.statusMap["SELESAI"] || 0}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Terjadwal:</span>
-                        <span className="font-bold text-blue-600">
-                          {kpis.statusMap["TERJADWAL"] || 0}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Draft:</span>
-                        <span className="font-bold text-amber-600">
-                          {kpis.statusMap["DRAFT"] || 0}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-500">Lainnya:</span>
-                        <span className="font-bold text-slate-700 dark:text-slate-300">
-                          {Object.entries(kpis.statusMap).reduce(
-                            (acc, [status, count]) =>
-                              !["SELESAI", "TERJADWAL", "DRAFT"].includes(status)
-                                ? acc + count
-                                : acc,
-                            0
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* 2. Interactive Checklist Filters & Search */}

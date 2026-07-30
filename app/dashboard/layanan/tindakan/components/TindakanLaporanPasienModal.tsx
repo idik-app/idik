@@ -793,6 +793,31 @@ export default function TindakanLaporanPasienModal({
     itemsPerPage,
   ]);
 
+  // Reset filter when the corresponding column is hidden
+  useEffect(() => {
+    if (!visibleColumns.includes("dokter")) {
+      setSelectedDokter([]);
+    }
+  }, [visibleColumns]);
+
+  useEffect(() => {
+    if (!visibleColumns.includes("tindakan")) {
+      setSelectedTindakan([]);
+    }
+  }, [visibleColumns]);
+
+  useEffect(() => {
+    if (!visibleColumns.includes("pembiayaan")) {
+      setSelectedPembiayaan([]);
+    }
+  }, [visibleColumns]);
+
+  useEffect(() => {
+    if (!visibleColumns.includes("status")) {
+      setSelectedStatus([]);
+    }
+  }, [visibleColumns]);
+
   // Export handlers
   const dateRangeLabel = useMemo(() => {
     const from = filterTanggalFrom || "Awal";
@@ -1094,33 +1119,41 @@ export default function TindakanLaporanPasienModal({
                   </div>
 
                   {/* Checklist Popover Drops */}
-                  <ChecklistDropdown
-                    label="Dokter"
-                    options={dokterOptions}
-                    selectedValues={selectedDokter}
-                    onChange={setSelectedDokter}
-                  />
+                  {visibleColumns.includes("dokter") && (
+                    <ChecklistDropdown
+                      label="Dokter"
+                      options={dokterOptions}
+                      selectedValues={selectedDokter}
+                      onChange={setSelectedDokter}
+                    />
+                  )}
 
-                  <ChecklistDropdown
-                    label="Tindakan"
-                    options={tindakanOptions}
-                    selectedValues={selectedTindakan}
-                    onChange={setSelectedTindakan}
-                  />
+                  {visibleColumns.includes("tindakan") && (
+                    <ChecklistDropdown
+                      label="Tindakan"
+                      options={tindakanOptions}
+                      selectedValues={selectedTindakan}
+                      onChange={setSelectedTindakan}
+                    />
+                  )}
 
-                  <ChecklistDropdown
-                    label="Pembiayaan"
-                    options={pembiayaanOptions}
-                    selectedValues={selectedPembiayaan}
-                    onChange={setSelectedPembiayaan}
-                  />
+                  {visibleColumns.includes("pembiayaan") && (
+                    <ChecklistDropdown
+                      label="Pembiayaan"
+                      options={pembiayaanOptions}
+                      selectedValues={selectedPembiayaan}
+                      onChange={setSelectedPembiayaan}
+                    />
+                  )}
 
-                  <ChecklistDropdown
-                    label="Status"
-                    options={statusOptions}
-                    selectedValues={selectedStatus}
-                    onChange={setSelectedStatus}
-                  />
+                  {visibleColumns.includes("status") && (
+                    <ChecklistDropdown
+                      label="Status"
+                      options={statusOptions}
+                      selectedValues={selectedStatus}
+                      onChange={setSelectedStatus}
+                    />
+                  )}
 
                   {/* Custom Columns Checklist Dropdown */}
                   <ColumnsDropdown

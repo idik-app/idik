@@ -1,5 +1,6 @@
 import { formatPasienLabel, type PasienOption } from "@/components/ui/pasien-combobox";
 import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
+import { hitungUsia } from "@/app/dashboard/pasien/utils/formatUsia";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 
 /**
@@ -162,12 +163,23 @@ export function mapApiPasienRow(r: Record<string, unknown>): PasienOption | null
       : r.tanggal_lahir != null
         ? String(r.tanggal_lahir)
         : null;
-  const umur =
+  let umur =
     typeof r.umur === "number"
       ? r.umur
       : typeof r.usia === "number"
         ? r.usia
-        : null;
+        : typeof r.umur === "string" && !isNaN(Number(r.umur))
+          ? Number(r.umur)
+          : typeof r.usia === "string" && !isNaN(Number(r.usia))
+            ? Number(r.usia)
+            : null;
+
+  if (umur === null && tgl_lahir) {
+    const calculated = hitungUsia(tgl_lahir);
+    if (calculated && calculated.angka > 0) {
+      umur = calculated.angka;
+    }
+  }
 
   const diagnosa =
     typeof r.diagnosa === "string"

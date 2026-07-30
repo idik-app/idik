@@ -3236,9 +3236,6 @@ export default function TindakanTable({
             onOpenDetail={(rec, tab) => {
               if (!rec.id) return;
               adapter.openDetail(rec.id, tab);
-              setTimeout(() => {
-                setLaporanPasienModalOpen(false);
-              }, 50);
             }}
           />
         ) : null}

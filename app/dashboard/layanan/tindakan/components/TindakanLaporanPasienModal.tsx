@@ -486,6 +486,95 @@ function getCurrentMonthRangeWib(): { from: string; to: string } {
   };
 }
 
+function getTabIdForColumnKey(key: string): WireframeTabId {
+  switch (key) {
+    case "no_rm":
+    case "nama_pasien":
+    case "jenis_kelamin":
+    case "tgl_lahir":
+    case "umur":
+    case "alamat":
+    case "no_telp":
+    case "rs_perujuk":
+      return "pasien";
+
+    case "is_fast_track":
+    case "pasien_datang_igd":
+    case "door_to_balloon":
+    case "total_waktu_fast_track":
+    case "fast_track_sign_in":
+    case "fast_track_time_out":
+    case "fast_track_sign_out":
+      return "fast_track";
+
+    case "tanggal":
+    case "tanggal_tindakan":
+    case "tindakan":
+    case "kategori":
+    case "status":
+    case "temuan_pembuluh":
+    case "kesimpulan_laporan":
+    case "plan_medis":
+      return "tindakan";
+
+    case "ruangan":
+    case "cath":
+      return "lokasi";
+
+    case "dokter":
+    case "dokter_anestesi":
+    case "ppds":
+    case "asisten":
+    case "sirkuler":
+    case "logger":
+    case "pj_laporan":
+      return "tim";
+
+    case "fluoro_time":
+    case "dose":
+    case "dap_dose":
+    case "kv":
+    case "ma":
+    case "accession_no":
+    case "total_kontras":
+      return "radiologi";
+
+    case "pci_report_link":
+    case "diagnosa":
+    case "faktor_risiko":
+    case "severity_level":
+    case "hasil_lab_ppm":
+      return "klinis";
+
+    case "pembiayaan":
+    case "kelas_pembiayaan":
+    case "tarif_tindakan":
+    case "total":
+    case "krs":
+    case "selisih":
+    case "consumable":
+    case "pemakaian":
+    case "pemakaian_konsolidasi":
+    case "pemakaian_non_konsolidasi":
+    case "pemakaian_stent":
+    case "pemakaian_balloon":
+    case "pemakaian_lainnya":
+    case "billing_simrs":
+      return "biaya";
+
+    case "berkas_laporan":
+    case "operan_ranap":
+    case "asmed":
+    case "sjp":
+    case "resume_erm":
+    case "consumable_kelengkapan":
+      return "kelengkapan";
+
+    default:
+      return "pasien";
+  }
+}
+
 export default function TindakanLaporanPasienModal({
   open,
   onOpenChange,
@@ -746,12 +835,12 @@ export default function TindakanLaporanPasienModal({
     });
   }, [dateRangeLabel, filteredRows, exportFileBase, visibleColumns]);
 
-  const handleRowClick = (rec: TindakanJoinResult) => {
+  const handleCellClick = useCallback((rec: TindakanJoinResult, colKey: string) => {
     if (onOpenDetail) {
-      onOpenDetail(rec, "pasien");
-      onOpenChange(false);
+      const tabId = getTabIdForColumnKey(colKey);
+      onOpenDetail(rec, tabId);
     }
-  };
+  }, [onOpenDetail]);
 
   const mountPoint =
     typeof document !== "undefined"
@@ -1047,13 +1136,15 @@ export default function TindakanLaporanPasienModal({
                             return (
                               <tr
                                 key={row.id || idx}
-                                onClick={() => handleRowClick(row)}
                                 className={cn(
-                                  "cursor-pointer hover:bg-indigo-50/50 dark:hover:bg-zinc-800/60 transition",
+                                  "hover:bg-indigo-50/50 dark:hover:bg-zinc-800/60 transition",
                                   isOdd ? "bg-slate-50/40 dark:bg-zinc-900/30" : "bg-white dark:bg-zinc-900"
                                 )}
                               >
-                                <td className="px-3 py-2.5 text-center font-bold text-slate-400 shrink-0">
+                                <td
+                                  onClick={() => handleCellClick(row, "no_rm")}
+                                  className="cursor-pointer px-3 py-2.5 text-center font-bold text-slate-400 shrink-0 hover:bg-slate-200/50 dark:hover:bg-zinc-800"
+                                >
                                   {(currentPage - 1) * itemsPerPage + idx + 1}
                                 </td>
                                 {visibleColumns.map((key) => {
@@ -1066,7 +1157,11 @@ export default function TindakanLaporanPasienModal({
                                     const isDraft = String(val).toUpperCase() === "DRAFT";
                                     const isTerjadwal = String(val).toUpperCase() === "TERJADWAL";
                                     return (
-                                      <td key={key} className="px-3 py-2.5 text-center whitespace-nowrap">
+                                      <td
+                                        key={key}
+                                        onClick={() => handleCellClick(row, key)}
+                                        className="cursor-pointer px-3 py-2.5 text-center whitespace-nowrap hover:bg-slate-200/50 dark:hover:bg-zinc-800"
+                                      >
                                         <span
                                           className={cn(
                                             "inline-block rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wide",
@@ -1085,8 +1180,9 @@ export default function TindakanLaporanPasienModal({
                                   return (
                                     <td
                                       key={key}
+                                      onClick={() => handleCellClick(row, key)}
                                       className={cn(
-                                        "px-3 py-2.5 max-w-[250px] truncate whitespace-normal leading-relaxed",
+                                        "cursor-pointer px-3 py-2.5 max-w-[250px] truncate whitespace-normal leading-relaxed hover:bg-slate-200/50 dark:hover:bg-zinc-800",
                                         isNamaOrRm && "font-bold text-indigo-700 dark:text-indigo-400",
                                         !isNamaOrRm && "font-medium text-slate-700 dark:text-slate-300"
                                       )}

@@ -51,6 +51,7 @@ const COLUMN_CATEGORIES = [
       { key: "temuan_pembuluh", label: "Temuan Pembuluh" },
       { key: "kesimpulan_laporan", label: "Kesimpulan Laporan" },
       { key: "plan_medis", label: "Plan Medis" },
+      { key: "status", label: "Status" },
     ]
   },
   {

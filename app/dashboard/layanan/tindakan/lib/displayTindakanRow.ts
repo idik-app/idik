@@ -181,6 +181,22 @@ export function mapApiPasienRow(r: Record<string, unknown>): PasienOption | null
       : r.faktor_risiko != null
         ? String(r.faktor_risiko)
         : null;
+  const alamat =
+    typeof r.alamat === "string"
+      ? r.alamat
+      : r.alamat != null
+        ? String(r.alamat)
+        : null;
+  const no_telp =
+    typeof r.no_telp === "string"
+      ? r.no_telp
+      : typeof r.no_hp === "string"
+        ? r.no_hp
+        : r.no_telp != null
+          ? String(r.no_telp)
+          : r.no_hp != null
+            ? String(r.no_hp)
+            : null;
 
   return {
     id,
@@ -190,6 +206,8 @@ export function mapApiPasienRow(r: Record<string, unknown>): PasienOption | null
     tgl_lahir,
     umur,
     ...(jk ? { jenis_kelamin: jk } : {}),
+    ...(alamat != null && alamat !== "" ? { alamat } : {}),
+    ...(no_telp != null && no_telp !== "" ? { no_telp } : {}),
     ...(jenis_pembiayaan != null && jenis_pembiayaan !== ""
       ? { jenis_pembiayaan }
       : {}),
@@ -418,6 +436,12 @@ export function mergePasienMasterIntoRowForReport(
   if (p.no_rm != null && String(p.no_rm).trim() !== "") {
     next.no_rm = String(p.no_rm);
   }
+  if (p.jenis_kelamin) next.jenis_kelamin = p.jenis_kelamin;
+  if (p.tgl_lahir) next.tgl_lahir = p.tgl_lahir;
+  if (p.umur != null) next.umur = p.umur;
+  if (p.alamat) next.alamat = p.alamat;
+  if (p.no_telp) next.no_telp = p.no_telp;
+
   if (!next.kelas_pembiayaan && (p.jenis_pembiayaan || p.pembiayaan)) {
     const jp = (p.jenis_pembiayaan || p.pembiayaan || "").trim();
     const kls = (p.kelas_perawatan || p.kelas || "").trim();

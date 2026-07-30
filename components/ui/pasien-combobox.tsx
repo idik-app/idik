@@ -23,6 +23,8 @@ export type PasienOption = {
   umur?: number | null;
   diagnosa?: string | null;
   faktor_risiko?: string | null;
+  alamat?: string | null;
+  no_telp?: string | null;
 };
 
 export function formatPasienLabel(

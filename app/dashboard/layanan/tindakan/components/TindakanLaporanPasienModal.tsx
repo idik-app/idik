@@ -22,7 +22,135 @@ import {
   buildPasienReportHtml,
   buildPasienReportWhatsAppText,
   downloadPasienReportExcel,
+  formatPasienReportCell,
+  ALL_COLUMNS_MAP,
 } from "../lib/tindakanPasienReportTemplates";
+
+const COLUMN_CATEGORIES = [
+  {
+    name: "Pasien",
+    columns: [
+      { key: "tanggal", label: "Tanggal & Waktu" },
+      { key: "no_rm", label: "No. RM" },
+      { key: "nama_pasien", label: "Nama Pasien" },
+      { key: "jenis_kelamin", label: "Jenis Kelamin" },
+      { key: "tgl_lahir", label: "Tgl Lahir" },
+      { key: "umur", label: "Umur" },
+      { key: "alamat", label: "Alamat" },
+      { key: "no_telp", label: "No. Telp" },
+      { key: "rs_perujuk", label: "RS Perujuk" },
+    ]
+  },
+  {
+    name: "Tindakan & Lokasi",
+    columns: [
+      { key: "ruangan", label: "Ruangan" },
+      { key: "cath", label: "Cathlab Slot" },
+      { key: "tindakan", label: "Tindakan / Prosedur" },
+      { key: "kategori", label: "Kategori Tindakan" },
+      { key: "temuan_pembuluh", label: "Temuan Pembuluh" },
+      { key: "kesimpulan_laporan", label: "Kesimpulan Laporan" },
+      { key: "plan_medis", label: "Plan Medis" },
+    ]
+  },
+  {
+    name: "Tim Medis (Pihak Terlibat)",
+    columns: [
+      { key: "dokter", label: "Dokter Operator" },
+      { key: "dokter_anestesi", label: "Dokter Anestesi" },
+      { key: "ppds", label: "PPDS" },
+      { key: "asisten", label: "Asisten" },
+      { key: "sirkuler", label: "Sirkuler" },
+      { key: "logger", label: "Logger" },
+      { key: "pj_laporan", label: "PJ Laporan" },
+    ]
+  },
+  {
+    name: "Klinis & Fast-Track",
+    columns: [
+      { key: "diagnosa", label: "Diagnosa Klinis" },
+      { key: "faktor_risiko", label: "Faktor Risiko" },
+      { key: "severity_level", label: "Severity Level" },
+      { key: "hasil_lab_ppm", label: "Hasil Lab PPM" },
+      { key: "total_kontras", label: "Total Kontras" },
+      { key: "pci_report_link", label: "PCI Report Link" },
+      { key: "is_fast_track", label: "Status Fast-Track" },
+      { key: "pasien_datang_igd", label: "Waktu Pasien Tiba IGD" },
+      { key: "door_to_balloon", label: "Waktu Door-to-Balloon" },
+      { key: "total_waktu_fast_track", label: "Total Waktu Fast-Track" },
+      { key: "fast_track_sign_in", label: "Sign In Fast-Track" },
+      { key: "fast_track_time_out", label: "Time Out Fast-Track" },
+      { key: "fast_track_sign_out", label: "Sign Out Fast-Track" },
+    ]
+  },
+  {
+    name: "Radiologi",
+    columns: [
+      { key: "fluoro_time", label: "Fluoro Time" },
+      { key: "dose", label: "Dose (Air Kerma)" },
+      { key: "dap_dose", label: "DAP Dose" },
+      { key: "kv", label: "kV" },
+      { key: "ma", label: "mA" },
+      { key: "accession_no", label: "Accession No" },
+    ]
+  },
+  {
+    name: "Farmasi / Depo (Logistik)",
+    columns: [
+      { key: "pemakaian", label: "Pemakaian Alkes (Semua)" },
+      { key: "pemakaian_konsolidasi", label: "Alkes Konsolidasi" },
+      { key: "pemakaian_non_konsolidasi", label: "Alkes Non-Konsolidasi" },
+      { key: "pemakaian_stent", label: "Alkes Stent" },
+      { key: "pemakaian_balloon", label: "Alkes Balloon" },
+      { key: "pemakaian_lainnya", label: "Alkes Lainnya" },
+      { key: "consumable_kelengkapan", label: "Kelengkapan Consumable" },
+    ]
+  },
+  {
+    name: "CSSD (Sterilisasi & Berkas)",
+    columns: [
+      { key: "berkas_laporan", label: "Berkas Laporan" },
+      { key: "operan_ranap", label: "Operan Ranap" },
+      { key: "asmed", label: "Asmed" },
+      { key: "sjp", label: "SJP" },
+    ]
+  },
+  {
+    name: "Keuangan & Distributor (Billing)",
+    columns: [
+      { key: "pembiayaan", label: "Pembiayaan" },
+      { key: "kelas_pembiayaan", label: "Kelas Pembiayaan" },
+      { key: "tarif_tindakan", label: "Tarif Tindakan" },
+      { key: "consumable", label: "Consumable" },
+      { key: "total", label: "Perolehan BPJS" },
+      { key: "krs", label: "Total KRS" },
+      { key: "selisih", label: "Selisih Biaya" },
+      { key: "billing_simrs", label: "Billing SIMRS" },
+      { key: "resume_erm", label: "Resume e-RM" },
+    ]
+  },
+  {
+    name: "Sistem & Metadata (Tersembunyi / Audit)",
+    columns: [
+      { key: "id", label: "ID Tindakan (DB)" },
+      { key: "pasien_id", label: "ID Pasien (DB)" },
+      { key: "sheet_id", label: "ID Upload Sheet" },
+      { key: "waktu", label: "Detail Jam Tindakan" },
+      { key: "no", label: "No. Urutan Dokumen" },
+      { key: "created_at", label: "Tanggal Dibuat" },
+      { key: "updated_at", label: "Tanggal Diperbarui" },
+      { key: "inserted_at", label: "Waktu Input Sistem" },
+      { key: "status_keterangan", label: "Keterangan Status / Batal" },
+      { key: "status_duplikat", label: "Status Duplikat" },
+      { key: "kelas", label: "Kelas Perawatan" },
+      { key: "lama_perawatan", label: "Lama Perawatan" },
+      { key: "level", label: "Level" },
+      { key: "perolehan", label: "Perolehan" },
+      { key: "resume", label: "Resume Medis" },
+      { key: "keterangan", label: "Keterangan" },
+    ]
+  }
+];
 
 interface ChecklistDropdownProps {
   label: string;
@@ -150,6 +278,195 @@ function ChecklistDropdown({
   );
 }
 
+interface ColumnsDropdownProps {
+  visibleColumns: string[];
+  onChange: (columns: string[]) => void;
+}
+
+function ColumnsDropdown({ visibleColumns, onChange }: ColumnsDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const toggleColumn = (key: string) => {
+    if (visibleColumns.includes(key)) {
+      onChange(visibleColumns.filter((c) => c !== key));
+    } else {
+      onChange([...visibleColumns, key]);
+    }
+  };
+
+  const applyPreset = (presetType: "default" | "klinis" | "logistik" | "keuangan" | "radiologi") => {
+    let cols: string[] = [];
+    switch (presetType) {
+      case "default":
+        cols = ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "pembiayaan", "status"];
+        break;
+      case "klinis":
+        cols = ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "diagnosa", "severity_level", "temuan_pembuluh", "kesimpulan_laporan", "status"];
+        break;
+      case "logistik":
+        cols = ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "pemakaian", "pemakaian_stent", "pemakaian_balloon", "pemakaian_konsolidasi", "pemakaian_non_konsolidasi", "consumable_kelengkapan"];
+        break;
+      case "keuangan":
+        cols = ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "pembiayaan", "kelas_pembiayaan", "tarif_tindakan", "consumable", "total", "krs", "selisih", "billing_simrs", "resume_erm"];
+        break;
+      case "radiologi":
+        cols = ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "fluoro_time", "dose", "dap_dose", "kv", "ma", "accession_no"];
+        break;
+    }
+    onChange(cols);
+  };
+
+  const filteredCategories = useMemo(() => {
+    return COLUMN_CATEGORIES.map((cat) => {
+      const filteredCols = cat.columns.filter((col) =>
+        col.label.toLowerCase().includes(search.toLowerCase()) ||
+        col.key.toLowerCase().includes(search.toLowerCase())
+      );
+      return {
+        ...cat,
+        columns: filteredCols,
+      };
+    }).filter((cat) => cat.columns.length > 0);
+  }, [search]);
+
+  const toggleCategory = (categoryName: string, enable: boolean) => {
+    const category = COLUMN_CATEGORIES.find((c) => c.name === categoryName);
+    if (!category) return;
+    const catKeys = category.columns.map((col) => col.key);
+    if (enable) {
+      const nextCols = [...visibleColumns];
+      catKeys.forEach((k) => {
+        if (!nextCols.includes(k)) nextCols.push(k);
+      });
+      onChange(nextCols);
+    } else {
+      onChange(visibleColumns.filter((k) => !catKeys.includes(k)));
+    }
+  };
+
+  return (
+    <div ref={containerRef} className="relative min-w-[150px] flex-1">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "flex h-9 w-full items-center justify-between rounded-lg border px-3 py-1.5 text-xs font-bold shadow-sm transition active:scale-95",
+          "border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
+          "dark:border-zinc-800 dark:bg-black dark:text-slate-300 dark:hover:bg-zinc-900"
+        )}
+      >
+        <span>Kolom Tabel ({visibleColumns.length})</span>
+        <ChevronDown size={14} className="shrink-0 text-slate-400 ml-1" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 z-50 mt-1 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white p-2.5 shadow-2xl dark:border-zinc-800 dark:bg-[#0c0f17]">
+          <div className="relative mb-2.5 flex items-center">
+            <Search size={12} className="absolute left-2.5 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Cari nama kolom..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 w-full rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-2 text-xs outline-none focus:border-indigo-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-white"
+            />
+          </div>
+
+          <div className="mb-2.5 border-b border-slate-100 pb-2 dark:border-zinc-850">
+            <span className="block text-[8px] font-bold uppercase tracking-wider text-slate-400 mb-1">Pilihan Cepat (Presets)</span>
+            <div className="flex flex-wrap gap-1">
+              {(["default", "klinis", "logistik", "keuangan", "radiologi"] as const).map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => applyPreset(preset)}
+                  className="rounded bg-indigo-50 px-1.5 py-0.5 text-[8.5px] font-black uppercase text-indigo-700 transition hover:bg-indigo-100 dark:bg-indigo-950/30 dark:text-indigo-400 dark:hover:bg-indigo-900/40"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="custom-scrollbar max-h-64 overflow-y-auto space-y-3.5 pr-0.5">
+            {filteredCategories.length > 0 ? (
+              filteredCategories.map((cat) => {
+                const catKeys = cat.columns.map((c) => c.key);
+                return (
+                  <div key={cat.name} className="space-y-1">
+                    <div className="flex items-center justify-between border-b border-slate-100/50 pb-0.5 dark:border-zinc-900">
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider truncate max-w-[160px]" title={cat.name}>{cat.name}</span>
+                      <div className="flex gap-1.5 text-[8px] font-bold text-indigo-500 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleCategory(cat.name, true)}
+                          className="hover:underline"
+                        >
+                          Pilih
+                        </button>
+                        <span className="text-slate-300">|</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleCategory(cat.name, false)}
+                          className="text-slate-400 hover:underline"
+                        >
+                          Sembunyikan
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-0.5">
+                      {cat.columns.map((col) => {
+                        const isChecked = visibleColumns.includes(col.key);
+                        return (
+                          <button
+                            key={col.key}
+                            type="button"
+                            onClick={() => toggleColumn(col.key)}
+                            className="flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-[10px] font-medium transition hover:bg-slate-50 dark:hover:bg-zinc-900 dark:text-slate-200"
+                          >
+                            <div
+                              className={cn(
+                                "flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-colors",
+                                isChecked
+                                  ? "border-indigo-600 bg-indigo-600 text-white"
+                                  : "border-slate-300 bg-white dark:border-zinc-700 dark:bg-black"
+                              )}
+                            >
+                              {isChecked && <Check size={10} strokeWidth={3} />}
+                            </div>
+                            <span className="truncate" title={col.label}>{col.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="py-2 text-center text-[10px] italic text-slate-400">
+                Tidak ditemukan kolom
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function getCurrentMonthRangeWib(): { from: string; to: string } {
   const now = new Date();
   const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -194,6 +511,25 @@ export default function TindakanLaporanPasienModal({
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("idik_laporan_pasien_columns");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+    return ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "pembiayaan", "status"];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("idik_laporan_pasien_columns", JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
 
   const pasienLookup = useMemo(() => buildPasienReportLookup(pasienOptions), [pasienOptions]);
 
@@ -381,23 +717,26 @@ export default function TindakanLaporanPasienModal({
     return buildPasienReportHtml({
       dateRange: dateRangeLabel,
       rows: filteredRows,
+      visibleColumns,
     });
-  }, [dateRangeLabel, filteredRows]);
+  }, [dateRangeLabel, filteredRows, visibleColumns]);
 
   const buildWhatsAppText = useCallback(() => {
     return buildPasienReportWhatsAppText({
       dateRange: dateRangeLabel,
       rows: filteredRows,
+      visibleColumns,
     });
-  }, [dateRangeLabel, filteredRows]);
+  }, [dateRangeLabel, filteredRows, visibleColumns]);
 
   const handleDownloadExcel = useCallback(() => {
     downloadPasienReportExcel({
       dateRange: dateRangeLabel,
       rows: filteredRows,
       filename: exportFileBase,
+      visibleColumns,
     });
-  }, [dateRangeLabel, filteredRows, exportFileBase]);
+  }, [dateRangeLabel, filteredRows, exportFileBase, visibleColumns]);
 
   const handleRowClick = (rec: TindakanJoinResult) => {
     if (onOpenDetail) {
@@ -614,7 +953,7 @@ export default function TindakanLaporanPasienModal({
 
                 {/* 2. Interactive Checklist Filters & Search */}
                 <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 shrink-0">
-                  <div className="relative flex-1 min-w-[200px]">
+                  <div className="relative flex-[2] min-w-[200px]">
                     <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
                     <input
                       type="text"
@@ -654,6 +993,12 @@ export default function TindakanLaporanPasienModal({
                     onChange={setSelectedStatus}
                   />
 
+                  {/* Custom Columns Checklist Dropdown */}
+                  <ColumnsDropdown
+                    visibleColumns={visibleColumns}
+                    onChange={setVisibleColumns}
+                  />
+
                   {/* Reset button */}
                   {(selectedDokter.length > 0 ||
                     selectedTindakan.length > 0 ||
@@ -669,7 +1014,7 @@ export default function TindakanLaporanPasienModal({
                         setSelectedStatus([]);
                         setSearchTerm("");
                       }}
-                      className="h-9 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-bold text-rose-600 transition hover:bg-rose-100 active:scale-95"
+                      className="h-9 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-bold text-rose-600 transition hover:bg-rose-100 active:scale-95 shrink-0"
                     >
                       Reset Filter
                     </button>
@@ -682,23 +1027,18 @@ export default function TindakanLaporanPasienModal({
                     <table className="w-full border-collapse text-left text-[11px]">
                       <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-zinc-700">
                         <tr>
-                          <th className="px-3 py-2 text-center w-12">NO</th>
-                          <th className="px-3 py-2">TANGGAL & WAKTU</th>
-                          <th className="px-3 py-2 w-20">NO RM</th>
-                          <th className="px-3 py-2">NAMA PASIEN</th>
-                          <th className="px-3 py-2">DOKTER OPERATOR</th>
-                          <th className="px-3 py-2">TINDAKAN / PROSEDUR</th>
-                          <th className="px-3 py-2">PEMBIAYAAN</th>
-                          <th className="px-3 py-2 text-center w-24">STATUS</th>
+                          <th className="px-3 py-2 text-center w-12 shrink-0">NO</th>
+                          {visibleColumns.map((key) => (
+                            <th key={key} className="px-3 py-2 whitespace-nowrap">
+                              {ALL_COLUMNS_MAP[key] || key.toUpperCase()}
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
                         {paginatedRows.length > 0 ? (
                           paginatedRows.map((row, idx) => {
                             const isOdd = idx % 2 !== 0;
-                            const isSelesai = String(row.status).toUpperCase() === "SELESAI";
-                            const isDraft = String(row.status).toUpperCase() === "DRAFT";
-                            const isTerjadwal = String(row.status).toUpperCase() === "TERJADWAL";
                             return (
                               <tr
                                 key={row.id || idx}
@@ -708,47 +1048,55 @@ export default function TindakanLaporanPasienModal({
                                   isOdd ? "bg-slate-50/40 dark:bg-zinc-900/30" : "bg-white dark:bg-zinc-900"
                                 )}
                               >
-                                <td className="px-3 py-2.5 text-center font-bold text-slate-400">
+                                <td className="px-3 py-2.5 text-center font-bold text-slate-400 shrink-0">
                                   {(currentPage - 1) * itemsPerPage + idx + 1}
                                 </td>
-                                <td className="px-3 py-2.5 font-semibold text-slate-600 dark:text-slate-400">
-                                  {row.tanggal || "—"}{" "}
-                                  {row.waktu && <span className="text-[9px] font-normal text-slate-400 ml-1">{row.waktu}</span>}
-                                </td>
-                                <td className="px-3 py-2.5 font-bold text-indigo-700 dark:text-indigo-400">
-                                  {displayRm(row as any)}
-                                </td>
-                                <td className="px-3 py-2.5 font-bold text-slate-800 dark:text-white">
-                                  {displayNamaPasien(row as any)}
-                                </td>
-                                <td className="px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300">
-                                  {row.dokter || "—"}
-                                </td>
-                                <td className="px-3 py-2.5 text-slate-700 dark:text-slate-300 font-semibold truncate max-w-[200px]">
-                                  {row.tindakan || "—"}
-                                </td>
-                                <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400">
-                                  {row.kelas_pembiayaan || row.pembiayaan || "—"}
-                                </td>
-                                <td className="px-3 py-2.5 text-center">
-                                  <span
-                                    className={cn(
-                                      "inline-block rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wide",
-                                      isSelesai && "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-                                      isTerjadwal && "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
-                                      isDraft && "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-                                      !isSelesai && !isTerjadwal && !isDraft && "bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-slate-300"
-                                    )}
-                                  >
-                                    {row.status || "DRAFT"}
-                                  </span>
-                                </td>
+                                {visibleColumns.map((key) => {
+                                  const val = formatPasienReportCell(row, key);
+                                  const isNamaOrRm = key === "nama_pasien" || key === "no_rm";
+                                  const isStatus = key === "status";
+                                  
+                                  if (isStatus) {
+                                    const isSelesai = String(val).toUpperCase() === "SELESAI";
+                                    const isDraft = String(val).toUpperCase() === "DRAFT";
+                                    const isTerjadwal = String(val).toUpperCase() === "TERJADWAL";
+                                    return (
+                                      <td key={key} className="px-3 py-2.5 text-center whitespace-nowrap">
+                                        <span
+                                          className={cn(
+                                            "inline-block rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wide",
+                                            isSelesai && "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+                                            isTerjadwal && "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
+                                            isDraft && "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+                                            !isSelesai && !isTerjadwal && !isDraft && "bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-slate-300"
+                                          )}
+                                        >
+                                          {val}
+                                        </span>
+                                      </td>
+                                    );
+                                  }
+
+                                  return (
+                                    <td
+                                      key={key}
+                                      className={cn(
+                                        "px-3 py-2.5 max-w-[250px] truncate whitespace-normal leading-relaxed",
+                                        isNamaOrRm && "font-bold text-indigo-700 dark:text-indigo-400",
+                                        !isNamaOrRm && "font-medium text-slate-700 dark:text-slate-300"
+                                      )}
+                                      title={val}
+                                    >
+                                      {val}
+                                    </td>
+                                  );
+                                })}
                               </tr>
                             );
                           })
                         ) : (
                           <tr>
-                            <td colSpan={8} className="px-3 py-8 text-center italic text-slate-400 dark:text-slate-500">
+                            <td colSpan={visibleColumns.length + 1} className="px-3 py-8 text-center italic text-slate-400 dark:text-slate-500">
                               Tidak ada data pasien yang sesuai dengan filter.
                             </td>
                           </tr>

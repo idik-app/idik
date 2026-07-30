@@ -580,12 +580,14 @@ export default function TindakanLaporanPasienModal({
   onOpenChange,
   rows,
   pasienOptions = [],
+  activeId,
   onOpenDetail,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   rows: readonly TindakanJoinResult[];
   pasienOptions?: readonly PasienOption[];
+  activeId?: string | number;
   onOpenDetail?: (record: TindakanJoinResult, initialTab?: WireframeTabId) => void;
 }) {
   const [filterTanggalFrom, setFilterTanggalFrom] = useState<string>(
@@ -1133,17 +1135,25 @@ export default function TindakanLaporanPasienModal({
                         {paginatedRows.length > 0 ? (
                           paginatedRows.map((row, idx) => {
                             const isOdd = idx % 2 !== 0;
+                            const isActive = activeId !== undefined && activeId !== null && String(row.id) === String(activeId);
                             return (
                               <tr
                                 key={row.id || idx}
                                 className={cn(
-                                  "hover:bg-indigo-50/50 dark:hover:bg-zinc-800/60 transition",
-                                  isOdd ? "bg-slate-50/40 dark:bg-zinc-900/30" : "bg-white dark:bg-zinc-900"
+                                  "transition",
+                                  isActive
+                                    ? "bg-indigo-50/90 dark:bg-indigo-950/80"
+                                    : (isOdd ? "bg-slate-50/40 dark:bg-zinc-900/30 hover:bg-indigo-50/30 dark:hover:bg-zinc-800/40" : "bg-white dark:bg-zinc-900 hover:bg-indigo-50/30 dark:hover:bg-zinc-800/40")
                                 )}
                               >
                                 <td
                                   onClick={() => handleCellClick(row, "no_rm")}
-                                  className="cursor-pointer px-3 py-2.5 text-center font-bold text-slate-400 shrink-0 hover:bg-slate-200/50 dark:hover:bg-zinc-800"
+                                  className={cn(
+                                    "cursor-pointer px-3 py-2.5 text-center font-bold shrink-0 transition-all duration-150",
+                                    isActive
+                                      ? "text-indigo-600 dark:text-indigo-400 border-l-4 border-indigo-600 bg-indigo-50/90 dark:bg-indigo-950/90"
+                                      : "text-slate-400 hover:bg-slate-200/50 dark:hover:bg-zinc-800"
+                                  )}
                                 >
                                   {(currentPage - 1) * itemsPerPage + idx + 1}
                                 </td>
@@ -1160,7 +1170,12 @@ export default function TindakanLaporanPasienModal({
                                       <td
                                         key={key}
                                         onClick={() => handleCellClick(row, key)}
-                                        className="cursor-pointer px-3 py-2.5 text-center whitespace-nowrap hover:bg-slate-200/50 dark:hover:bg-zinc-800"
+                                        className={cn(
+                                          "cursor-pointer px-3 py-2.5 text-center whitespace-nowrap transition-all duration-150",
+                                          isActive
+                                            ? "bg-indigo-50/90 dark:bg-indigo-950/90"
+                                            : "hover:bg-slate-200/50 dark:hover:bg-zinc-800"
+                                        )}
                                       >
                                         <span
                                           className={cn(
@@ -1182,9 +1197,10 @@ export default function TindakanLaporanPasienModal({
                                       key={key}
                                       onClick={() => handleCellClick(row, key)}
                                       className={cn(
-                                        "cursor-pointer px-3 py-2.5 max-w-[250px] truncate whitespace-normal leading-relaxed hover:bg-slate-200/50 dark:hover:bg-zinc-800",
-                                        isNamaOrRm && "font-bold text-indigo-700 dark:text-indigo-400",
-                                        !isNamaOrRm && "font-medium text-slate-700 dark:text-slate-300"
+                                        "cursor-pointer px-3 py-2.5 max-w-[250px] truncate whitespace-normal leading-relaxed transition-all duration-150",
+                                        isActive
+                                          ? "bg-indigo-50/90 dark:bg-indigo-950/90 text-indigo-900 dark:text-indigo-200 font-semibold"
+                                          : (isNamaOrRm ? "font-bold text-indigo-700 dark:text-indigo-400 hover:bg-slate-200/50 dark:hover:bg-zinc-800" : "font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-zinc-800")
                                       )}
                                       title={val}
                                     >

@@ -3233,6 +3233,7 @@ export default function TindakanTable({
             onOpenChange={setLaporanPasienModalOpen}
             rows={rowsForPemakaianLink}
             pasienOptions={pasienOptions}
+            activeId={adapter.detailOpenId || undefined}
             onOpenDetail={(rec, tab) => {
               if (!rec.id) return;
               adapter.openDetail(rec.id, tab);

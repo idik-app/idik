@@ -723,12 +723,19 @@ export default function TindakanLaporanPasienModal({
   }, [dateRangeLabel, filteredRows, visibleColumns]);
 
   const buildWhatsAppText = useCallback(() => {
+    const filters: string[] = [];
+    if (selectedDokter.length > 0) filters.push(`Dokter: ${selectedDokter.join(", ")}`);
+    if (selectedTindakan.length > 0) filters.push(`Tindakan: ${selectedTindakan.join(", ")}`);
+    if (selectedPembiayaan.length > 0) filters.push(`Pembiayaan: ${selectedPembiayaan.join(", ")}`);
+    if (selectedStatus.length > 0) filters.push(`Status: ${selectedStatus.join(", ")}`);
+    if (searchTerm) filters.push(`Cari: "${searchTerm}"`);
+
     return buildPasienReportWhatsAppText({
       dateRange: dateRangeLabel,
       rows: filteredRows,
-      visibleColumns,
+      activeFilters: filters,
     });
-  }, [dateRangeLabel, filteredRows, visibleColumns]);
+  }, [dateRangeLabel, filteredRows, selectedDokter, selectedTindakan, selectedPembiayaan, selectedStatus, searchTerm]);
 
   const handleDownloadExcel = useCallback(() => {
     downloadPasienReportExcel({
@@ -760,15 +767,12 @@ export default function TindakanLaporanPasienModal({
         style={{ zIndex: Z_INDEX_VALUES.drawerPortal }}
       >
         {/* Overlay backdrop */}
-        <motion.button
+        <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          type="button"
-          aria-label="Tutup laporan pasien"
-          className="absolute inset-0 bg-[#2D3748]/45 pointer-events-auto cursor-default"
-          onClick={() => onOpenChange(false)}
+          className="absolute inset-0 bg-[#2D3748]/45 pointer-events-auto"
         />
 
         {/* Modal content */}

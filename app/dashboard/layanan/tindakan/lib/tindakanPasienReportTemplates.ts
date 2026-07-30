@@ -379,36 +379,21 @@ export function buildPasienReportHtml(opts: {
 export function buildPasienReportWhatsAppText(opts: {
   dateRange: string;
   rows: readonly TindakanJoinResult[];
-  visibleColumns: string[];
+  activeFilters?: string[];
 }): string {
-  const activeCols = opts.visibleColumns.length > 0 ? opts.visibleColumns : ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "pembiayaan", "status"];
-
   const lines = [
     `*LAPORAN PASIEN CATHLAB*`,
     `Periode: ${opts.dateRange}`,
-    `Total: ${opts.rows.length} Pasien`,
-    `=============================`,
-    "",
   ];
 
-  opts.rows.forEach((row, index) => {
-    let patientDetails = `${index + 1}.`;
-    
-    // Add primary fields or follow activeCols
-    activeCols.forEach(key => {
-      const val = formatPasienReportCell(row, key);
-      const label = ALL_COLUMNS_MAP[key] || key;
-      if (key === "nama_pasien") {
-        patientDetails += ` *${val}*`;
-      } else if (key === "no_rm") {
-        patientDetails += ` (${val})`;
-      } else {
-        patientDetails += `\n   - ${label}: ${val}`;
-      }
-    });
+  if (opts.activeFilters && opts.activeFilters.length > 0) {
+    lines.push(...opts.activeFilters);
+  }
 
-    lines.push(patientDetails + `\n`);
-  });
+  lines.push(
+    "",
+    `Total: ${opts.rows.length} Pasien`
+  );
 
   return lines.join("\n");
 }

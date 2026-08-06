@@ -8,3 +8,8 @@ storageState*.json
 playwright-report/
 test-results/
 .checkpoint/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/

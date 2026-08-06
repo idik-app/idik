@@ -38,18 +38,30 @@ def idik_browser(
 
 
 def login_idik_playwright() -> Path:
-    """Login via UI; return path to storage state."""
+    """Login via UI (intro cinematic → tombol Login → modal); return storage state path."""
     if not config.idik_user or not config.idik_pass:
         raise RuntimeError("IDIK_USER / IDIK_PASS wajib di .env")
 
     with idik_browser() as (_browser, context, page):
         page.goto(config.idik_base_url, wait_until="domcontentloaded")
+
         user = page.locator('input[name="username"]')
-        user.wait_for(timeout=45_000)
+        # Username baru muncul setelah buka modal login di intro
+        if user.count() == 0 or not user.first.is_visible():
+            login_btn = page.get_by_role("button", name="Login ke Sistem")
+            try:
+                login_btn.wait_for(state="visible", timeout=45_000)
+                login_btn.click()
+            except Exception:
+                # Fallback: Enter membuka login (sama seperti UI)
+                page.keyboard.press("Enter")
+
+        user.wait_for(state="visible", timeout=45_000)
         user.fill(config.idik_user)
         page.locator('input[name="password"]').fill(config.idik_pass)
-        page.locator('button[type="submit"], button:has-text("Login")').first.click()
-        page.wait_for_url("**/dashboard**", timeout=60_000)
+        page.locator('button[type="submit"]').first.click()
+        # Setelah sukses ada animasi ACCESS GRANTED lalu redirect
+        page.wait_for_url("**/dashboard**", timeout=90_000)
         path = STORAGE_PATH()
         config.ensure_dirs()
         context.storage_state(path=str(path))

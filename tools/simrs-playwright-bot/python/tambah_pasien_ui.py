@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from playwright.sync_api import Page
+from playwright.sync_api import Page, expect
 
 from .config import config
 from .map_payload import IdikPasienPayload
@@ -12,7 +12,7 @@ _RE_SIMPAN = re.compile(r"Simpan", re.I)
 
 
 def fill_tambah_pasien_ui(page: Page, payload: IdikPasienPayload) -> None:
-    """Mode B: isi modal Tambah Pasien di UI idik (mirror TS)."""
+    """Mode B: isi modal Tambah Pasien di UI idik (mirror TS + tahan race lookup Vercel)."""
     page.goto(
         f"{config.idik_base_url}/dashboard/layanan/tindakan",
         wait_until="domcontentloaded",
@@ -28,8 +28,12 @@ def fill_tambah_pasien_ui(page: Page, payload: IdikPasienPayload) -> None:
         loc.fill(value)
 
     fill_by_name("noRM", payload["noRM"])
-    # debounce lookup di modal — tunggu sebentar lalu timpa field dari getPasien
-    page.wait_for_timeout(600)
+
+    # Tunggu lookup No. RM di form selesai (tombol Simpan tidak disabled / rmChecking)
+    simpan = page.get_by_role("button", name=_RE_SIMPAN).first
+    expect(simpan).to_be_enabled(timeout=30_000)
+
+    # Timpa ulang dari getPasien LAN — abaikan 404/error lookup Vercel
     fill_by_name("nama", payload["nama"])
     fill_by_name("tanggalLahir", payload["tanggalLahir"])
     fill_by_name("alamat", payload["alamat"])
@@ -38,6 +42,6 @@ def fill_tambah_pasien_ui(page: Page, payload: IdikPasienPayload) -> None:
     if jk.count() > 0:
         jk.select_option(payload["jenisKelamin"])
 
-    # Jangan tebak pembiayaan/kelas dari SIMRS — biarkan default form bila sudah terisi
-    page.get_by_role("button", name=_RE_SIMPAN).first.click()
+    expect(simpan).to_be_enabled(timeout=10_000)
+    simpan.click()
     page.wait_for_timeout(1500)

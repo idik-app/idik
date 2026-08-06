@@ -94,6 +94,48 @@ function formatTanggalIndo(dateStr: string) {
   return dateStr;
 }
 
+/** Status ringkas lookup No. RM (lokal + SIMRS getPasien). */
+type RmLookupStatus =
+  | { kind: "idle" }
+  | { kind: "checking" }
+  | { kind: "ok_local" }
+  | { kind: "ok_simrs" }
+  | { kind: "not_found" }
+  | { kind: "disconnected"; detail: string };
+
+function classifySimrsLookupError(message: string): RmLookupStatus {
+  const lower = String(message ?? "").toLowerCase();
+  if (
+    lower.includes("404") ||
+    lower.includes("tidak ditemukan") ||
+    lower.includes("not found") ||
+    lower.includes("data tidak ada")
+  ) {
+    return { kind: "not_found" };
+  }
+  if (
+    lower.includes("530") ||
+    lower.includes("521") ||
+    lower.includes("522") ||
+    lower.includes("523") ||
+    lower.includes("524") ||
+    lower.includes("502") ||
+    lower.includes("tunnel") ||
+    lower.includes("origin") ||
+    lower.includes("timeout") ||
+    lower.includes("abort") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("network")
+  ) {
+    return { kind: "disconnected", detail: "tunnel/timeout" };
+  }
+  const short = String(message ?? "").replace(/\s+/g, " ").trim().slice(0, 72);
+  return {
+    kind: "disconnected",
+    detail: short || "koneksi gagal",
+  };
+}
+
 function formatDokter(dokter?: string) {
   if (!dokter) return "";
   const clean = dokter.trim();
@@ -236,6 +278,9 @@ export default function TambahPasienQuickModal({
   const [matchedPatient, setMatchedPatient] = useState<Pasien | null>(null);
   const [simrsMatched, setSimrsMatched] = useState(false);
   const [rmChecking, setRmChecking] = useState(false);
+  const [rmLookupStatus, setRmLookupStatus] = useState<RmLookupStatus>({
+    kind: "idle",
+  });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [riwayatTindakan, setRiwayatTindakan] = useState<any[]>([]);
@@ -253,6 +298,7 @@ export default function TambahPasienQuickModal({
       setSimrsMatched(false);
       setError("");
       setRmChecking(false);
+      setRmLookupStatus({ kind: "idle" });
       setLoading(false);
       setRiwayatTindakan([]);
       rmInputRef.current = "";
@@ -284,10 +330,12 @@ export default function TambahPasienQuickModal({
     // Log untuk debug di console browser (F12)
     console.log("RM Typed:", rmTyped, "Length:", rmTyped.length);
 
-    if (rmTyped.length < 1) { // Turunkan ke 1 agar lebih responsif
+    if (rmTyped.length < 1) {
+      // Turunkan ke 1 agar lebih responsif
       setMatchedPatient(null);
       setSimrsMatched(false);
       setRmChecking(false);
+      setRmLookupStatus({ kind: "idle" });
       setRiwayatTindakan([]);
       return;
     }
@@ -295,11 +343,13 @@ export default function TambahPasienQuickModal({
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     setRmChecking(true);
+    setRmLookupStatus({ kind: "checking" });
     setRiwayatTindakan([]);
     debounceRef.current = setTimeout(() => {
       const lookupRm = formData.noRM.trim();
       if (!lookupRm) {
         setRmChecking(false);
+        setRmLookupStatus({ kind: "idle" });
         return;
       }
 
@@ -309,7 +359,7 @@ export default function TambahPasienQuickModal({
         try {
           // 1. Cek Lokal
           const found = await fetchPasienByNoRm(lookupRm);
-          
+
           // Pastikan modal masih terbuka dan RM masih sama
           if (!open) return;
 
@@ -317,6 +367,7 @@ export default function TambahPasienQuickModal({
             console.log("%c✅ Found Local:", "color: green", found.nama);
             setMatchedPatient(found);
             setSimrsMatched(false);
+            setRmLookupStatus({ kind: "ok_local" });
             const fields = patientToFormFields(found);
             setFormData((prev) => {
               // Hanya update jika RM masih sama untuk menghindari race condition
@@ -350,6 +401,7 @@ export default function TambahPasienQuickModal({
                 console.log("%c✅ Found SIMRS:", "color: lime", simrs.nama);
                 setMatchedPatient(null);
                 setSimrsMatched(true);
+                setRmLookupStatus({ kind: "ok_simrs" });
                 const alamatFull = [simrs.alamat, simrs.kota].filter(Boolean).join(", ");
 
                 setFormData((prev) => {
@@ -368,9 +420,12 @@ export default function TambahPasienQuickModal({
                 console.log("%c❌ Not found in SIMRS", "color: red");
                 setMatchedPatient(null);
                 setSimrsMatched(false);
+                setRmLookupStatus({ kind: "not_found" });
               }
             } catch (simrsErr: any) {
               console.error("SIMRS Lookup Error:", simrsErr);
+              const status = classifySimrsLookupError(simrsErr?.message || String(simrsErr));
+              setRmLookupStatus(status);
               if (formData.noRM.trim() === lookupRm) {
                 setError(`SIMRS: ${simrsErr.message}`);
               }
@@ -378,6 +433,9 @@ export default function TambahPasienQuickModal({
           }
         } catch (err: any) {
           console.error("Lookup Error:", err);
+          setRmLookupStatus(
+            classifySimrsLookupError(err?.message || String(err)),
+          );
         } finally {
           setRmChecking(false);
         }
@@ -667,17 +725,56 @@ export default function TambahPasienQuickModal({
                   autoComplete="off"
                   inputRef={noRmInputRef}
                 />
-                {rmChecking && (
+                {rmLookupStatus.kind !== "idle" ? (
                   <p
                     className={cn(
-                      "text-[10px] mt-1 flex items-center gap-1 font-bold animate-pulse",
-                      isDark ? "text-cyan-300" : "text-cyan-700",
+                      "mt-1 flex items-start gap-1.5 text-[10px] font-semibold leading-snug sm:text-[11px]",
+                      rmLookupStatus.kind === "checking" && "animate-pulse",
+                      rmLookupStatus.kind === "checking" &&
+                        (isDark ? "text-white" : "text-cyan-800"),
+                      rmLookupStatus.kind === "ok_local" &&
+                        (isDark ? "text-emerald-300" : "text-emerald-800"),
+                      rmLookupStatus.kind === "ok_simrs" &&
+                        (isDark ? "text-cyan-200" : "text-cyan-800"),
+                      rmLookupStatus.kind === "not_found" &&
+                        (isDark ? "text-amber-200" : "text-amber-900"),
+                      rmLookupStatus.kind === "disconnected" &&
+                        (isDark ? "text-red-300" : "text-red-800"),
                     )}
+                    role="status"
+                    aria-live="polite"
                   >
-                    <span className="h-2 w-2 rounded-full bg-cyan-500 shadow-[0_0_8px_cyan]"></span>
-                    🔍 CEK SIMRS & LOKAL...
+                    <span
+                      className={cn(
+                        "mt-1 h-2 w-2 shrink-0 rounded-full",
+                        rmLookupStatus.kind === "checking" &&
+                          "bg-cyan-400 shadow-[0_0_8px_cyan]",
+                        rmLookupStatus.kind === "ok_local" &&
+                          "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]",
+                        rmLookupStatus.kind === "ok_simrs" &&
+                          "bg-cyan-400 shadow-[0_0_8px_cyan]",
+                        rmLookupStatus.kind === "not_found" &&
+                          "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]",
+                        rmLookupStatus.kind === "disconnected" &&
+                          "bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]",
+                      )}
+                    />
+                    <span>
+                      {rmLookupStatus.kind === "checking" &&
+                        "Mengecek SIMRS & lokal…"}
+                      {rmLookupStatus.kind === "ok_local" &&
+                        "Sukses — data dari master lokal"}
+                      {rmLookupStatus.kind === "ok_simrs" &&
+                        "Sukses — data dari SIMRS getPasien"}
+                      {rmLookupStatus.kind === "not_found" &&
+                        "SIMRS: data pasien tidak ditemukan (404)"}
+                      {rmLookupStatus.kind === "disconnected" &&
+                        (rmLookupStatus.detail === "tunnel/timeout"
+                          ? "SIMRS terputus (tunnel/timeout) — coba WiFi RS / bot LAN / perbaiki tunnel"
+                          : `SIMRS terputus — ${rmLookupStatus.detail}`)}
+                    </span>
                   </p>
-                )}
+                ) : null}
               </div>
               <InputField
                 label="Nama"

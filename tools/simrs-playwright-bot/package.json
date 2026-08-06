@@ -1,0 +1,25 @@
+{
+  "name": "simrs-playwright-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Bot SIMRS getPasien → idik-app (API cepat + Playwright explore/fallback)",
+  "scripts": {
+    "add-pasien": "tsx scripts/add-pasien.ts",
+    "login-idik": "tsx scripts/login-idik.ts",
+    "login-simrs": "tsx scripts/login-simrs.ts",
+    "explore": "tsx scripts/explore.ts",
+    "fill-empty": "tsx scripts/fill-empty.ts",
+    "preflight": "tsx scripts/preflight.ts",
+    "playwright:install": "playwright install chromium"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "playwright": "^1.51.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

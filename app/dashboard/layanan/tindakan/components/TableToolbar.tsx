@@ -34,6 +34,7 @@ import DiagnosaModal from "./DiagnosaModal";
 import SeverityLevelModal from "./SeverityLevelModal";
 import IndenanModal from "./IndenanModal";
 import JadwalCathModal from "./JadwalCathModal";
+import SimrsBotStatusBadge from "./SimrsBotStatusBadge";
 
 interface Props {
   onRefresh?: () => Promise<void> | void;
@@ -417,6 +418,8 @@ function TableToolbar({
                     Tambah Pasien
                   </span>
                 </button>
+
+                <SimrsBotStatusBadge />
 
                 {typeof onOpenFastTrack === "function" ? (
                   <button

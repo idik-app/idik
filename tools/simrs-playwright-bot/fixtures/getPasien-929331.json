@@ -1,0 +1,15 @@
+{
+  "status": "Ok",
+  "code": 200,
+  "message": "Data Ditemukan",
+  "data": {
+    "id": "100462113",
+    "norm": "929331",
+    "nik": "3578174509740001",
+    "nama": "SUPATMI",
+    "alamat": "TANAH MERAH NO. 68 ",
+    "jenkel": "P",
+    "tgl_lhr": "1974-09-05",
+    "kota": "KOTA SURABAYA"
+  }
+}

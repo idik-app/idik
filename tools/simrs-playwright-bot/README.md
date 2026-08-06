@@ -14,7 +14,20 @@ Bot di PC **jaringan RS** untuk:
   - `http://10.250.10.107/apibdrs/apibdrs/getPasien/{norm}`
   - `http://10.255.200.252/SIMRS/` (untuk explore web)
   - idik (`localhost:3000` atau Vercel)
-- **Jangan** andalkan lookup SIMRS dari browser Vercel (sering 404/timeout ke IP lokal)
+- **Jangan** andalkan lookup SIMRS dari browser Vercel jika tunnel putus (error **530**).
+  Perbaiki Cloudflare Tunnel: [docs/simrs-tunnel.md](../../docs/simrs-tunnel.md).
+
+## Cadangan saat Vercel error 530
+
+Jika form Tambah Pasien di Vercel gagal (`SIMRS … 530`) tetapi LAN OK:
+
+```powershell
+# di PC jaringan RS
+cd tools/simrs-playwright-bot
+npm run add-pasien -- --norm 762863 --write
+```
+
+Checklist tunnel HTTPS + env Vercel: lihat dokumen di atas.
 
 ## Setup
 

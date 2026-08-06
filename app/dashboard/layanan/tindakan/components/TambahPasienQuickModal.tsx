@@ -113,15 +113,53 @@ async function fetchPasienByNoRm(rm: string): Promise<Pasien | null> {
   return json.data;
 }
 
-/** Fetch dari API SIMRS eksternal (via server proxy dengan fallback ke fetch langsung jika di Vercel/cloud) */
+/** Fetch dari API SIMRS eksternal (via server proxy dengan fallback browser). */
 async function fetchPasienSimrs(rm: string): Promise<any | null> {
   let proxyErrorMsg = "";
+
+  const publicBase = (
+    process.env.NEXT_PUBLIC_SIMRS_API_URL ||
+    "https://simrs.inkai-jatim.org/apibdrs/apibdrs/getPasien"
+  ).replace(/\/$/, "");
+  const lanBase = (
+    process.env.NEXT_PUBLIC_SIMRS_API_URL_LAN ||
+    "http://10.250.10.107/apibdrs/apibdrs/getPasien"
+  ).replace(/\/$/, "");
+
+  const tryDirect = async (base: string): Promise<any | null> => {
+    const directUrl = `${base}/${encodeURIComponent(rm)}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    try {
+      const directRes = await fetch(directUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (!directRes.ok) return null;
+      const json = await directRes.json();
+      if (json && json.status === "Ok" && json.data) {
+        console.log(
+          "%c✅ Direct Browser SIMRS Fetch Success!",
+          "color: lime; font-weight: bold",
+          json.data.nama,
+          base.includes("10.") ? "(LAN)" : "(public)",
+        );
+        return json.data;
+      }
+      return null;
+    } catch {
+      clearTimeout(timeoutId);
+      return null;
+    }
+  };
+
   try {
     const res = await fetch(
       `/api/pasien/simrs?noRm=${encodeURIComponent(rm)}`,
     );
     if (!res.ok) {
-      const errJson = await res.json().catch(() => ({}));
+      const errJson = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        upstreamStatus?: number;
+      };
       proxyErrorMsg = errJson.error || `HTTP ${res.status}`;
       throw new Error(proxyErrorMsg);
     }
@@ -132,50 +170,51 @@ async function fetchPasienSimrs(rm: string): Promise<any | null> {
     };
     if (json?.ok && json?.status === "Ok" && json.data) return json.data;
   } catch (e: any) {
-    console.warn("Proxy SIMRS Fetch failed or timed out, trying direct browser fetch fallback:", e);
-    
-    // Tangkap pesan error dari proxy
+    console.warn(
+      "Proxy SIMRS Fetch failed or timed out, trying direct browser fetch fallback:",
+      e,
+    );
     proxyErrorMsg = e.message || String(e);
 
-    // Fallback: Ambil langsung dari browser (Client-side Fetch)
-    // Ini sangat berguna jika aplikasi di-deploy di cloud/Vercel (tidak punya akses ke IP lokal RS),
-    // tetapi komputer/browser pengguna berada di dalam Jaringan RS (Intranet) dan dapat mengakses IP tersebut.
-    const baseUrl = process.env.NEXT_PUBLIC_SIMRS_API_URL || "https://simrs.inkai-jatim.org/apibdrs/apibdrs/getPasien";
-    const cleanBaseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
-    try {
-      const directUrl = `${cleanBaseUrl}/${encodeURIComponent(rm)}`;
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // timeout 3 detik untuk respon langsung
-      
-      const directRes = await fetch(directUrl, {
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      
-      if (directRes.ok) {
-        const json = await directRes.json();
-        if (json && json.status === "Ok" && json.data) {
-          console.log("%c✅ Direct Browser SIMRS Fetch Success!", "color: lime; font-weight: bold", json.data.nama);
-          return json.data;
-        }
-      }
-    } catch (directErr: any) {
-      console.error("Direct browser fetch fallback also failed:", directErr);
-      
-      // Jika proxy timeout dan direct fetch juga gagal, berikan penjelasan komprehensif ke pengguna
-      if (proxyErrorMsg.includes("timeout") || proxyErrorMsg.includes("504") || proxyErrorMsg.includes("Gateway Timeout")) {
-        throw new Error(
-          "Koneksi ke SIMRS timeout (5 detik).\n\n" +
-          "💡 Penyebab:\n" +
-          `Server cloud Vercel tidak dapat mengakses alamat/IP lokal RS (${cleanBaseUrl}).\n\n` +
-          "🔧 Solusi:\n" +
-          "1. Gunakan aplikasi versi lokal (localhost:3000) yang terhubung ke Jaringan RS.\n" +
-          "2. Jika tetap memakai Vercel, izinkan 'Insecure Content' (Mixed Content) pada browser Anda (klik ikon setelan/gembok di kiri URL -> Site Settings -> Insecure Content -> ubah ke Allow) agar browser bisa memanggil IP lokal RS secara langsung."
-        );
-      }
-      
-      throw new Error(proxyErrorMsg);
+    // 1) HTTPS publik (tunnel) dari browser
+    const fromPublic = await tryDirect(publicBase);
+    if (fromPublic) return fromPublic;
+
+    // 2) HTTP LAN — hanya berguna di PC jaringan RS (+ insecure content jika page HTTPS)
+    if (lanBase !== publicBase) {
+      const fromLan = await tryDirect(lanBase);
+      if (fromLan) return fromLan;
     }
+
+    const lower = proxyErrorMsg.toLowerCase();
+    const isTunnelHint =
+      lower.includes("530") ||
+      lower.includes("521") ||
+      lower.includes("522") ||
+      lower.includes("523") ||
+      lower.includes("tunnel") ||
+      lower.includes("origin");
+    const isTimeout =
+      lower.includes("timeout") ||
+      lower.includes("504") ||
+      lower.includes("gateway timeout");
+
+    if (isTunnelHint || isTimeout) {
+      throw new Error(
+        (isTunnelHint
+          ? "SIMRS origin/tunnel putus (sering HTTP 530 di Cloudflare).\n\n"
+          : "Koneksi ke SIMRS timeout.\n\n") +
+          "Penyebab: Vercel/hostname publik tidak sampai ke getPasien LAN " +
+          `(${lanBase}), sementara IP LAN bisa tetap sehat.\n\n` +
+          "Solusi:\n" +
+          "1. Perbaiki Cloudflare Tunnel → http://10.250.10.107 (docs/simrs-tunnel.md).\n" +
+          "2. Set SIMRS_API_URL & NEXT_PUBLIC_SIMRS_API_URL ke HTTPS tunnel, redeploy.\n" +
+          "3. Di PC LAN: buka idik localhost, atau izinkan Insecure Content agar fallback LAN jalan.\n" +
+          "4. Cadangan: tools/simrs-playwright-bot (npm run add-pasien -- --norm … --write).",
+      );
+    }
+
+    throw new Error(proxyErrorMsg);
   }
   return null;
 }

@@ -8,12 +8,13 @@ function arg(name: string): string | undefined {
 }
 
 const holdRaw = arg("--hold");
-const holdMs = holdRaw ? Number(holdRaw) : undefined;
+const holdParsed = holdRaw != null ? Number(holdRaw) : undefined;
+const holdMs =
+  holdParsed != null && Number.isFinite(holdParsed) ? holdParsed : undefined;
 
 try {
-  await runLihatRekamMedis({
-    holdMs: Number.isFinite(holdMs) ? holdMs : undefined,
-  });
+  // Without --hold: wait for Enter (human watch). With --hold N: timer then close.
+  await runLihatRekamMedis({ holdMs });
 } catch (e) {
   console.error(e);
   process.exit(1);

@@ -22,6 +22,7 @@
     "validate:menu": "node scripts/validate-menu-routes.cjs",
     "check:auth-env": "node scripts/check-auth-env.mjs",
     "import:tindakan-sheet": "node scripts/import-tindakan-google-sheet.mjs",
+    "bot:simrs": "npm --prefix tools/simrs-playwright-bot run lihat-rekam-medis --",
     "bot:simrs:preflight": "npm --prefix tools/simrs-playwright-bot run preflight",
     "bot:simrs:add": "npm --prefix tools/simrs-playwright-bot run add-pasien --",
     "bot:simrs:explore": "npm --prefix tools/simrs-playwright-bot run explore --",

@@ -59,7 +59,7 @@ async function runOneJob(job: JobRow): Promise<void> {
       throw new Error(`action tidak didukung: ${job.action}`);
     }
 
-    const result = await runLihatRekamMedis();
+    const result = await runLihatRekamMedis({ holdMs: 30_000 });
     if (!result) {
       throw new Error("lihat-rekam-medis gagal (preflight/SIMRS)");
     }

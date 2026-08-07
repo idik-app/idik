@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import readline from "node:readline";
 import { config, ensureDirs } from "../config.js";
 import { sleep } from "../util/timing.js";
 import { isDangerousLabel } from "../simrs/dangerous.js";
@@ -15,11 +16,16 @@ import {
 import { runPreflight, printPreflight } from "../util/preflight.js";
 
 const MENU_LABEL = "Rekam Medis";
-const HOLD_MS = 30_000;
+const HUMAN_SLOW_MO_MS = 120;
 
 export type LihatRekamMedisOptions = {
-  /** How long to keep headed browser open after opening the menu (ms). */
+  /**
+   * Keep browser open this many ms, then close.
+   * If omitted, wait until user presses Enter in the terminal.
+   */
   holdMs?: number;
+  /** Playwright slowMo for human-like clicks (default 120). */
+  slowMoMs?: number;
 };
 
 export type LihatRekamMedisResult = {
@@ -28,14 +34,27 @@ export type LihatRekamMedisResult = {
   screenshot: string;
 };
 
+async function waitForEnter(prompt: string): Promise<void> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  await new Promise<void>((resolve) => {
+    rl.question(prompt, () => {
+      rl.close();
+      resolve();
+    });
+  });
+}
+
 /**
- * Open SIMRS (headed), login/session, open Rekam Medis dropdown,
+ * Open SIMRS (headed, human-like), login/session, open Rekam Medis dropdown,
  * log immediate submenus + screenshot. Does not crawl or click dangerous items.
  */
 export async function runLihatRekamMedis(
   opts: LihatRekamMedisOptions = {},
 ): Promise<LihatRekamMedisResult | null> {
-  const holdMs = opts.holdMs ?? HOLD_MS;
+  const slowMoMs = opts.slowMoMs ?? HUMAN_SLOW_MO_MS;
 
   const pf = await runPreflight({ skipIdik: true });
   printPreflight(pf);
@@ -44,12 +63,13 @@ export async function runLihatRekamMedis(
     return null;
   }
 
-  await ensureSimrsSession();
+  // Login/session also headed + slowMo so it looks like a person
+  await ensureSimrsSession({ headless: false, slowMoMs });
 
-  // Always headed for visual inspect (ignore HEADLESS in .env)
   const { browser, page } = await launchSimrsBrowser({
     useStorage: true,
     headless: false,
+    slowMoMs,
   });
 
   try {
@@ -88,7 +108,9 @@ export async function runLihatRekamMedis(
       console.log(`  - ${s.label}${flag}`);
     }
     if (subs.length === 0) {
-      console.log("  (tidak ada submenu terlihat — dropdown mungkin beda markup)");
+      console.log(
+        "  (tidak ada submenu terlihat — dropdown mungkin beda markup)",
+      );
     }
 
     ensureDirs();
@@ -98,10 +120,16 @@ export async function runLihatRekamMedis(
     await page.screenshot({ path: shot, fullPage: false });
     console.log(`Screenshot: ${shot}`);
 
-    console.log(
-      `Browser tetap terbuka ${Math.round(holdMs / 1000)}s (Ctrl+C untuk keluar)...`,
-    );
-    await sleep(holdMs);
+    if (typeof opts.holdMs === "number" && Number.isFinite(opts.holdMs)) {
+      console.log(
+        `Browser tetap terbuka ${Math.round(opts.holdMs / 1000)}s (Ctrl+C untuk keluar)...`,
+      );
+      await sleep(opts.holdMs);
+    } else {
+      await waitForEnter(
+        "Browser tetap terbuka. Tekan Enter untuk menutup browser... ",
+      );
+    }
 
     return {
       menu: menuText || MENU_LABEL,

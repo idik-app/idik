@@ -1,4 +1,4 @@
-# Salin SIMRS_BOT_AGENT_TOKEN dari .env ke clipboard + buka panduan Vercel.
+# Salin SIMRS_BOT_AGENT_TOKEN dari .env ke clipboard + tampilkan panduan Vercel.
 # Jalankan dari folder tools/simrs-playwright-bot:
 #   powershell -ExecutionPolicy Bypass -File .\scripts\copy-agent-token.ps1
 
@@ -20,14 +20,14 @@ if (-not $token) {
 }
 
 Set-Clipboard -Value $token
-Write-Host "Token disalin ke clipboard."
-Write-Host ""
-Write-Host "Langkah Vercel (project idik-lemon — akun CLI inkaisby TIDAK punya akses):"
-Write-Host "1. Buka https://vercel.com → project yang domain-nya idik-lemon.vercel.app"
-Write-Host "2. Settings → Environment Variables"
-Write-Host "3. Add: SIMRS_BOT_AGENT_TOKEN = (Ctrl+V paste)"
-Write-Host "4. Environment: Production (+ Preview jika perlu)"
-Write-Host "5. Deployments → ... → Redeploy (production)"
-Write-Host "6. Setelah deploy selesai: npm run bot:simrs:agent"
-Write-Host ""
-Write-Host "Tip: login Vercel dengan akun pemilik idik-lemon, bukan hanya team inkais-projects."
+Write-Host 'Token disalin ke clipboard.'
+Write-Host ''
+Write-Host 'Langkah Vercel (project idik-lemon - akun CLI inkaisby TIDAK punya akses):'
+Write-Host '1. Buka https://vercel.com -> project yang domain-nya idik-lemon.vercel.app'
+Write-Host '2. Settings -> Environment Variables'
+Write-Host '3. Add: SIMRS_BOT_AGENT_TOKEN = (Ctrl+V paste)'
+Write-Host '4. Environment: Production (+ Preview jika perlu)'
+Write-Host '5. Deployments -> ... -> Redeploy (production)'
+Write-Host '6. Setelah deploy selesai: npm run bot:simrs:agent'
+Write-Host ''
+Write-Host 'Tip: login Vercel dengan akun pemilik idik-lemon, bukan hanya team inkais-projects.'

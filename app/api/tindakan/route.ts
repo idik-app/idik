@@ -144,6 +144,10 @@ function projectionHasFaktorRisikoField(projection: string | null): boolean {
   return Boolean(projection?.includes("faktor_risiko"));
 }
 
+function projectionHasCekObatFields(projection: string | null): boolean {
+  return Boolean(projection?.includes("cek_ntg_cedocard"));
+}
+
 /** Daftar tindakan untuk dashboard (server-side service role, tahan RLS). */
 export async function GET(request: Request) {
   try {
@@ -185,7 +189,8 @@ export async function GET(request: Request) {
       (!projectionHasFastTrackClockFields(workingProjectionCache) ||
         !projectionHasStatusKeteranganField(workingProjectionCache) ||
         !projectionHasAccessionNoField(workingProjectionCache) ||
-        !projectionHasFaktorRisikoField(workingProjectionCache))
+        !projectionHasFaktorRisikoField(workingProjectionCache) ||
+        !projectionHasCekObatFields(workingProjectionCache))
     ) {
       workingProjectionCache = null;
     }
@@ -273,6 +278,22 @@ export async function GET(request: Request) {
       "dap_dose",
       "dap_gy_cm2",
       "accession_no",
+      "temuan_pembuluh",
+      "kesimpulan_laporan",
+      "plan_medis",
+      "cek_ntg_cedocard",
+      "cek_ntg_cedocard_ket",
+      "cek_ntg_cedocard_jam",
+      "cek_ntg_cedocard_oleh",
+      "cek_heparin",
+      "cek_heparin_ket",
+      "cek_heparin_jam",
+      "cek_heparin_oleh",
+      "cek_lain",
+      "cek_lain_ket",
+      "cek_lain_jam",
+      "cek_lain_oleh",
+      "log_barang_klinis",
     ]);
 
     for (const projection of projections) {

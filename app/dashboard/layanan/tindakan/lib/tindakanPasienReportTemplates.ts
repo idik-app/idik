@@ -6,6 +6,7 @@ import { displayNamaPasien, displayRm } from "./displayTindakanRow";
 import {
   formatCekObatReportCell,
   formatLogBarangReportCell,
+  toBoolCek,
 } from "@/lib/tindakan/cekObatPemakaianBridge";
 
 function escapeHtml(str: string): string {
@@ -226,21 +227,21 @@ export function formatPasienReportCell(row: TindakanJoinResult, key: string): st
       return row.plan_medis || "—";
     case "cek_ntg_cedocard":
       return formatCekObatReportCell({
-        checked: Boolean(row.cek_ntg_cedocard),
+        checked: toBoolCek(row.cek_ntg_cedocard),
         ket: row.cek_ntg_cedocard_ket,
         jam: row.cek_ntg_cedocard_jam,
         oleh: row.cek_ntg_cedocard_oleh,
       });
     case "cek_heparin":
       return formatCekObatReportCell({
-        checked: Boolean(row.cek_heparin),
+        checked: toBoolCek(row.cek_heparin),
         ket: row.cek_heparin_ket,
         jam: row.cek_heparin_jam,
         oleh: row.cek_heparin_oleh,
       });
     case "cek_lain":
       return formatCekObatReportCell({
-        checked: Boolean(row.cek_lain),
+        checked: toBoolCek(row.cek_lain),
         ket: row.cek_lain_ket,
         jam: row.cek_lain_jam,
         oleh: row.cek_lain_oleh,

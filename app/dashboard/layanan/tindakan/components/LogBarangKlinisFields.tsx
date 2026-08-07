@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
@@ -24,14 +24,72 @@ type CekValues = {
   cek_lain?: unknown;
 };
 
+/** Nilai dari tab Dokter & tim untuk opsi / autofill Oleh. */
+type TimValues = {
+  dokter?: unknown;
+  dokter_anestesi?: unknown;
+  ppds?: unknown;
+  asisten?: unknown;
+  sirkuler?: unknown;
+  logger?: unknown;
+};
+
 type Props = {
   tindakanId: string;
   value: unknown;
   /** Untuk chip status checklist klinis (baca-saja). */
   cekValues?: CekValues;
+  timValues?: TimValues;
   onSaved?: (info?: { field?: string }) => void;
   patchExecutor?: (body: Record<string, unknown>) => Promise<void>;
 };
+
+const TIM_NAME_KEYS = [
+  "dokter",
+  "dokter_anestesi",
+  "ppds",
+  "asisten",
+  "sirkuler",
+  "logger",
+] as const;
+
+/** Prioritas autofill Oleh: Logger → Asisten → … → Dokter */
+const OLEH_DEFAULT_KEYS = [
+  "logger",
+  "asisten",
+  "sirkuler",
+  "ppds",
+  "dokter_anestesi",
+  "dokter",
+] as const;
+
+function toName(v: unknown): string {
+  return String(v ?? "").trim();
+}
+
+function collectTimNames(tim?: TimValues): string[] {
+  if (!tim) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const key of TIM_NAME_KEYS) {
+    const n = toName(tim[key]);
+    if (!n) continue;
+    const k = n.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(n);
+  }
+  return out;
+}
+
+function defaultOlehFromTim(tim?: TimValues): string | null {
+  if (!tim) return null;
+  for (const key of OLEH_DEFAULT_KEYS) {
+    const n = toName(tim[key]);
+    if (n) return n;
+  }
+  return null;
+}
 
 const CEK_MENU: {
   kind: UpsertLogFromCekKind;
@@ -148,11 +206,13 @@ export default function LogBarangKlinisFields({
   tindakanId,
   value,
   cekValues,
+  timValues,
   onSaved,
   patchExecutor,
 }: Props) {
   const canEdit = Boolean(tindakanId);
   const menuId = useId();
+  const olehListId = useId();
   const [items, setItems] = useState<LogBarangKlinisItem[]>(() =>
     sanitizeLogBarangKlinis(value),
   );
@@ -164,6 +224,12 @@ export default function LogBarangKlinisFields({
   const tambahBtnRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const scrollToIdRef = useRef<string | null>(null);
+
+  const timNames = useMemo(() => collectTimNames(timValues), [timValues]);
+  const defaultOleh = useMemo(
+    () => defaultOlehFromTim(timValues),
+    [timValues],
+  );
 
   useEffect(() => {
     if (dirtyRef.current || debounceRef.current) return;
@@ -259,7 +325,7 @@ export default function LogBarangKlinisFields({
         nama: "",
         jam: nowCekJamLocal(),
         keterangan: null,
-        oleh: null,
+        oleh: defaultOleh,
       },
     ];
     scrollToIdRef.current = id;
@@ -282,21 +348,21 @@ export default function LogBarangKlinisFields({
       kind,
       ket: "",
       jam,
-      oleh: null,
+      oleh: defaultOleh,
     });
-    // Pastikan jam terisi pada baris target jika upsert hanya fill kosong
+    // Pastikan jam/oleh terisi pada baris target jika field masih kosong
     let nextItems = upserted.items;
-    if (!wasNew) {
-      const target = expectedNama(kind).toLowerCase();
-      nextItems = nextItems.map((it) =>
-        it.nama.trim().toLowerCase() === target && !it.jam
-          ? { ...it, jam }
-          : it,
-      );
-    }
+    const target = expectedNama(kind).toLowerCase();
+    nextItems = nextItems.map((it) => {
+      if (it.nama.trim().toLowerCase() !== target) return it;
+      return {
+        ...it,
+        jam: it.jam || jam,
+        oleh: it.oleh || defaultOleh,
+      };
+    });
     const targetRow = nextItems.find(
-      (it) =>
-        it.nama.trim().toLowerCase() === expectedNama(kind).toLowerCase(),
+      (it) => it.nama.trim().toLowerCase() === target,
     );
     if (targetRow) scrollToIdRef.current = targetRow.id;
 
@@ -311,6 +377,7 @@ export default function LogBarangKlinisFields({
           log_barang_klinis: sanitizeLogBarangKlinis(forPersist(nextItems)),
           [keys.checkedKey]: true,
           [keys.jamKey]: jam,
+          ...(defaultOleh ? { [keys.olehKey]: defaultOleh } : {}),
         },
         patchExecutor,
       );
@@ -531,15 +598,21 @@ export default function LogBarangKlinisFields({
                     })
                   }
                 />
-                <ZoomTextField
+                <input
+                  type="text"
+                  list={timNames.length ? olehListId : undefined}
                   value={it.oleh ?? ""}
                   disabled={!canEdit}
                   placeholder="Oleh"
                   aria-label="Oleh"
-                  className="w-full sm:w-[5.5rem] sm:shrink-0"
-                  onChange={(v) =>
-                    updateAt(idx, { oleh: v.trim() ? v : null })
-                  }
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    updateAt(idx, { oleh: v.trim() ? v : null });
+                  }}
+                  className={cn(
+                    "min-h-10 w-full truncate rounded-xl border border-white/12 bg-[#5C6573] px-2 py-1.5 text-[12px] font-semibold text-white placeholder:text-white/50 outline-none focus:ring-1 focus:ring-white/25 disabled:opacity-60",
+                    "sm:w-[8.5rem] sm:shrink-0",
+                  )}
                 />
                 {canEdit && (
                   <button
@@ -556,6 +629,13 @@ export default function LogBarangKlinisFields({
           ))}
         </ul>
       )}
+      {timNames.length > 0 ? (
+        <datalist id={olehListId}>
+          {timNames.map((n) => (
+            <option key={n} value={n} />
+          ))}
+        </datalist>
+      ) : null}
     </div>
   );
 }

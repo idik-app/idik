@@ -1995,6 +1995,15 @@ function TindakanDetailDrawer({
                                       cek_heparin: displayRecord.cek_heparin,
                                       cek_lain: displayRecord.cek_lain,
                                     }}
+                                    timValues={{
+                                      dokter: displayRecord.dokter,
+                                      dokter_anestesi:
+                                        displayRecord.dokter_anestesi,
+                                      ppds: displayRecord.ppds,
+                                      asisten: displayRecord.asisten,
+                                      sirkuler: displayRecord.sirkuler,
+                                      logger: displayRecord.logger,
+                                    }}
                                     patchExecutor={
                                       patchTindakanFields
                                         ? (body) =>

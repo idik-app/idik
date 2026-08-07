@@ -55,6 +55,9 @@ import BiayaAutosaveField, {
 } from "./BiayaAutosaveField";
 import KelasPembiayaanBiayaField from "./KelasPembiayaanBiayaField";
 import FastTrackBlock from "./FastTrackBlock";
+import SimrsBotEmptyFieldsList from "./simrs-bot/SimrsBotEmptyFieldsList";
+import BotAskButton from "./simrs-bot/BotAskButton";
+import { isEmptyBotValue } from "@/lib/simrs/botCatalog";
 import PasienAutosaveField, {
   isPasienDrawerAutosaveKey,
   type PasienDrawerAutosaveKey,
@@ -1457,8 +1460,25 @@ function TindakanDetailDrawer({
                               </h3>
                               {def.id === "fast_track" ? (
                             <div className="rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none">
+                              <SimrsBotEmptyFieldsList
+                                record={
+                                  displayRecord as unknown as Record<
+                                    string,
+                                    unknown
+                                  >
+                                }
+                                className="mb-2"
+                              />
                               <FastTrackBlock
                                 tindakanId={String(displayRecord.id ?? "").trim()}
+                                noRm={String(
+                                  displayRecord.no_rm ?? "",
+                                ).trim()}
+                                namaPasien={String(
+                                  displayRecord.nama_pasien ??
+                                    displayRecord.nama ??
+                                    "",
+                                ).trim()}
                                 isFastTrackValue={getWireframeFieldValue(
                                   displayRecord as unknown as Record<
                                     string,
@@ -1733,8 +1753,24 @@ function TindakanDetailDrawer({
                                           biayaDrawerCardGridClass(key),
                                       )}
                                     >
-                                      <dt className="text-[9px] font-black uppercase tracking-widest text-white/90">
-                                        {FIELD_LABELS[key] ?? key}
+                                      <dt className="flex items-center justify-between gap-2 text-[9px] font-black uppercase tracking-widest text-white/90">
+                                        <span>{FIELD_LABELS[key] ?? key}</span>
+                                        <BotAskButton
+                                          tindakanId={String(
+                                            displayRecord.id ?? "",
+                                          ).trim()}
+                                          noRm={String(
+                                            displayRecord.no_rm ?? "",
+                                          ).trim()}
+                                          namaPasien={String(
+                                            displayRecord.nama_pasien ??
+                                              displayRecord.nama ??
+                                              "",
+                                          ).trim()}
+                                          fieldKey={key}
+                                          tab={def.id}
+                                          empty={isEmptyBotValue(rawVal)}
+                                        />
                                       </dt>
                                       <dd
                                         className={cn(

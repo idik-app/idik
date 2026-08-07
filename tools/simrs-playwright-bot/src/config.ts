@@ -38,6 +38,8 @@ export const config = {
   /** Shared secret for claim/patch job queue on idik API. */
   agentToken: env("SIMRS_BOT_AGENT_TOKEN"),
   agentPollMs: envInt("SIMRS_BOT_AGENT_POLL_MS", 5000),
+  agentId: env("SIMRS_BOT_AGENT_ID", "default"),
+  agentRsId: env("SIMRS_BOT_RS_ID", "default"),
   headless: envBool("HEADLESS", true),
   defaultJenisPembiayaan: env("IDIK_DEFAULT_JENIS_PEMBIAYAAN", "Umum"),
   defaultKelasPerawatan: env("IDIK_DEFAULT_KELAS_PERAWATAN", "Kelas 3"),

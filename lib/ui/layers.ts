@@ -53,6 +53,8 @@ export const UI_LAYERS = {
   toolbarPopover: "z-[105]",
   /** Portal untuk drawer */
   drawerPortal: "z-[100050]",
+  /** Checklist Bot SIMRS (slide-over kanan; di atas drawer detail) */
+  simrsBotChecklist: "z-[100060]",
   /** Picker melayang (date/time) */
   pickerFloating: "z-[110000]",
   /** Picker melayang paling atas */
@@ -137,6 +139,7 @@ export const Z_INDEX_VALUES = {
   intensiveIccuAlertBackdrop: 100_230,
   intensiveIccuAlert: 100_231,
   drawerPortal: 100_050,
+  simrsBotChecklist: 100_060,
   dialogOverlayTop: 100_000,
   dialogContentTop: 100_001,
   dialogNestedPopover: 100_002,

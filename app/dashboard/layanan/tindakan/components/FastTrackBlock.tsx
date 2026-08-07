@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { FIELD_LABELS } from "../bridge/wireframeDrawerTabs";
 import FastTrackPhotoDropzone from "./FastTrackPhotoDropzone";
 import { DatetimeLocalPicker } from "@/components/ui/datetime-local-picker";
+import BotAskButton from "./simrs-bot/BotAskButton";
 
 const DEBOUNCE_MS = 550;
 
@@ -94,6 +95,8 @@ function formatWaktuDisplay(raw: string): string {
 
 type Props = {
   tindakanId: string;
+  noRm?: string;
+  namaPasien?: string;
   isFastTrackValue: unknown;
   pasienDatangValue: unknown;
   doorToBalloonValue: unknown;
@@ -102,8 +105,16 @@ type Props = {
   onSaved?: () => void;
 };
 
+function isEmptyFt(val: unknown): boolean {
+  if (val === null || val === undefined) return true;
+  const s = String(val).trim();
+  return s === "" || s === "—" || s === "-";
+}
+
 export default function FastTrackBlock({
   tindakanId,
+  noRm = "",
+  namaPasien = "",
   isFastTrackValue,
   pasienDatangValue,
   doorToBalloonValue,
@@ -350,8 +361,18 @@ export default function FastTrackBlock({
       <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(200px,280px)]">
         <dl className="grid grid-cols-1 gap-1.5 text-sm font-semibold">
           <div className={boxClass}>
-            <dt className="text-[10px] font-bold leading-tight text-[#1a202c]">
-              {FIELD_LABELS.pasien_datang_igd ?? "Waktu pasien tiba di IGD"}
+            <dt className="flex items-center justify-between gap-2 text-[10px] font-bold leading-tight text-[#1a202c]">
+              <span>
+                {FIELD_LABELS.pasien_datang_igd ?? "Waktu pasien tiba di IGD"}
+              </span>
+              <BotAskButton
+                tindakanId={tindakanId}
+                noRm={noRm}
+                namaPasien={namaPasien}
+                fieldKey="pasien_datang_igd"
+                tab="fast_track"
+                empty={isEmptyFt(pasienDatangValue) && !igdDraft}
+              />
             </dt>
             <dd className="mt-0.5 overflow-visible">
               {canEdit ? (
@@ -375,8 +396,19 @@ export default function FastTrackBlock({
           </div>
 
           <div className={boxClass}>
-            <dt className="text-[10px] font-bold leading-tight text-[#1a202c]">
-              {FIELD_LABELS.door_to_balloon ?? "Waktu door-to-balloon (cathlab)"}
+            <dt className="flex items-center justify-between gap-2 text-[10px] font-bold leading-tight text-[#1a202c]">
+              <span>
+                {FIELD_LABELS.door_to_balloon ??
+                  "Waktu door-to-balloon (cathlab)"}
+              </span>
+              <BotAskButton
+                tindakanId={tindakanId}
+                noRm={noRm}
+                namaPasien={namaPasien}
+                fieldKey="door_to_balloon"
+                tab="fast_track"
+                empty={isEmptyFt(doorToBalloonValue) && !d2bDraft}
+              />
             </dt>
             <dd className="mt-0.5 overflow-visible">
               {canEdit ? (

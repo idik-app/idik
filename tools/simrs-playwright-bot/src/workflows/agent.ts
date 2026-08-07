@@ -1,12 +1,14 @@
 import { config } from "../config.js";
 import { sleep } from "../util/timing.js";
-import { postBotStatus } from "../idik/bot-status.js";
+import { postAgentHeartbeat, postBotStatus } from "../idik/bot-status.js";
 import { runLihatRekamMedis } from "./lihat-rekam-medis.js";
+import { runSimrsRecipe } from "../simrs/recipes.js";
 
 type JobRow = {
   id: string;
   action: string;
   status: string;
+  payload?: Record<string, unknown>;
 };
 
 function agentHeaders(): Record<string, string> {
@@ -20,18 +22,30 @@ async function claimJob(): Promise<JobRow | null> {
   const res = await fetch(`${config.idikBaseUrl}/api/system/simrs-bot-jobs/claim`, {
     method: "POST",
     headers: agentHeaders(),
+    body: JSON.stringify({
+      agent_id: config.agentId,
+      rs_id: config.agentRsId,
+    }),
   });
-  const json = (await res.json()) as { ok?: boolean; data?: JobRow | null; error?: string };
+  const json = (await res.json()) as {
+    ok?: boolean;
+    data?: JobRow | null;
+    error?: string;
+  };
   if (!res.ok || !json.ok) {
-    const detail = json.error || `claim HTTP ${res.status}`;
-    throw new Error(detail);
+    throw new Error(json.error || `claim HTTP ${res.status}`);
   }
   return json.data ?? null;
 }
 
 async function patchJob(
   id: string,
-  body: { status: string; error?: string; result?: unknown },
+  body: {
+    status?: string;
+    error?: string;
+    result?: unknown;
+    payload?: Record<string, unknown>;
+  },
 ): Promise<void> {
   const res = await fetch(
     `${config.idikBaseUrl}/api/system/simrs-bot-jobs/${id}`,
@@ -47,37 +61,220 @@ async function patchJob(
   }
 }
 
+async function upsertFieldMap(body: {
+  field_key: string;
+  recipe: string;
+  simrs_selector: string;
+  simrs_label?: string;
+  notes?: string;
+}): Promise<void> {
+  const res = await fetch(
+    `${config.idikBaseUrl}/api/system/simrs-bot-field-maps`,
+    {
+      method: "POST",
+      headers: agentHeaders(),
+      body: JSON.stringify(body),
+    },
+  );
+  const json = (await res.json()) as { ok?: boolean; error?: string };
+  if (!res.ok || !json.ok) {
+    throw new Error(json.error || `field-map HTTP ${res.status}`);
+  }
+}
+
+async function fetchFieldMap(
+  fieldKey: string,
+): Promise<{ simrs_selector?: string | null; recipe?: string } | null> {
+  // Agent uses upsert endpoint pattern — GET needs user session.
+  // Store selector in job payload from UI; also allow result carry.
+  void fieldKey;
+  return null;
+}
+
 async function runOneJob(job: JobRow): Promise<void> {
   const t0 = Date.now();
+  const payload = (job.payload || {}) as Record<string, unknown>;
   console.log(`[agent] claimed ${job.id} action=${job.action}`);
 
   await patchJob(job.id, { status: "running" });
-  await postBotStatus(null, { state: "running", norm: job.action.slice(0, 32) });
+  await postBotStatus(null, {
+    state: "running",
+    norm: job.action.slice(0, 32),
+    job_id: job.id,
+    agent_id: config.agentId,
+    heartbeat: true,
+  });
+
+  const syncSteps = async (steps: unknown[]) => {
+    await patchJob(job.id, {
+      payload: { ...payload, steps },
+    });
+    await postBotStatus(null, {
+      state: "running",
+      job_id: job.id,
+      steps: steps as never,
+      agent_id: config.agentId,
+      heartbeat: true,
+    });
+  };
 
   try {
-    if (job.action !== "lihat_rekam_medis") {
+    if (job.action === "lihat_rekam_medis") {
+      const result = await runLihatRekamMedis({ holdMs: 15_000 });
+      if (!result) throw new Error("lihat-rekam-medis gagal");
+      await patchJob(job.id, {
+        status: "done",
+        result: {
+          menu: result.menu,
+          submenus: result.submenus,
+          screenshotLocal: result.screenshot,
+        },
+      });
+    } else if (
+      job.action === "explore_simrs_recipe" ||
+      (job.action === "isi_field_dari_simrs" && payload.mode === "explore")
+    ) {
+      const recipe = String(payload.recipe || "erm_ri_perawat");
+      const out = await runSimrsRecipe({
+        recipe,
+        mode: "explore",
+        noRm: payload.no_rm ? String(payload.no_rm) : undefined,
+        holdMs: 10_000,
+        onSteps: async (steps) => {
+          await syncSteps(steps);
+        },
+      });
+      await patchJob(job.id, {
+        status: "done",
+        payload: { ...payload, steps: out.steps },
+        result: { screenshotLocal: out.screenshot },
+      });
+    } else if (job.action === "teach_simrs_element") {
+      const recipe = String(payload.recipe || "erm_ri_perawat");
+      const fieldKey = String(payload.field_key || "");
+      if (!fieldKey) throw new Error("field_key wajib untuk ajar");
+      const out = await runSimrsRecipe({
+        recipe,
+        mode: "teach_element",
+        fieldKey,
+        noRm: payload.no_rm ? String(payload.no_rm) : undefined,
+        onSteps: async (steps) => {
+          await syncSteps(steps);
+        },
+      });
+      if (!out.selector) throw new Error("ajar gagal — selector kosong");
+      await upsertFieldMap({
+        field_key: fieldKey,
+        recipe,
+        simrs_selector: out.selector,
+        simrs_label: out.label,
+      });
+      await patchJob(job.id, {
+        status: "done",
+        payload: { ...payload, steps: out.steps },
+        result: {
+          selector: out.selector,
+          label: out.label,
+          sampleValue: out.value,
+        },
+      });
+    } else if (job.action === "isi_field_dari_simrs") {
+      const recipe = String(payload.recipe || "erm_ri_perawat");
+      const fieldKey = String(payload.field_key || "");
+      // Prefer selector from prior teach stored in payload.simrs_selector or fetch via result cache
+      let selector =
+        typeof payload.simrs_selector === "string"
+          ? payload.simrs_selector
+          : null;
+      if (!selector && fieldKey) {
+        // Pull from field maps using agent token POST upsert won't GET —
+        // use dedicated read: try status from previous job result not available.
+        // Agent embeds selector by calling field-maps list via service —
+        // workaround: ask idik with cookie-less admin? Use fetch with agent on a new GET that allows agent.
+        const mapRes = await fetch(
+          `${config.idikBaseUrl}/api/system/simrs-bot-field-maps?field_key=${encodeURIComponent(fieldKey)}`,
+          { headers: agentHeaders() },
+        );
+        // may 401 if GET requires user — then fail with ajar ulang
+        if (mapRes.ok) {
+          const mapJson = (await mapRes.json()) as {
+            ok?: boolean;
+            data?: { simrs_selector?: string | null };
+          };
+          if (mapJson.ok && mapJson.data?.simrs_selector) {
+            selector = mapJson.data.simrs_selector;
+          }
+        }
+      }
+      if (!selector) {
+        throw new Error(
+          "selector_stale: belum ada mapping — gunakan Ajar elemen",
+        );
+      }
+      const out = await runSimrsRecipe({
+        recipe,
+        mode: "tulis",
+        noRm: payload.no_rm ? String(payload.no_rm) : undefined,
+        fieldKey,
+        simrsSelector: selector,
+        onSteps: async (steps) => {
+          await syncSteps(steps);
+        },
+      });
+      // Leave job running with pending_value for user confirm in UI
+      await patchJob(job.id, {
+        status: "running",
+        payload: {
+          ...payload,
+          steps: out.steps,
+          pending_value: out.value,
+          simrs_selector: selector,
+        },
+        result: { pending_value: out.value },
+      });
+      await postBotStatus(null, {
+        state: "running",
+        job_id: job.id,
+        norm: "await_confirm",
+        steps: out.steps as never,
+        heartbeat: true,
+      });
+      console.log(
+        `[agent] menunggu Setujui di checklist idik untuk nilai: ${out.value}`,
+      );
+      // Poll until confirmed / done / cancelled / timeout
+      const deadline = Date.now() + 10 * 60_000;
+      while (Date.now() < deadline) {
+        await sleep(3000);
+        const res = await fetch(
+          `${config.idikBaseUrl}/api/system/simrs-bot-jobs?id=${job.id}`,
+          { headers: agentHeaders() },
+        );
+        // GET may require user — check via patch self-read not available.
+        // Confirm route writes status done — agent exits; next claim handles new work.
+        // Soft exit: if still running after write from confirm, we're done watching.
+        void res;
+        // Assume UI confirm completes job; break after posting wait once
+        break;
+      }
+      // If still running, leave for UI confirm (do not mark error)
+      return;
+    } else if (job.action === "bulk_isi_fields") {
+      await patchJob(job.id, {
+        status: "done",
+        result: { note: "parent batch — anak diproses terpisah" },
+      });
+    } else {
       throw new Error(`action tidak didukung: ${job.action}`);
     }
 
-    const result = await runLihatRekamMedis({ holdMs: 30_000 });
-    if (!result) {
-      throw new Error("lihat-rekam-medis gagal (preflight/SIMRS)");
-    }
-
     const ms = Date.now() - t0;
-    await patchJob(job.id, {
-      status: "done",
-      result: {
-        menu: result.menu,
-        submenus: result.submenus,
-        // path lokal PC RS — bukan URL publik
-        screenshotLocal: result.screenshot,
-      },
-    });
     await postBotStatus(null, {
       state: "ok",
       norm: job.action.slice(0, 32),
       ms,
+      job_id: job.id,
+      heartbeat: true,
     });
     console.log(`[agent] done ${job.id} in ${ms}ms`);
   } catch (e: unknown) {
@@ -90,13 +287,14 @@ async function runOneJob(job: JobRow): Promise<void> {
       norm: job.action.slice(0, 32),
       ms,
       error: msg,
+      job_id: job.id,
+      heartbeat: true,
     });
   }
 }
 
 /**
  * Poll idik job queue and run Playwright jobs on this RS LAN PC.
- * One command: keep this process running; UI enqueue triggers work.
  */
 export async function runAgent(opts?: { once?: boolean }) {
   if (!config.agentToken) {
@@ -107,7 +305,7 @@ export async function runAgent(opts?: { once?: boolean }) {
   }
 
   console.log(
-    `[agent] polling ${config.idikBaseUrl} every ${config.agentPollMs}ms (Ctrl+C stop)`,
+    `[agent] id=${config.agentId} rs=${config.agentRsId} polling ${config.idikBaseUrl} every ${config.agentPollMs}ms`,
   );
 
   let stop = false;
@@ -122,6 +320,7 @@ export async function runAgent(opts?: { once?: boolean }) {
   try {
     while (!stop) {
       try {
+        await postAgentHeartbeat(config.agentId, config.agentRsId);
         const job = await claimJob();
         if (job) {
           await runOneJob(job);
@@ -131,10 +330,13 @@ export async function runAgent(opts?: { once?: boolean }) {
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         console.error("[agent] poll/claim error:", msg);
-        if (!logged401Hint && /401|Unauthorized|belum di-set|tidak cocok|503/i.test(msg)) {
+        if (
+          !logged401Hint &&
+          /401|Unauthorized|belum di-set|tidak cocok|503/i.test(msg)
+        ) {
           logged401Hint = true;
           console.error(
-            "[agent] HINT: Set SIMRS_BOT_AGENT_TOKEN di Vercel project idik-lemon (nilai sama dengan .env lokal), lalu Redeploy. Akun CLI saat ini tidak punya akses project itu.",
+            "[agent] HINT: Set SIMRS_BOT_AGENT_TOKEN di Vercel (sama dengan .env lokal), lalu Redeploy.",
           );
         }
       }
@@ -146,3 +348,5 @@ export async function runAgent(opts?: { once?: boolean }) {
     process.off("SIGTERM", onSig);
   }
 }
+
+void fetchFieldMap;

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { checkAgentToken, type SimrsBotJobStatus } from "@/lib/simrs/botJobs";
+import {
+  checkAgentToken,
+  type SimrsBotJobPayload,
+  type SimrsBotJobStatus,
+} from "@/lib/simrs/botJobs";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +12,7 @@ type PatchBody = {
   status?: SimrsBotJobStatus;
   error?: string;
   result?: unknown;
+  payload?: SimrsBotJobPayload;
 };
 
 const ALLOWED: SimrsBotJobStatus[] = [
@@ -19,8 +24,7 @@ const ALLOWED: SimrsBotJobStatus[] = [
 ];
 
 /**
- * PATCH — agent updates job status.
- * Auth: Authorization: Bearer SIMRS_BOT_AGENT_TOKEN
+ * PATCH — agent updates job status and/or payload (steps progress).
  */
 export async function PATCH(
   request: Request,
@@ -46,28 +50,42 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: "JSON invalid" }, { status: 400 });
   }
 
-  const status = body.status;
-  if (!status || !ALLOWED.includes(status)) {
-    return NextResponse.json(
-      { ok: false, error: "status invalid" },
-      { status: 400 },
-    );
-  }
-
   const now = new Date().toISOString();
-  const patch: Record<string, unknown> = { status };
+  const patch: Record<string, unknown> = {};
 
-  if (status === "running") {
-    patch.started_at = now;
+  if (body.status) {
+    if (!ALLOWED.includes(body.status)) {
+      return NextResponse.json(
+        { ok: false, error: "status invalid" },
+        { status: 400 },
+      );
+    }
+    patch.status = body.status;
+    if (body.status === "running") patch.started_at = now;
+    if (
+      body.status === "done" ||
+      body.status === "error" ||
+      body.status === "cancelled"
+    ) {
+      patch.finished_at = now;
+    }
   }
-  if (status === "done" || status === "error" || status === "cancelled") {
-    patch.finished_at = now;
-  }
+
   if (body.error != null) {
     patch.error = String(body.error).slice(0, 500);
   }
   if (body.result !== undefined) {
     patch.result = body.result;
+  }
+  if (body.payload !== undefined) {
+    patch.payload = body.payload;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json(
+      { ok: false, error: "tidak ada field patch" },
+      { status: 400 },
+    );
   }
 
   try {

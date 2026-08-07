@@ -33,6 +33,8 @@ import FastTrackListModal from "./components/FastTrackListModal";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import { PhoneDirectoryProvider } from "./contexts/PhoneDirectoryContext";
 import { useJarvisModeDataPublisher } from "@/hooks/useJarvisModeDataPublisher";
+import { SimrsBotPanelProvider } from "./components/simrs-bot/SimrsBotPanelContext";
+import SimrsBotChecklistPanel from "./components/simrs-bot/SimrsBotChecklistPanel";
 
 /** Baris awal tabel yang “dipanaskan” (cache SWR) agar klik baris/RM memakai data penuh tanpa jeda. */
 const TINDAKAN_DETAIL_SWR_WARM = 20;
@@ -185,6 +187,7 @@ export default function TindakanDashboard() {
 
   return (
     <PhoneDirectoryProvider>
+    <SimrsBotPanelProvider>
     <div
       key="tindakan-dashboard"
       className={cn(
@@ -346,7 +349,10 @@ export default function TindakanDashboard() {
           onOpenChange={setRoleAccessOpen}
         />
       ) : null}
+
+      <SimrsBotChecklistPanel />
     </div>
+    </SimrsBotPanelProvider>
     </PhoneDirectoryProvider>
   );
 }

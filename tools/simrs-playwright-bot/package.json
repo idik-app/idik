@@ -9,6 +9,7 @@
     "login-idik": "tsx scripts/login-idik.ts",
     "login-simrs": "tsx scripts/login-simrs.ts",
     "explore": "tsx scripts/explore.ts",
+    "lihat-rekam-medis": "tsx scripts/lihat-rekam-medis.ts",
     "fill-empty": "tsx scripts/fill-empty.ts",
     "preflight": "tsx scripts/preflight.ts",
     "playwright:install": "playwright install chromium"

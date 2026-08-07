@@ -4,7 +4,8 @@ Bot di PC **jaringan RS** untuk:
 
 1. **MVP cepat:** `getPasien` (HTTP) → isi master pasien idik via API (`--write`), fallback UI Playwright (`--ui`)
 2. **Explore SIMRS web:** login → jelajahi menu sampai submenu terkecil (read-only) → `artifacts/simrs-menu-map.json`
-3. **Fill-empty (lanjutan):** PATCH field kosong tindakan yang aman dari getPasien
+3. **Lihat Rekam Medis:** buka Chromium (headed) → login → buka dropdown Rekam Medis → log submenu + screenshot
+4. **Fill-empty (lanjutan):** PATCH field kosong tindakan yang aman dari getPasien
 
 ## Prasyarat
 
@@ -62,6 +63,10 @@ npm run add-pasien -- --norm 929331 --write --ui
 npm run login-idik
 npm run login-simrs
 
+# Buka browser → login → lihat menu Rekam Medis (headed; hold ~30s)
+npm run lihat-rekam-medis
+npm run lihat-rekam-medis -- --hold 60000
+
 # Explore semua menu (bisa lama); skip daun berbahaya; checkpoint/resume
 npm run explore
 npm run explore -- --count-only
@@ -77,6 +82,8 @@ Dari root repo:
 ```powershell
 npm run bot:simrs:preflight
 npm run bot:simrs:add -- --norm 929331
+npm run bot:simrs:login-simrs
+npm run bot:simrs:lihat-rm
 npm run bot:simrs:explore
 ```
 

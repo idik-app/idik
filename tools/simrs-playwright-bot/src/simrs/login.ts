@@ -8,9 +8,13 @@ const STORAGE_PATH = () =>
 
 export async function launchSimrsBrowser(opts?: {
   useStorage?: boolean;
+  /** Override config.headless (e.g. force headed for visual inspect). */
+  headless?: boolean;
 }): Promise<{ browser: Browser; context: BrowserContext; page: Page }> {
   ensureDirs();
-  const browser = await chromium.launch({ headless: config.headless });
+  const browser = await chromium.launch({
+    headless: opts?.headless ?? config.headless,
+  });
   const use =
     opts?.useStorage !== false && fs.existsSync(STORAGE_PATH())
       ? { storageState: STORAGE_PATH() }

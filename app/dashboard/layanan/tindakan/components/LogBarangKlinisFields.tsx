@@ -9,6 +9,7 @@ import {
   nowCekJamLocal,
   sanitizeLogBarangKlinis,
 } from "@/lib/tindakan/cekObatPemakaianBridge";
+import ZoomTextField from "./ZoomTextField";
 
 const DEBOUNCE_MS = 550;
 
@@ -39,6 +40,26 @@ function formatTimeOnTheFly(val: string): string {
     cleaned = `${h}:${m}`;
   }
   return cleaned.slice(0, 5);
+}
+
+function forPersist(items: LogBarangKlinisItem[]): LogBarangKlinisItem[] {
+  return items.map((it) => {
+    const jamRaw = String(it.jam ?? "").trim();
+    // Partial draft tidak di-persist sebagai null; hanya kosong atau HH:mm penuh
+    const jam =
+      jamRaw === ""
+        ? null
+        : jamRaw.length === 5
+          ? normalizeCekJam(jamRaw)
+          : null;
+    return {
+      ...it,
+      nama: it.nama,
+      jam,
+      keterangan: it.keterangan?.trim() ? it.keterangan.trim() : null,
+      oleh: it.oleh?.trim() ? it.oleh.trim() : null,
+    };
+  });
 }
 
 async function patchTindakan(
@@ -76,8 +97,10 @@ export default function LogBarangKlinisFields({
     sanitizeLogBarangKlinis(value),
   );
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirtyRef = useRef(false);
 
   useEffect(() => {
+    if (dirtyRef.current || debounceRef.current) return;
     setItems(sanitizeLogBarangKlinis(value));
   }, [value, tindakanId]);
 
@@ -89,27 +112,46 @@ export default function LogBarangKlinisFields({
   );
 
   const persist = async (next: LogBarangKlinisItem[]) => {
-    const cleaned = sanitizeLogBarangKlinis(next);
+    const cleaned = sanitizeLogBarangKlinis(forPersist(next));
     await patchTindakan(
       tindakanId,
       { log_barang_klinis: cleaned },
       patchExecutor,
     );
+    dirtyRef.current = false;
     onSaved?.({ field: "log_barang_klinis" });
   };
 
   const schedule = (next: LogBarangKlinisItem[]) => {
+    dirtyRef.current = true;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
+      debounceRef.current = null;
       void persist(next).catch(() => {
+        dirtyRef.current = false;
         setItems(sanitizeLogBarangKlinis(value));
       });
     }, DEBOUNCE_MS);
   };
 
-  const updateAt = (idx: number, patch: Partial<LogBarangKlinisItem>) => {
+  /** Update lokal; optional skip schedule (untuk jam partial). */
+  const updateAt = (
+    idx: number,
+    patch: Partial<LogBarangKlinisItem>,
+    opts?: { persistNow?: boolean; schedule?: boolean },
+  ) => {
     const next = items.map((it, i) => (i === idx ? { ...it, ...patch } : it));
     setItems(next);
+    dirtyRef.current = true;
+    if (opts?.persistNow) {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      void persist(next).catch(() => {
+        dirtyRef.current = false;
+        setItems(sanitizeLogBarangKlinis(value));
+      });
+      return;
+    }
+    if (opts?.schedule === false) return;
     schedule(next);
   };
 
@@ -125,20 +167,25 @@ export default function LogBarangKlinisFields({
       },
     ];
     setItems(next);
-    void persist(next).catch(() => setItems(sanitizeLogBarangKlinis(value)));
+    dirtyRef.current = true;
+    void persist(next).catch(() => {
+      dirtyRef.current = false;
+      setItems(sanitizeLogBarangKlinis(value));
+    });
   };
 
   const removeAt = (idx: number) => {
     const next = items.filter((_, i) => i !== idx);
     setItems(next);
-    void persist(next).catch(() => setItems(sanitizeLogBarangKlinis(value)));
+    dirtyRef.current = true;
+    void persist(next).catch(() => {
+      dirtyRef.current = false;
+      setItems(sanitizeLogBarangKlinis(value));
+    });
   };
 
-  const inputClass =
-    "min-h-10 w-full rounded-xl border border-white/12 bg-[#5C6573] px-2 py-1.5 text-[12px] font-semibold text-white placeholder:text-white/50 outline-none focus:ring-1 focus:ring-white/25 disabled:opacity-60";
-
   return (
-    <div className="rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none">
+    <div className="flex h-full min-h-[280px] flex-col rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[11px] font-black uppercase tracking-widest text-[#1a202c]">
           Log barang / obat
@@ -173,64 +220,88 @@ export default function LogBarangKlinisFields({
 
       {items.length === 0 ? (
         <p className="text-[12px] font-medium text-[#2d3748]/80">
-          Belum ada baris. Tambah untuk mencatat barang/obat klinis (dokumentasi).
+          Belum ada baris. Centang Cek obat atau Tambah untuk mencatat.
         </p>
       ) : (
-        <ul className="max-h-[280px] space-y-2 overflow-y-auto pr-0.5">
+        <ul className="max-h-[min(520px,55vh)] flex-1 space-y-2 overflow-y-auto pr-0.5">
           {items.map((it, idx) => (
             <li
               key={it.id}
               className="rounded-xl border border-[#9AA8B8]/80 bg-[#A8B4C4]/60 p-2"
             >
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <input
-                  type="text"
+                <ZoomTextField
                   value={it.nama}
                   disabled={!canEdit}
                   placeholder="Nama"
                   aria-label="Nama barang/obat"
-                  onChange={(e) => updateAt(idx, { nama: e.target.value })}
-                  className={cn(inputClass, "sm:flex-1")}
+                  className="min-w-[8rem] sm:flex-1"
+                  onChange={(v) => updateAt(idx, { nama: v })}
                 />
-                <input
-                  type="text"
+                <ZoomTextField
                   value={it.jam ?? ""}
                   disabled={!canEdit}
                   placeholder="HH:mm"
                   aria-label="Jam"
-                  onChange={(e) => {
-                    const jam = formatTimeOnTheFly(e.target.value);
-                    updateAt(idx, {
-                      jam: jam === "" ? null : normalizeCekJam(jam) ?? jam,
+                  className="sm:w-[5.5rem]"
+                  inputMode="numeric"
+                  formatDraft={formatTimeOnTheFly}
+                  onChange={(jam) => {
+                    const nextJam = jam === "" ? null : jam;
+                    setItems((prev) => {
+                      const next = prev.map((row, i) =>
+                        i === idx ? { ...row, jam: nextJam } : row,
+                      );
+                      dirtyRef.current = true;
+                      if (jam === "" || jam.length === 5) {
+                        schedule(next);
+                      }
+                      return next;
                     });
                   }}
-                  className={cn(inputClass, "sm:w-[5.5rem]")}
+                  onCommit={(jam) => {
+                    setItems((prev) => {
+                      const normalized =
+                        jam === ""
+                          ? null
+                          : normalizeCekJam(jam) ??
+                            (jam.length === 5 ? null : jam);
+                      const next = prev.map((row, i) =>
+                        i === idx ? { ...row, jam: normalized } : row,
+                      );
+                      if (jam === "" || jam.length === 5) {
+                        dirtyRef.current = true;
+                        void persist(next).catch(() => {
+                          dirtyRef.current = false;
+                          setItems(sanitizeLogBarangKlinis(value));
+                        });
+                      }
+                      return next;
+                    });
+                  }}
                 />
-                <input
-                  type="text"
+                <ZoomTextField
                   value={it.keterangan ?? ""}
                   disabled={!canEdit}
                   placeholder="Keterangan"
                   aria-label="Keterangan"
-                  onChange={(e) =>
+                  multiline
+                  className="min-w-[8rem] sm:flex-1"
+                  onChange={(v) =>
                     updateAt(idx, {
-                      keterangan: e.target.value.trim() ? e.target.value : null,
+                      keterangan: v.trim() ? v : null,
                     })
                   }
-                  className={cn(inputClass, "sm:flex-1")}
                 />
-                <input
-                  type="text"
+                <ZoomTextField
                   value={it.oleh ?? ""}
                   disabled={!canEdit}
                   placeholder="Oleh"
                   aria-label="Oleh"
-                  onChange={(e) =>
-                    updateAt(idx, {
-                      oleh: e.target.value.trim() ? e.target.value : null,
-                    })
+                  className="sm:w-[6.5rem]"
+                  onChange={(v) =>
+                    updateAt(idx, { oleh: v.trim() ? v : null })
                   }
-                  className={cn(inputClass, "sm:w-[7rem]")}
                 />
                 {canEdit && (
                   <button

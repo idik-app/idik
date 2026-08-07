@@ -2,7 +2,6 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Clock } from "lucide-react";
-import { cn } from "@/lib/utils";
 import {
   buildPrefillSlot,
   CEK_OBAT_FIFO_NAME_HINTS,
@@ -14,9 +13,12 @@ import {
   normalizeCekJam,
   nowCekJamLocal,
   parseQtyFromKet,
+  sanitizeLogBarangKlinis,
   toBoolCek,
+  upsertLogFromCek,
 } from "@/lib/tindakan/cekObatPemakaianBridge";
 import { normalizeMasterBarangUuid } from "@/lib/pemakaian/masterBarangUuidForFifo";
+import ZoomTextField from "./ZoomTextField";
 
 const DEBOUNCE_MS = 550;
 
@@ -43,6 +45,8 @@ type Props = {
     cek_lain_jam?: unknown;
     cek_lain_oleh?: unknown;
   };
+  /** Existing log untuk merge saat centang */
+  logBarangValue?: unknown;
   onSaved?: (info?: { field?: string }) => void;
   patchExecutor?: (body: Record<string, unknown>) => Promise<void>;
 };
@@ -268,6 +272,7 @@ async function tryFifoAllocate(opts: {
 export default function CekObatTindakanFields({
   tindakanId,
   values,
+  logBarangValue,
   onSaved,
   patchExecutor,
 }: Props) {
@@ -323,6 +328,32 @@ export default function CekObatTindakanFields({
     };
     await patchTindakan(tindakanId, body, patchExecutor);
     onSaved?.({ field: keys.checkedKey });
+
+    // Centang → upsert Log barang / obat
+    if (next.checked && opts?.wasUnchecked) {
+      try {
+        const currentLog = sanitizeLogBarangKlinis(logBarangValue);
+        const upserted = upsertLogFromCek({
+          items: currentLog,
+          kind,
+          ket: next.ket,
+          jam,
+          oleh: next.oleh,
+        });
+        if (upserted.changed) {
+          await patchTindakan(
+            tindakanId,
+            { log_barang_klinis: upserted.items },
+            patchExecutor,
+          );
+          onSaved?.({ field: "log_barang_klinis" });
+        }
+      } catch (e) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[CekObat] upsert log", e);
+        }
+      }
+    }
 
     const meta = ROWS.find((r) => r.kind === kind);
     if (
@@ -459,46 +490,59 @@ export default function CekObatTindakanFields({
                     {meta.label}
                   </span>
                 </label>
-                <input
-                  type="text"
+                <ZoomTextField
                   value={state.ket}
                   disabled={!canEdit}
                   placeholder={meta.ketPlaceholder}
                   aria-label={`${meta.label} keterangan`}
-                  onChange={(e) => {
-                    const next = { ...state, ket: e.target.value };
+                  multiline
+                  className="min-w-[8rem] flex-1"
+                  onChange={(ket) => {
+                    const next = { ...state, ket };
                     setRows((p) => ({ ...p, [meta.kind]: next }));
                     schedule(meta.kind, next);
                   }}
-                  className={cn(
-                    "min-h-10 w-full flex-1 rounded-xl border border-white/12 bg-[#5C6573] px-2 py-1.5 text-[12px] font-semibold text-white placeholder:text-white/50 outline-none focus:ring-1 focus:ring-white/25",
-                    !canEdit && "opacity-60",
-                  )}
                 />
-                <div className="relative w-full sm:w-[5.5rem]">
-                  <input
-                    type="text"
+                <div className="relative w-full shrink-0 sm:w-[5.5rem]">
+                  <ZoomTextField
                     value={state.jam}
                     disabled={!canEdit}
                     placeholder="HH:mm"
                     aria-label={`${meta.label} jam`}
-                    onChange={(e) => {
-                      const jam = formatTimeOnTheFly(e.target.value);
+                    className="w-full pr-7"
+                    inputMode="numeric"
+                    formatDraft={formatTimeOnTheFly}
+                    onChange={(jam) => {
                       const next = { ...state, jam };
                       setRows((p) => ({ ...p, [meta.kind]: next }));
-                      if (jam === "" || jam.length === 5) schedule(meta.kind, next);
+                      if (jam === "" || jam.length === 5) {
+                        schedule(meta.kind, next);
+                      }
                     }}
-                    className={cn(
-                      "min-h-10 w-full rounded-xl border border-white/12 bg-[#5C6573] py-1.5 pl-2 pr-8 text-[12px] font-semibold text-white placeholder:text-white/50 outline-none focus:ring-1 focus:ring-white/25",
-                      !canEdit && "opacity-60",
-                    )}
+                    onCommit={(jam) => {
+                      const normalized =
+                        jam === ""
+                          ? ""
+                          : normalizeCekJam(jam) ??
+                            (jam.length === 5 ? jam : state.jam);
+                      const next = { ...state, jam: normalized };
+                      setRows((p) => ({ ...p, [meta.kind]: next }));
+                      if (normalized === "" || normalized.length === 5) {
+                        void persistRow(meta.kind, next).catch(() => {
+                          setRows((p) => ({
+                            ...p,
+                            [meta.kind]: rowFromValues(meta.kind, values),
+                          }));
+                        });
+                      }
+                    }}
                   />
                   {canEdit && (
                     <button
                       type="button"
                       title="Jam sekarang"
                       aria-label={`Set jam sekarang ${meta.label}`}
-                      className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-white/45 hover:bg-white/10 hover:text-white"
+                      className="absolute right-1.5 top-1/2 z-[1] flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-white/45 hover:bg-white/10 hover:text-white"
                       onClick={() => {
                         const jam = nowCekJamLocal();
                         const next = { ...state, jam };
@@ -510,21 +554,17 @@ export default function CekObatTindakanFields({
                     </button>
                   )}
                 </div>
-                <input
-                  type="text"
+                <ZoomTextField
                   value={state.oleh}
                   disabled={!canEdit}
                   placeholder="Oleh"
                   aria-label={`${meta.label} oleh`}
-                  onChange={(e) => {
-                    const next = { ...state, oleh: e.target.value };
+                  className="w-full sm:w-[6.5rem] sm:shrink-0"
+                  onChange={(oleh) => {
+                    const next = { ...state, oleh };
                     setRows((p) => ({ ...p, [meta.kind]: next }));
                     schedule(meta.kind, next);
                   }}
-                  className={cn(
-                    "min-h-10 w-full rounded-xl border border-white/12 bg-[#5C6573] px-2 py-1.5 text-[12px] font-semibold text-white placeholder:text-white/50 outline-none focus:ring-1 focus:ring-white/25 sm:w-[7rem]",
-                    !canEdit && "opacity-60",
-                  )}
                 />
               </div>
             </div>

@@ -2011,6 +2011,9 @@ function TindakanDetailDrawer({
                                       cek_lain_oleh:
                                         displayRecord.cek_lain_oleh,
                                     }}
+                                    logBarangValue={
+                                      displayRecord.log_barang_klinis
+                                    }
                                     patchExecutor={
                                       patchTindakanFields
                                         ? (body) =>
@@ -2049,7 +2052,7 @@ function TindakanDetailDrawer({
                                 </div>
                               )}
                               {def.id === "tindakan" && (
-                                <div className="mt-4 rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none">
+                                <div className="mt-3 rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-3 shadow-none">
                                   <SignTimeFields
                                     tindakanId={String(
                                       displayRecord.id ?? "",

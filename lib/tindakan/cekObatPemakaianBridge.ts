@@ -232,3 +232,58 @@ export function parseQtyFromKet(ket: string | null | undefined): number {
   const n = Number(m[1].replace(",", "."));
   return Number.isFinite(n) && n > 0 ? n : 1;
 }
+
+export type UpsertLogFromCekKind = "ntg_cedocard" | "heparin" | "lain";
+
+/**
+ * Saat centang Cek obat: tambah baris log jika nama belum ada;
+ * jika ada, isi jam/ket/oleh hanya bila field log masih kosong.
+ */
+export function upsertLogFromCek(opts: {
+  items: LogBarangKlinisItem[];
+  kind: UpsertLogFromCekKind;
+  ket?: string | null;
+  jam?: string | null;
+  oleh?: string | null;
+}): { changed: boolean; items: LogBarangKlinisItem[] } {
+  const ket = String(opts.ket ?? "").trim();
+  const jam = normalizeCekJam(opts.jam);
+  const oleh = String(opts.oleh ?? "").trim() || null;
+  const nama =
+    opts.kind === "ntg_cedocard"
+      ? "NTG / Cedocard"
+      : opts.kind === "heparin"
+        ? "Heparin"
+        : ket || "Lain";
+
+  const existing = [...opts.items];
+  const idx = existing.findIndex(
+    (it) => it.nama.trim().toLowerCase() === nama.trim().toLowerCase(),
+  );
+
+  if (idx < 0) {
+    existing.push({
+      id: `lb-${Math.random().toString(36).slice(2, 11)}`,
+      nama,
+      jam,
+      keterangan: ket || null,
+      oleh,
+    });
+    return { changed: true, items: existing };
+  }
+
+  const cur = existing[idx];
+  const next: LogBarangKlinisItem = {
+    ...cur,
+    jam: cur.jam || jam,
+    keterangan: cur.keterangan || (ket ? ket : null),
+    oleh: cur.oleh || oleh,
+  };
+  const changed =
+    next.jam !== cur.jam ||
+    next.keterangan !== cur.keterangan ||
+    next.oleh !== cur.oleh;
+  if (!changed) return { changed: false, items: existing };
+  existing[idx] = next;
+  return { changed: true, items: existing };
+}

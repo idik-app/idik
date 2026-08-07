@@ -13,6 +13,7 @@ import {
   parsePrefillSlot,
   parseQtyFromKet,
   sanitizeLogBarangKlinis,
+  upsertLogFromCek,
 } from "../cekObatPemakaianBridge";
 
 describe("normalizeCekJam", () => {
@@ -112,5 +113,44 @@ describe("sanitizeLogBarangKlinis / parseQtyFromKet", () => {
   it("parses qty", () => {
     assert.equal(parseQtyFromKet("5000 IU"), 5000);
     assert.equal(parseQtyFromKet(""), 1);
+  });
+});
+
+describe("upsertLogFromCek", () => {
+  it("appends new heparin row", () => {
+    const r = upsertLogFromCek({
+      items: [],
+      kind: "heparin",
+      ket: "5000 IU",
+      jam: "10:30",
+      oleh: "Ns",
+    });
+    assert.equal(r.changed, true);
+    assert.equal(r.items.length, 1);
+    assert.equal(r.items[0].nama, "Heparin");
+    assert.equal(r.items[0].jam, "10:30");
+    assert.equal(r.items[0].keterangan, "5000 IU");
+  });
+
+  it("fills empty fields on existing row only", () => {
+    const r = upsertLogFromCek({
+      items: [
+        {
+          id: "a",
+          nama: "Heparin",
+          jam: "09:00",
+          keterangan: "old",
+          oleh: null,
+        },
+      ],
+      kind: "heparin",
+      ket: "new",
+      jam: "11:00",
+      oleh: "Ns",
+    });
+    assert.equal(r.changed, true);
+    assert.equal(r.items[0].jam, "09:00");
+    assert.equal(r.items[0].keterangan, "old");
+    assert.equal(r.items[0].oleh, "Ns");
   });
 });

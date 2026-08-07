@@ -291,7 +291,7 @@ export default function SignTimeFields({
   );
 
   return (
-    <dl className="mt-2 grid grid-cols-1 gap-1.5 text-sm font-semibold">
+    <dl className="mt-2 grid grid-cols-1 gap-1.5 text-sm font-semibold sm:grid-cols-3">
       <SignTimeField
         fieldKey="fast_track_sign_in"
         label={`${FIELD_LABELS.fast_track_sign_in ?? "Sign in"}:`}

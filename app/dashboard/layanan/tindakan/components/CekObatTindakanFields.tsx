@@ -4,20 +4,17 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Clock } from "lucide-react";
 import {
   buildPrefillSlot,
-  CEK_OBAT_FIFO_NAME_HINTS,
-  CEK_OBAT_LABEL,
   CEK_OBAT_TEMPLATE_BY_KIND,
   type CekObatKind,
   cekObatKeys,
   mergeObatAlkesPrefill,
   normalizeCekJam,
   nowCekJamLocal,
-  parseQtyFromKet,
   sanitizeLogBarangKlinis,
   toBoolCek,
   upsertLogFromCek,
 } from "@/lib/tindakan/cekObatPemakaianBridge";
-import { normalizeMasterBarangUuid } from "@/lib/pemakaian/masterBarangUuidForFifo";
+import { runCekObatSideEffects } from "@/lib/tindakan/runCekObatSideEffects";
 import ZoomTextField from "./ZoomTextField";
 
 const DEBOUNCE_MS = 550;
@@ -140,8 +137,6 @@ async function patchTindakan(
 async function fetchLatestPemakaianOrder(tindakanId: string): Promise<{
   id: string;
   template_input_barang?: unknown;
-  items?: unknown;
-  tanggal?: string | null;
 } | null> {
   const res = await fetch(
     `/api/pemakaian-orders?tindakanId=${encodeURIComponent(tindakanId)}&limit=20`,
@@ -167,106 +162,7 @@ async function fetchLatestPemakaianOrder(tindakanId: string): Promise<{
   return {
     id: String(top.id),
     template_input_barang: top.template_input_barang,
-    items: top.items,
-    tanggal: top.tanggal != null ? String(top.tanggal) : null,
   };
-}
-
-async function forwardPrefillPemakaian(opts: {
-  tindakanId: string;
-  kind: CekObatKind;
-  ket: string;
-  jam: string;
-}) {
-  const order = await fetchLatestPemakaianOrder(opts.tindakanId);
-  if (!order) return { orderId: null as string | null };
-  const rowId = CEK_OBAT_TEMPLATE_BY_KIND[opts.kind];
-  const nextPrefill = buildPrefillSlot({ ket: opts.ket, jam: opts.jam });
-  const merged = mergeObatAlkesPrefill(
-    order.template_input_barang,
-    rowId,
-    nextPrefill,
-  );
-  if (!merged.changed) return { orderId: order.id };
-  const res = await fetch(
-    `/api/pemakaian-orders/${encodeURIComponent(order.id)}`,
-    {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ template_input_barang: merged.template }),
-    },
-  );
-  if (!res.ok) {
-    if (process.env.NODE_ENV === "development") {
-      console.warn("[CekObat] prefill pemakaian gagal", await res.text());
-    }
-  }
-  return { orderId: order.id };
-}
-
-async function tryFifoAllocate(opts: {
-  tindakanId: string;
-  kind: CekObatKind;
-  ket: string;
-  orderId: string | null;
-}) {
-  const hints = CEK_OBAT_FIFO_NAME_HINTS[opts.kind];
-  const masterRes = await fetch("/api/master-barang", {
-    credentials: "include",
-  }).catch(() => null);
-  let masterUuid: string | null = null;
-  let masterNama = CEK_OBAT_LABEL[opts.kind];
-  if (masterRes?.ok) {
-    const mj = (await masterRes.json().catch(() => ({}))) as {
-      data?: Array<{ id?: unknown; nama?: string | null }>;
-      rows?: Array<{ id?: unknown; nama?: string | null }>;
-      items?: Array<{ id?: unknown; nama?: string | null }>;
-    };
-    const rows = Array.isArray(mj.data)
-      ? mj.data
-      : Array.isArray(mj.rows)
-        ? mj.rows
-        : Array.isArray(mj.items)
-          ? mj.items
-          : [];
-    for (const row of rows) {
-      const nama = String(row.nama ?? "").toLowerCase();
-      if (!hints.some((h) => nama.includes(h))) continue;
-      const uuid = normalizeMasterBarangUuid(row.id);
-      if (uuid) {
-        masterUuid = uuid;
-        masterNama = String(row.nama ?? masterNama);
-        break;
-      }
-    }
-  }
-  if (!masterUuid) {
-    // fallback: allocate by fuzzy name via kode skip — try search endpoint or direct allocate with name in keterangan only fails
-    throw new Error(
-      `Master barang untuk ${CEK_OBAT_LABEL[opts.kind]} tidak ditemukan (UUID).`,
-    );
-  }
-  const jumlah = parseQtyFromKet(opts.ket);
-  const res = await fetch("/api/pemakaian/allocate", {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      master_barang_id: masterUuid,
-      jumlah,
-      lokasi: "Cathlab",
-      keterangan: `Cek obat tab Tindakan: ${masterNama}${opts.orderId ? ` (order ${opts.orderId})` : ""}`,
-      tindakan_id: opts.tindakanId,
-    }),
-  });
-  const json = (await res.json().catch(() => ({}))) as {
-    ok?: boolean;
-    message?: string;
-  };
-  if (!res.ok || json.ok === false) {
-    throw new Error(json.message || `Alokasi FIFO gagal (${res.status})`);
-  }
 }
 
 export default function CekObatTindakanFields({
@@ -361,42 +257,17 @@ export default function CekObatTindakanFields({
       next.checked &&
       opts?.wasUnchecked
     ) {
-      try {
-        const { orderId } = await forwardPrefillPemakaian({
-          tindakanId,
-          kind: meta.bridge,
-          ket: next.ket,
-          jam: jam ?? "",
-        });
-        lastAutoPrefillRef.current[meta.bridge] = buildPrefillSlot({
-          ket: next.ket,
-          jam,
-        });
-        const label = CEK_OBAT_LABEL[meta.bridge];
-        const okFifo = window.confirm(
-          `Alokasi stok FIFO untuk ${label}? (Batal = hanya dokumentasi/checklist)`,
-        );
-        if (okFifo) {
-          try {
-            await tryFifoAllocate({
-              tindakanId,
-              kind: meta.bridge,
-              ket: next.ket,
-              orderId,
-            });
-          } catch (e) {
-            window.alert(
-              e instanceof Error
-                ? e.message
-                : "Alokasi FIFO gagal. Data cek obat tetap tersimpan.",
-            );
-          }
-        }
-      } catch (e) {
-        if (process.env.NODE_ENV === "development") {
-          console.warn("[CekObat] bridge", e);
-        }
-      }
+      await runCekObatSideEffects({
+        tindakanId,
+        kind: meta.bridge,
+        ket: next.ket,
+        jam: jam ?? "",
+        offerFifo: true,
+      });
+      lastAutoPrefillRef.current[meta.bridge] = buildPrefillSlot({
+        ket: next.ket,
+        jam,
+      });
     } else if (meta?.bridge && next.checked) {
       // ket/jam change: refresh prefill if allowed
       try {

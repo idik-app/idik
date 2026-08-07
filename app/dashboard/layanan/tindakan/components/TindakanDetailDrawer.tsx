@@ -63,7 +63,6 @@ import RsPerujukField from "./RsPerujukField";
 import RuanganTindakanField from "./RuanganTindakanField";
 import StatusTindakanField from "./StatusTindakanField";
 import SignTimeFields from "./SignTimeFields";
-import CekObatTindakanFields from "./CekObatTindakanFields";
 import LogBarangKlinisFields from "./LogBarangKlinisFields";
 import TindakanTanggalDrawerField from "./TindakanTanggalDrawerField";
 import { buildResumeWhatsAppText } from "../lib/buildResumeWhatsAppText";
@@ -1984,59 +1983,18 @@ function TindakanDetailDrawer({
                                 })}
                               </dl>
                               {def.id === "tindakan" && (
-                                <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-2">
-                                  <div className="min-w-0">
-                                  <CekObatTindakanFields
-                                    tindakanId={String(
-                                      displayRecord.id ?? "",
-                                    ).trim()}
-                                    values={{
-                                      cek_ntg_cedocard:
-                                        displayRecord.cek_ntg_cedocard,
-                                      cek_ntg_cedocard_ket:
-                                        displayRecord.cek_ntg_cedocard_ket,
-                                      cek_ntg_cedocard_jam:
-                                        displayRecord.cek_ntg_cedocard_jam,
-                                      cek_ntg_cedocard_oleh:
-                                        displayRecord.cek_ntg_cedocard_oleh,
-                                      cek_heparin: displayRecord.cek_heparin,
-                                      cek_heparin_ket:
-                                        displayRecord.cek_heparin_ket,
-                                      cek_heparin_jam:
-                                        displayRecord.cek_heparin_jam,
-                                      cek_heparin_oleh:
-                                        displayRecord.cek_heparin_oleh,
-                                      cek_lain: displayRecord.cek_lain,
-                                      cek_lain_ket: displayRecord.cek_lain_ket,
-                                      cek_lain_jam: displayRecord.cek_lain_jam,
-                                      cek_lain_oleh:
-                                        displayRecord.cek_lain_oleh,
-                                    }}
-                                    logBarangValue={
-                                      displayRecord.log_barang_klinis
-                                    }
-                                    patchExecutor={
-                                      patchTindakanFields
-                                        ? (body) =>
-                                            patchTindakanFields(
-                                              String(displayRecord.id ?? ""),
-                                              body,
-                                            )
-                                        : undefined
-                                    }
-                                    onSaved={
-                                      patchTindakanFields
-                                        ? undefined
-                                        : handleRecordPatch
-                                    }
-                                  />
-                                  </div>
-                                  <div className="min-w-0">
+                                <div className="mt-4 min-w-0">
                                   <LogBarangKlinisFields
                                     tindakanId={String(
                                       displayRecord.id ?? "",
                                     ).trim()}
                                     value={displayRecord.log_barang_klinis}
+                                    cekValues={{
+                                      cek_ntg_cedocard:
+                                        displayRecord.cek_ntg_cedocard,
+                                      cek_heparin: displayRecord.cek_heparin,
+                                      cek_lain: displayRecord.cek_lain,
+                                    }}
                                     patchExecutor={
                                       patchTindakanFields
                                         ? (body) =>
@@ -2052,7 +2010,6 @@ function TindakanDetailDrawer({
                                         : handleRecordPatch
                                     }
                                   />
-                                  </div>
                                 </div>
                               )}
                               {def.id === "tindakan" && (

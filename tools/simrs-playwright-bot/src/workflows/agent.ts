@@ -23,7 +23,8 @@ async function claimJob(): Promise<JobRow | null> {
   });
   const json = (await res.json()) as { ok?: boolean; data?: JobRow | null; error?: string };
   if (!res.ok || !json.ok) {
-    throw new Error(json.error || `claim HTTP ${res.status}`);
+    const detail = json.error || `claim HTTP ${res.status}`;
+    throw new Error(detail);
   }
   return json.data ?? null;
 }
@@ -110,6 +111,7 @@ export async function runAgent(opts?: { once?: boolean }) {
   );
 
   let stop = false;
+  let logged401Hint = false;
   const onSig = () => {
     stop = true;
     console.log("[agent] stopping…");
@@ -127,10 +129,14 @@ export async function runAgent(opts?: { once?: boolean }) {
           continue;
         }
       } catch (e: unknown) {
-        console.error(
-          "[agent] poll/claim error:",
-          e instanceof Error ? e.message : e,
-        );
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("[agent] poll/claim error:", msg);
+        if (!logged401Hint && /401|Unauthorized|belum di-set|tidak cocok|503/i.test(msg)) {
+          logged401Hint = true;
+          console.error(
+            "[agent] HINT: Set SIMRS_BOT_AGENT_TOKEN di Vercel project idik-lemon (nilai sama dengan .env lokal), lalu Redeploy. Akun CLI saat ini tidak punya akses project itu.",
+          );
+        }
       }
       if (opts?.once) break;
       await sleep(config.agentPollMs);

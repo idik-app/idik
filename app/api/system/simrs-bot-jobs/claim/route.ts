@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAgentToken, type SimrsBotJob } from "@/lib/simrs/botJobs";
+import { checkAgentToken, type SimrsBotJob } from "@/lib/simrs/botJobs";
 
 export const dynamic = "force-dynamic";
 
@@ -9,8 +9,12 @@ export const dynamic = "force-dynamic";
  * Auth: Authorization: Bearer SIMRS_BOT_AGENT_TOKEN
  */
 export async function POST(request: Request) {
-  if (!requireAgentToken(request)) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  const auth = checkAgentToken(request);
+  if (!auth.ok) {
+    return NextResponse.json(
+      { ok: false, error: auth.error },
+      { status: auth.status },
+    );
   }
 
   try {

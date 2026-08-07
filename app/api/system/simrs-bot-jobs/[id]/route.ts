@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAgentToken, type SimrsBotJobStatus } from "@/lib/simrs/botJobs";
+import { checkAgentToken, type SimrsBotJobStatus } from "@/lib/simrs/botJobs";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +26,12 @@ export async function PATCH(
   request: Request,
   ctx: { params: Promise<{ id: string }> },
 ) {
-  if (!requireAgentToken(request)) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+  const auth = checkAgentToken(request);
+  if (!auth.ok) {
+    return NextResponse.json(
+      { ok: false, error: auth.error },
+      { status: auth.status },
+    );
   }
 
   const { id } = await ctx.params;

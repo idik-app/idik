@@ -46,3 +46,35 @@ export function requireAgentToken(request: Request): boolean {
   if (!m) return false;
   return m[1].trim() === expected;
 }
+
+/**
+ * Auth result for agent endpoints — distinguishes missing server env vs bad token.
+ */
+export function checkAgentToken(request: Request): {
+  ok: true;
+} | {
+  ok: false;
+  status: 401 | 503;
+  error: string;
+} {
+  const expected = (process.env.SIMRS_BOT_AGENT_TOKEN || "").trim();
+  if (!expected) {
+    return {
+      ok: false,
+      status: 503,
+      error:
+        "SIMRS_BOT_AGENT_TOKEN belum di-set di server (Vercel) — tambah env lalu redeploy",
+    };
+  }
+  const auth = request.headers.get("authorization") || "";
+  const m = /^Bearer\s+(.+)$/i.exec(auth);
+  if (!m || m[1].trim() !== expected) {
+    return {
+      ok: false,
+      status: 401,
+      error:
+        "Unauthorized — token agen tidak cocok dengan SIMRS_BOT_AGENT_TOKEN di Vercel",
+    };
+  }
+  return { ok: true };
+}

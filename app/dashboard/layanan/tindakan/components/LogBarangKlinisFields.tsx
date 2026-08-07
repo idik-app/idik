@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import {
   type LogBarangKlinisItem,
   normalizeCekJam,
@@ -185,7 +184,7 @@ export default function LogBarangKlinisFields({
   };
 
   return (
-    <div className="flex h-full min-h-[280px] flex-col rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none">
+    <div className="flex h-full min-h-[280px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-[11px] font-black uppercase tracking-widest text-[#1a202c]">
           Log barang / obat
@@ -227,92 +226,96 @@ export default function LogBarangKlinisFields({
           {items.map((it, idx) => (
             <li
               key={it.id}
-              className="rounded-xl border border-[#9AA8B8]/80 bg-[#A8B4C4]/60 p-2"
+              className="min-w-0 rounded-xl border border-[#9AA8B8]/80 bg-[#A8B4C4]/60 p-2"
             >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <ZoomTextField
-                  value={it.nama}
-                  disabled={!canEdit}
-                  placeholder="Nama"
-                  aria-label="Nama barang/obat"
-                  className="min-w-[8rem] sm:flex-1"
-                  onChange={(v) => updateAt(idx, { nama: v })}
-                />
-                <ZoomTextField
-                  value={it.jam ?? ""}
-                  disabled={!canEdit}
-                  placeholder="HH:mm"
-                  aria-label="Jam"
-                  className="sm:w-[5.5rem]"
-                  inputMode="numeric"
-                  formatDraft={formatTimeOnTheFly}
-                  onChange={(jam) => {
-                    const nextJam = jam === "" ? null : jam;
-                    setItems((prev) => {
-                      const next = prev.map((row, i) =>
-                        i === idx ? { ...row, jam: nextJam } : row,
-                      );
-                      dirtyRef.current = true;
-                      if (jam === "" || jam.length === 5) {
-                        schedule(next);
-                      }
-                      return next;
-                    });
-                  }}
-                  onCommit={(jam) => {
-                    setItems((prev) => {
-                      const normalized =
-                        jam === ""
-                          ? null
-                          : normalizeCekJam(jam) ??
-                            (jam.length === 5 ? null : jam);
-                      const next = prev.map((row, i) =>
-                        i === idx ? { ...row, jam: normalized } : row,
-                      );
-                      if (jam === "" || jam.length === 5) {
+              <div className="flex min-w-0 flex-col gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <ZoomTextField
+                    value={it.nama}
+                    disabled={!canEdit}
+                    placeholder="Nama"
+                    aria-label="Nama barang/obat"
+                    className="min-w-0 flex-1"
+                    onChange={(v) => updateAt(idx, { nama: v })}
+                  />
+                  {canEdit && (
+                    <button
+                      type="button"
+                      aria-label="Hapus baris log"
+                      onClick={() => removeAt(idx)}
+                      className="inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-xl text-[#7f1d1d] hover:bg-red-100/80"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <div className="flex min-w-0 items-center gap-2">
+                  <ZoomTextField
+                    value={it.jam ?? ""}
+                    disabled={!canEdit}
+                    placeholder="HH:mm"
+                    aria-label="Jam"
+                    className="w-[5.5rem] shrink-0"
+                    inputMode="numeric"
+                    formatDraft={formatTimeOnTheFly}
+                    onChange={(jam) => {
+                      const nextJam = jam === "" ? null : jam;
+                      setItems((prev) => {
+                        const next = prev.map((row, i) =>
+                          i === idx ? { ...row, jam: nextJam } : row,
+                        );
                         dirtyRef.current = true;
-                        void persist(next).catch(() => {
-                          dirtyRef.current = false;
-                          setItems(sanitizeLogBarangKlinis(value));
-                        });
-                      }
-                      return next;
-                    });
-                  }}
-                />
-                <ZoomTextField
-                  value={it.keterangan ?? ""}
-                  disabled={!canEdit}
-                  placeholder="Keterangan"
-                  aria-label="Keterangan"
-                  multiline
-                  className="min-w-[8rem] sm:flex-1"
-                  onChange={(v) =>
-                    updateAt(idx, {
-                      keterangan: v.trim() ? v : null,
-                    })
-                  }
-                />
-                <ZoomTextField
-                  value={it.oleh ?? ""}
-                  disabled={!canEdit}
-                  placeholder="Oleh"
-                  aria-label="Oleh"
-                  className="sm:w-[6.5rem]"
-                  onChange={(v) =>
-                    updateAt(idx, { oleh: v.trim() ? v : null })
-                  }
-                />
-                {canEdit && (
-                  <button
-                    type="button"
-                    aria-label="Hapus baris log"
-                    onClick={() => removeAt(idx)}
-                    className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-xl text-[#7f1d1d] hover:bg-red-100/80"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                )}
+                        if (jam === "" || jam.length === 5) {
+                          schedule(next);
+                        }
+                        return next;
+                      });
+                    }}
+                    onCommit={(jam) => {
+                      setItems((prev) => {
+                        const normalized =
+                          jam === ""
+                            ? null
+                            : normalizeCekJam(jam) ??
+                              (jam.length === 5 ? null : jam);
+                        const next = prev.map((row, i) =>
+                          i === idx ? { ...row, jam: normalized } : row,
+                        );
+                        if (jam === "" || jam.length === 5) {
+                          dirtyRef.current = true;
+                          void persist(next).catch(() => {
+                            dirtyRef.current = false;
+                            setItems(sanitizeLogBarangKlinis(value));
+                          });
+                        }
+                        return next;
+                      });
+                    }}
+                  />
+                  <ZoomTextField
+                    value={it.keterangan ?? ""}
+                    disabled={!canEdit}
+                    placeholder="Keterangan"
+                    aria-label="Keterangan"
+                    multiline
+                    className="min-w-0 flex-1"
+                    onChange={(v) =>
+                      updateAt(idx, {
+                        keterangan: v.trim() ? v : null,
+                      })
+                    }
+                  />
+                  <ZoomTextField
+                    value={it.oleh ?? ""}
+                    disabled={!canEdit}
+                    placeholder="Oleh"
+                    aria-label="Oleh"
+                    className="w-[5.5rem] shrink-0"
+                    onChange={(v) =>
+                      updateAt(idx, { oleh: v.trim() ? v : null })
+                    }
+                  />
+                </div>
               </div>
             </li>
           ))}

@@ -446,7 +446,7 @@ export default function CekObatTindakanFields({
     "rounded-xl border border-[#9AA8B8]/80 bg-[#A8B4C4]/60 px-2.5 py-2";
 
   return (
-    <div className="rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none">
+    <div className="min-w-0 overflow-hidden rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none">
       <h3 className="mb-3 text-[11px] font-black uppercase tracking-widest text-[#1a202c]">
         Cek obat
       </h3>
@@ -456,10 +456,10 @@ export default function CekObatTindakanFields({
           const cid = `${baseId}-${meta.kind}`;
           return (
             <div key={meta.kind} className={boxClass}>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+              <div className="flex min-w-0 flex-col gap-2">
                 <label
                   htmlFor={cid}
-                  className="flex min-h-10 shrink-0 cursor-pointer items-center gap-2 sm:w-[9.5rem]"
+                  className="flex min-h-10 shrink-0 cursor-pointer items-center gap-2"
                 >
                   <input
                     id={cid}
@@ -490,20 +490,21 @@ export default function CekObatTindakanFields({
                     {meta.label}
                   </span>
                 </label>
+                <div className="flex min-w-0 items-center gap-2">
                 <ZoomTextField
                   value={state.ket}
                   disabled={!canEdit}
                   placeholder={meta.ketPlaceholder}
                   aria-label={`${meta.label} keterangan`}
                   multiline
-                  className="min-w-[8rem] flex-1"
+                  className="min-w-0 flex-1"
                   onChange={(ket) => {
                     const next = { ...state, ket };
                     setRows((p) => ({ ...p, [meta.kind]: next }));
                     schedule(meta.kind, next);
                   }}
                 />
-                <div className="relative w-full shrink-0 sm:w-[5.5rem]">
+                <div className="relative w-[5.5rem] shrink-0">
                   <ZoomTextField
                     value={state.jam}
                     disabled={!canEdit}
@@ -559,13 +560,14 @@ export default function CekObatTindakanFields({
                   disabled={!canEdit}
                   placeholder="Oleh"
                   aria-label={`${meta.label} oleh`}
-                  className="w-full sm:w-[6.5rem] sm:shrink-0"
+                  className="w-[5.5rem] shrink-0"
                   onChange={(oleh) => {
                     const next = { ...state, oleh };
                     setRows((p) => ({ ...p, [meta.kind]: next }));
                     schedule(meta.kind, next);
                   }}
                 />
+                </div>
               </div>
             </div>
           );

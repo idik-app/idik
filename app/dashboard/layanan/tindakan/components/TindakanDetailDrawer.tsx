@@ -1984,7 +1984,8 @@ function TindakanDetailDrawer({
                                 })}
                               </dl>
                               {def.id === "tindakan" && (
-                                <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                                <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-2">
+                                  <div className="min-w-0">
                                   <CekObatTindakanFields
                                     tindakanId={String(
                                       displayRecord.id ?? "",
@@ -2029,6 +2030,8 @@ function TindakanDetailDrawer({
                                         : handleRecordPatch
                                     }
                                   />
+                                  </div>
+                                  <div className="min-w-0">
                                   <LogBarangKlinisFields
                                     tindakanId={String(
                                       displayRecord.id ?? "",
@@ -2049,6 +2052,7 @@ function TindakanDetailDrawer({
                                         : handleRecordPatch
                                     }
                                   />
+                                  </div>
                                 </div>
                               )}
                               {def.id === "tindakan" && (

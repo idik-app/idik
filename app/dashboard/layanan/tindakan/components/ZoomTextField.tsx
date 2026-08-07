@@ -100,7 +100,7 @@ export default function ZoomTextField({
       {open && !disabled ? (
         <div
           className={cn(
-            "absolute left-0 top-0 w-[min(100vw-2rem,20rem)] rounded-xl border border-white/20 bg-[#4a5568] p-2 shadow-xl",
+            "absolute left-0 top-0 w-[min(100%,20rem)] rounded-xl border border-white/20 bg-[#4a5568] p-2 shadow-xl",
             UI_LAYERS.popover,
           )}
         >

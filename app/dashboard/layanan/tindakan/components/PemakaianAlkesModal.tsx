@@ -2281,11 +2281,49 @@ export default function PemakaianAlkesModal({
       // 2. Sync resume + dokter/ruangan ke baris tindakan (jika ada tindakanId)
       if (tindakanId?.trim()) {
         try {
-          const tindakanPatch: Record<string, string | null> = {
+          const tindakanPatch: Record<string, string | null | boolean> = {
             pemakaian: resumeText,
           };
           if (dokter) tindakanPatch.dokter = dokter;
           if (ruangan) tindakanPatch.ruangan = ruangan;
+
+          // Reverse sync checklist obat → cek_* (no overwrite field klinis terisi)
+          try {
+            const curRes = await fetch(
+              `/api/tindakan/${encodeURIComponent(tindakanId.trim())}`,
+              { credentials: "include" },
+            );
+            const curJson = (await curRes.json().catch(() => ({}))) as {
+              ok?: boolean;
+              data?: Record<string, unknown>;
+            };
+            const current = curJson.data ?? {};
+            const {
+              applyPemakaianChecklistToCek,
+              CEK_OBAT_TEMPLATE_HEPARIN_ID,
+              CEK_OBAT_TEMPLATE_NTG_ID,
+            } = await import("@/lib/tindakan/cekObatPemakaianBridge");
+            const oa = templateInputBarangSaved.obatAlkes ?? {};
+            for (const kind of ["heparin", "ntg_cedocard"] as const) {
+              const rowId =
+                kind === "heparin"
+                  ? CEK_OBAT_TEMPLATE_HEPARIN_ID
+                  : CEK_OBAT_TEMPLATE_NTG_ID;
+              const slot = String(oa[rowId] ?? "");
+              const patch = applyPemakaianChecklistToCek({
+                kind,
+                slotValue: slot,
+                current,
+              });
+              if (patch) Object.assign(tindakanPatch, patch);
+            }
+          } catch (revErr) {
+            console.warn(
+              "[PemakaianAlkesModal] Reverse sync cek obat gagal:",
+              revErr,
+            );
+          }
+
           await fetch(
             `/api/tindakan/${encodeURIComponent(tindakanId.trim())}`,
             {

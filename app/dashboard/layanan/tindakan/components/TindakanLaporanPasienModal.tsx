@@ -51,6 +51,10 @@ const COLUMN_CATEGORIES = [
       { key: "temuan_pembuluh", label: "Temuan Pembuluh" },
       { key: "kesimpulan_laporan", label: "Kesimpulan Laporan" },
       { key: "plan_medis", label: "Plan Medis" },
+      { key: "cek_ntg_cedocard", label: "NTG / Cedocard" },
+      { key: "cek_heparin", label: "Heparin" },
+      { key: "cek_lain", label: "Lain" },
+      { key: "log_barang_klinis", label: "Log barang / obat" },
       { key: "status", label: "Status" },
     ]
   },
@@ -279,12 +283,48 @@ function ChecklistDropdown({
   );
 }
 
+const COLUMN_CATALOG_KEYS = COLUMN_CATEGORIES.flatMap((c) =>
+  c.columns.map((col) => col.key),
+).sort();
+
+const COLUMN_CATALOG_FINGERPRINT = COLUMN_CATALOG_KEYS.join("|");
+
+const LS_COLUMNS = "idik_laporan_pasien_columns";
+const LS_CATALOG = "idik_laporan_pasien_columns_catalog";
+
+function mergeVisibleColumnsWithCatalog(
+  saved: string[],
+): { columns: string[]; newlyAdded: string[] } {
+  const known = new Set(COLUMN_CATALOG_KEYS);
+  const pruned = saved.filter((k) => known.has(k));
+  let prevKeys: string[] = [];
+  try {
+    const raw = localStorage.getItem(LS_CATALOG);
+    if (raw) prevKeys = JSON.parse(raw);
+  } catch {
+    /* ignore */
+  }
+  if (!Array.isArray(prevKeys)) prevKeys = [];
+  const prevSet = new Set(prevKeys);
+  const newlyAdded = COLUMN_CATALOG_KEYS.filter((k) => !prevSet.has(k));
+  const next = [...pruned];
+  for (const k of newlyAdded) {
+    if (!next.includes(k)) next.push(k);
+  }
+  return { columns: next.length ? next : pruned, newlyAdded };
+}
+
 interface ColumnsDropdownProps {
   visibleColumns: string[];
   onChange: (columns: string[]) => void;
+  newlyAddedKeys?: string[];
 }
 
-function ColumnsDropdown({ visibleColumns, onChange }: ColumnsDropdownProps) {
+function ColumnsDropdown({
+  visibleColumns,
+  onChange,
+  newlyAddedKeys = [],
+}: ColumnsDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -314,7 +354,21 @@ function ColumnsDropdown({ visibleColumns, onChange }: ColumnsDropdownProps) {
         cols = ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "pembiayaan", "status"];
         break;
       case "klinis":
-        cols = ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "diagnosa", "severity_level", "temuan_pembuluh", "kesimpulan_laporan", "status"];
+        cols = [
+          "tanggal",
+          "no_rm",
+          "nama_pasien",
+          "dokter",
+          "tindakan",
+          "diagnosa",
+          "severity_level",
+          "temuan_pembuluh",
+          "kesimpulan_laporan",
+          "cek_ntg_cedocard",
+          "cek_heparin",
+          "cek_lain",
+          "status",
+        ];
         break;
       case "logistik":
         cols = ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "pemakaian", "pemakaian_stent", "pemakaian_balloon", "pemakaian_konsolidasi", "pemakaian_non_konsolidasi", "consumable_kelengkapan"];
@@ -431,6 +485,7 @@ function ColumnsDropdown({ visibleColumns, onChange }: ColumnsDropdownProps) {
                     <div className="space-y-0.5">
                       {cat.columns.map((col) => {
                         const isChecked = visibleColumns.includes(col.key);
+                        const isNew = newlyAddedKeys.includes(col.key);
                         return (
                           <button
                             key={col.key}
@@ -448,7 +503,12 @@ function ColumnsDropdown({ visibleColumns, onChange }: ColumnsDropdownProps) {
                             >
                               {isChecked && <Check size={10} strokeWidth={3} />}
                             </div>
-                            <span className="truncate" title={col.label}>{col.label}</span>
+                            <span className="min-w-0 flex-1 truncate" title={col.label}>{col.label}</span>
+                            {isNew ? (
+                              <span className="shrink-0 rounded bg-amber-100 px-1 py-0.5 text-[8px] font-black uppercase text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+                                Baru
+                              </span>
+                            ) : null}
                           </button>
                         );
                       })}
@@ -515,6 +575,10 @@ function getTabIdForColumnKey(key: string): WireframeTabId {
     case "temuan_pembuluh":
     case "kesimpulan_laporan":
     case "plan_medis":
+    case "cek_ntg_cedocard":
+    case "cek_heparin":
+    case "cek_lain":
+    case "log_barang_klinis":
       return "tindakan";
 
     case "ruangan":
@@ -604,23 +668,59 @@ export default function TindakanLaporanPasienModal({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  const [newlyAddedKeys, setNewlyAddedKeys] = useState<string[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
     if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("idik_laporan_pasien_columns");
+      const saved = localStorage.getItem(LS_COLUMNS);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        } catch (e) {
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const prevFp = localStorage.getItem(LS_CATALOG);
+            if (prevFp !== COLUMN_CATALOG_FINGERPRINT) {
+              const merged = mergeVisibleColumnsWithCatalog(parsed);
+              localStorage.setItem(
+                LS_CATALOG,
+                JSON.stringify(COLUMN_CATALOG_KEYS),
+              );
+              return merged.columns;
+            }
+            return parsed.filter((k: string) =>
+              COLUMN_CATALOG_KEYS.includes(k),
+            );
+          }
+        } catch {
           // ignore
         }
       }
+      localStorage.setItem(LS_CATALOG, JSON.stringify(COLUMN_CATALOG_KEYS));
     }
     return ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "pembiayaan", "status"];
   });
 
   useEffect(() => {
-    localStorage.setItem("idik_laporan_pasien_columns", JSON.stringify(visibleColumns));
+    if (typeof window === "undefined") return;
+    const saved = localStorage.getItem(LS_COLUMNS);
+    const prevFp = localStorage.getItem(LS_CATALOG);
+    if (prevFp !== COLUMN_CATALOG_FINGERPRINT && saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const merged = mergeVisibleColumnsWithCatalog(parsed);
+          setNewlyAddedKeys(merged.newlyAdded);
+          setVisibleColumns(merged.columns);
+          localStorage.setItem(LS_CATALOG, JSON.stringify(COLUMN_CATALOG_KEYS));
+        }
+      } catch {
+        localStorage.setItem(LS_CATALOG, JSON.stringify(COLUMN_CATALOG_KEYS));
+      }
+    } else if (!prevFp) {
+      localStorage.setItem(LS_CATALOG, JSON.stringify(COLUMN_CATALOG_KEYS));
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(LS_COLUMNS, JSON.stringify(visibleColumns));
   }, [visibleColumns]);
 
   const pasienLookup = useMemo(() => buildPasienReportLookup(pasienOptions), [pasienOptions]);
@@ -1159,6 +1259,7 @@ export default function TindakanLaporanPasienModal({
                   <ColumnsDropdown
                     visibleColumns={visibleColumns}
                     onChange={setVisibleColumns}
+                    newlyAddedKeys={newlyAddedKeys}
                   />
 
                   {/* Reset button */}

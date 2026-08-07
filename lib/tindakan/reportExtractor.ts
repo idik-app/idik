@@ -30,6 +30,11 @@ export interface ExtractedReportData {
   waktu?: string;
   cath?: string;
   ruangan?: string;
+  /** Cek obat dari teks PCI */
+  cek_heparin?: boolean;
+  cek_heparin_ket?: string;
+  cek_ntg_cedocard?: boolean;
+  cek_ntg_cedocard_ket?: string;
 }
 
 export const extractDataFromText = (text: string): ExtractedReportData => {
@@ -189,6 +194,33 @@ export const extractDataFromText = (text: string): ExtractedReportData => {
 
   const maMatch = text.match(/mA:\s*(\d+)/i);
   if (maMatch) data.ma = maMatch[1];
+
+  // 8. Cek obat (Heparin / NTG / Cedocard)
+  const heparinLine = lines.find((l) => /heparin/i.test(l));
+  if (heparinLine || /\bHEPARIN\b/.test(upper)) {
+    data.cek_heparin = true;
+    const dose =
+      heparinLine?.match(
+        /heparin[^0-9]*(\d[\d.,]*\s*(?:iu|u|unit|mg)?)/i,
+      )?.[1] ?? text.match(/heparin[^0-9]*(\d[\d.,]*\s*(?:iu|u|unit|mg)?)/i)?.[1];
+    if (dose) data.cek_heparin_ket = dose.trim();
+  }
+  const ntgLine = lines.find((l) =>
+    /(?:\bNTG\b|nitroglycerin|nitroglycerine|cedocard)/i.test(l),
+  );
+  if (
+    ntgLine ||
+    /\bNTG\b/.test(upper) ||
+    upper.includes("NITROGLYCERIN") ||
+    upper.includes("CEDOCARD")
+  ) {
+    data.cek_ntg_cedocard = true;
+    const dose =
+      ntgLine?.match(
+        /(?:NTG|nitroglycerin|nitroglycerine|cedocard)[^0-9]*(\d[\d.,]*\s*(?:mcg|µg|ug|mg|\/min)?)/i,
+      )?.[1];
+    if (dose) data.cek_ntg_cedocard_ket = dose.trim();
+  }
 
   return data;
 };

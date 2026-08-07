@@ -3,6 +3,10 @@ import * as XLSX from "xlsx";
 import type { TindakanJoinResult } from "../bridge/mapping.types";
 import { wrapReportHtmlDocument } from "./tindakanReportTemplates";
 import { displayNamaPasien, displayRm } from "./displayTindakanRow";
+import {
+  formatCekObatReportCell,
+  formatLogBarangReportCell,
+} from "@/lib/tindakan/cekObatPemakaianBridge";
 
 function escapeHtml(str: string): string {
   return str
@@ -109,6 +113,10 @@ export const ALL_COLUMNS_MAP: Record<string, string> = {
   temuan_pembuluh: "Temuan Pembuluh",
   kesimpulan_laporan: "Kesimpulan Laporan",
   plan_medis: "Plan Medis",
+  cek_ntg_cedocard: "NTG / Cedocard",
+  cek_heparin: "Heparin",
+  cek_lain: "Lain",
+  log_barang_klinis: "Log barang / obat",
   diagnosa: "Diagnosa Klinis",
   faktor_risiko: "Faktor Risiko",
   severity_level: "Severity Level",
@@ -216,6 +224,29 @@ export function formatPasienReportCell(row: TindakanJoinResult, key: string): st
       return row.kesimpulan_laporan || "—";
     case "plan_medis":
       return row.plan_medis || "—";
+    case "cek_ntg_cedocard":
+      return formatCekObatReportCell({
+        checked: Boolean(row.cek_ntg_cedocard),
+        ket: row.cek_ntg_cedocard_ket,
+        jam: row.cek_ntg_cedocard_jam,
+        oleh: row.cek_ntg_cedocard_oleh,
+      });
+    case "cek_heparin":
+      return formatCekObatReportCell({
+        checked: Boolean(row.cek_heparin),
+        ket: row.cek_heparin_ket,
+        jam: row.cek_heparin_jam,
+        oleh: row.cek_heparin_oleh,
+      });
+    case "cek_lain":
+      return formatCekObatReportCell({
+        checked: Boolean(row.cek_lain),
+        ket: row.cek_lain_ket,
+        jam: row.cek_lain_jam,
+        oleh: row.cek_lain_oleh,
+      });
+    case "log_barang_klinis":
+      return formatLogBarangReportCell(row.log_barang_klinis);
     case "diagnosa":
       return row.diagnosa || "—";
     case "faktor_risiko":

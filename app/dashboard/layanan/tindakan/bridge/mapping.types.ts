@@ -98,6 +98,22 @@ export interface TindakanJoinResult {
 
   accession_no?: string | null;
 
+  /** Cek obat klinis (tab Tindakan) */
+  cek_ntg_cedocard?: boolean | null;
+  cek_ntg_cedocard_ket?: string | null;
+  cek_ntg_cedocard_jam?: string | null;
+  cek_ntg_cedocard_oleh?: string | null;
+  cek_heparin?: boolean | null;
+  cek_heparin_ket?: string | null;
+  cek_heparin_jam?: string | null;
+  cek_heparin_oleh?: string | null;
+  cek_lain?: boolean | null;
+  cek_lain_ket?: string | null;
+  cek_lain_jam?: string | null;
+  cek_lain_oleh?: string | null;
+  /** Log barang/obat dinamis JSON */
+  log_barang_klinis?: unknown;
+
   /** Metadata audit dari API/DB (opsional, tab Resume) */
   created_at?: string | null;
   updated_at?: string | null;

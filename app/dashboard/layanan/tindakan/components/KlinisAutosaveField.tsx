@@ -221,12 +221,12 @@ export default function KlinisAutosaveField({
     [],
   );
 
-  const persist = async (draftNow: string, extraData?: Record<string, string | null>) => {
+  const persist = async (draftNow: string, extraData?: Record<string, string | null | boolean>) => {
     if (!extraData && draftsEqualToServer(draftNow, valueRef.current)) return;
     const payloadVal = normalizeForCompare(draftNow);
 
     // Gabungkan data dari input saat ini dengan data ekstraksi jika ada
-    const patchData: Record<string, string | null> = { 
+    const patchData: Record<string, string | null | boolean> = { 
       [field]: payloadVal,
       ...extraData 
     };
@@ -380,18 +380,29 @@ export default function KlinisAutosaveField({
       }
 
       // Hanya simpan data ekstraksi untuk field yang masih kosong di database
-      const filteredExtracted: Record<string, string | null> = {};
+      const filteredExtracted: Record<string, string | null | boolean> = {};
       for (const [key, val] of Object.entries(extracted)) {
         const currentVal = currentData[key];
-        const isEmpty =
-          currentVal === null ||
-          currentVal === undefined ||
-          String(currentVal).trim() === "" ||
-          String(currentVal).trim() === "—" ||
-          String(currentVal).trim() === "-";
+        const isCekBool =
+          key === "cek_heparin" ||
+          key === "cek_ntg_cedocard" ||
+          key === "cek_lain";
+        const isEmpty = isCekBool
+          ? currentVal === null ||
+            currentVal === undefined ||
+            currentVal === false ||
+            currentVal === 0 ||
+            String(currentVal) === "false" ||
+            String(currentVal) === "0" ||
+            String(currentVal).trim() === ""
+          : currentVal === null ||
+            currentVal === undefined ||
+            String(currentVal).trim() === "" ||
+            String(currentVal).trim() === "—" ||
+            String(currentVal).trim() === "-";
 
         if (isEmpty) {
-          filteredExtracted[key] = val as string | null;
+          filteredExtracted[key] = val as string | null | boolean;
         }
       }
 

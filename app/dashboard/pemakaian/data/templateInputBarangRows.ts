@@ -31,6 +31,7 @@ export const TEMPLATE_OBAT_ALKES: TemplateChecklistRow[] = [
     slots: 4,
   },
   { id: "oa-12", label: "Inviclot Heparin 5000 iu", slots: 1 },
+  { id: "oa-12b", label: "NTG / Cedocard", slots: 1 },
   { id: "oa-13", label: "Lidocain 2 %", slots: 1 },
   {
     id: "oa-14",

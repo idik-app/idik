@@ -3,6 +3,12 @@
  * (bigint id, nama, dokter teks, tanpa ruangan di DB lama).
  */
 
+import {
+  normalizeCekJam,
+  sanitizeLogBarangKlinis,
+  toBoolCek,
+} from "@/lib/tindakan/cekObatPemakaianBridge";
+
 export function toText(v: unknown): string | null {
   const s = String(v ?? "").trim();
   return s ? s : null;
@@ -140,9 +146,42 @@ export function finalizeTindakanPatchForSupabase(
     "status_keterangan",
     "kelas_pembiayaan",
     "accession_no",
+    "cek_ntg_cedocard",
+    "cek_ntg_cedocard_ket",
+    "cek_ntg_cedocard_jam",
+    "cek_ntg_cedocard_oleh",
+    "cek_heparin",
+    "cek_heparin_ket",
+    "cek_heparin_jam",
+    "cek_heparin_oleh",
+    "cek_lain",
+    "cek_lain_ket",
+    "cek_lain_jam",
+    "cek_lain_oleh",
+    "log_barang_klinis",
   ] as const) {
     if (sanitized[key] === undefined) continue;
     const v = sanitized[key];
+    if (
+      key === "cek_ntg_cedocard" ||
+      key === "cek_heparin" ||
+      key === "cek_lain"
+    ) {
+      db[key] = toBoolCek(v);
+      continue;
+    }
+    if (
+      key === "cek_ntg_cedocard_jam" ||
+      key === "cek_heparin_jam" ||
+      key === "cek_lain_jam"
+    ) {
+      db[key] = normalizeCekJam(v);
+      continue;
+    }
+    if (key === "log_barang_klinis") {
+      db[key] = sanitizeLogBarangKlinis(v);
+      continue;
+    }
     db[key] = v === "" ? null : v;
   }
 
@@ -237,5 +276,18 @@ export function mapTindakanRowToApiDetail(data: Record<string, unknown>) {
     status_keterangan: toText(data.status_keterangan),
     kelas_pembiayaan: toText(data.kelas_pembiayaan),
     accession_no: toText(data.accession_no),
+    cek_ntg_cedocard: toBoolCek(data.cek_ntg_cedocard),
+    cek_ntg_cedocard_ket: toText(data.cek_ntg_cedocard_ket),
+    cek_ntg_cedocard_jam: normalizeCekJam(data.cek_ntg_cedocard_jam),
+    cek_ntg_cedocard_oleh: toText(data.cek_ntg_cedocard_oleh),
+    cek_heparin: toBoolCek(data.cek_heparin),
+    cek_heparin_ket: toText(data.cek_heparin_ket),
+    cek_heparin_jam: normalizeCekJam(data.cek_heparin_jam),
+    cek_heparin_oleh: toText(data.cek_heparin_oleh),
+    cek_lain: toBoolCek(data.cek_lain),
+    cek_lain_ket: toText(data.cek_lain_ket),
+    cek_lain_jam: normalizeCekJam(data.cek_lain_jam),
+    cek_lain_oleh: toText(data.cek_lain_oleh),
+    log_barang_klinis: sanitizeLogBarangKlinis(data.log_barang_klinis),
   };
 }

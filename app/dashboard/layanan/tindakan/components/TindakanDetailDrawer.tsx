@@ -63,6 +63,8 @@ import RsPerujukField from "./RsPerujukField";
 import RuanganTindakanField from "./RuanganTindakanField";
 import StatusTindakanField from "./StatusTindakanField";
 import SignTimeFields from "./SignTimeFields";
+import CekObatTindakanFields from "./CekObatTindakanFields";
+import LogBarangKlinisFields from "./LogBarangKlinisFields";
 import TindakanTanggalDrawerField from "./TindakanTanggalDrawerField";
 import { buildResumeWhatsAppText } from "../lib/buildResumeWhatsAppText";
 import { toast } from "sonner";
@@ -1593,7 +1595,9 @@ function TindakanDetailDrawer({
                                     ? "sm:grid-cols-4"
                                     : def.id === "biaya"
                                       ? "sm:grid-cols-3 sm:grid-rows-3"
-                                      : "sm:grid-cols-3",
+                                      : def.id === "tindakan"
+                                        ? "sm:grid-cols-2 lg:grid-cols-3"
+                                        : "sm:grid-cols-3",
                                 )}
                               >
                                 {def.fields.map((key) => {
@@ -1716,7 +1720,16 @@ function TindakanDetailDrawer({
                                           "border-[#9AA8B8]/80 bg-[#B8C5D3]",
                                         def.id === "tindakan" &&
                                           key === "kategori" &&
-                                          "sm:col-span-3",
+                                          "sm:col-span-2 lg:col-span-3",
+                                        def.id === "tindakan" &&
+                                          key === "tindakan" &&
+                                          "sm:col-span-1 lg:col-span-2",
+                                        def.id === "tindakan" &&
+                                          key === "plan_medis" &&
+                                          "sm:col-span-2 lg:col-span-3",
+                                        def.id === "tindakan" &&
+                                          key === "kesimpulan_laporan" &&
+                                          "sm:col-span-2 lg:col-span-1",
                                         def.id === "biaya" &&
                                           biayaDrawerCardGridClass(key),
                                       )}
@@ -1970,6 +1983,71 @@ function TindakanDetailDrawer({
                                   );
                                 })}
                               </dl>
+                              {def.id === "tindakan" && (
+                                <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                                  <CekObatTindakanFields
+                                    tindakanId={String(
+                                      displayRecord.id ?? "",
+                                    ).trim()}
+                                    values={{
+                                      cek_ntg_cedocard:
+                                        displayRecord.cek_ntg_cedocard,
+                                      cek_ntg_cedocard_ket:
+                                        displayRecord.cek_ntg_cedocard_ket,
+                                      cek_ntg_cedocard_jam:
+                                        displayRecord.cek_ntg_cedocard_jam,
+                                      cek_ntg_cedocard_oleh:
+                                        displayRecord.cek_ntg_cedocard_oleh,
+                                      cek_heparin: displayRecord.cek_heparin,
+                                      cek_heparin_ket:
+                                        displayRecord.cek_heparin_ket,
+                                      cek_heparin_jam:
+                                        displayRecord.cek_heparin_jam,
+                                      cek_heparin_oleh:
+                                        displayRecord.cek_heparin_oleh,
+                                      cek_lain: displayRecord.cek_lain,
+                                      cek_lain_ket: displayRecord.cek_lain_ket,
+                                      cek_lain_jam: displayRecord.cek_lain_jam,
+                                      cek_lain_oleh:
+                                        displayRecord.cek_lain_oleh,
+                                    }}
+                                    patchExecutor={
+                                      patchTindakanFields
+                                        ? (body) =>
+                                            patchTindakanFields(
+                                              String(displayRecord.id ?? ""),
+                                              body,
+                                            )
+                                        : undefined
+                                    }
+                                    onSaved={
+                                      patchTindakanFields
+                                        ? undefined
+                                        : handleRecordPatch
+                                    }
+                                  />
+                                  <LogBarangKlinisFields
+                                    tindakanId={String(
+                                      displayRecord.id ?? "",
+                                    ).trim()}
+                                    value={displayRecord.log_barang_klinis}
+                                    patchExecutor={
+                                      patchTindakanFields
+                                        ? (body) =>
+                                            patchTindakanFields(
+                                              String(displayRecord.id ?? ""),
+                                              body,
+                                            )
+                                        : undefined
+                                    }
+                                    onSaved={
+                                      patchTindakanFields
+                                        ? undefined
+                                        : handleRecordPatch
+                                    }
+                                  />
+                                </div>
+                              )}
                               {def.id === "tindakan" && (
                                 <div className="mt-4 rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none">
                                   <SignTimeFields

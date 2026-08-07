@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guards";
+import { requireAgentToken } from "@/lib/simrs/botJobs";
 
 export const dynamic = "force-dynamic";
 
@@ -38,14 +39,17 @@ export async function GET() {
   );
 }
 
-/** POST — bot meng-update status (perlu session). */
+/** POST — bot meng-update status (session user ATAU agent token). */
 export async function POST(request: Request) {
   if (process.env.NEXT_PUBLIC_SIMRS_BOT_STATUS === "0") {
     return NextResponse.json({ ok: true, disabled: true });
   }
 
-  const user = await requireUser();
-  if (!user.ok) return user.response;
+  const agentOk = requireAgentToken(request);
+  if (!agentOk) {
+    const user = await requireUser();
+    if (!user.ok) return user.response;
+  }
 
   let body: Partial<BotStatus> = {};
   try {

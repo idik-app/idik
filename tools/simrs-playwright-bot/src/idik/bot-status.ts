@@ -28,6 +28,9 @@ export async function postBotStatus(
       "Content-Type": "application/json",
     };
     if (session?.cookieHeader) headers.Cookie = session.cookieHeader;
+    if (config.agentToken) {
+      headers.Authorization = `Bearer ${config.agentToken}`;
+    }
     await fetch(`${config.idikBaseUrl}/api/system/simrs-bot-status`, {
       method: "POST",
       headers,

@@ -22,18 +22,26 @@ export type LihatRekamMedisOptions = {
   holdMs?: number;
 };
 
+export type LihatRekamMedisResult = {
+  menu: string;
+  submenus: { label: string; dangerous: boolean }[];
+  screenshot: string;
+};
+
 /**
  * Open SIMRS (headed), login/session, open Rekam Medis dropdown,
  * log immediate submenus + screenshot. Does not crawl or click dangerous items.
  */
-export async function runLihatRekamMedis(opts: LihatRekamMedisOptions = {}) {
+export async function runLihatRekamMedis(
+  opts: LihatRekamMedisOptions = {},
+): Promise<LihatRekamMedisResult | null> {
   const holdMs = opts.holdMs ?? HOLD_MS;
 
   const pf = await runPreflight({ skipIdik: true });
   printPreflight(pf);
   if (!pf.simrsWeb.ok) {
     process.exitCode = 1;
-    return;
+    return null;
   }
 
   await ensureSimrsSession();
@@ -70,9 +78,13 @@ export async function runLihatRekamMedis(opts: LihatRekamMedisOptions = {}) {
     console.log(`Membuka menu: ${menuText || MENU_LABEL}`);
 
     const subs = await listImmediateSubmenus(page, menu);
+    const submenus = subs.map((s) => ({
+      label: s.label,
+      dangerous: isDangerousLabel(s.label),
+    }));
     console.log(`Submenu langsung (${subs.length}):`);
-    for (const s of subs) {
-      const flag = isDangerousLabel(s.label) ? " [skip-dangerous]" : "";
+    for (const s of submenus) {
+      const flag = s.dangerous ? " [skip-dangerous]" : "";
       console.log(`  - ${s.label}${flag}`);
     }
     if (subs.length === 0) {
@@ -90,6 +102,12 @@ export async function runLihatRekamMedis(opts: LihatRekamMedisOptions = {}) {
       `Browser tetap terbuka ${Math.round(holdMs / 1000)}s (Ctrl+C untuk keluar)...`,
     );
     await sleep(holdMs);
+
+    return {
+      menu: menuText || MENU_LABEL,
+      submenus,
+      screenshot: shot,
+    };
   } finally {
     await browser.close();
   }

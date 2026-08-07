@@ -26,6 +26,7 @@
     "bot:simrs:add": "npm --prefix tools/simrs-playwright-bot run add-pasien --",
     "bot:simrs:explore": "npm --prefix tools/simrs-playwright-bot run explore --",
     "bot:simrs:lihat-rm": "npm --prefix tools/simrs-playwright-bot run lihat-rekam-medis --",
+    "bot:simrs:agent": "npm --prefix tools/simrs-playwright-bot run agent --",
     "bot:simrs:fill-empty": "npm --prefix tools/simrs-playwright-bot run fill-empty --",
     "bot:simrs:login-idik": "npm --prefix tools/simrs-playwright-bot run login-idik",
     "bot:simrs:login-simrs": "npm --prefix tools/simrs-playwright-bot run login-simrs"

@@ -5,7 +5,8 @@ Bot di PC **jaringan RS** untuk:
 1. **MVP cepat:** `getPasien` (HTTP) → isi master pasien idik via API (`--write`), fallback UI Playwright (`--ui`)
 2. **Explore SIMRS web:** login → jelajahi menu sampai submenu terkecil (read-only) → `artifacts/simrs-menu-map.json`
 3. **Lihat Rekam Medis:** buka Chromium (headed) → login → buka dropdown Rekam Medis → log submenu + screenshot
-4. **Fill-empty (lanjutan):** PATCH field kosong tindakan yang aman dari getPasien
+4. **Agen poll (1 perintah):** dengar antrian dari tombol **Bot Rekam Medis** di halaman Tindakan
+5. **Fill-empty (lanjutan):** PATCH field kosong tindakan yang aman dari getPasien
 
 ## Prasyarat
 
@@ -35,15 +36,37 @@ Checklist tunnel HTTPS + env Vercel: lihat dokumen di atas.
 ```powershell
 cd tools/simrs-playwright-bot
 copy .env.example .env
-# isi IDIK_USER, IDIK_PASS, SIMRS_WEB_USER, SIMRS_WEB_PASS
+# isi SIMRS_WEB_USER, SIMRS_WEB_PASS
+# isi IDIK_BASE_URL=https://idik-lemon.vercel.app
+# isi SIMRS_BOT_AGENT_TOKEN=... (sama dengan env Vercel)
 npm install
 npm run playwright:install
 ```
+
+Di Vercel / `.env.local` app: set env yang sama `SIMRS_BOT_AGENT_TOKEN`, lalu jalankan migration `simrs_bot_jobs`.
 
 Di luar LAN, uji mapping dengan mock:
 
 ```env
 SIMRS_GET_PASIEN_MOCK=fixtures/getPasien-929331.json
+```
+
+## Agen + tombol UI (satu perintah di PC RS)
+
+1. Di PC jaringan RS, jalankan **sekali** (biarkan terbuka):
+
+```powershell
+# dari root repo
+npm run bot:simrs:agent
+```
+
+2. Di dashboard Tindakan (`/dashboard/layanan/tindakan`) klik **Bot Rekam Medis**.
+3. Agen claim job → buka Chromium headed → login SIMRS → buka menu Rekam Medis.
+
+Uji satu siklus lalu keluar:
+
+```powershell
+npm run bot:simrs:agent -- --once
 ```
 
 ## Perintah
@@ -84,6 +107,7 @@ npm run bot:simrs:preflight
 npm run bot:simrs:add -- --norm 929331
 npm run bot:simrs:login-simrs
 npm run bot:simrs:lihat-rm
+npm run bot:simrs:agent
 npm run bot:simrs:explore
 ```
 

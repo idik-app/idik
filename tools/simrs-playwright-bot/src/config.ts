@@ -35,6 +35,9 @@ export const config = {
   idikBaseUrl: env("IDIK_BASE_URL", "http://localhost:3000").replace(/\/$/, ""),
   idikUser: env("IDIK_USER"),
   idikPass: env("IDIK_PASS"),
+  /** Shared secret for claim/patch job queue on idik API. */
+  agentToken: env("SIMRS_BOT_AGENT_TOKEN"),
+  agentPollMs: envInt("SIMRS_BOT_AGENT_POLL_MS", 5000),
   headless: envBool("HEADLESS", true),
   defaultJenisPembiayaan: env("IDIK_DEFAULT_JENIS_PEMBIAYAAN", "Umum"),
   defaultKelasPerawatan: env("IDIK_DEFAULT_KELAS_PERAWATAN", "Kelas 3"),

@@ -4,38 +4,48 @@ import { isDangerousLabel } from "./dangerous.js";
 
 const EXT_GEN = /^ext-gen\d+$/i;
 
-/** Injected as string so tsx/esbuild cannot inject `__name` into page.evaluate. */
+/**
+ * Injected as string so tsx/esbuild cannot inject `__name` into page.evaluate.
+ * Soft listener: record coords only — do not preventDefault (breaks ExtJS).
+ */
 const TEACH_INJECT_CLICK = `(() => {
   window.__idikTeach = undefined;
   const handler = (ev) => {
-    ev.preventDefault();
-    ev.stopPropagation();
+    if (ev.button !== 0) return;
     window.__idikTeach = { x: ev.clientX, y: ev.clientY };
     document.removeEventListener("click", handler, true);
   };
   document.addEventListener("click", handler, true);
 })()`;
 
-const TEACH_READ_POINT = `(() => window.__idikTeach)()`;
+const TEACH_READ_POINT = `(() => window.__idikTeach || null)()`;
 
-const BUILD_STABLE_FROM_NODE = `(node) => {
-  const e = node;
-  const tag = e.tagName.toLowerCase();
+const TEACH_CLEAR_POINT = `(() => { window.__idikTeach = undefined; })()`;
+
+/**
+ * Invoked via owner.evaluate(fn, elHandle) so Playwright passes the element as arg1
+ * and actually calls the function (string ElementHandle.evaluate often returns undefined).
+ */
+const BUILD_STABLE_FROM_EL = `(el) => {
+  if (!el) return null;
+  const e = el;
+  const tag = (e.tagName || "").toLowerCase();
+  if (!tag) return null;
   const id = e.id || "";
-  const name = (e.getAttribute("name") || "").trim();
-  const aria = (e.getAttribute("aria-label") || "").trim();
-  const placeholder = (e.getAttribute("placeholder") || "").trim();
-  const type = (e.getAttribute("type") || "").trim();
+  const name = (e.getAttribute && e.getAttribute("name") || "").trim();
+  const aria = (e.getAttribute && e.getAttribute("aria-label") || "").trim();
+  const placeholder = (e.getAttribute && e.getAttribute("placeholder") || "").trim();
+  const type = (e.getAttribute && e.getAttribute("type") || "").trim();
   let label = "";
   if (aria) label = aria;
   else if (placeholder) label = placeholder;
   else {
     const idFor = id
-      ? document.querySelector('label[for="' + id.replace(/"/g, "") + '"]')
+      ? document.querySelector('label[for="' + String(id).replace(/"/g, "") + '"]')
       : null;
     if (idFor) label = (idFor.textContent || "").trim();
     else {
-      const parentLabel = e.closest("label");
+      const parentLabel = e.closest && e.closest("label");
       if (parentLabel) label = (parentLabel.textContent || "").trim();
       else {
         const prev = e.previousElementSibling;
@@ -46,14 +56,25 @@ const BUILD_STABLE_FROM_NODE = `(node) => {
     }
   }
   let value = "";
-  if (e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement) {
+  const tagU = e.tagName;
+  if (tagU === "INPUT" || tagU === "TEXTAREA") {
     value = e.value || "";
-  } else if (e instanceof HTMLSelectElement) {
-    value = e.value || (e.options[e.selectedIndex] && e.options[e.selectedIndex].text) || "";
+  } else if (tagU === "SELECT") {
+    const opt = e.options && e.options[e.selectedIndex];
+    value = e.value || (opt && opt.text) || "";
   } else {
     value = (e.textContent || "").trim().slice(0, 120);
   }
-  return { tag: tag, id: id, name: name, aria: aria, placeholder: placeholder, type: type, label: label, value: value };
+  return {
+    tag: tag,
+    id: id,
+    name: name,
+    aria: aria,
+    placeholder: placeholder,
+    type: type,
+    label: label,
+    value: value,
+  };
 }`;
 
 type StableMeta = {
@@ -69,10 +90,20 @@ type StableMeta = {
 
 /** Prefer stable selector attributes; never ext-gen*. */
 export async function buildStableSelector(
+  owner: Page | Frame,
   el: ElementHandle<Element>,
 ): Promise<{ selector: string; label: string; value: string }> {
-  // String pageFunction avoids tsx `__name` helper leaking into browser.
-  const data = (await el.evaluate(BUILD_STABLE_FROM_NODE)) as StableMeta;
+  // page/frame.evaluate(string, handle) reliably invokes fn with the element arg.
+  const data = (await owner.evaluate(
+    BUILD_STABLE_FROM_EL,
+    el,
+  )) as StableMeta | null;
+
+  if (!data || typeof data !== "object" || !data.tag) {
+    throw new Error(
+      "gagal baca elemen dari klik — coba klik ulang pada teks/nilai field (bukan area kosong)",
+    );
+  }
 
   let selector = "";
   if (data.name) {
@@ -93,7 +124,7 @@ export async function buildStableSelector(
   return {
     selector,
     label: data.label || data.name || data.aria || data.placeholder || data.tag,
-    value: data.value,
+    value: data.value || "",
   };
 }
 
@@ -133,10 +164,13 @@ export async function waitForTeachClick(
     for (const ctx of contexts) {
       const point = (await ctx
         .evaluate(TEACH_READ_POINT)
-        .catch(() => undefined)) as { x: number; y: number } | undefined;
+        .catch(() => undefined)) as { x: number; y: number } | null | undefined;
       if (!point || typeof point.x !== "number" || typeof point.y !== "number") {
         continue;
       }
+
+      // Clear before processing so we don't reprocess the same click.
+      await ctx.evaluate(TEACH_CLEAR_POINT).catch(() => undefined);
 
       // String evaluate avoids __name; serialize coords into expression.
       const handle = await ctx
@@ -152,16 +186,20 @@ export async function waitForTeachClick(
         continue;
       }
 
-      const built = await buildStableSelector(el);
-      if (isDangerousTeachTarget(built.label, built.value)) {
-        throw new Error(
-          `Elemen berbahaya tidak boleh diajar: ${built.label}. Pilih field input, bukan Simpan/Hapus.`,
+      try {
+        const built = await buildStableSelector(ctx, el);
+        if (isDangerousTeachTarget(built.label, built.value)) {
+          throw new Error(
+            `Elemen berbahaya tidak boleh diajar: ${built.label}. Pilih field input, bukan Simpan/Hapus.`,
+          );
+        }
+        console.log(
+          `[teach] terekam label="${built.label}" selector=${built.selector} value=${built.value.slice(0, 40)}`,
         );
+        return built;
+      } finally {
+        await el.dispose().catch(() => undefined);
       }
-      console.log(
-        `[teach] terekam label="${built.label}" selector=${built.selector} value=${built.value.slice(0, 40)}`,
-      );
-      return built;
     }
     await sleep(200);
   }

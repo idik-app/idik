@@ -173,16 +173,28 @@ export async function runSimrsRecipe(
     if (opts.mode === "teach_element") {
       steps = mark(steps, "wait_click", "running");
       await emit(steps, opts.onSteps, "wait_click");
-      const taught = await waitForTeachClick(page, { timeoutMs: 180_000 });
-      steps = mark(steps, "wait_click", "done");
-      steps = mark(steps, "save_selector", "done");
-      await emit(steps, opts.onSteps, "save_selector");
-      return {
-        selector: taught.selector,
-        label: taught.label,
-        value: taught.value,
-        steps,
-      };
+      try {
+        const taught = await waitForTeachClick(page, { timeoutMs: 180_000 });
+        steps = mark(steps, "wait_click", "done");
+        steps = mark(steps, "save_selector", "done");
+        await emit(steps, opts.onSteps, "save_selector");
+        return {
+          selector: taught.selector,
+          label: taught.label,
+          value: taught.value,
+          steps,
+        };
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        steps = mark(steps, "wait_click", "error", msg);
+        await emit(steps, opts.onSteps, "wait_click");
+        console.error("[teach] gagal:", msg);
+        console.log(
+          "[teach] Browser SIMRS tetap terbuka 12s agar Anda bisa baca error…",
+        );
+        await sleep(12_000);
+        throw e;
+      }
     }
 
     // tulis

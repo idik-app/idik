@@ -128,6 +128,13 @@ async function waitTeachAction(
     status: "running",
     payload: { ...basePayload },
   });
+  await postBotStatus(null, {
+    state: "running",
+    job_id: jobId,
+    norm: "teach_decide",
+    steps: info.steps as never,
+    heartbeat: true,
+  });
 
   const deadline = Date.now() + 10 * 60_000;
   while (Date.now() < deadline) {
@@ -142,8 +149,8 @@ async function waitTeachAction(
     ) {
       Object.assign(basePayload, payload, {
         teach_action: null,
-        teach_pending:
-          action === "finish" || action === "cancel" ? null : payload.teach_pending,
+        // Clear pending so checklist hides Tambah/Selesai until next click
+        teach_pending: null,
       });
       await patchJob(jobId, {
         payload: { ...basePayload },
@@ -180,8 +187,14 @@ async function runOneJob(job: JobRow): Promise<void> {
   const livePayload: Record<string, unknown> = { ...payload };
   const syncSteps = async (steps: unknown[]) => {
     livePayload.steps = steps;
+    // Jangan hapus teach_pending / teach_action saat sync progress steps
     await patchJob(job.id, {
-      payload: { ...livePayload, steps },
+      payload: {
+        ...livePayload,
+        steps,
+        teach_pending: livePayload.teach_pending ?? null,
+        teach_action: livePayload.teach_action ?? null,
+      },
     });
     await postBotStatus(null, {
       state: "running",
@@ -274,7 +287,8 @@ async function runOneJob(job: JobRow): Promise<void> {
           taughtSteps,
         },
       });
-    } else if (job.action === "isi_field_dari_simrs") {      const recipe = String(payload.recipe || "erm_ri_perawat");
+    } else if (job.action === "isi_field_dari_simrs") {
+      const recipe = String(payload.recipe || "erm_ri_perawat");
       const fieldKey = String(payload.field_key || "");
       let selector =
         typeof payload.simrs_selector === "string"

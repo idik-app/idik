@@ -22,9 +22,9 @@ const TEACH_READ_POINT = `(() => window.__idikTeach || null)()`;
 
 const TEACH_CLEAR_POINT = `(() => { window.__idikTeach = undefined; })()`;
 
-/** Resolve a meaningful element from click coords (walk-up + offsets). */
+/** Resolve a meaningful element from click coords (walk-up + offsets + caret). */
 const RESOLVE_FROM_POINT = `(x, y) => {
-  const offsets = [[0,0],[0,-2],[0,2],[-2,0],[2,0],[0,-4],[0,4]];
+  const offsets = [[0,0],[0,-2],[0,2],[-2,0],[2,0],[0,-4],[0,4],[-6,0],[6,0],[0,-8],[0,8]];
   const looksUseful = (node) => {
     if (!node || !node.tagName) return false;
     const tag = node.tagName.toLowerCase();
@@ -32,19 +32,23 @@ const RESOLVE_FROM_POINT = `(x, y) => {
     if (/^(input|textarea|select|button|a)$/i.test(tag)) return true;
     if (tag === "td" || tag === "th") return true;
     if (node.getAttribute && node.getAttribute("role") === "gridcell") return true;
-    const t = (node.innerText || node.textContent || "").trim();
-    if (t && t.length <= 80) return true;
+    const cls = (node.className && String(node.className)) || "";
+    if (/x-grid3-cell|x-grid-cell|gridcell|x-form-field/i.test(cls)) return true;
+    const t = (node.innerText || node.textContent || "").replace(/\\s+/g, " ").trim();
+    if (t && t.length > 0 && t.length <= 120) return true;
     return false;
   };
   const climb = (start) => {
     let cur = start;
     let best = null;
-    for (let i = 0; i < 12 && cur; i++) {
+    for (let i = 0; i < 16 && cur; i++) {
       if (looksUseful(cur)) {
         best = cur;
         const tag = cur.tagName.toLowerCase();
         if (/^(input|textarea|select|button|a|td|th)$/i.test(tag)) return cur;
         if (cur.getAttribute && cur.getAttribute("role") === "gridcell") return cur;
+        const cls = (cur.className && String(cur.className)) || "";
+        if (/x-grid3-cell|x-grid-cell/i.test(cls)) return cur;
       }
       cur = cur.parentElement;
     }
@@ -56,6 +60,28 @@ const RESOLVE_FROM_POINT = `(x, y) => {
     const resolved = climb(hit);
     if (resolved && looksUseful(resolved)) return resolved;
   }
+  // caret / selection fallback (highlight teks angka)
+  try {
+    const doc = document;
+    const caret =
+      (doc.caretRangeFromPoint && doc.caretRangeFromPoint(x, y)) ||
+      (doc.caretPositionFromPoint && doc.caretPositionFromPoint(x, y));
+    let node = null;
+    if (caret) {
+      if (caret.startContainer) node = caret.startContainer;
+      else if (caret.offsetNode) node = caret.offsetNode;
+    }
+    if (!node && doc.getSelection && doc.getSelection().anchorNode) {
+      node = doc.getSelection().anchorNode;
+    }
+    if (node) {
+      const el = node.nodeType === 3 ? node.parentElement : node;
+      if (el) {
+        const resolved = climb(el);
+        if (resolved && looksUseful(resolved)) return resolved;
+      }
+    }
+  } catch (e) { /* ignore */ }
   const base = document.elementFromPoint(x, y);
   return base ? climb(base) : null;
 }`;
@@ -166,6 +192,17 @@ const BUILD_STABLE_FROM_EL = `(el) => {
   };
 }`;
 
+/** Build TaughtClick meta from coords in one page.evaluate (hindari ElementHandle). */
+const BUILD_FROM_POINT = `(x, y) => {
+  const resolve = ${RESOLVE_FROM_POINT};
+  const el = resolve(x, y);
+  if (!el) return { ok: false, reason: "tidak ada elemen di titik klik" };
+  const buildFn = ${BUILD_STABLE_FROM_EL};
+  const data = buildFn(el);
+  if (!data || !data.tag) return { ok: false, reason: "gagal baca tag elemen" };
+  return { ok: true, data: data };
+}`;
+
 type StableMeta = {
   tag: string;
   id: string;
@@ -188,6 +225,40 @@ export type TaughtClick = {
   isInput: boolean;
 };
 
+function metaToTaught(data: StableMeta): TaughtClick {
+  let selector = "";
+  if (data.tablecell?.row && data.tablecell?.col) {
+    selector = `tablecell:${data.tablecell.row}|${data.tablecell.col}`;
+  } else if (data.name) {
+    selector = `${data.tag}[name=${JSON.stringify(data.name)}]`;
+  } else if (data.id && !EXT_GEN.test(data.id)) {
+    selector = `#${data.id.replace(/(:|\.|\[|\]|,|=)/g, "\\$1")}`;
+  } else if (data.aria) {
+    selector = `${data.tag}[aria-label=${JSON.stringify(data.aria)}]`;
+  } else if (data.placeholder) {
+    selector = `${data.tag}[placeholder=${JSON.stringify(data.placeholder)}]`;
+  } else if (data.label && data.label.length <= 60) {
+    selector = `label:${data.label}`;
+  } else if (data.shortText) {
+    selector = `text:${data.shortText}`;
+  } else {
+    selector = data.tag;
+  }
+
+  return {
+    selector,
+    label:
+      data.label ||
+      data.name ||
+      data.aria ||
+      data.placeholder ||
+      data.shortText ||
+      data.tag,
+    value: data.value || "",
+    isInput: Boolean(data.isInput),
+  };
+}
+
 /** Prefer stable selector attributes; never ext-gen*. */
 export async function buildStableSelector(
   owner: Page | Frame,
@@ -203,35 +274,7 @@ export async function buildStableSelector(
       "gagal baca elemen dari klik — coba klik ulang pada teks/nilai field (bukan area kosong)",
     );
   }
-
-  let selector = "";
-  if (data.tablecell?.row && data.tablecell?.col) {
-    selector = `tablecell:${data.tablecell.row}|${data.tablecell.col}`;
-  } else if (data.name) {
-    selector = `${data.tag}[name=${JSON.stringify(data.name)}]`;
-  } else if (data.id && !EXT_GEN.test(data.id)) {
-    selector = `#${data.id.replace(/(:|\.|\[|\]|,|=)/g, "\\$1")}`;
-  } else if (data.aria) {
-    selector = `${data.tag}[aria-label=${JSON.stringify(data.aria)}]`;
-  } else if (data.placeholder) {
-    selector = `${data.tag}[placeholder=${JSON.stringify(data.placeholder)}]`;
-  } else if (data.label && data.label.length <= 60) {
-    selector = `label:${data.label}`;
-  } else if (data.shortText && !/^[\\d.\\s]+$/.test(data.shortText)) {
-    // Prefer visible text for menus/buttons (not pure numbers)
-    selector = `text:${data.shortText}`;
-  } else if (data.shortText) {
-    selector = `text:${data.shortText}`;
-  } else {
-    selector = data.tag;
-  }
-
-  return {
-    selector,
-    label: data.label || data.name || data.aria || data.placeholder || data.shortText || data.tag,
-    value: data.value || "",
-    isInput: Boolean(data.isInput),
-  };
+  return metaToTaught(data);
 }
 
 const DANGEROUS_CLICK =
@@ -243,24 +286,31 @@ export function isDangerousTeachTarget(label: string, text: string): boolean {
   return DANGEROUS_CLICK.test(blob);
 }
 
+async function reinjectAll(page: Page) {
+  await page.evaluate(TEACH_INJECT_CLICK).catch(() => undefined);
+  for (const frame of page.frames()) {
+    if (frame === page.mainFrame()) continue;
+    await frame.evaluate(TEACH_INJECT_CLICK).catch(() => undefined);
+  }
+}
+
 /**
  * Wait for a single left-click on page (or frames). Uses DOM hit-test — no Inspect.
  * Soft-fails on unreadable clicks and keeps waiting for another click.
  */
 export async function waitForTeachClick(
   page: Page,
-  opts?: { timeoutMs?: number },
+  opts?: {
+    timeoutMs?: number;
+    onMiss?: (reason: string) => void | Promise<void>;
+  },
 ): Promise<TaughtClick> {
   const timeoutMs = opts?.timeoutMs ?? 180_000;
   console.log(
-    "[teach] Klik KIRI sekali pada elemen di SIMRS (klik kanan tidak perlu)…",
+    "[teach] Klik KIRI sekali pada elemen di window SIMRS agen…",
   );
 
-  await page.evaluate(TEACH_INJECT_CLICK);
-  for (const frame of page.frames()) {
-    if (frame === page.mainFrame()) continue;
-    await frame.evaluate(TEACH_INJECT_CLICK).catch(() => undefined);
-  }
+  await reinjectAll(page);
 
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -277,31 +327,31 @@ export async function waitForTeachClick(
 
       const x = Number(point.x);
       const y = Number(point.y);
-      const handle = await ctx
-        .evaluateHandle(
-          `(() => { const resolve = ${RESOLVE_FROM_POINT}; return resolve(${x}, ${y}); })()`,
-        )
-        .catch(() => null);
+      const result = (await ctx
+        .evaluate(`((x, y) => { const fn = ${BUILD_FROM_POINT}; return fn(x, y); })(${x}, ${y})`)
+        .catch(() => null)) as
+        | { ok: true; data: StableMeta }
+        | { ok: false; reason: string }
+        | null;
 
-      if (!handle) {
-        // Re-arm listener after a bad hit
-        await ctx.evaluate(TEACH_INJECT_CLICK).catch(() => undefined);
-        continue;
-      }
-      const el = handle.asElement() as ElementHandle<Element> | null;
-      if (!el) {
-        await handle.dispose().catch(() => undefined);
-        await ctx.evaluate(TEACH_INJECT_CLICK).catch(() => undefined);
+      if (!result || !result.ok) {
+        const reason =
+          result && !result.ok
+            ? result.reason
+            : "klik ulang pada teks/nilai (bukan area kosong)";
+        console.warn(`[teach] miss: ${reason}`);
+        if (opts?.onMiss) await opts.onMiss(reason);
+        await reinjectAll(page);
         continue;
       }
 
       try {
-        const built = await buildStableSelector(ctx, el);
+        const built = metaToTaught(result.data);
         if (isDangerousTeachTarget(built.label, built.value)) {
-          console.warn(
-            `[teach] elemen berbahaya diabaikan: ${built.label} — klik ulang`,
-          );
-          await ctx.evaluate(TEACH_INJECT_CLICK).catch(() => undefined);
+          const reason = `elemen berbahaya: ${built.label}`;
+          console.warn(`[teach] ${reason}`);
+          if (opts?.onMiss) await opts.onMiss(reason);
+          await reinjectAll(page);
           continue;
         }
         console.log(
@@ -310,10 +360,9 @@ export async function waitForTeachClick(
         return built;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
-        console.warn(`[teach] ${msg} — menunggu klik ulang`);
-        await ctx.evaluate(TEACH_INJECT_CLICK).catch(() => undefined);
-      } finally {
-        await el.dispose().catch(() => undefined);
+        console.warn(`[teach] ${msg}`);
+        if (opts?.onMiss) await opts.onMiss(msg);
+        await reinjectAll(page);
       }
     }
     await sleep(200);

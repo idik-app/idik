@@ -107,11 +107,18 @@ export default function SimrsBotChecklistPanel() {
     [];
   const pendingValue = payload?.pending_value;
   const teachPending = payload?.teach_pending;
+  const decideWaiting = steps.some(
+    (s) => s.status === "waiting_user" && s.id.startsWith("decide_"),
+  );
   const needsTeachDecision =
     job?.status === "running" &&
-    Boolean(teachPending) &&
     !payload?.teach_action &&
-    steps.some((s) => s.status === "waiting_user" && s.id.startsWith("decide_"));
+    (Boolean(teachPending) || decideWaiting);
+  const waitingClick = steps.some(
+    (s) =>
+      s.status === "running" &&
+      s.id.startsWith("wait_click_"),
+  );
   const needsConfirm =
     job?.status === "running" &&
     Boolean(pendingValue) &&
@@ -283,11 +290,16 @@ export default function SimrsBotChecklistPanel() {
                 : "belum ajar elemen"}
             </p>
             <p className="text-[11px] leading-snug text-white/85">
-              Ajar = klik langkah demi langkah di window SIMRS agen (bot tidak
-              membuka menu). Setelah tiap klik: <b>Tambah langkah</b> atau{" "}
-              <b>Selesai</b> (langkah terakhir = nilai field). Opsional tandai
-              kotak NO.RM.
+              Ajar multi-langkah: klik di window Chromium SIMRS agen (bukan panel
+              ini). Setelah tiap klik pilih Tambah langkah (boleh berulang) atau
+              Selesai pada nilai field. Opsional tandai kotak NO.RM.
             </p>
+            {waitingClick ? (
+              <p className="rounded-md border border-amber-400/40 bg-amber-500/15 px-2 py-1.5 text-[11px] font-semibold text-amber-50">
+                Menunggu klik di window SIMRS agen — lalu tombol Tambah / Selesai
+                muncul di sini.
+              </p>
+            ) : null}
             {actionButtons}
             {!jobActive ? (
               <SimrsBotAiSuggestBox
@@ -329,26 +341,32 @@ export default function SimrsBotChecklistPanel() {
           </ul>
         )}
 
-        {needsTeachDecision && teachPending && (
+        {needsTeachDecision && (
           <div className="space-y-2 rounded-lg border border-violet-500/40 bg-violet-500/10 p-2.5">
             <p className="text-[10px] font-black uppercase tracking-wide text-violet-200">
               Langkah terekam — pilih aksi
             </p>
-            <p className="text-sm font-bold dark:text-white">
-              {teachPending.label || teachPending.selector}
-            </p>
-            {teachPending.value ? (
-              <p className="break-all text-[11px] text-white/85">
-                Nilai cuplikan: {teachPending.value}
-              </p>
-            ) : null}
-            <p className="text-[10px] text-white/80">
-              Selector: {teachPending.selector}
-            </p>
+            {teachPending ? (
+              <>
+                <p className="text-sm font-bold dark:text-white">
+                  {teachPending.label || teachPending.selector}
+                </p>
+                {teachPending.value ? (
+                  <p className="break-all text-[11px] text-white/85">
+                    Nilai cuplikan: {teachPending.value}
+                  </p>
+                ) : null}
+                <p className="text-[10px] text-white/80">
+                  Selector: {teachPending.selector}
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-white/85">Menyiapkan aksi ajar…</p>
+            )}
             <div className="flex flex-col gap-1.5">
               <button
                 type="button"
-                disabled={teachActing}
+                disabled={teachActing || !teachPending}
                 onClick={() => void onTeachAction("continue")}
                 className="rounded-md bg-violet-600 py-1.5 text-xs font-black text-white disabled:opacity-50"
               >
@@ -356,7 +374,7 @@ export default function SimrsBotChecklistPanel() {
               </button>
               <button
                 type="button"
-                disabled={teachActing}
+                disabled={teachActing || !teachPending}
                 onClick={() => void onTeachAction("finish")}
                 className="rounded-md bg-emerald-600 py-1.5 text-xs font-black text-white disabled:opacity-50"
               >
@@ -364,7 +382,7 @@ export default function SimrsBotChecklistPanel() {
               </button>
               <button
                 type="button"
-                disabled={teachActing}
+                disabled={teachActing || !teachPending}
                 onClick={() => void onTeachAction("mark_type_rm")}
                 className="rounded-md border border-white/25 py-1.5 text-xs font-bold text-white/90 disabled:opacity-50"
               >

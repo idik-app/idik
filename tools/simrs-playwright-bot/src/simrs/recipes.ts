@@ -164,8 +164,7 @@ export async function runSimrsRecipe(
     let steps: JobStep[] = [
       {
         id: "wait_click_1",
-        label: `Menunggu klik langkah 1${opts.fieldKey ? ` (${opts.fieldKey})` : ""}`,
-        status: "pending",
+        label: `Menunggu klik langkah 1 di window SIMRS agen${opts.fieldKey ? ` (${opts.fieldKey})` : ""}`,        status: "pending",
       },
     ];
 
@@ -177,15 +176,29 @@ export async function runSimrsRecipe(
           ...steps,
           {
             id: stepId,
-            label: `Menunggu klik langkah ${i + 1}`,
-            status: "pending",
+            label: `Menunggu klik langkah ${i + 1} di window SIMRS agen`,            status: "pending",
           },
         ];
       }
       steps = mark(steps, stepId, "running");
       await emit(steps, opts.onSteps, stepId);
 
-      const taught = await waitForTeachClick(page, { timeoutMs: 180_000 });
+      let lastMissAt = 0;
+      const taught = await waitForTeachClick(page, {
+        timeoutMs: 180_000,
+        onMiss: async (reason) => {
+          const now = Date.now();
+          if (now - lastMissAt < 1500) return;
+          lastMissAt = now;
+          const missLabel = `Klik tidak terbaca — ${reason} (klik di window SIMRS agen)`;
+          steps = steps.map((s) =>
+            s.id === stepId
+              ? { ...s, label: missLabel, status: "running" }
+              : s,
+          );
+          await emit(steps, opts.onSteps, stepId);
+        },
+      });
       const decideId = `decide_${i + 1}`;
       steps = mark(steps, stepId, "done");
       steps = [
@@ -196,10 +209,9 @@ export async function runSimrsRecipe(
           status: "waiting_user",
         },
       ];
-      await emit(steps, opts.onSteps, decideId);
 
       if (!opts.onTeachAwaitDecision) {
-        // Tanpa UI decision: satu klik = selesai (read)
+        await emit(steps, opts.onSteps, decideId);
         taughtSteps.push({
           id: `step_${i + 1}`,
           kind: "read_selector",
@@ -211,6 +223,7 @@ export async function runSimrsRecipe(
         break;
       }
 
+      // Atomic: steps + teach_pending via waitTeachAction (no prior emit that races)
       let action = await opts.onTeachAwaitDecision({
         steps,
         taughtSteps,

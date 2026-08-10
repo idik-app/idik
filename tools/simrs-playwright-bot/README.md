@@ -2,9 +2,9 @@
 
 Bot di PC **jaringan RS** untuk otomasi browser SIMRS (seperti RPA / Peken).
 
-## Cara utama (lokal — seperti Peken)
+## Cara utama (dual mode)
 
-Satu perintah — buka Chromium, login SIMRS, buka menu **Rekam Medis**. Tidak butuh Vercel/token.
+Satu perintah — buka Chromium **SIMRS** (login + Rekam Medis), buka **IDIK** (Tindakan), dan **poll agen** untuk **Suruh bot**.
 
 ```powershell
 cd D:\website\idik-app
@@ -13,11 +13,15 @@ npm run bot:simrs
 
 Atau double-click: [`jalankan-bot.cmd`](jalankan-bot.cmd)
 
-Browser tetap terbuka sampai Anda tekan **Enter** di terminal. Timer opsional:
+Browser + agen tetap terbuka sampai Anda tekan **Enter** di terminal. Flag opsional:
 
 ```powershell
 npm run bot:simrs -- --hold 60000
+npm run bot:simrs -- --no-idik          # SIMRS saja
+npm run bot:simrs -- --no-agent         # tanpa poll Suruh bot
 ```
+
+Di IDIK: buka pasien → **Suruh bot** di field kosong → panel checklist kanan → agen di PC LAN mengeksekusi.
 
 ### Setup sekali
 
@@ -25,11 +29,14 @@ npm run bot:simrs -- --hold 60000
 cd tools/simrs-playwright-bot
 copy .env.example .env
 # isi SIMRS_WEB_USER, SIMRS_WEB_PASS
+# isi IDIK_BASE_URL, IDIK_USER, IDIK_PASS
+# isi SIMRS_BOT_AGENT_TOKEN (sama dengan Vercel Production)
 npm install
 npm run playwright:install
 ```
 
-Prasyarat: PC di **LAN RS**, URL SIMRS terjangkau (`SIMRS_WEB_URL`).
+Prasyarat: PC di **LAN RS**, URL SIMRS terjangkau (`SIMRS_WEB_URL`).  
+`SIMRS_BOT_AGENT_TOKEN` di Vercel harus cocok; middleware idik mengizinkan Bearer pada `/api/system/simrs-bot-*`.
 
 ---
 
@@ -37,16 +44,12 @@ Bot juga punya fitur lain:
 
 1. **MVP cepat:** `getPasien` (HTTP) → isi master pasien idik via API (`--write`), fallback UI Playwright (`--ui`)
 2. **Explore SIMRS web:** login → jelajahi menu sampai submenu terkecil (read-only) → `artifacts/simrs-menu-map.json`
-3. **Agen poll (opsional):** antrian dari tombol UI Tindakan — butuh `SIMRS_BOT_AGENT_TOKEN` di Vercel + redeploy
+3. **Agen poll saja:** `npm run bot:simrs:agent` (tanpa buka dual browser) — butuh token Vercel
 4. **Suruh bot + checklist + ajar elemen:** di drawer tindakan, field kosong → **Suruh bot** → panel checklist kanan. Ajar = klik kiri di SIMRS (tanpa Inspect). Jalankan → konfirmasi nilai → PATCH idik.
 5. **Explore ERM:** `npm run bot:simrs:explore-erm` atau job `explore_simrs_recipe` (ERM → ERM RI PERAWAT)
-
-```powershell
-npm run bot:simrs:agent
-```
+6. **Fill-empty (lanjutan):** PATCH field kosong tindakan yang aman dari getPasien
 
 Pastikan migration `20260807160000_simrs_bot_payload_maps_agents.sql` sudah di-apply di Supabase (kolom `payload`, tabel `simrs_bot_field_maps`, `simrs_bot_agents`, `simrs_bot_workflows`).
-4. **Fill-empty (lanjutan):** PATCH field kosong tindakan yang aman dari getPasien
 
 ## Prasyarat
 

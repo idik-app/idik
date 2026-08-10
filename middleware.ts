@@ -22,6 +22,23 @@ const PUBLIC_API_ROUTES = [
   "/api/health",
 ];
 
+/** SIMRS bot agent (PC LAN) — auth via Bearer SIMRS_BOT_AGENT_TOKEN di route handler. */
+const SIMRS_BOT_AGENT_API_PREFIXES = [
+  "/api/system/simrs-bot-jobs",
+  "/api/system/simrs-bot-field-maps",
+  "/api/system/simrs-bot-agents",
+  "/api/system/simrs-bot-status",
+  "/api/system/simrs-bot-workflows",
+];
+
+function isSimrsBotAgentBearerRequest(req: NextRequest, pathname: string): boolean {
+  if (!SIMRS_BOT_AGENT_API_PREFIXES.some((p) => pathname.startsWith(p))) {
+    return false;
+  }
+  const auth = req.headers.get("authorization") || "";
+  return /^Bearer\s+\S+/i.test(auth);
+}
+
 /** Secret management dengan fallback aman (error di production) */
 function getSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -68,6 +85,11 @@ export async function middleware(req: NextRequest) {
     pathname === "/api/auth" &&
     (req.method === "POST" || req.method === "DELETE");
   if (isPublicApi || isAuthSessionExchange) return res;
+
+  // Agen Playwright PC RS: Bearer saja (tanpa cookie session); token divalidasi di route.
+  if (isApi && isSimrsBotAgentBearerRequest(req, pathname)) {
+    return res;
+  }
 
   // Khusus /distributor/pemakaian dengan focus_order (Public Portal)
   if (pathname === "/distributor/pemakaian" && req.nextUrl.searchParams.get("focus_order")) {

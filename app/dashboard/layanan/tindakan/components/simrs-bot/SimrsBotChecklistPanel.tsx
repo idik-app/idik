@@ -4,6 +4,7 @@ import SimrsBotAiSuggestBox, {
   suggestLabelsFromText,
 } from "./SimrsBotAiSuggest";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, Circle, Loader2, Minus, X, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
@@ -50,6 +51,11 @@ export default function SimrsBotChecklistPanel() {
   const [job, setJob] = useState<SimrsBotJob | null>(null);
   const [memory, setMemory] = useState<MemStatus | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!panel.open && !panel.minimized) return;
@@ -91,7 +97,7 @@ export default function SimrsBotChecklistPanel() {
     };
   }, [panel.open, panel.minimized, panel.jobId]);
 
-  if (!panel.open) return null;
+  if (!panel.open || !mounted) return null;
 
   const payload = job ? parseJobPayload(job.payload) : null;
   const steps: SimrsBotStep[] =
@@ -108,6 +114,9 @@ export default function SimrsBotChecklistPanel() {
   const agentOffline = memory?.state === "agent_offline";
   const target = panel.target;
   const titleField = target ? fieldLabel(target.fieldKey) : "Bot SIMRS";
+  const jobActive =
+    Boolean(job) &&
+    ["pending", "claimed", "running", "error", "done"].includes(job!.status);
 
   const onConfirm = async (ok: boolean) => {
     if (!job?.id) return;
@@ -129,12 +138,42 @@ export default function SimrsBotChecklistPanel() {
     }
   };
 
-  return (
+  const actionButtons = (
+    <div className="flex flex-col gap-1.5">
+      {target && panel.mapsReady ? (
+        <button
+          type="button"
+          onClick={() => void enqueueRun()}
+          className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black uppercase text-white hover:brightness-110"
+        >
+          Jalankan
+        </button>
+      ) : null}
+      {target ? (
+        <button
+          type="button"
+          onClick={() => void enqueueTeach()}
+          className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-black uppercase text-white hover:brightness-110"
+        >
+          {panel.mapsReady ? "Ajar ulang" : "Ajar elemen"}
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => void enqueueExplore()}
+        className="rounded-lg border border-white/20 px-3 py-2 text-xs font-bold text-white/90 hover:bg-white/10"
+      >
+        Explore resep saja
+      </button>
+    </div>
+  );
+
+  const panelUi = (
     <aside
       role="complementary"
       aria-label="Checklist Bot SIMRS"
       className={cn(
-        "fixed bottom-16 right-0 top-14 flex w-[min(100vw,22.5rem)] flex-col border-l border-white/15 bg-slate-950/95 text-white shadow-2xl sm:bottom-4 sm:top-16",
+        "pointer-events-auto fixed bottom-16 right-0 top-14 flex w-[min(100vw,22.5rem)] flex-col border-l border-white/15 bg-slate-950/95 text-white shadow-2xl sm:bottom-4 sm:top-16",
         UI_LAYERS.simrsBotChecklist,
       )}
       style={{ zIndex: Z_INDEX_VALUES.simrsBotChecklist }}
@@ -174,12 +213,12 @@ export default function SimrsBotChecklistPanel() {
         {agentOffline && (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 py-2 text-xs font-semibold text-amber-50">
             Agen PC RS tidak jalan / offline. Jalankan{" "}
-            <code className="text-[10px]">npm run bot:simrs:agent</code> di PC
-            LAN.
+            <code className="text-[10px]">npm run bot:simrs</code> di PC LAN
+            (dual mode + agen).
           </div>
         )}
 
-        {!job && target && (
+        {target && (
           <div className="space-y-2">
             <p className="text-[10px] font-bold uppercase tracking-wide text-white/70">
               Resep SIMRS
@@ -207,38 +246,18 @@ export default function SimrsBotChecklistPanel() {
                 ? "siap (selector ada)"
                 : "belum ajar elemen"}
             </p>
-            <div className="flex flex-col gap-1.5">
-              {panel.mapsReady ? (
-                <button
-                  type="button"
-                  onClick={() => void enqueueRun()}
-                  className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black uppercase text-white hover:brightness-110"
-                >
-                  Jalankan
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => void enqueueTeach()}
-                className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-black uppercase text-white hover:brightness-110"
-              >
-                {panel.mapsReady ? "Ajar ulang" : "Ajar elemen"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void enqueueExplore()}
-                className="rounded-lg border border-white/20 px-3 py-2 text-xs font-bold text-white/90 hover:bg-white/10"
-              >
-                Explore resep saja
-              </button>
-            </div>
-            <SimrsBotAiSuggestBox
-              suggestions={suggestLabelsFromText(
-                `${fieldLabel(target.fieldKey)} NO. RM NAMA ALAMAT IGD tiba door balloon`,
-              )}
-            />
+            {actionButtons}
+            {!jobActive ? (
+              <SimrsBotAiSuggestBox
+                suggestions={suggestLabelsFromText(
+                  `${fieldLabel(target.fieldKey)} NO. RM NAMA ALAMAT IGD tiba door balloon`,
+                )}
+              />
+            ) : null}
           </div>
         )}
+
+        {!target && jobActive ? actionButtons : null}
 
         {steps.length > 0 && (
           <ul className="space-y-1.5">
@@ -328,4 +347,6 @@ export default function SimrsBotChecklistPanel() {
       </div>
     </aside>
   );
+
+  return createPortal(panelUi, document.body);
 }

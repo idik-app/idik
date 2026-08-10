@@ -22,10 +22,8 @@ import {
   ShieldCheck,
   RefreshCw,
   Users,
-  MonitorPlay,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
 import type { Pasien } from "@/app/dashboard/pasien/types/pasien";
@@ -36,10 +34,6 @@ import DiagnosaModal from "./DiagnosaModal";
 import SeverityLevelModal from "./SeverityLevelModal";
 import IndenanModal from "./IndenanModal";
 import JadwalCathModal from "./JadwalCathModal";
-import SimrsBotStatusBadge from "./SimrsBotStatusBadge";
-import type { SimrsBotJob } from "@/lib/simrs/botJobs";
-import { useSimrsBotPanelOptional } from "./simrs-bot/SimrsBotPanelContext";
-import SimrsBotWorkflowEditor from "./simrs-bot/SimrsBotWorkflowEditor";
 interface Props {
   onRefresh?: () => Promise<void> | void;
   onCreateDraftForPasien?: (p: {
@@ -137,10 +131,6 @@ function TableToolbar({
   const [jadwalCathOpen, setJadwalCathOpen] = useState(false);
   const [laporanMenuOpen, setLaporanMenuOpen] = useState(false);
   const [laporanMenuMounted, setLaporanMenuMounted] = useState(false);
-  const [botJobBusy, setBotJobBusy] = useState(false);
-  const [botEnqueueing, setBotEnqueueing] = useState(false);
-  const [workflowEditorOpen, setWorkflowEditorOpen] = useState(false);
-  const botPanel = useSimrsBotPanelOptional();
   const [laporanMenuPos, setLaporanMenuPos] = useState<{
     top: number;
     left: number;
@@ -148,67 +138,6 @@ function TableToolbar({
   } | null>(null);
   const laporanMenuRef = useRef<HTMLDivElement | null>(null);
   const laporanMenuPortalRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const ACTIVE = new Set(["pending", "claimed", "running"]);
-    const load = async () => {
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
-        return;
-      }
-      try {
-        const res = await fetch("/api/system/simrs-bot-jobs", { cache: "no-store" });
-        const json = (await res.json()) as {
-          ok?: boolean;
-          data?: SimrsBotJob | null;
-        };
-        if (cancelled || !json.ok) return;
-        setBotJobBusy(Boolean(json.data && ACTIVE.has(json.data.status)));
-      } catch {
-        /* ignore */
-      }
-    };
-    void load();
-    const timer = setInterval(load, 8_000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, []);
-
-  const openBotSimrs = async () => {
-    if (botEnqueueing || botJobBusy) return;
-    if (botPanel) {
-      botPanel.openChecklist(null);
-      void botPanel.enqueueExplore("erm_ri_perawat");
-      return;
-    }
-    setBotEnqueueing(true);
-    try {
-      const res = await fetch("/api/system/simrs-bot-jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "explore_simrs_recipe",
-          payload: { mode: "explore", recipe: "erm_ri_perawat" },
-        }),
-      });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        error?: string;
-      };
-      if (!res.ok || !json.ok) {
-        toast.error(json.error || "Gagal antrikan bot SIMRS");
-        return;
-      }
-      setBotJobBusy(true);
-      toast.success("Bot SIMRS diantrikan — pastikan agen PC RS berjalan");
-    } catch {
-      toast.error("Gagal menghubungi server bot");
-    } finally {
-      setBotEnqueueing(false);
-    }
-  };
 
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPageVisibleRef = useRef(true);
@@ -487,58 +416,6 @@ function TableToolbar({
                     Tambah Pasien
                   </span>
                 </button>
-
-                <SimrsBotStatusBadge />
-
-                <button
-                  type="button"
-                  onClick={() => void openBotSimrs()}
-                  disabled={botEnqueueing || botJobBusy}
-                  className={cn(
-                    "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-black shadow-lg transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2",
-                    "border-violet-600 bg-violet-600 text-white shadow-violet-600/25",
-                    "hover:brightness-110 focus-visible:ring-violet-500",
-                    "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
-                    "disabled:pointer-events-none disabled:opacity-55",
-                  )}
-                  title="Bot SIMRS — buka checklist & explore ERM RI PERAWAT"
-                >
-                  <MonitorPlay
-                    size={16}
-                    strokeWidth={3}
-                    className={cn(
-                      "shrink-0 text-white motion-safe:transition-transform group-hover:scale-110",
-                    )}
-                  />
-                  <span className={cn("tracking-wide text-white uppercase")}>
-                    {botEnqueueing
-                      ? "Mengirim…"
-                      : botJobBusy
-                        ? "Bot aktif"
-                        : "Bot SIMRS"}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setWorkflowEditorOpen((v) => !v)}
-                  className={cn(
-                    "inline-flex h-8 shrink-0 items-center rounded-lg border px-2 text-[10px] font-bold",
-                    "border-white/20 bg-white/10 text-white/90 hover:bg-white/15",
-                    "dark:text-white",
-                  )}
-                  title="Editor workflow bot (admin)"
-                >
-                  WF
-                </button>
-                {workflowEditorOpen ? (
-                  <div
-                    className={cn(
-                      "absolute right-2 top-full z-[80] mt-1 w-[min(100vw-1rem,22rem)]",
-                    )}
-                  >
-                    <SimrsBotWorkflowEditor />
-                  </div>
-                ) : null}
 
                 {typeof onOpenFastTrack === "function" ? (
                   <button

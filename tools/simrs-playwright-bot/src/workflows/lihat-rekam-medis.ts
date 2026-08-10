@@ -14,9 +14,12 @@ import {
   listImmediateSubmenus,
 } from "../simrs/menu-helpers.js";
 import { runPreflight, printPreflight } from "../util/preflight.js";
+import { ensureIdikSession, launchIdikBrowser } from "../idik/login.js";
+import type { Browser } from "playwright";
 
 const MENU_LABEL = "Rekam Medis";
 const HUMAN_SLOW_MO_MS = 120;
+const IDIK_TINDAKAN_PATH = "/dashboard/layanan/tindakan";
 
 export type LihatRekamMedisOptions = {
   /**
@@ -26,6 +29,10 @@ export type LihatRekamMedisOptions = {
   holdMs?: number;
   /** Playwright slowMo for human-like clicks (default 120). */
   slowMoMs?: number;
+  /** Open headed IDIK Tindakan window (default true). */
+  openIdik?: boolean;
+  /** Poll Suruh bot job queue in this process (default true). */
+  runAgentPoll?: boolean;
 };
 
 export type LihatRekamMedisResult = {
@@ -48,22 +55,23 @@ async function waitForEnter(prompt: string): Promise<void> {
 }
 
 /**
- * Open SIMRS (headed, human-like), login/session, open Rekam Medis dropdown,
- * log immediate submenus + screenshot. Does not crawl or click dangerous items.
+ * Dual mode (seperti Peken): SIMRS headed + IDIK Tindakan headed + agen poll.
+ * Suruh bot di IDIK dijalankan agen Playwright di proses yang sama.
  */
 export async function runLihatRekamMedis(
   opts: LihatRekamMedisOptions = {},
 ): Promise<LihatRekamMedisResult | null> {
   const slowMoMs = opts.slowMoMs ?? HUMAN_SLOW_MO_MS;
+  const openIdik = opts.openIdik !== false;
+  const runAgentPoll = opts.runAgentPoll !== false;
 
-  const pf = await runPreflight({ skipIdik: true });
+  const pf = await runPreflight({ skipIdik: !openIdik && !runAgentPoll });
   printPreflight(pf);
   if (!pf.simrsWeb.ok) {
     process.exitCode = 1;
     return null;
   }
 
-  // Login/session also headed + slowMo so it looks like a person
   await ensureSimrsSession({ headless: false, slowMoMs });
 
   const { browser, page } = await launchSimrsBrowser({
@@ -71,6 +79,10 @@ export async function runLihatRekamMedis(
     headless: false,
     slowMoMs,
   });
+
+  let idikBrowser: Browser | null = null;
+  const abortAgent = new AbortController();
+  let agentPromise: Promise<void> = Promise.resolve();
 
   try {
     const mainUrl =
@@ -120,6 +132,54 @@ export async function runLihatRekamMedis(
     await page.screenshot({ path: shot, fullPage: false });
     console.log(`Screenshot: ${shot}`);
 
+    if (openIdik) {
+      if (!config.idikUser || !config.idikPass) {
+        console.warn(
+          "[dual] IDIK_USER / IDIK_PASS kosong — lewati window IDIK",
+        );
+      } else {
+        try {
+          const session = await ensureIdikSession();
+          const idik = await launchIdikBrowser(session, { headless: false });
+          idikBrowser = idik.browser;
+          const tindakanUrl = `${config.idikBaseUrl.replace(/\/$/, "")}${IDIK_TINDAKAN_PATH}`;
+          await idik.page.goto(tindakanUrl, {
+            waitUntil: "domcontentloaded",
+            timeout: 60_000,
+          });
+          if (!/\/dashboard/i.test(idik.page.url())) {
+            console.warn(
+              "[dual] IDIK belum di dashboard — coba login UI sekali…",
+            );
+          }
+          console.log(`[dual] IDIK terbuka: ${tindakanUrl}`);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error("[dual] gagal buka IDIK:", msg);
+        }
+      }
+    }
+
+    if (runAgentPoll) {
+      if (!config.agentToken) {
+        console.warn(
+          "[agent] SIMRS_BOT_AGENT_TOKEN kosong — Suruh bot tidak akan di-claim",
+        );
+      } else {
+        // Dynamic import avoids circular dependency with agent.ts → lihat-rekam-medis
+        const { runAgent } = await import("./agent.js");
+        agentPromise = runAgent({ signal: abortAgent.signal }).catch(
+          (e: unknown) => {
+            const msg = e instanceof Error ? e.message : String(e);
+            console.error("[agent] stopped with error:", msg);
+          },
+        );
+        console.log(
+          "[dual] Agen polling jalan — Suruh bot di IDIK akan diproses di sini",
+        );
+      }
+    }
+
     if (typeof opts.holdMs === "number" && Number.isFinite(opts.holdMs)) {
       console.log(
         `Browser tetap terbuka ${Math.round(opts.holdMs / 1000)}s (Ctrl+C untuk keluar)...`,
@@ -127,7 +187,7 @@ export async function runLihatRekamMedis(
       await sleep(opts.holdMs);
     } else {
       await waitForEnter(
-        "Browser tetap terbuka. Tekan Enter untuk menutup browser... ",
+        "Browser + agen tetap terbuka. Tekan Enter untuk menutup... ",
       );
     }
 
@@ -137,6 +197,11 @@ export async function runLihatRekamMedis(
       screenshot: shot,
     };
   } finally {
-    await browser.close();
+    abortAgent.abort();
+    await agentPromise.catch(() => undefined);
+    if (idikBrowser) {
+      await idikBrowser.close().catch(() => undefined);
+    }
+    await browser.close().catch(() => undefined);
   }
 }

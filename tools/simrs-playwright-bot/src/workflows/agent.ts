@@ -120,7 +120,11 @@ async function runOneJob(job: JobRow): Promise<void> {
 
   try {
     if (job.action === "lihat_rekam_medis") {
-      const result = await runLihatRekamMedis({ holdMs: 15_000 });
+      const result = await runLihatRekamMedis({
+        holdMs: 15_000,
+        openIdik: false,
+        runAgentPoll: false,
+      });
       if (!result) throw new Error("lihat-rekam-medis gagal");
       await patchJob(job.id, {
         status: "done",
@@ -296,7 +300,10 @@ async function runOneJob(job: JobRow): Promise<void> {
 /**
  * Poll idik job queue and run Playwright jobs on this RS LAN PC.
  */
-export async function runAgent(opts?: { once?: boolean }) {
+export async function runAgent(opts?: {
+  once?: boolean;
+  signal?: AbortSignal;
+}) {
   if (!config.agentToken) {
     throw new Error("SIMRS_BOT_AGENT_TOKEN wajib di .env (sama dengan Vercel)");
   }
@@ -314,11 +321,16 @@ export async function runAgent(opts?: { once?: boolean }) {
     stop = true;
     console.log("[agent] stopping…");
   };
+  const onAbort = () => {
+    stop = true;
+    console.log("[agent] stopped (browser hold ended)");
+  };
   process.on("SIGINT", onSig);
   process.on("SIGTERM", onSig);
+  opts?.signal?.addEventListener("abort", onAbort);
 
   try {
-    while (!stop) {
+    while (!stop && !opts?.signal?.aborted) {
       try {
         await postAgentHeartbeat(config.agentId, config.agentRsId);
         const job = await claimJob();
@@ -332,11 +344,14 @@ export async function runAgent(opts?: { once?: boolean }) {
         console.error("[agent] poll/claim error:", msg);
         if (
           !logged401Hint &&
-          /401|Unauthorized|belum di-set|tidak cocok|503/i.test(msg)
+          /401|Unauthorized|belum di-set|tidak cocok|503|No session/i.test(msg)
         ) {
           logged401Hint = true;
           console.error(
-            "[agent] HINT: Set SIMRS_BOT_AGENT_TOKEN di Vercel (sama dengan .env lokal), lalu Redeploy.",
+            "[agent] HINT: Pastikan SIMRS_BOT_AGENT_TOKEN cocok di Vercel + redeploy.",
+          );
+          console.error(
+            "[agent] HINT: Middleware harus izinkan Bearer pada /api/system/simrs-bot-* (tanpa cookie session).",
           );
         }
       }
@@ -346,6 +361,7 @@ export async function runAgent(opts?: { once?: boolean }) {
   } finally {
     process.off("SIGINT", onSig);
     process.off("SIGTERM", onSig);
+    opts?.signal?.removeEventListener("abort", onAbort);
   }
 }
 

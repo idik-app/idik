@@ -1,0 +1,9 @@
+cd tools/simrs-playwright-bot
+copy .env.example .env   # isi SIMRS_WEB_*, IDIK_*, SIMRS_BOT_AGENT_TOKEN
+npm install
+npm run playwright:install
+npm run lihat-rekam-medis
+# dual mode: SIMRS + IDIK Tindakan + agen Suruh bot
+# atau dari root:
+npm run bot:simrs
+# flags: --no-idik  --no-agent  --hold 60000

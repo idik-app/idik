@@ -136,9 +136,11 @@ export async function ensureIdikSession(): Promise<IdikSession> {
 
 export async function launchIdikBrowser(
   session?: IdikSession,
+  opts?: { headless?: boolean },
 ): Promise<{ browser: Browser; context: BrowserContext; page: Page }> {
   ensureDirs();
-  const browser = await chromium.launch({ headless: config.headless });
+  const headless = opts?.headless ?? config.headless;
+  const browser = await chromium.launch({ headless });
   const hasState =
     session?.storageStatePath && fs.existsSync(session.storageStatePath);
   const context = await browser.newContext(

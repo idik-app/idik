@@ -27,8 +27,9 @@ Alur kerja:
 
 1. Jalankan `npm run bot:simrs` di PC LAN
 2. Di IDIK: buka pasien → **Suruh bot** di field kosong
-3. Panel checklist → **Ajar elemen** → di window SIMRS yang dibuka bot, **klik kiri sekali** pada elemen yang relevan (bukan rekam seluruh mouse)
-4. Nanti **Jalankan** → bot baca nilai dari selector yang diajar → Setujui
+3. Panel checklist → **Ajar elemen** → bot memakai **satu window SIMRS** (login sekali, tetap hidup antar ajar). Checklist hanya **Menunggu klik** — tidak auto-buka ERM. Navigasi manual ke layar yang benar, lalu **klik kiri sekali** pada field.
+4. Ajar field berikutnya → window yang sama, langsung menunggu klik lagi (tanpa login/relaunch).
+5. **Jalankan** → bot baca nilai dari selector yang diajar → Setujui. Browser ditutup saat agen berhenti (Enter di terminal / Ctrl+C).
 
 ### Setup sekali
 

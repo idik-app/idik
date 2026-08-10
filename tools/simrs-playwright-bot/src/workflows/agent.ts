@@ -363,6 +363,10 @@ export async function runAgent(opts?: {
     process.off("SIGINT", onSig);
     process.off("SIGTERM", onSig);
     opts?.signal?.removeEventListener("abort", onAbort);
+    const { releaseSharedSimrsBrowser } = await import(
+      "../simrs/shared-browser.js"
+    );
+    await releaseSharedSimrsBrowser();
   }
 }
 

@@ -154,6 +154,7 @@ export default function SimrsBotChecklistPanel() {
           type="button"
           onClick={() => void enqueueTeach()}
           className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-black uppercase text-white hover:brightness-110"
+          title="Klik elemen di window SIMRS yang sudah terbuka; bot tidak membuka menu"
         >
           {panel.mapsReady ? "Ajar ulang" : "Ajar elemen"}
         </button>
@@ -245,6 +246,11 @@ export default function SimrsBotChecklistPanel() {
               {panel.mapsReady
                 ? "siap (selector ada)"
                 : "belum ajar elemen"}
+            </p>
+            <p className="text-[11px] leading-snug text-white/85">
+              Ajar elemen = klik sekali di SIMRS yang sudah terbuka; bot tidak
+              membuka menu. Navigasi manual ke layar yang benar, lalu klik
+              field.
             </p>
             {actionButtons}
             {!jobActive ? (

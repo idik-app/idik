@@ -122,6 +122,7 @@ async function runOneJob(job: JobRow): Promise<void> {
     if (job.action === "lihat_rekam_medis") {
       const result = await runLihatRekamMedis({
         holdMs: 15_000,
+        openSimrs: true,
         openIdik: false,
         runAgentPoll: false,
       });

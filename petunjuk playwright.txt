@@ -3,7 +3,7 @@ copy .env.example .env   # isi SIMRS_WEB_*, IDIK_*, SIMRS_BOT_AGENT_TOKEN
 npm install
 npm run playwright:install
 npm run lihat-rekam-medis
-# dual mode: SIMRS + IDIK Tindakan + agen Suruh bot
+# default: IDIK Tindakan + agen (SIMRS via Suruh bot / Ajar elemen)
 # atau dari root:
 npm run bot:simrs
-# flags: --no-idik  --no-agent  --hold 60000
+# flags: --simrs  --no-idik  --no-agent  --hold 60000

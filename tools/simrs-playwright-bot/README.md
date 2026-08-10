@@ -2,9 +2,10 @@
 
 Bot di PC **jaringan RS** untuk otomasi browser SIMRS (seperti RPA / Peken).
 
-## Cara utama (dual mode)
+## Cara utama (IDIK + agen)
 
-Satu perintah — buka Chromium **SIMRS** (login + Rekam Medis), buka **IDIK** (Tindakan), dan **poll agen** untuk **Suruh bot**.
+Satu perintah — buka **IDIK** (Tindakan) dan **poll agen** untuk **Suruh bot**.  
+SIMRS **tidak** dibuka di awal; dibuka saat Anda **Suruh bot / Ajar elemen**.
 
 ```powershell
 cd D:\website\idik-app
@@ -13,15 +14,21 @@ npm run bot:simrs
 
 Atau double-click: [`jalankan-bot.cmd`](jalankan-bot.cmd)
 
-Browser + agen tetap terbuka sampai Anda tekan **Enter** di terminal. Flag opsional:
+IDIK + agen tetap terbuka sampai Anda tekan **Enter** di terminal. Flag opsional:
 
 ```powershell
 npm run bot:simrs -- --hold 60000
-npm run bot:simrs -- --no-idik          # SIMRS saja
+npm run bot:simrs -- --simrs            # juga buka SIMRS Rekam Medis di awal
+npm run bot:simrs -- --no-idik          # tanpa window IDIK
 npm run bot:simrs -- --no-agent         # tanpa poll Suruh bot
 ```
 
-Di IDIK: buka pasien → **Suruh bot** di field kosong → panel checklist kanan → agen di PC LAN mengeksekusi.
+Alur kerja:
+
+1. Jalankan `npm run bot:simrs` di PC LAN
+2. Di IDIK: buka pasien → **Suruh bot** di field kosong
+3. Panel checklist → **Ajar elemen** → di window SIMRS yang dibuka bot, **klik kiri sekali** pada elemen yang relevan (bukan rekam seluruh mouse)
+4. Nanti **Jalankan** → bot baca nilai dari selector yang diajar → Setujui
 
 ### Setup sekali
 

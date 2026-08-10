@@ -191,7 +191,10 @@ export async function runLihatRekamMedis(
       } else {
         try {
           const session = await ensureIdikSession();
-          const idik = await launchIdikBrowser(session, { headless: false });
+          const idik = await launchIdikBrowser(session, {
+            headless: false,
+            fullscreen: true,
+          });
           idikBrowser = idik.browser;
           const tindakanUrl = `${config.idikBaseUrl.replace(/\/$/, "")}${IDIK_TINDAKAN_PATH}`;
           await idik.page.goto(tindakanUrl, {

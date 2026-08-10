@@ -136,16 +136,27 @@ export async function ensureIdikSession(): Promise<IdikSession> {
 
 export async function launchIdikBrowser(
   session?: IdikSession,
-  opts?: { headless?: boolean },
+  opts?: { headless?: boolean; fullscreen?: boolean },
 ): Promise<{ browser: Browser; context: BrowserContext; page: Page }> {
   ensureDirs();
   const headless = opts?.headless ?? config.headless;
-  const browser = await chromium.launch({ headless });
+  /** Headed dual-mode: open maximized/fullscreen so Tindakan fills the screen. */
+  const fullscreen = opts?.fullscreen ?? !headless;
+  const browser = await chromium.launch({
+    headless,
+    args: headless
+      ? []
+      : fullscreen
+        ? ["--start-maximized", "--start-fullscreen"]
+        : ["--start-maximized"],
+  });
   const hasState =
     session?.storageStatePath && fs.existsSync(session.storageStatePath);
-  const context = await browser.newContext(
-    hasState ? { storageState: session!.storageStatePath } : {},
-  );
+  const context = await browser.newContext({
+    ...(hasState ? { storageState: session!.storageStatePath } : {}),
+    // Prefer OS window size (required for --start-maximized / fullscreen).
+    ...(headless ? {} : { viewport: null }),
+  });
   const page = await context.newPage();
   page.on("dialog", async (d) => {
     try {
@@ -154,6 +165,22 @@ export async function launchIdikBrowser(
       /* ignore */
     }
   });
+
+  if (!headless && fullscreen) {
+    try {
+      const sessionCdp = await context.newCDPSession(page);
+      const { windowId } = (await sessionCdp.send(
+        "Browser.getWindowForTarget",
+      )) as { windowId: number };
+      await sessionCdp.send("Browser.setWindowBounds", {
+        windowId,
+        bounds: { windowState: "fullscreen" },
+      });
+    } catch {
+      /* maximize args already applied; CDP fullscreen is best-effort */
+    }
+  }
+
   return { browser, context, page };
 }
 

@@ -67,6 +67,7 @@ async function upsertFieldMap(body: {
   simrs_selector: string;
   simrs_label?: string;
   notes?: string;
+  recipe_steps?: unknown[];
 }): Promise<void> {
   const res = await fetch(
     `${config.idikBaseUrl}/api/system/simrs-bot-field-maps`,
@@ -80,6 +81,77 @@ async function upsertFieldMap(body: {
   if (!res.ok || !json.ok) {
     throw new Error(json.error || `field-map HTTP ${res.status}`);
   }
+}
+
+async function fetchJobPayload(
+  jobId: string,
+): Promise<Record<string, unknown>> {
+  const res = await fetch(
+    `${config.idikBaseUrl}/api/system/simrs-bot-jobs?id=${encodeURIComponent(jobId)}`,
+    { headers: agentHeaders() },
+  );
+  const json = (await res.json()) as {
+    ok?: boolean;
+    data?: { payload?: Record<string, unknown> | null; status?: string };
+  };
+  if (!res.ok || !json.ok || !json.data) {
+    throw new Error(`Gagal baca job ${jobId}`);
+  }
+  if (json.data.status === "cancelled" || json.data.status === "error") {
+    return { ...(json.data.payload || {}), teach_action: "cancel" };
+  }
+  return (json.data.payload || {}) as Record<string, unknown>;
+}
+
+async function waitTeachAction(
+  jobId: string,
+  basePayload: Record<string, unknown>,
+  info: {
+    steps: unknown[];
+    taughtSteps: unknown[];
+    pending: {
+      label: string;
+      selector: string;
+      value: string;
+      isInput: boolean;
+      index: number;
+    };
+  },
+): Promise<"continue" | "finish" | "mark_type_rm" | "cancel"> {
+  Object.assign(basePayload, {
+    steps: info.steps,
+    taught_steps: info.taughtSteps,
+    teach_pending: info.pending,
+    teach_action: null,
+  });
+  await patchJob(jobId, {
+    status: "running",
+    payload: { ...basePayload },
+  });
+
+  const deadline = Date.now() + 10 * 60_000;
+  while (Date.now() < deadline) {
+    await sleep(1500);
+    const payload = await fetchJobPayload(jobId);
+    const action = payload.teach_action;
+    if (
+      action === "continue" ||
+      action === "finish" ||
+      action === "mark_type_rm" ||
+      action === "cancel"
+    ) {
+      Object.assign(basePayload, payload, {
+        teach_action: null,
+        teach_pending:
+          action === "finish" || action === "cancel" ? null : payload.teach_pending,
+      });
+      await patchJob(jobId, {
+        payload: { ...basePayload },
+      });
+      return action;
+    }
+  }
+  return "cancel";
 }
 
 async function fetchFieldMap(
@@ -105,9 +177,11 @@ async function runOneJob(job: JobRow): Promise<void> {
     heartbeat: true,
   });
 
+  const livePayload: Record<string, unknown> = { ...payload };
   const syncSteps = async (steps: unknown[]) => {
+    livePayload.steps = steps;
     await patchJob(job.id, {
-      payload: { ...payload, steps },
+      payload: { ...livePayload, steps },
     });
     await postBotStatus(null, {
       state: "running",
@@ -151,7 +225,7 @@ async function runOneJob(job: JobRow): Promise<void> {
       });
       await patchJob(job.id, {
         status: "done",
-        payload: { ...payload, steps: out.steps },
+        payload: { ...livePayload, steps: out.steps },
         result: { screenshotLocal: out.screenshot },
       });
     } else if (job.action === "teach_simrs_element") {
@@ -166,52 +240,74 @@ async function runOneJob(job: JobRow): Promise<void> {
         onSteps: async (steps) => {
           await syncSteps(steps);
         },
+        onTeachAwaitDecision: async (info) => {
+          const action = await waitTeachAction(job.id, livePayload, info);
+          livePayload.taught_steps = [
+            ...info.taughtSteps,
+          ];
+          Object.assign(livePayload, await fetchJobPayload(job.id));
+          return action;
+        },
       });
       if (!out.selector) throw new Error("ajar gagal — selector kosong");
+      const taughtSteps = out.taughtSteps || [];
       await upsertFieldMap({
         field_key: fieldKey,
         recipe,
         simrs_selector: out.selector,
         simrs_label: out.label,
+        recipe_steps: taughtSteps,
       });
       await patchJob(job.id, {
         status: "done",
-        payload: { ...payload, steps: out.steps },
+        payload: {
+          ...livePayload,
+          steps: out.steps,
+          taught_steps: taughtSteps,
+          teach_pending: null,
+          teach_action: null,
+        },
         result: {
           selector: out.selector,
           label: out.label,
           sampleValue: out.value,
+          taughtSteps,
         },
       });
-    } else if (job.action === "isi_field_dari_simrs") {
-      const recipe = String(payload.recipe || "erm_ri_perawat");
+    } else if (job.action === "isi_field_dari_simrs") {      const recipe = String(payload.recipe || "erm_ri_perawat");
       const fieldKey = String(payload.field_key || "");
-      // Prefer selector from prior teach stored in payload.simrs_selector or fetch via result cache
       let selector =
         typeof payload.simrs_selector === "string"
           ? payload.simrs_selector
           : null;
-      if (!selector && fieldKey) {
-        // Pull from field maps using agent token POST upsert won't GET —
-        // use dedicated read: try status from previous job result not available.
-        // Agent embeds selector by calling field-maps list via service —
-        // workaround: ask idik with cookie-less admin? Use fetch with agent on a new GET that allows agent.
+      let recipeSteps: import("../simrs/recipes.js").TaughtRecipeStep[] | undefined;
+      if (fieldKey) {
         const mapRes = await fetch(
           `${config.idikBaseUrl}/api/system/simrs-bot-field-maps?field_key=${encodeURIComponent(fieldKey)}`,
           { headers: agentHeaders() },
         );
-        // may 401 if GET requires user — then fail with ajar ulang
         if (mapRes.ok) {
           const mapJson = (await mapRes.json()) as {
             ok?: boolean;
-            data?: { simrs_selector?: string | null };
+            data?: {
+              simrs_selector?: string | null;
+              recipe_steps?: import("../simrs/recipes.js").TaughtRecipeStep[];
+            };
           };
-          if (mapJson.ok && mapJson.data?.simrs_selector) {
-            selector = mapJson.data.simrs_selector;
+          if (mapJson.ok && mapJson.data) {
+            if (!selector && mapJson.data.simrs_selector) {
+              selector = mapJson.data.simrs_selector;
+            }
+            if (
+              Array.isArray(mapJson.data.recipe_steps) &&
+              mapJson.data.recipe_steps.length > 0
+            ) {
+              recipeSteps = mapJson.data.recipe_steps;
+            }
           }
         }
       }
-      if (!selector) {
+      if (!selector && !(recipeSteps && recipeSteps.length)) {
         throw new Error(
           "selector_stale: belum ada mapping — gunakan Ajar elemen",
         );
@@ -222,18 +318,18 @@ async function runOneJob(job: JobRow): Promise<void> {
         noRm: payload.no_rm ? String(payload.no_rm) : undefined,
         fieldKey,
         simrsSelector: selector,
+        recipeSteps,
         onSteps: async (steps) => {
           await syncSteps(steps);
         },
       });
-      // Leave job running with pending_value for user confirm in UI
       await patchJob(job.id, {
         status: "running",
         payload: {
           ...payload,
           steps: out.steps,
           pending_value: out.value,
-          simrs_selector: selector,
+          simrs_selector: selector || out.selector,
         },
         result: { pending_value: out.value },
       });
@@ -247,25 +343,8 @@ async function runOneJob(job: JobRow): Promise<void> {
       console.log(
         `[agent] menunggu Setujui di checklist idik untuk nilai: ${out.value}`,
       );
-      // Poll until confirmed / done / cancelled / timeout
-      const deadline = Date.now() + 10 * 60_000;
-      while (Date.now() < deadline) {
-        await sleep(3000);
-        const res = await fetch(
-          `${config.idikBaseUrl}/api/system/simrs-bot-jobs?id=${job.id}`,
-          { headers: agentHeaders() },
-        );
-        // GET may require user — check via patch self-read not available.
-        // Confirm route writes status done — agent exits; next claim handles new work.
-        // Soft exit: if still running after write from confirm, we're done watching.
-        void res;
-        // Assume UI confirm completes job; break after posting wait once
-        break;
-      }
-      // If still running, leave for UI confirm (do not mark error)
       return;
-    } else if (job.action === "bulk_isi_fields") {
-      await patchJob(job.id, {
+    } else if (job.action === "bulk_isi_fields") {      await patchJob(job.id, {
         status: "done",
         result: { note: "parent batch — anak diproses terpisah" },
       });

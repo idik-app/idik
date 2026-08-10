@@ -27,9 +27,9 @@ Alur kerja:
 
 1. Jalankan `npm run bot:simrs` di PC LAN
 2. Di IDIK: buka pasien → **Suruh bot** di field kosong
-3. Panel checklist → **Ajar elemen** → bot memakai **satu window SIMRS** (login sekali, tetap hidup antar ajar). Checklist hanya **Menunggu klik** — tidak auto-buka ERM. Navigasi manual ke layar yang benar, lalu **klik kiri sekali** pada field.
-4. Ajar field berikutnya → window yang sama, langsung menunggu klik lagi (tanpa login/relaunch).
-5. **Jalankan** → bot baca nilai dari selector yang diajar → Setujui. Browser ditutup saat agen berhenti (Enter di terminal / Ctrl+C).
+3. Panel checklist → **Ajar elemen** → klik langkah demi langkah di window SIMRS agen. Setelah tiap klik pilih **Tambah langkah** atau **Selesai** (langkah terakhir = nilai yang dibaca). Opsional **Tandai NO.RM**.
+4. Contoh KRS: Kasir → Real Cost → kotak RM → Cari → angka Total Biaya (Selesai).
+5. **Jalankan** → bot memutar ulang langkah ajar + isi RM pasien → Setujui. Browser ditutup saat agen berhenti (Enter di terminal / Ctrl+C).
 
 ### Setup sekali
 

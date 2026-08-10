@@ -51,6 +51,7 @@ export default function SimrsBotChecklistPanel() {
   const [job, setJob] = useState<SimrsBotJob | null>(null);
   const [memory, setMemory] = useState<MemStatus | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [teachActing, setTeachActing] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -105,6 +106,12 @@ export default function SimrsBotChecklistPanel() {
     memory?.steps ||
     [];
   const pendingValue = payload?.pending_value;
+  const teachPending = payload?.teach_pending;
+  const needsTeachDecision =
+    job?.status === "running" &&
+    Boolean(teachPending) &&
+    !payload?.teach_action &&
+    steps.some((s) => s.status === "waiting_user" && s.id.startsWith("decide_"));
   const needsConfirm =
     job?.status === "running" &&
     Boolean(pendingValue) &&
@@ -117,6 +124,34 @@ export default function SimrsBotChecklistPanel() {
   const jobActive =
     Boolean(job) &&
     ["pending", "claimed", "running", "error", "done"].includes(job!.status);
+
+  const onTeachAction = async (
+    teach_action: "continue" | "finish" | "mark_type_rm" | "cancel",
+  ) => {
+    if (!job?.id) return;
+    setTeachActing(true);
+    try {
+      const res = await fetch("/api/system/simrs-bot-jobs/teach-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: job.id, teach_action }),
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        toast.error(json.error || "Gagal kirim aksi ajar");
+        return;
+      }
+      if (teach_action === "finish") {
+        toast.success("Menyimpan urutan langkah…");
+      } else if (teach_action === "continue") {
+        toast.message("Lanjut — klik elemen berikutnya di SIMRS");
+      } else if (teach_action === "mark_type_rm") {
+        toast.message("Ditandai isi NO.RM — klik langkah berikutnya");
+      }
+    } finally {
+      setTeachActing(false);
+    }
+  };
 
   const onConfirm = async (ok: boolean) => {
     if (!job?.id) return;
@@ -248,9 +283,10 @@ export default function SimrsBotChecklistPanel() {
                 : "belum ajar elemen"}
             </p>
             <p className="text-[11px] leading-snug text-white/85">
-              Ajar elemen = klik sekali di SIMRS yang sudah terbuka; bot tidak
-              membuka menu. Navigasi manual ke layar yang benar, lalu klik
-              field.
+              Ajar = klik langkah demi langkah di window SIMRS agen (bot tidak
+              membuka menu). Setelah tiap klik: <b>Tambah langkah</b> atau{" "}
+              <b>Selesai</b> (langkah terakhir = nilai field). Opsional tandai
+              kotak NO.RM.
             </p>
             {actionButtons}
             {!jobActive ? (
@@ -291,6 +327,59 @@ export default function SimrsBotChecklistPanel() {
               </li>
             ))}
           </ul>
+        )}
+
+        {needsTeachDecision && teachPending && (
+          <div className="space-y-2 rounded-lg border border-violet-500/40 bg-violet-500/10 p-2.5">
+            <p className="text-[10px] font-black uppercase tracking-wide text-violet-200">
+              Langkah terekam — pilih aksi
+            </p>
+            <p className="text-sm font-bold dark:text-white">
+              {teachPending.label || teachPending.selector}
+            </p>
+            {teachPending.value ? (
+              <p className="break-all text-[11px] text-white/85">
+                Nilai cuplikan: {teachPending.value}
+              </p>
+            ) : null}
+            <p className="text-[10px] text-white/80">
+              Selector: {teachPending.selector}
+            </p>
+            <div className="flex flex-col gap-1.5">
+              <button
+                type="button"
+                disabled={teachActing}
+                onClick={() => void onTeachAction("continue")}
+                className="rounded-md bg-violet-600 py-1.5 text-xs font-black text-white disabled:opacity-50"
+              >
+                Tambah langkah (klik berikutnya)
+              </button>
+              <button
+                type="button"
+                disabled={teachActing}
+                onClick={() => void onTeachAction("finish")}
+                className="rounded-md bg-emerald-600 py-1.5 text-xs font-black text-white disabled:opacity-50"
+              >
+                Selesai (ini nilai field)
+              </button>
+              <button
+                type="button"
+                disabled={teachActing}
+                onClick={() => void onTeachAction("mark_type_rm")}
+                className="rounded-md border border-white/25 py-1.5 text-xs font-bold text-white/90 disabled:opacity-50"
+              >
+                Tandai sebagai kotak NO.RM + lanjut
+              </button>
+              <button
+                type="button"
+                disabled={teachActing}
+                onClick={() => void onTeachAction("cancel")}
+                className="rounded-md border border-red-400/40 py-1.5 text-xs font-bold text-red-200 disabled:opacity-50"
+              >
+                Batalkan ajar
+              </button>
+            </div>
+          </div>
         )}
 
         {needsConfirm && (

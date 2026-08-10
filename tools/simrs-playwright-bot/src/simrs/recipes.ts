@@ -5,6 +5,8 @@ import { sleep } from "../util/timing.js";
 import { findTopLevelMenuByLabel } from "./menu-helpers.js";
 import {
   clickButtonByText,
+  clickBySelector,
+  fillBySelector,
   readBySelector,
   waitForTeachClick,
 } from "./teach-element.js";
@@ -18,14 +20,38 @@ export type JobStep = {
   error?: string;
 };
 
+export type TaughtRecipeStep = {
+  id: string;
+  kind: "click_selector" | "fill" | "read_selector";
+  label: string;
+  selector: string;
+  value?: string;
+};
+
+export type TeachAction = "continue" | "finish" | "mark_type_rm" | "cancel";
+
 export type RecipeRunOpts = {
   recipe: string;
   mode: "explore" | "teach_element" | "tulis";
   noRm?: string;
   fieldKey?: string;
   simrsSelector?: string | null;
+  /** Playback langkah ajar; jika kosong fallback openRecipe + baca selector */
+  recipeSteps?: TaughtRecipeStep[];
   holdMs?: number;
   onSteps?: (steps: JobStep[]) => Promise<void>;
+  /** Dipanggil setelah tiap klik ajar — UI pilih continue/finish/mark_type_rm */
+  onTeachAwaitDecision?: (info: {
+    steps: JobStep[];
+    taughtSteps: TaughtRecipeStep[];
+    pending: {
+      label: string;
+      selector: string;
+      value: string;
+      isInput: boolean;
+      index: number;
+    };
+  }) => Promise<TeachAction>;
 };
 
 function mark(
@@ -59,7 +85,6 @@ async function openRecipe(page: import("playwright").Page, recipe: string) {
     await menu.click({ timeout: 15_000 });
     return;
   }
-  // erm_ri_perawat — ExtJS buttons by text, never ext-gen*
   await clickButtonByText(page, "ERM");
   await sleep(600);
   try {
@@ -67,6 +92,51 @@ async function openRecipe(page: import("playwright").Page, recipe: string) {
   } catch {
     await clickButtonByText(page, "ERM RI");
   }
+}
+
+async function playbackTaughtSteps(
+  page: import("playwright").Page,
+  taught: TaughtRecipeStep[],
+  noRm: string | undefined,
+  onSteps: RecipeRunOpts["onSteps"],
+): Promise<{ value: string; steps: JobStep[] }> {
+  let steps: JobStep[] = taught.map((t) => ({
+    id: t.id,
+    label: t.label,
+    status: "pending",
+  }));
+  steps.push({
+    id: "confirm_value",
+    label: "Konfirmasi nilai (Setujui di checklist)",
+    status: "pending",
+  });
+
+  let value = "";
+  for (const t of taught) {
+    steps = mark(steps, t.id, "running");
+    await emit(steps, onSteps, t.id);
+    if (t.kind === "click_selector") {
+      await clickBySelector(page, t.selector);
+      await sleep(500);
+    } else if (t.kind === "fill") {
+      const fillVal =
+        t.value === "{{no_rm}}" || !t.value ? noRm || "" : t.value;
+      if (!fillVal) throw new Error("no_rm wajib untuk langkah isi RM");
+      await fillBySelector(page, t.selector, fillVal);
+      await sleep(300);
+    } else if (t.kind === "read_selector") {
+      value = await readBySelector(page, t.selector);
+    }
+    steps = mark(steps, t.id, "done");
+    await emit(steps, onSteps, t.id);
+  }
+
+  if (!value.trim()) {
+    throw new Error("element_not_found — nilai kosong / elemen tidak terbaca");
+  }
+  steps = mark(steps, "confirm_value", "waiting_user");
+  await emit(steps, onSteps, "confirm_value");
+  return { value, steps };
 }
 
 /**
@@ -80,48 +150,201 @@ export async function runSimrsRecipe(
   selector?: string;
   label?: string;
   value?: string;
+  taughtSteps?: TaughtRecipeStep[];
   steps: JobStep[];
 }> {
   ensureDirs();
   const recipe = opts.recipe || "erm_ri_perawat";
 
   if (opts.mode === "teach_element") {
+    const { page } = await ensureSharedSimrsBrowser({ slowMoMs: 80 });
+    await page.bringToFront().catch(() => undefined);
+
+    const taughtSteps: TaughtRecipeStep[] = [];
     let steps: JobStep[] = [
       {
-        id: "wait_click",
-        label: `Menunggu klik elemen${opts.fieldKey ? ` (${opts.fieldKey})` : ""}`,
+        id: "wait_click_1",
+        label: `Menunggu klik langkah 1${opts.fieldKey ? ` (${opts.fieldKey})` : ""}`,
         status: "pending",
       },
     ];
 
-    const { page } = await ensureSharedSimrsBrowser({ slowMoMs: 80 });
-    // Bring window forward best-effort
-    await page.bringToFront().catch(() => undefined);
+    const maxSteps = 20;
+    for (let i = 0; i < maxSteps; i++) {
+      const stepId = `wait_click_${i + 1}`;
+      if (!steps.some((s) => s.id === stepId)) {
+        steps = [
+          ...steps,
+          {
+            id: stepId,
+            label: `Menunggu klik langkah ${i + 1}`,
+            status: "pending",
+          },
+        ];
+      }
+      steps = mark(steps, stepId, "running");
+      await emit(steps, opts.onSteps, stepId);
 
-    steps = mark(steps, "wait_click", "running");
-    await emit(steps, opts.onSteps, "wait_click");
-    try {
       const taught = await waitForTeachClick(page, { timeoutMs: 180_000 });
-      steps = mark(steps, "wait_click", "done");
-      await emit(steps, opts.onSteps, "wait_click");
-      console.log(
-        "[teach] selector tersimpan di job — browser SIMRS tetap terbuka",
-      );
-      return {
-        selector: taught.selector,
-        label: taught.label,
-        value: taught.value,
+      const decideId = `decide_${i + 1}`;
+      steps = mark(steps, stepId, "done");
+      steps = [
+        ...steps.filter((s) => s.id !== decideId),
+        {
+          id: decideId,
+          label: `Langkah ${i + 1} terekam: ${taught.label || taught.selector} — pilih Tambah / Selesai`,
+          status: "waiting_user",
+        },
+      ];
+      await emit(steps, opts.onSteps, decideId);
+
+      if (!opts.onTeachAwaitDecision) {
+        // Tanpa UI decision: satu klik = selesai (read)
+        taughtSteps.push({
+          id: `step_${i + 1}`,
+          kind: "read_selector",
+          label: taught.label || `Nilai ${opts.fieldKey || ""}`.trim(),
+          selector: taught.selector,
+        });
+        steps = mark(steps, decideId, "done");
+        await emit(steps, opts.onSteps, decideId);
+        break;
+      }
+
+      let action = await opts.onTeachAwaitDecision({
         steps,
-      };
+        taughtSteps,
+        pending: {
+          label: taught.label,
+          selector: taught.selector,
+          value: taught.value,
+          isInput: taught.isInput,
+          index: i,
+        },
+      });
+
+      if (action === "mark_type_rm") {
+        const fillStep: TaughtRecipeStep = {
+          id: `step_${i + 1}`,
+          kind: "fill",
+          label: taught.label || "Isi NO.RM",
+          selector: taught.selector,
+          value: "{{no_rm}}",
+        };
+        taughtSteps.push(fillStep);
+        steps = mark(
+          steps,
+          decideId,
+          "done",
+          undefined,
+        );
+        // rewrite label
+        steps = steps.map((s) =>
+          s.id === decideId
+            ? { ...s, label: `Langkah ${i + 1}: isi NO.RM (${taught.selector})`, status: "done" }
+            : s,
+        );
+        await emit(steps, opts.onSteps, decideId);
+        // After mark_type_rm, continue waiting for next click unless finish intended —
+        // treat as continue.
+        action = "continue";
+      }
+
+      if (action === "cancel") {
+        steps = mark(steps, decideId, "error", "Dibatalkan");
+        await emit(steps, opts.onSteps, decideId);
+        throw new Error("Ajar dibatalkan");
+      }
+
+      if (action === "finish") {
+        taughtSteps.push({
+          id: `step_${i + 1}`,
+          kind: "read_selector",
+          label: taught.label || `Nilai ${opts.fieldKey || ""}`.trim(),
+          selector: taught.selector,
+        });
+        steps = steps.map((s) =>
+          s.id === decideId
+            ? {
+                ...s,
+                label: `Selesai — baca ${taught.label || taught.selector}`,
+                status: "done",
+              }
+            : s,
+        );
+        await emit(steps, opts.onSteps, decideId);
+        break;
+      }
+
+      // continue — navigasi/klik tombol
+      if (action === "continue") {
+        // If we already added fill via mark_type_rm, don't double-add click
+        const already = taughtSteps.some((t) => t.id === `step_${i + 1}`);
+        if (!already) {
+          taughtSteps.push({
+            id: `step_${i + 1}`,
+            kind: "click_selector",
+            label: taught.label || `Klik ${i + 1}`,
+            selector: taught.selector,
+          });
+        }
+        steps = steps.map((s) =>
+          s.id === decideId
+            ? {
+                ...s,
+                label: `Langkah ${i + 1} OK — siap klik berikutnya`,
+                status: "done",
+              }
+            : s,
+        );
+        await emit(steps, opts.onSteps, decideId);
+      }
+
+      if (i === maxSteps - 1) {
+        throw new Error("Terlalu banyak langkah ajar");
+      }
+    }
+
+    const readStep = [...taughtSteps].reverse().find((t) => t.kind === "read_selector");
+    if (!readStep) {
+      throw new Error("Ajar belum selesai — tekan Selesai pada nilai field");
+    }
+
+    console.log(
+      `[teach] ${taughtSteps.length} langkah tersimpan — browser SIMRS tetap terbuka`,
+    );
+    return {
+      selector: readStep.selector,
+      label: readStep.label,
+      value: "",
+      taughtSteps,
+      steps,
+    };
+  }
+
+  const { page } = await ensureSharedSimrsBrowser({ slowMoMs: 80 });
+  await page.bringToFront().catch(() => undefined);
+
+  // Playback ajar multi-langkah
+  if (
+    opts.mode === "tulis" &&
+    opts.recipeSteps &&
+    opts.recipeSteps.length > 0
+  ) {
+    try {
+      return await playbackTaughtSteps(
+        page,
+        opts.recipeSteps,
+        opts.noRm,
+        opts.onSteps,
+      );
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      steps = mark(steps, "wait_click", "error", msg);
-      await emit(steps, opts.onSteps, "wait_click");
-      console.error("[teach] gagal:", msg);
-      console.log(
-        "[teach] Browser SIMRS tetap terbuka — navigasi manual lalu Ajar ulang",
+      throw new Error(
+        msg.includes("element_not_found")
+          ? `element_not_found — perlu ajar ulang`
+          : msg,
       );
-      throw e;
     }
   }
 
@@ -156,12 +379,8 @@ export async function runSimrsRecipe(
   steps = mark(steps, "login_simrs", "running");
   await emit(steps, opts.onSteps, "login_simrs");
 
-  const { page } = await ensureSharedSimrsBrowser({ slowMoMs: 80 });
-  await page.bringToFront().catch(() => undefined);
-
   const mainUrl =
     config.simrsWebUrl.replace(/\/?$/, "/") + "index.php?c=main";
-  // Only navigate home if we need recipe open from a known root
   if (!/c=main/i.test(page.url())) {
     await page.goto(mainUrl, {
       waitUntil: "domcontentloaded",
@@ -191,7 +410,7 @@ export async function runSimrsRecipe(
     return { screenshot: shot, steps };
   }
 
-  // tulis
+  // tulis — fallback tanpa recipe_steps
   steps = mark(steps, "cari_rm", "running");
   await emit(steps, opts.onSteps, "cari_rm");
   if (opts.noRm) {

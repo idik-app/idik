@@ -3,6 +3,7 @@
 export type RecipeStepKind =
   | "click_text"
   | "click_role"
+  | "click_selector"
   | "fill"
   | "wait"
   | "read_selector"

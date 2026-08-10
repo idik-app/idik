@@ -62,6 +62,19 @@ export type SimrsBotJobPayload = {
   parent_job_id?: string;
   /** Usulan OCR/AI (lapisan atas) */
   ai_suggestions?: { label: string; selector?: string; confidence?: number }[];
+  simrs_selector?: string | null;
+  /** Langkah ajar terekam (progress) */
+  taught_steps?: unknown[];
+  /** Langkah terakhir menunggu keputusan UI */
+  teach_pending?: {
+    label?: string;
+    selector?: string;
+    value?: string;
+    isInput?: boolean;
+    index?: number;
+  } | null;
+  /** Sinyal UI → agen saat ajar multi-langkah */
+  teach_action?: "continue" | "finish" | "mark_type_rm" | "cancel" | null;
 };
 
 export type SimrsBotJob = {
@@ -152,14 +165,11 @@ export function buildDefaultSteps(opts: {
 
   if (opts.mode === "teach_element") {
     return [
-      { id: "login_simrs", label: "Login SIMRS", status: "pending" },
-      { id: "open_recipe", label: `Buka ${recipeLabel}`, status: "pending" },
       {
         id: "wait_click",
-        label: `Menunggu klik elemen${opts.fieldKey ? ` (${opts.fieldKey})` : ""}`,
+        label: `Menunggu klik langkah 1${opts.fieldKey ? ` (${opts.fieldKey})` : ""}`,
         status: "pending",
       },
-      { id: "save_selector", label: "Simpan selector ke mapping", status: "pending" },
     ];
   }
 

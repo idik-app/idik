@@ -72,9 +72,26 @@ export type SimrsBotJobPayload = {
     value?: string;
     isInput?: boolean;
     index?: number;
+    warning?: string | null;
+    candidates?: {
+      selector: string;
+      label: string;
+      value: string;
+      isInput: boolean;
+      tag?: string;
+      inputType?: string;
+      warning?: string | null;
+    }[];
   } | null;
   /** Sinyal UI → agen saat ajar multi-langkah */
   teach_action?: "continue" | "finish" | "mark_type_rm" | "cancel" | null;
+  /** Selector yang dipilih/diedit user di checklist sebelum Tambah/Selesai */
+  teach_selected?: {
+    selector: string;
+    label?: string;
+    value?: string;
+    isInput?: boolean;
+  } | null;
 };
 
 export type SimrsBotJob = {

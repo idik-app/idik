@@ -115,14 +115,25 @@ async function waitTeachAction(
       value: string;
       isInput: boolean;
       index: number;
+      warning?: string | null;
+      candidates?: unknown[];
     };
   },
-): Promise<"continue" | "finish" | "mark_type_rm" | "cancel"> {
+): Promise<{
+  action: "continue" | "finish" | "mark_type_rm" | "cancel";
+  selected?: {
+    selector: string;
+    label?: string;
+    value?: string;
+    isInput?: boolean;
+  } | null;
+}> {
   Object.assign(basePayload, {
     steps: info.steps,
     taught_steps: info.taughtSteps,
     teach_pending: info.pending,
     teach_action: null,
+    teach_selected: null,
   });
   await patchJob(jobId, {
     status: "running",
@@ -147,18 +158,41 @@ async function waitTeachAction(
       action === "mark_type_rm" ||
       action === "cancel"
     ) {
+      const rawSelected = payload.teach_selected;
+      let selected:
+        | {
+            selector: string;
+            label?: string;
+            value?: string;
+            isInput?: boolean;
+          }
+        | null = null;
+      if (rawSelected && typeof rawSelected === "object") {
+        const s = rawSelected as Record<string, unknown>;
+        const selector = String(s.selector || "").trim();
+        if (selector) {
+          selected = {
+            selector,
+            label: s.label != null ? String(s.label) : undefined,
+            value: s.value != null ? String(s.value) : undefined,
+            isInput:
+              typeof s.isInput === "boolean" ? s.isInput : undefined,
+          };
+        }
+      }
       Object.assign(basePayload, payload, {
         teach_action: null,
         // Clear pending so checklist hides Tambah/Selesai until next click
         teach_pending: null,
+        teach_selected: null,
       });
       await patchJob(jobId, {
         payload: { ...basePayload },
       });
-      return action;
+      return { action, selected };
     }
   }
-  return "cancel";
+  return { action: "cancel", selected: null };
 }
 
 async function fetchFieldMap(

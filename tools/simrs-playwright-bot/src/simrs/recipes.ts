@@ -30,6 +30,36 @@ export type TaughtRecipeStep = {
 
 export type TeachAction = "continue" | "finish" | "mark_type_rm" | "cancel";
 
+export type TeachPendingInfo = {
+  label: string;
+  selector: string;
+  value: string;
+  isInput: boolean;
+  index: number;
+  warning?: string | null;
+  candidates?: {
+    selector: string;
+    label: string;
+    value: string;
+    isInput: boolean;
+    tag?: string;
+    inputType?: string;
+    warning?: string | null;
+  }[];
+};
+
+export type TeachSelectedOverride = {
+  selector: string;
+  label?: string;
+  value?: string;
+  isInput?: boolean;
+};
+
+export type TeachDecision = {
+  action: TeachAction;
+  selected?: TeachSelectedOverride | null;
+};
+
 export type RecipeRunOpts = {
   recipe: string;
   mode: "explore" | "teach_element" | "tulis";
@@ -44,14 +74,8 @@ export type RecipeRunOpts = {
   onTeachAwaitDecision?: (info: {
     steps: JobStep[];
     taughtSteps: TaughtRecipeStep[];
-    pending: {
-      label: string;
-      selector: string;
-      value: string;
-      isInput: boolean;
-      index: number;
-    };
-  }) => Promise<TeachAction>;
+    pending: TeachPendingInfo;
+  }) => Promise<TeachDecision>;
 };
 
 function mark(
@@ -201,11 +225,12 @@ export async function runSimrsRecipe(
       });
       const decideId = `decide_${i + 1}`;
       steps = mark(steps, stepId, "done");
+      const warnHint = taught.warning ? " (peringatan — pilih/edit elemen)" : "";
       steps = [
         ...steps.filter((s) => s.id !== decideId),
         {
           id: decideId,
-          label: `Langkah ${i + 1} terekam: ${taught.label || taught.selector} — pilih Tambah / Selesai`,
+          label: `Langkah ${i + 1} terekam: ${taught.label || taught.selector}${warnHint} — pilih kandidat / edit selector lalu Tambah / Selesai`,
           status: "waiting_user",
         },
       ];
@@ -224,7 +249,7 @@ export async function runSimrsRecipe(
       }
 
       // Atomic: steps + teach_pending via waitTeachAction (no prior emit that races)
-      let action = await opts.onTeachAwaitDecision({
+      const decision = await opts.onTeachAwaitDecision({
         steps,
         taughtSteps,
         pending: {
@@ -233,15 +258,29 @@ export async function runSimrsRecipe(
           value: taught.value,
           isInput: taught.isInput,
           index: i,
+          warning: taught.warning ?? null,
+          candidates: taught.candidates,
         },
       });
+      let action = decision.action;
+      const picked = decision.selected;
+      const resolved = {
+        label: (picked?.label || taught.label).trim() || taught.label,
+        selector: (picked?.selector || taught.selector).trim() || taught.selector,
+        value:
+          picked?.value !== undefined && picked?.value !== null
+            ? String(picked.value)
+            : taught.value,
+        isInput:
+          typeof picked?.isInput === "boolean" ? picked.isInput : taught.isInput,
+      };
 
       if (action === "mark_type_rm") {
         const fillStep: TaughtRecipeStep = {
           id: `step_${i + 1}`,
           kind: "fill",
-          label: taught.label || "Isi NO.RM",
-          selector: taught.selector,
+          label: resolved.label || "Isi NO.RM",
+          selector: resolved.selector,
           value: "{{no_rm}}",
         };
         taughtSteps.push(fillStep);
@@ -254,7 +293,7 @@ export async function runSimrsRecipe(
         // rewrite label
         steps = steps.map((s) =>
           s.id === decideId
-            ? { ...s, label: `Langkah ${i + 1}: isi NO.RM (${taught.selector})`, status: "done" }
+            ? { ...s, label: `Langkah ${i + 1}: isi NO.RM (${resolved.selector})`, status: "done" }
             : s,
         );
         await emit(steps, opts.onSteps, decideId);
@@ -273,14 +312,14 @@ export async function runSimrsRecipe(
         taughtSteps.push({
           id: `step_${i + 1}`,
           kind: "read_selector",
-          label: taught.label || `Nilai ${opts.fieldKey || ""}`.trim(),
-          selector: taught.selector,
+          label: resolved.label || `Nilai ${opts.fieldKey || ""}`.trim(),
+          selector: resolved.selector,
         });
         steps = steps.map((s) =>
           s.id === decideId
             ? {
                 ...s,
-                label: `Selesai — baca ${taught.label || taught.selector}`,
+                label: `Selesai — baca ${resolved.label || resolved.selector}`,
                 status: "done",
               }
             : s,
@@ -297,8 +336,8 @@ export async function runSimrsRecipe(
           taughtSteps.push({
             id: `step_${i + 1}`,
             kind: "click_selector",
-            label: taught.label || `Klik ${i + 1}`,
-            selector: taught.selector,
+            label: resolved.label || `Klik ${i + 1}`,
+            selector: resolved.selector,
           });
         }
         steps = steps.map((s) =>

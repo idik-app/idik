@@ -53,6 +53,11 @@ export default function SimrsBotChecklistPanel() {
   const [confirming, setConfirming] = useState(false);
   const [teachActing, setTeachActing] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [editSelector, setEditSelector] = useState("");
+  const [editLabel, setEditLabel] = useState("");
+  const [editValue, setEditValue] = useState("");
+  const [editIsInput, setEditIsInput] = useState(false);
+  const [pickedKey, setPickedKey] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -98,15 +103,42 @@ export default function SimrsBotChecklistPanel() {
     };
   }, [panel.open, panel.minimized, panel.jobId]);
 
+  const payload = job ? parseJobPayload(job.payload) : null;
+  const teachPending = payload?.teach_pending ?? null;
+  const teachPendingKey = teachPending
+    ? `${teachPending.index ?? ""}|${teachPending.selector || ""}|${teachPending.label || ""}`
+    : "";
+
+  useEffect(() => {
+    if (!teachPending) {
+      setEditSelector("");
+      setEditLabel("");
+      setEditValue("");
+      setEditIsInput(false);
+      setPickedKey(null);
+      return;
+    }
+    setEditSelector(teachPending.selector || "");
+    setEditLabel(teachPending.label || "");
+    setEditValue(teachPending.value || "");
+    setEditIsInput(Boolean(teachPending.isInput));
+    setPickedKey(
+      teachPending.selector
+        ? `${teachPending.selector}::${teachPending.label || ""}`
+        : null,
+    );
+    // Reset local edits only when pending step identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- teachPendingKey is intentional sync key
+  }, [teachPendingKey]);
+
   if (!panel.open || !mounted) return null;
 
-  const payload = job ? parseJobPayload(job.payload) : null;
   const steps: SimrsBotStep[] =
     payload?.steps ||
     memory?.steps ||
     [];
   const pendingValue = payload?.pending_value;
-  const teachPending = payload?.teach_pending;
+  const teachCandidates = teachPending?.candidates || [];
   const decideWaiting = steps.some(
     (s) => s.status === "waiting_user" && s.id.startsWith("decide_"),
   );
@@ -132,16 +164,45 @@ export default function SimrsBotChecklistPanel() {
     Boolean(job) &&
     ["pending", "claimed", "running", "error", "done"].includes(job!.status);
 
+  const onPickCandidate = (c: {
+    selector: string;
+    label: string;
+    value: string;
+    isInput: boolean;
+  }) => {
+    setPickedKey(`${c.selector}::${c.label}`);
+    setEditSelector(c.selector);
+    setEditLabel(c.label);
+    setEditValue(c.value);
+    setEditIsInput(Boolean(c.isInput));
+  };
+
   const onTeachAction = async (
     teach_action: "continue" | "finish" | "mark_type_rm" | "cancel",
   ) => {
     if (!job?.id) return;
+    if (teach_action !== "cancel" && !editSelector.trim()) {
+      toast.error("Isi / pilih selector elemen dulu");
+      return;
+    }
     setTeachActing(true);
     try {
       const res = await fetch("/api/system/simrs-bot-jobs/teach-action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ job_id: job.id, teach_action }),
+        body: JSON.stringify({
+          job_id: job.id,
+          teach_action,
+          teach_selected:
+            teach_action === "cancel"
+              ? null
+              : {
+                  selector: editSelector.trim(),
+                  label: editLabel.trim() || undefined,
+                  value: editValue,
+                  isInput: editIsInput,
+                },
+        }),
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
@@ -291,13 +352,13 @@ export default function SimrsBotChecklistPanel() {
             </p>
             <p className="text-[11px] leading-snug text-white/85">
               Ajar multi-langkah: klik di window Chromium SIMRS agen (bukan panel
-              ini). Setelah tiap klik pilih Tambah langkah (boleh berulang) atau
-              Selesai pada nilai field. Opsional tandai kotak NO.RM.
+              ini). Setelah tiap klik pilih kandidat / edit selector, lalu Tambah
+              langkah atau Selesai pada nilai field. Opsional tandai kotak NO.RM.
             </p>
             {waitingClick ? (
               <p className="rounded-md border border-amber-400/40 bg-amber-500/15 px-2 py-1.5 text-[11px] font-semibold text-amber-50">
-                Menunggu klik di window SIMRS agen — lalu tombol Tambah / Selesai
-                muncul di sini.
+                Menunggu klik di window SIMRS agen — lalu kandidat + tombol
+                Tambah / Selesai muncul di sini.
               </p>
             ) : null}
             {actionButtons}
@@ -344,21 +405,99 @@ export default function SimrsBotChecklistPanel() {
         {needsTeachDecision && (
           <div className="space-y-2 rounded-lg border border-violet-500/40 bg-violet-500/10 p-2.5">
             <p className="text-[10px] font-black uppercase tracking-wide text-violet-200">
-              Langkah terekam — pilih aksi
+              Langkah terekam — pilih elemen dan aksi
             </p>
             {teachPending ? (
               <>
-                <p className="text-sm font-bold dark:text-white">
-                  {teachPending.label || teachPending.selector}
-                </p>
-                {teachPending.value ? (
-                  <p className="break-all text-[11px] text-white/85">
-                    Nilai cuplikan: {teachPending.value}
+                {teachPending.warning ? (
+                  <p className="rounded-md border border-amber-400/40 bg-amber-500/15 px-2 py-1.5 text-[11px] font-semibold text-amber-50">
+                    {teachPending.warning} — pilih kandidat lebih sempit atau edit
+                    selector di bawah.
                   </p>
                 ) : null}
-                <p className="text-[10px] text-white/80">
-                  Selector: {teachPending.selector}
+                <p className="text-sm font-bold dark:text-white">
+                  {editLabel || teachPending.label || teachPending.selector}
                 </p>
+                {(editValue || teachPending.value) ? (
+                  <p className="break-all text-[11px] text-white/85">
+                    Nilai cuplikan: {editValue || teachPending.value}
+                  </p>
+                ) : null}
+
+                {teachCandidates.length > 0 ? (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-white/70">
+                      Kandidat elemen
+                    </p>
+                    <div className="flex max-h-40 flex-col gap-1 overflow-y-auto">
+                      {teachCandidates.map((c) => {
+                        const key = `${c.selector}::${c.label}`;
+                        const active = pickedKey === key;
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            disabled={teachActing || Boolean(c.warning?.startsWith("kontrol aksi"))}
+                            onClick={() => onPickCandidate(c)}
+                            className={cn(
+                              "rounded-md border px-2 py-1.5 text-left text-[11px] disabled:opacity-40",
+                              active
+                                ? "border-violet-400 bg-violet-600/40 text-white"
+                                : "border-white/20 bg-black/30 text-white/90 hover:bg-white/10",
+                            )}
+                            title={c.selector}
+                          >
+                            <span className="block font-bold dark:text-white">
+                              {c.label || c.selector}
+                            </span>
+                            {c.value ? (
+                              <span className="mt-0.5 block break-all text-white/85">
+                                {c.value.slice(0, 80)}
+                                {c.value.length > 80 ? "…" : ""}
+                              </span>
+                            ) : null}
+                            <span className="mt-0.5 block break-all font-mono text-[10px] text-white/75">
+                              {c.selector}
+                            </span>
+                            {c.warning ? (
+                              <span className="mt-0.5 block text-[10px] text-amber-200">
+                                {c.warning}
+                              </span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+
+                <label className="block space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-white/70">
+                    Selector (bisa diedit)
+                  </span>
+                  <input
+                    type="text"
+                    value={editSelector}
+                    onChange={(e) => setEditSelector(e.target.value)}
+                    disabled={teachActing}
+                    spellCheck={false}
+                    className="w-full rounded-md border border-white/20 bg-black/40 px-2 py-1.5 font-mono text-[11px] text-white placeholder:text-white/70 dark:placeholder:text-white/90"
+                    placeholder="mis. text:Total · tablecell:Total|Biaya · #id"
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-white/70">
+                    Label singkat
+                  </span>
+                  <input
+                    type="text"
+                    value={editLabel}
+                    onChange={(e) => setEditLabel(e.target.value)}
+                    disabled={teachActing}
+                    className="w-full rounded-md border border-white/20 bg-black/40 px-2 py-1.5 text-[11px] text-white placeholder:text-white/70 dark:placeholder:text-white/90"
+                    placeholder="Label langkah"
+                  />
+                </label>
               </>
             ) : (
               <p className="text-xs text-white/85">Menyiapkan aksi ajar…</p>
@@ -366,7 +505,7 @@ export default function SimrsBotChecklistPanel() {
             <div className="flex flex-col gap-1.5">
               <button
                 type="button"
-                disabled={teachActing || !teachPending}
+                disabled={teachActing || !teachPending || !editSelector.trim()}
                 onClick={() => void onTeachAction("continue")}
                 className="rounded-md bg-violet-600 py-1.5 text-xs font-black text-white disabled:opacity-50"
               >
@@ -374,7 +513,7 @@ export default function SimrsBotChecklistPanel() {
               </button>
               <button
                 type="button"
-                disabled={teachActing || !teachPending}
+                disabled={teachActing || !teachPending || !editSelector.trim()}
                 onClick={() => void onTeachAction("finish")}
                 className="rounded-md bg-emerald-600 py-1.5 text-xs font-black text-white disabled:opacity-50"
               >
@@ -382,7 +521,7 @@ export default function SimrsBotChecklistPanel() {
               </button>
               <button
                 type="button"
-                disabled={teachActing || !teachPending}
+                disabled={teachActing || !teachPending || !editSelector.trim()}
                 onClick={() => void onTeachAction("mark_type_rm")}
                 className="rounded-md border border-white/25 py-1.5 text-xs font-bold text-white/90 disabled:opacity-50"
               >

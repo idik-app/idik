@@ -192,15 +192,79 @@ const BUILD_STABLE_FROM_EL = `(el) => {
   };
 }`;
 
-/** Build TaughtClick meta from coords in one page.evaluate (hindari ElementHandle). */
+/**
+ * Build primary + nearby candidate metas from click coords (hindari ElementHandle).
+ * Candidates = hit, climb parents, narrow children — biar UI bisa pilih yang pas.
+ */
 const BUILD_FROM_POINT = `(x, y) => {
   const resolve = ${RESOLVE_FROM_POINT};
-  const el = resolve(x, y);
-  if (!el) return { ok: false, reason: "tidak ada elemen di titik klik" };
   const buildFn = ${BUILD_STABLE_FROM_EL};
-  const data = buildFn(el);
-  if (!data || !data.tag) return { ok: false, reason: "gagal baca tag elemen" };
-  return { ok: true, data: data };
+  const primary = resolve(x, y);
+  if (!primary) return { ok: false, reason: "tidak ada elemen di titik klik" };
+
+  const els = [];
+  const seen = typeof WeakSet !== "undefined" ? new WeakSet() : null;
+  const add = (el) => {
+    if (!el || !el.tagName) return;
+    const tag = el.tagName.toLowerCase();
+    if (tag === "html" || tag === "body") return;
+    if (seen) {
+      if (seen.has(el)) return;
+      seen.add(el);
+    } else if (els.indexOf(el) >= 0) {
+      return;
+    }
+    els.push(el);
+  };
+
+  add(primary);
+  try {
+    add(document.elementFromPoint(x, y));
+  } catch (e) { /* ignore */ }
+
+  let cur = primary;
+  for (let i = 0; i < 8 && cur; i++) {
+    add(cur);
+    cur = cur.parentElement;
+  }
+
+  try {
+    const kids = primary.querySelectorAll(
+      "td, th, [role='gridcell'], input, textarea, select, label, span, div, a, button, strong, em, b",
+    );
+    const limit = Math.min(kids.length, 28);
+    for (let i = 0; i < limit; i++) {
+      const k = kids[i];
+      const t = (k.innerText || k.textContent || "").replace(/\\s+/g, " ").trim();
+      if (/^(input|textarea|select|button|a)$/i.test(k.tagName)) add(k);
+      else if (t && t.length > 0 && t.length <= 96) add(k);
+    }
+  } catch (e) { /* ignore */ }
+
+  const candidates = [];
+  const keySeen = Object.create(null);
+  for (let i = 0; i < els.length; i++) {
+    const data = buildFn(els[i]);
+    if (!data || !data.tag) continue;
+    const key =
+      (data.id || "") +
+      "|" +
+      (data.name || "") +
+      "|" +
+      (data.label || "").slice(0, 40) +
+      "|" +
+      (data.value || "").slice(0, 40) +
+      "|" +
+      data.tag +
+      "|" +
+      (data.tablecell ? data.tablecell.row + "|" + data.tablecell.col : "");
+    if (keySeen[key]) continue;
+    keySeen[key] = true;
+    candidates.push(data);
+  }
+
+  if (!candidates.length) return { ok: false, reason: "gagal baca tag elemen" };
+  return { ok: true, data: candidates[0], candidates: candidates };
 }`;
 
 type StableMeta = {
@@ -218,11 +282,25 @@ type StableMeta = {
   isInput: boolean;
 };
 
+export type TeachCandidate = {
+  selector: string;
+  label: string;
+  value: string;
+  isInput: boolean;
+  tag?: string;
+  inputType?: string;
+  warning?: string | null;
+};
+
 export type TaughtClick = {
   selector: string;
   label: string;
   value: string;
   isInput: boolean;
+  tag?: string;
+  inputType?: string;
+  candidates?: TeachCandidate[];
+  warning?: string | null;
 };
 
 function metaToTaught(data: StableMeta): TaughtClick {
@@ -256,7 +334,82 @@ function metaToTaught(data: StableMeta): TaughtClick {
       data.tag,
     value: data.value || "",
     isInput: Boolean(data.isInput),
+    tag: data.tag,
+    inputType: data.type || "",
   };
+}
+
+const DANGEROUS_CLICK =
+  /hapus|delete|simpan|save|submit|batal batal|logout|keluar/i;
+
+function isActionControl(tag?: string, inputType?: string): boolean {
+  const t = (tag || "").toLowerCase();
+  if (t === "button" || t === "a") return true;
+  if (t === "input" && /^(submit|button|image|reset)$/i.test(inputType || "")) {
+    return true;
+  }
+  return false;
+}
+
+function matchesDangerousBlob(label: string, text: string): boolean {
+  const blob = `${label} ${text}`;
+  if (isDangerousLabel(blob)) return true;
+  return DANGEROUS_CLICK.test(blob);
+}
+
+/** Hard = tombol/aksi; warn = panel baca yang kebawa kata sensitif di blob teks. */
+export function teachDangerLevel(target: {
+  label: string;
+  value: string;
+  tag?: string;
+  inputType?: string;
+}): "hard" | "warn" | null {
+  if (!matchesDangerousBlob(target.label, target.value)) return null;
+  if (isActionControl(target.tag, target.inputType)) return "hard";
+  return "warn";
+}
+
+/** Compat: true hanya untuk kontrol aksi berbahaya (blok keras). */
+export function isDangerousTeachTarget(
+  label: string,
+  text: string,
+  opts?: { tag?: string; inputType?: string },
+): boolean {
+  return (
+    teachDangerLevel({
+      label,
+      value: text,
+      tag: opts?.tag,
+      inputType: opts?.inputType,
+    }) === "hard"
+  );
+}
+
+function dedupeCandidates(list: TaughtClick[]): TeachCandidate[] {
+  const out: TeachCandidate[] = [];
+  const seen = new Set<string>();
+  for (const c of list) {
+    const key = `${c.selector}::${c.label}::${c.value.slice(0, 48)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const level = teachDangerLevel(c);
+    out.push({
+      selector: c.selector,
+      label: c.label,
+      value: c.value,
+      isInput: c.isInput,
+      tag: c.tag,
+      inputType: c.inputType,
+      warning:
+        level === "hard"
+          ? `kontrol aksi berbahaya: ${c.label}`
+          : level === "warn"
+            ? `teks mengandung kata sensitif: ${c.label}`
+            : null,
+    });
+    if (out.length >= 12) break;
+  }
+  return out;
 }
 
 /** Prefer stable selector attributes; never ext-gen*. */
@@ -277,15 +430,6 @@ export async function buildStableSelector(
   return metaToTaught(data);
 }
 
-const DANGEROUS_CLICK =
-  /hapus|delete|simpan|save|submit|batal batal|logout|keluar/i;
-
-export function isDangerousTeachTarget(label: string, text: string): boolean {
-  const blob = `${label} ${text}`;
-  if (isDangerousLabel(blob)) return true;
-  return DANGEROUS_CLICK.test(blob);
-}
-
 async function reinjectAll(page: Page) {
   await page.evaluate(TEACH_INJECT_CLICK).catch(() => undefined);
   for (const frame of page.frames()) {
@@ -296,7 +440,8 @@ async function reinjectAll(page: Page) {
 
 /**
  * Wait for a single left-click on page (or frames). Uses DOM hit-test — no Inspect.
- * Soft-fails on unreadable clicks and keeps waiting for another click.
+ * Soft-fails on unreadable / hard-dangerous clicks and keeps waiting.
+ * Soft-warns on read panels that contain sensitive words but still returns candidates.
  */
 export async function waitForTeachClick(
   page: Page,
@@ -330,7 +475,7 @@ export async function waitForTeachClick(
       const result = (await ctx
         .evaluate(`((x, y) => { const fn = ${BUILD_FROM_POINT}; return fn(x, y); })(${x}, ${y})`)
         .catch(() => null)) as
-        | { ok: true; data: StableMeta }
+        | { ok: true; data: StableMeta; candidates?: StableMeta[] }
         | { ok: false; reason: string }
         | null;
 
@@ -346,18 +491,51 @@ export async function waitForTeachClick(
       }
 
       try {
-        const built = metaToTaught(result.data);
-        if (isDangerousTeachTarget(built.label, built.value)) {
-          const reason = `elemen berbahaya: ${built.label}`;
+        const metas = (
+          result.candidates && result.candidates.length
+            ? result.candidates
+            : [result.data]
+        ).map(metaToTaught);
+        const candidates = dedupeCandidates(metas);
+        if (!candidates.length) {
+          const reason = "gagal susun kandidat elemen";
+          console.warn(`[teach] miss: ${reason}`);
+          if (opts?.onMiss) await opts.onMiss(reason);
+          await reinjectAll(page);
+          continue;
+        }
+
+        const pickable = candidates.filter((c) => {
+          const level = teachDangerLevel(c);
+          return level !== "hard";
+        });
+        if (!pickable.length) {
+          const reason = `elemen berbahaya: ${candidates[0]?.label || "kontrol aksi"}`;
           console.warn(`[teach] ${reason}`);
           if (opts?.onMiss) await opts.onMiss(reason);
           await reinjectAll(page);
           continue;
         }
+
+        const preferred =
+          pickable.find((c) => !c.warning) || pickable[0]!;
+        const warning = preferred.warning || null;
+        if (warning) {
+          console.warn(`[teach] soft-warn: ${warning}`);
+        }
         console.log(
-          `[teach] terekam label="${built.label}" selector=${built.selector} value=${built.value.slice(0, 40)}`,
+          `[teach] terekam label="${preferred.label}" selector=${preferred.selector} value=${preferred.value.slice(0, 40)} candidates=${candidates.length}`,
         );
-        return built;
+        return {
+          selector: preferred.selector,
+          label: preferred.label,
+          value: preferred.value,
+          isInput: preferred.isInput,
+          tag: preferred.tag,
+          inputType: preferred.inputType,
+          candidates,
+          warning,
+        };
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
         console.warn(`[teach] ${msg}`);

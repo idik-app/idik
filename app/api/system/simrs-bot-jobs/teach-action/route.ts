@@ -12,12 +12,22 @@ type TeachAction = "continue" | "finish" | "mark_type_rm" | "cancel";
 
 /**
  * POST — user signals teach wizard (Tambah langkah / Selesai / tandai RM).
+ * Optional teach_selected overrides selector/label/value before agent records the step.
  */
 export async function POST(request: Request) {
   const user = await requireUser();
   if (!user.ok) return user.response;
 
-  let body: { job_id?: string; teach_action?: TeachAction } = {};
+  let body: {
+    job_id?: string;
+    teach_action?: TeachAction;
+    teach_selected?: {
+      selector?: string;
+      label?: string;
+      value?: string;
+      isInput?: boolean;
+    } | null;
+  } = {};
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -39,6 +49,37 @@ export async function POST(request: Request) {
       { ok: false, error: "teach_action invalid" },
       { status: 400 },
     );
+  }
+
+  let teachSelected: {
+    selector: string;
+    label?: string;
+    value?: string;
+    isInput?: boolean;
+  } | null = null;
+  if (action !== "cancel" && body.teach_selected) {
+    const selector = String(body.teach_selected.selector || "").trim();
+    if (!selector) {
+      return NextResponse.json(
+        { ok: false, error: "selector terpilih wajib diisi" },
+        { status: 400 },
+      );
+    }
+    teachSelected = {
+      selector,
+      label:
+        body.teach_selected.label != null
+          ? String(body.teach_selected.label)
+          : undefined,
+      value:
+        body.teach_selected.value != null
+          ? String(body.teach_selected.value)
+          : undefined,
+      isInput:
+        typeof body.teach_selected.isInput === "boolean"
+          ? body.teach_selected.isInput
+          : undefined,
+    };
   }
 
   try {
@@ -81,6 +122,7 @@ export async function POST(request: Request) {
         payload: {
           ...payload,
           teach_action: action,
+          teach_selected: teachSelected,
         },
       })
       .eq("id", jobId)

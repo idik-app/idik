@@ -12,7 +12,9 @@ import {
   History,
   type LucideIcon,
   MapPin,
+  Minus,
   PanelLeft,
+  Plus,
   Stethoscope,
   User,
   Users,
@@ -83,6 +85,17 @@ import {
   type DoctorOption,
 } from "@/components/ui/doctor-combobox";
 import { mutate as mutateSwrGlobal } from "swr";
+
+const DRAWER_ZOOM_STORAGE_KEY = "idik_tindakan_drawer_zoom";
+const DRAWER_ZOOM_MIN = 70;
+const DRAWER_ZOOM_MAX = 130;
+const DRAWER_ZOOM_STEP = 5;
+const DRAWER_ZOOM_DEFAULT = 100;
+
+function clampDrawerZoomPercent(value: number): number {
+  const stepped = Math.round(value / DRAWER_ZOOM_STEP) * DRAWER_ZOOM_STEP;
+  return Math.min(DRAWER_ZOOM_MAX, Math.max(DRAWER_ZOOM_MIN, stepped));
+}
 
 type Props = {
   open: boolean;
@@ -598,6 +611,32 @@ function TindakanDetailDrawer({
   const [mobileTabMenuOpen, setMobileTabMenuOpen] = useState(false);
   /** Desktop sidebar toggle: jika true, sidebar kiri (nav) disembunyikan. */
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  /** Scale lokal drawer (independen dari zoom Topbar; drawer di-portal ke body). */
+  const [drawerZoomPercent, setDrawerZoomPercent] = useState(
+    DRAWER_ZOOM_DEFAULT,
+  );
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(DRAWER_ZOOM_STORAGE_KEY);
+      if (saved == null) return;
+      const n = Number(saved);
+      if (!Number.isNaN(n)) setDrawerZoomPercent(clampDrawerZoomPercent(n));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        DRAWER_ZOOM_STORAGE_KEY,
+        String(drawerZoomPercent),
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [drawerZoomPercent]);
 
   // SWR hooks for master data
   const { pasien: pasienMaster, mutate: mutatePasien } = usePasienDetail(
@@ -953,10 +992,12 @@ function TindakanDetailDrawer({
                 opacity: { duration: 0.15 }
               }}
               className={cn(
-                "pointer-events-auto flex h-[85vh] max-h-[85vh] min-w-0 w-full max-w-5xl cursor-default flex-col overflow-hidden rounded-2xl border antialiased [text-rendering:optimizeLegibility]",
+                "pointer-events-auto flex h-[min(85vh,660px)] max-h-[min(85vh,660px)] min-w-0 w-full max-w-[min(48rem,92vw)] cursor-default flex-col overflow-hidden rounded-xl border antialiased [text-rendering:optimizeLegibility]",
+                "lg:max-w-[min(56rem,92vw)] xl:h-[85vh] xl:max-h-[85vh] xl:max-w-5xl xl:rounded-2xl",
                 "border-slate-200/90 bg-slate-50/90 shadow-[0_24px_56px_rgba(15,23,42,0.15),0_0_1px_rgba(15,23,42,0.1)]",
                 "font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
               )}
+              style={{ zoom: drawerZoomPercent / 100 }}
               onClick={(e) => e.stopPropagation()}
             >
               <div
@@ -1015,20 +1056,66 @@ function TindakanDetailDrawer({
                       {title}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      onClose();
-                    }}
-                    onClick={onClose}
-                    className={cn(
-                      "shrink-0 rounded-lg border p-1.5 transition-all duration-300",
-                      "border-white/20 bg-white/10 text-slate-200 hover:border-white/35 hover:bg-white/20 hover:text-white",
-                    )}
-                  >
-                    <X size={17} />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <div
+                      className="flex items-center gap-0.5 rounded-lg border border-white/20 bg-white/10 px-0.5 py-0.5"
+                      title="Scale drawer detail"
+                      role="group"
+                      aria-label="Scale drawer detail"
+                    >
+                      <button
+                        type="button"
+                        className="inline-flex h-7 min-w-[1.75rem] items-center justify-center rounded-md px-1 text-slate-100 transition hover:bg-white/15 disabled:pointer-events-none disabled:opacity-40"
+                        aria-label="Perkecil drawer"
+                        disabled={drawerZoomPercent <= DRAWER_ZOOM_MIN}
+                        onClick={() =>
+                          setDrawerZoomPercent((z) =>
+                            clampDrawerZoomPercent(z - DRAWER_ZOOM_STEP),
+                          )
+                        }
+                      >
+                        <Minus className="h-3.5 w-3.5" aria-hidden />
+                      </button>
+                      <button
+                        type="button"
+                        className="min-w-[2.75rem] rounded-md px-1 text-center font-mono text-[10px] font-bold tabular-nums text-white hover:bg-white/15 sm:text-[11px]"
+                        aria-label="Reset scale drawer ke 100%"
+                        title="Klik untuk reset 100%"
+                        onClick={() =>
+                          setDrawerZoomPercent(DRAWER_ZOOM_DEFAULT)
+                        }
+                      >
+                        {drawerZoomPercent}%
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex h-7 min-w-[1.75rem] items-center justify-center rounded-md px-1 text-slate-100 transition hover:bg-white/15 disabled:pointer-events-none disabled:opacity-40"
+                        aria-label="Perbesar drawer"
+                        disabled={drawerZoomPercent >= DRAWER_ZOOM_MAX}
+                        onClick={() =>
+                          setDrawerZoomPercent((z) =>
+                            clampDrawerZoomPercent(z + DRAWER_ZOOM_STEP),
+                          )
+                        }
+                      >
+                        <Plus className="h-3.5 w-3.5" aria-hidden />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        onClose();
+                      }}
+                      onClick={onClose}
+                      className={cn(
+                        "shrink-0 rounded-lg border p-1.5 transition-all duration-300",
+                        "border-white/20 bg-white/10 text-slate-200 hover:border-white/35 hover:bg-white/20 hover:text-white",
+                      )}
+                    >
+                      <X size={17} />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1125,15 +1212,16 @@ function TindakanDetailDrawer({
 
                 <div
                   className={cn(
-                    "clinical-detail-drawer-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-3 py-3 sm:px-5 sm:py-5",
+                    "clinical-detail-drawer-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-3 py-3 sm:px-3 sm:py-3 xl:px-5 xl:py-5",
                     "bg-gradient-to-br from-slate-100 via-[#E6E9EF] to-slate-200 text-slate-700 scrollbar-thin scrollbar-thumb-slate-300/60",
                     "font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
-                    "[&_input:not([type='checkbox']):not([type='radio'])]:rounded-xl",
+                    "[&_input:not([type='checkbox']):not([type='radio'])]:rounded-lg",
                     "[&_input:not([type='checkbox']):not([type='radio'])]:!border-white/12",
                     "[&_input:not([type='checkbox']):not([type='radio'])]:!bg-[#5C6573]",
+                    "[&_input:not([type='checkbox']):not([type='radio'])]:!py-1.5",
                     "[&_input:not([type='checkbox']):not([type='radio'])]:!text-white",
                     "[&_input]:placeholder:!text-white/55",
-                    "[&_select]:rounded-xl [&_select]:!border-white/12 [&_select]:!bg-[#5C6573] [&_select]:!text-white",
+                    "[&_select]:rounded-lg [&_select]:!border-white/12 [&_select]:!bg-[#5C6573] [&_select]:!py-1.5 [&_select]:!text-white",
                   )}
                 >
                 {!displayRecord ? (
@@ -1459,7 +1547,7 @@ function TindakanDetailDrawer({
                                 {def.label}
                               </h3>
                               {def.id === "fast_track" ? (
-                            <div className="rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-4 shadow-none">
+                            <div className="rounded-xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-3 shadow-none">
                               <SimrsBotEmptyFieldsList
                                 record={
                                   displayRecord as unknown as Record<
@@ -1518,9 +1606,9 @@ function TindakanDetailDrawer({
                               />
                             </div>
                           ) : def.id === "klinis" ? (
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                               {/* Column 1-2: Link Laporan and its Preview */}
-                              <div className="space-y-3 sm:col-span-2">
+                              <div className="space-y-2 sm:col-span-2">
                                 {def.fields
                                   .filter((k) => k === "pci_report_link")
                                   .map((key) => {
@@ -1541,7 +1629,7 @@ function TindakanDetailDrawer({
                                       <div
                                         key={key}
                                         className={cn(
-                                          "rounded-lg border px-3 py-2.5 transition-all duration-300",
+                                          "rounded-lg border px-2.5 py-1.5 transition-all duration-300",
                                           "border-[#9AA8B8]/80 bg-[#B8C5D3] shadow-none hover:border-[#2C3E50]/25",
                                         )}
                                       >
@@ -1563,10 +1651,10 @@ function TindakanDetailDrawer({
                               </div>
 
                               {/* Column 3: Clinical Data Group (Diagnosa, Severity, Lab PPM) */}
-                              <div className="space-y-3 sm:col-span-1">
+                              <div className="space-y-2 sm:col-span-1">
                                 <div
                                   className={cn(
-                                    "flex flex-col gap-4 rounded-xl border border-[#9AA8B8]/80 bg-[#B8C5D3] px-3 py-3 shadow-none transition-all duration-300",
+                                    "flex flex-col gap-3 rounded-lg border border-[#9AA8B8]/80 bg-[#B8C5D3] px-2.5 py-1.5 shadow-none transition-all duration-300",
                                   )}
                                 >
                                   {def.fields
@@ -1609,7 +1697,7 @@ function TindakanDetailDrawer({
                             <>
                               <dl
                                 className={cn(
-                                  "grid grid-cols-1 gap-3",
+                                  "grid grid-cols-1 gap-2",
                                   def.id === "radiologi"
                                     ? "sm:grid-cols-4"
                                     : def.id === "biaya"
@@ -1729,7 +1817,7 @@ function TindakanDetailDrawer({
                                     <div
                                       key={key}
                                       className={cn(
-                                        "rounded-xl border border-[#9AA8B8]/80 bg-[#B8C5D3] px-3 py-2.5 shadow-none transition-all duration-300",
+                                        "rounded-lg border border-[#9AA8B8]/80 bg-[#B8C5D3] px-2.5 py-1.5 shadow-none transition-all duration-300",
                                         "hover:border-[#2C3E50]/25",
                                         key === "no_rm" &&
                                           "border-[#2C3E50]/35 bg-[#A8B4C4]",
@@ -2058,7 +2146,7 @@ function TindakanDetailDrawer({
                                 </div>
                               )}
                               {def.id === "tindakan" && (
-                                <div className="mt-3 rounded-2xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-3 shadow-none">
+                                <div className="mt-3 rounded-xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-2.5 shadow-none">
                                   <SignTimeFields
                                     tindakanId={String(
                                       displayRecord.id ?? "",

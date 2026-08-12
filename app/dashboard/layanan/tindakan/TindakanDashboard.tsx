@@ -37,7 +37,7 @@ import { SimrsBotPanelProvider } from "./components/simrs-bot/SimrsBotPanelConte
 import SimrsBotChecklistPanel from "./components/simrs-bot/SimrsBotChecklistPanel";
 
 /** Baris awal tabel yang “dipanaskan” (cache SWR) agar klik baris/RM memakai data penuh tanpa jeda. */
-const TINDAKAN_DETAIL_SWR_WARM = 20;
+const TINDAKAN_DETAIL_SWR_WARM = 6;
 
 /** Tindakan medis — wireframe: daftar ringkas + drawer bertab + jembatan Pemakaian */
 export default function TindakanDashboard() {

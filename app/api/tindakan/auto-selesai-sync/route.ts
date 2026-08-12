@@ -4,10 +4,27 @@ import { isReadyForAutoStatusSelesai } from "@/lib/tindakan/autoStatusSelesai";
 
 export const dynamic = "force-dynamic";
 
-const CHUNK = 500;
+const MAX_IDS = 200;
+const UPDATE_CHUNK = 50;
 
-/** Promosikan semua baris tindakan yang dokter+tindakan+ruangan lengkap → status Selesai. */
-export async function POST() {
+function parseIds(body: unknown): string[] {
+  if (!body || typeof body !== "object") return [];
+  const raw = (body as { ids?: unknown }).ids;
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    const id = String(item ?? "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+    if (out.length >= MAX_IDS) break;
+  }
+  return out;
+}
+
+/** Promote kandidat baris (dokter+tindakan+ruangan lengkap) → status Selesai. */
+export async function POST(req: Request) {
   const { requireRole } = await import("@/lib/auth/guards");
   const auth = await requireRole([
     "perawat",
@@ -18,6 +35,20 @@ export async function POST() {
     "casemix",
   ]);
   if (!auth.ok) return auth.response;
+
+  let body: unknown = null;
+  try {
+    body = await req.json();
+  } catch {
+    body = null;
+  }
+  const ids = parseIds(body);
+  if (ids.length === 0) {
+    return NextResponse.json(
+      { ok: true, scanned: 0, updated: 0 },
+      { status: 200 },
+    );
+  }
 
   const { createAdminClient } = await import("@/lib/supabase/admin");
   let supabase: ReturnType<typeof createAdminClient>;
@@ -30,42 +61,37 @@ export async function POST() {
     );
   }
 
+  const { data, error } = await supabase
+    .from("tindakan")
+    .select("id, dokter, operator, tindakan, ruangan, status")
+    .in("id", ids);
+
+  if (error) {
+    return NextResponse.json(
+      { ok: false, message: error.message },
+      { status: 500 },
+    );
+  }
+
   const idsToUpdate: string[] = [];
-  let from = 0;
-
-  for (;;) {
-    const { data, error } = await supabase
-      .from("tindakan")
-      .select("id, dokter, operator, tindakan, ruangan, status")
-      .order("id", { ascending: true })
-      .range(from, from + CHUNK - 1);
-
-    if (error) {
-      return NextResponse.json(
-        { ok: false, message: error.message },
-        { status: 500 },
-      );
-    }
-
-    const batch = Array.isArray(data) ? data : [];
-    for (const row of batch) {
-      const rec = row as Record<string, unknown>;
-      if (!isReadyForAutoStatusSelesai(rec)) continue;
-      const id = String(rec.id ?? "").trim();
-      if (id) idsToUpdate.push(id);
-    }
-
-    if (batch.length < CHUNK) break;
-    from += CHUNK;
+  for (const row of Array.isArray(data) ? data : []) {
+    const rec = row as Record<string, unknown>;
+    if (!isReadyForAutoStatusSelesai(rec)) continue;
+    const id = String(rec.id ?? "").trim();
+    if (id) idsToUpdate.push(id);
   }
 
   let updated = 0;
-  for (const id of idsToUpdate) {
-    const { error } = await supabase
+  for (let i = 0; i < idsToUpdate.length; i += UPDATE_CHUNK) {
+    const chunk = idsToUpdate.slice(i, i + UPDATE_CHUNK);
+    const { error: updErr, count } = await supabase
       .from("tindakan")
-      .update({ status: "Selesai", status_keterangan: null })
-      .eq("id", id);
-    if (!error) updated += 1;
+      .update(
+        { status: "Selesai", status_keterangan: null },
+        { count: "exact" },
+      )
+      .in("id", chunk);
+    if (!updErr) updated += count ?? chunk.length;
   }
 
   return NextResponse.json(

@@ -13,7 +13,7 @@ import { parseJobPayload } from "@/lib/simrs/botJobs";
 import { useSimrsBotPanel, fieldLabel } from "./SimrsBotPanelContext";
 import { toast } from "sonner";
 
-const POLL_MS = 2500;
+const POLL_MS = 15_000;
 
 type MemStatus = {
   state: string;

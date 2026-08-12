@@ -37,7 +37,7 @@ export const config = {
   idikPass: env("IDIK_PASS"),
   /** Shared secret for claim/patch job queue on idik API. */
   agentToken: env("SIMRS_BOT_AGENT_TOKEN"),
-  agentPollMs: envInt("SIMRS_BOT_AGENT_POLL_MS", 5000),
+  agentPollMs: envInt("SIMRS_BOT_AGENT_POLL_MS", 15000),
   agentId: env("SIMRS_BOT_AGENT_ID", "default"),
   agentRsId: env("SIMRS_BOT_RS_ID", "default"),
   headless: envBool("HEADLESS", true),

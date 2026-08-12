@@ -14,7 +14,7 @@ type MemoryStatus = {
   error?: string;
 };
 
-const POLL_MS = 8_000;
+const POLL_MS = 30_000;
 
 const ACTIVE = new Set(["pending", "claimed", "running"]);
 

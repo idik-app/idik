@@ -4,7 +4,22 @@ import useSWR from "swr";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const FETCH_TIMEOUT_MS = 60_000;
+
+async function fetcher(url: string) {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    return await res.json();
+  } catch (err) {
+    const name = err instanceof Error ? err.name : "";
+    if (name === "TimeoutError" || name === "AbortError") {
+      throw new Error(
+        "Request terlalu lama (lebih dari 60 detik). Coba muat ulang.",
+      );
+    }
+    throw err;
+  }
+}
 
 /** Batas baris default — cukup untuk filter lokal; turunkan egress vs 10k+. */
 const DEFAULT_TINDAKAN_LIMIT = 2000;
@@ -36,6 +51,7 @@ export function useTindakanData(params?: {
     {
       revalidateOnFocus: false,
       dedupingInterval: 15_000,
+      keepPreviousData: true,
       // Tanpa polling — andalkan realtime + refresh manual / idle di dashboard.
       refreshInterval: 0,
     },
@@ -153,7 +169,7 @@ export function useTindakanData(params?: {
 
   return {
     tindakanList,
-    loading: isLoading,
+    loading: isLoading && tindakanList.length === 0,
     error,
     reload,
     removeLocalById,

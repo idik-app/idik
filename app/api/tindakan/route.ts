@@ -12,6 +12,8 @@ import {
 } from "@/lib/tindakan/masterTarifTindakan";
 
 export const dynamic = "force-dynamic";
+/** Background 10k chunks; first paint tetap 2k (di bawah ini). */
+export const maxDuration = 60;
 
 /**
  * Banyak proyek Supabase (default PostgREST) memakai max_rows = 1000 per respons.

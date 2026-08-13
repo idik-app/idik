@@ -1397,12 +1397,16 @@ export default function TindakanTable({
     } catch {
       /* ignore */
     }
+  }, [perPage]);
+
+  useEffect(() => {
     adapter.setServerFilters((prev) => {
-      const limit = perPage >= 1000 ? 10000 : 2000;
+      const wantLarge = perPage >= 1000;
+      const limit = wantLarge && tindakanList.length > 0 ? 10000 : 2000;
       if (prev.limit === limit) return prev;
       return { ...prev, limit };
     });
-  }, [perPage, adapter]);
+  }, [perPage, tindakanList.length, adapter]);
   const [filterDokter, setFilterDokter] = useState("");
   const [filterRuangan, setFilterRuangan] = useState("");
   const [filterTindakan, setFilterTindakan] = useState("");
@@ -3318,7 +3322,7 @@ export default function TindakanTable({
           </div>
         ) : null}
 
-        {loading ? (
+        {loading && tindakanList.length === 0 ? (
           <TindakanSyncStatusBlock
             lightMode={lightMode}
             subtitle="Accessing Cathlab Database..."

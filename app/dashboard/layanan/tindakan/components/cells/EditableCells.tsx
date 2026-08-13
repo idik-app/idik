@@ -22,9 +22,9 @@ import {
 
 // Styling constants matching TindakanTable.tsx
 export const TINDAKAN_TABLE_INPUT_TEXT =
-  "w-full text-center border-none bg-transparent p-0 text-xs font-semibold focus:outline-none focus:ring-0 select-all hover:bg-black/5 dark:hover:bg-white/5";
+  "w-full min-w-0 truncate text-center border-none bg-transparent p-0 text-xs font-semibold focus:outline-none focus:ring-0 select-all hover:bg-black/5 dark:hover:bg-white/5";
 export const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
-  "w-full text-left border-none bg-transparent p-0 text-xs font-semibold focus:outline-none focus:ring-0 select-all hover:bg-black/5 dark:hover:bg-white/5";
+  "w-full min-w-0 truncate text-left border-none bg-transparent p-0 text-xs font-semibold focus:outline-none focus:ring-0 select-all hover:bg-black/5 dark:hover:bg-white/5";
 
 const CAL_MONTH: Record<string, string> = {
   jan: "01",
@@ -109,7 +109,7 @@ export function EditableMasterTindakanCell({
       }}
       options={pickerOptions}
       loading={loading || saving}
-      className="max-w-[14rem]"
+      className="max-w-[14rem] max-2xl:max-w-full"
       inputClassName={TINDAKAN_TABLE_INPUT_TEXT}
     />
   );
@@ -299,7 +299,7 @@ export function EditableDateCell({
         }
       }}
       className={cn(
-        "w-full min-w-[8.5rem] rounded border px-2 py-1 text-xs font-semibold focus:outline-none",
+        "w-full min-w-0 max-2xl:min-w-0 2xl:min-w-[8.5rem] rounded border px-2 py-1 max-2xl:px-0.5 text-xs font-semibold focus:outline-none",
         "border-cyan-400/55 bg-white text-amber-800 [color-scheme:light] dark:border-cyan-700/50 dark:bg-black/40 dark:text-slate-100 dark:[color-scheme:dark]",
       )}
     />
@@ -357,7 +357,7 @@ export function EditableRuanganCell({
       }}
       options={ruanganMaster}
       loading={loading || saving}
-      className="max-w-[14rem]"
+      className="max-w-[14rem] max-2xl:max-w-full"
       inputClassName={TINDAKAN_TABLE_INPUT_TEXT}
     />
   );

@@ -17,7 +17,6 @@ import {
   Calendar,
   CalendarDays,
   Package,
-  MoreHorizontal,
   Phone,
   ShieldCheck,
   RefreshCw,
@@ -141,14 +140,6 @@ function TableToolbar({
   } | null>(null);
   const laporanMenuRef = useRef<HTMLDivElement | null>(null);
   const laporanMenuPortalRef = useRef<HTMLDivElement | null>(null);
-  const [lainnyaMenuOpen, setLainnyaMenuOpen] = useState(false);
-  const [lainnyaMenuPos, setLainnyaMenuPos] = useState<{
-    top: number;
-    left: number;
-    minWidth: number;
-  } | null>(null);
-  const lainnyaMenuRef = useRef<HTMLDivElement | null>(null);
-  const lainnyaMenuPortalRef = useRef<HTMLDivElement | null>(null);
 
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isPageVisibleRef = useRef(true);
@@ -229,49 +220,6 @@ function TableToolbar({
       document.removeEventListener("keydown", onKey);
     };
   }, [laporanMenuOpen]);
-
-  useEffect(() => {
-    if (!lainnyaMenuOpen) {
-      setLainnyaMenuPos(null);
-      return;
-    }
-    const updatePos = () => {
-      const el = lainnyaMenuRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      setLainnyaMenuPos({
-        top: rect.bottom + 6,
-        left: rect.left,
-        minWidth: Math.max(rect.width, 200),
-      });
-    };
-    updatePos();
-    window.addEventListener("resize", updatePos);
-    window.addEventListener("scroll", updatePos, true);
-    return () => {
-      window.removeEventListener("resize", updatePos);
-      window.removeEventListener("scroll", updatePos, true);
-    };
-  }, [lainnyaMenuOpen]);
-
-  useEffect(() => {
-    if (!lainnyaMenuOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (lainnyaMenuRef.current?.contains(target)) return;
-      if (lainnyaMenuPortalRef.current?.contains(target)) return;
-      setLainnyaMenuOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setLainnyaMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [lainnyaMenuOpen]);
 
   const handleSavedPasien = async (patient: Pasien) => {
     const pasienId = String(patient.id ?? "").trim();
@@ -404,7 +352,7 @@ function TableToolbar({
       <div className="flex flex-col gap-0.5 px-1 py-0.5 sm:px-1.5 sm:py-1">
               <div
                 className={cn(
-                  "relative flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5",
+                  "relative flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 max-2xl:gap-x-1 max-2xl:gap-y-1",
                   UI_LAYERS.toolbarActionsRow,
                 )}
               >
@@ -452,7 +400,7 @@ function TableToolbar({
                     </span>
                   ) : null}
                 </h3>
-                <div className="relative min-w-0 w-full min-[480px]:w-auto min-[480px]:flex-1 min-[480px]:min-w-[10rem] min-[480px]:max-w-xl group">
+                <div className="relative min-w-0 w-full max-2xl:order-first max-2xl:basis-full max-2xl:max-w-none 2xl:flex-1 2xl:min-w-[10rem] 2xl:max-w-xl 2xl:basis-auto 2xl:w-auto group">
                   <Search
                     size={13}
                     className={cn(
@@ -490,7 +438,7 @@ function TableToolbar({
                   type="button"
                   onClick={() => setAddPasienOpen(true)}
                   className={cn(
-                    "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-cyan/50 bg-cyan px-3 text-xs font-black shadow-lg shadow-cyan/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan",
+                    "group inline-flex h-8 max-2xl:h-7 max-2xl:px-1.5 max-2xl:text-[9px] max-2xl:gap-1 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-cyan/50 bg-cyan px-3 text-xs font-black shadow-lg shadow-cyan/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan",
                     "text-white dark:text-black",
                     "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
                   )}
@@ -516,7 +464,7 @@ function TableToolbar({
                     type="button"
                     onClick={() => onOpenFastTrack()}
                     className={cn(
-                      "group inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-orange-700 bg-orange-600 px-3 text-xs font-black shadow-lg shadow-orange-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
+                      "group inline-flex h-8 max-2xl:h-7 max-2xl:px-1.5 max-2xl:text-[9px] max-2xl:gap-1 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-orange-700 bg-orange-600 px-3 text-xs font-black shadow-lg shadow-orange-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500",
                       "text-white",
                       "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
                     )}
@@ -545,7 +493,7 @@ function TableToolbar({
                       aria-controls="tindakan-toolbar-laporan-menu"
                       onClick={() => setLaporanMenuOpen((o) => !o)}
                       className={cn(
-                        "group inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-700 bg-emerald-600 px-2.5 pr-2 text-xs font-black shadow-lg shadow-emerald-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
+                        "group inline-flex h-8 max-2xl:h-7 max-2xl:px-1.5 max-2xl:text-[9px] max-2xl:gap-1 shrink-0 items-center justify-center gap-1 rounded-lg border border-emerald-700 bg-emerald-600 px-2.5 pr-2 text-xs font-black shadow-lg shadow-emerald-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
                         "text-white",
                         "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
                         laporanMenuOpen && "brightness-110",
@@ -775,140 +723,11 @@ function TableToolbar({
                   </div>
                 ) : null}
 
-                <div className="relative shrink-0 2xl:hidden" ref={lainnyaMenuRef}>
-                  <button
-                    type="button"
-                    id="tindakan-toolbar-lainnya-trigger"
-                    aria-haspopup="menu"
-                    aria-expanded={lainnyaMenuOpen}
-                    aria-controls="tindakan-toolbar-lainnya-menu"
-                    onClick={() => setLainnyaMenuOpen((o) => !o)}
-                    className={cn(
-                      "group inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border px-2.5 text-xs font-black transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400",
-                      "border-slate-400 bg-slate-700 text-white shadow-lg shadow-slate-700/20",
-                      "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
-                      lainnyaMenuOpen && "brightness-110",
-                    )}
-                    title="Menu lain: Tarif, Diagnosa, Jadwal"
-                  >
-                    <MoreHorizontal
-                      size={16}
-                      strokeWidth={3}
-                      className="shrink-0 text-white"
-                    />
-                    <span className="tracking-wide text-white uppercase">
-                      Lainnya
-                    </span>
-                  </button>
-                  {laporanMenuMounted &&
-                  lainnyaMenuOpen &&
-                  lainnyaMenuPos &&
-                  typeof document !== "undefined"
-                    ? createPortal(
-                        <div
-                          ref={lainnyaMenuPortalRef}
-                          id="tindakan-toolbar-lainnya-menu"
-                          role="menu"
-                          aria-labelledby="tindakan-toolbar-lainnya-trigger"
-                          style={{
-                            position: "fixed",
-                            top: lainnyaMenuPos.top,
-                            left: lainnyaMenuPos.left,
-                            minWidth: lainnyaMenuPos.minWidth,
-                            zIndex: Z_INDEX_VALUES.toolbarPopover,
-                          }}
-                          className={cn(
-                            "rounded-xl border py-1.5 shadow-2xl",
-                            UI_LAYERS.toolbarPopover,
-                            "border-slate-300 bg-white dark:border-white/15 dark:bg-zinc-950",
-                            "ring-1 ring-black/5 dark:ring-white/10",
-                          )}
-                        >
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-900 hover:bg-indigo-500/10 dark:text-white dark:hover:bg-indigo-500/15"
-                            onClick={() => {
-                              setLainnyaMenuOpen(false);
-                              setTarifOpen(true);
-                            }}
-                          >
-                            <Receipt size={16} className="shrink-0 text-indigo-600 dark:text-indigo-400" />
-                            Tarif
-                          </button>
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-900 hover:bg-teal-500/10 dark:text-white dark:hover:bg-teal-500/15"
-                            onClick={() => {
-                              setLainnyaMenuOpen(false);
-                              setDiagnosaOpen(true);
-                            }}
-                          >
-                            <ClipboardList size={16} className="shrink-0 text-teal-600 dark:text-teal-400" />
-                            Diagnosa
-                          </button>
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-900 hover:bg-rose-500/10 dark:text-white dark:hover:bg-rose-500/15"
-                            onClick={() => {
-                              setLainnyaMenuOpen(false);
-                              setSeverityLevelOpen(true);
-                            }}
-                          >
-                            <BarChart2 size={16} className="shrink-0 text-rose-600 dark:text-rose-400" />
-                            Severity Level
-                          </button>
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-900 hover:bg-blue-500/10 dark:text-white dark:hover:bg-blue-500/15"
-                            onClick={() => {
-                              setLainnyaMenuOpen(false);
-                              setIndenanOpen(true);
-                            }}
-                          >
-                            <CalendarDays size={16} className="shrink-0 text-blue-600 dark:text-blue-400" />
-                            Indenan
-                          </button>
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-900 hover:bg-violet-500/10 dark:text-white dark:hover:bg-violet-500/15"
-                            onClick={() => {
-                              setLainnyaMenuOpen(false);
-                              setJadwalCathOpen(true);
-                            }}
-                          >
-                            <Calendar size={16} className="shrink-0 text-violet-600 dark:text-violet-400" />
-                            Jadwal Cath
-                          </button>
-                          {onPhoneDirectoryOpen ? (
-                            <button
-                              type="button"
-                              role="menuitem"
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-900 hover:bg-amber-500/10 dark:text-white dark:hover:bg-amber-500/15"
-                              onClick={() => {
-                                setLainnyaMenuOpen(false);
-                                onPhoneDirectoryOpen();
-                              }}
-                            >
-                              <Phone size={16} className="shrink-0 text-amber-600 dark:text-amber-400" />
-                              Daftar Telp
-                            </button>
-                          ) : null}
-                        </div>,
-                        document.body,
-                      )
-                    : null}
-                </div>
-
                 <button
                   type="button"
                   onClick={() => setTarifOpen(true)}
                   className={cn(
-                    "group hidden 2xl:inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-indigo-800 bg-indigo-700 px-3 text-xs font-black shadow-lg shadow-indigo-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
+                    "group inline-flex h-8 max-2xl:h-7 max-2xl:px-1.5 max-2xl:text-[9px] max-2xl:gap-1 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-indigo-800 bg-indigo-700 px-3 text-xs font-black shadow-lg shadow-indigo-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
                     "text-white",
                     "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
                   )}
@@ -931,7 +750,7 @@ function TableToolbar({
                   type="button"
                   onClick={() => setDiagnosaOpen(true)}
                   className={cn(
-                    "group hidden 2xl:inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-teal-800 bg-teal-700 px-3 text-xs font-black shadow-lg shadow-teal-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500",
+                    "group inline-flex h-8 max-2xl:h-7 max-2xl:px-1.5 max-2xl:text-[9px] max-2xl:gap-1 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-teal-800 bg-teal-700 px-3 text-xs font-black shadow-lg shadow-teal-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500",
                     "text-white",
                     "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
                   )}
@@ -954,7 +773,7 @@ function TableToolbar({
                   type="button"
                   onClick={() => setSeverityLevelOpen(true)}
                   className={cn(
-                    "group hidden 2xl:inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-rose-800 bg-rose-700 px-3 text-xs font-black shadow-lg shadow-rose-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500",
+                    "group inline-flex h-8 max-2xl:h-7 max-2xl:px-1.5 max-2xl:text-[9px] max-2xl:gap-1 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-rose-800 bg-rose-700 px-3 text-xs font-black shadow-lg shadow-rose-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500",
                     "text-white",
                     "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
                   )}
@@ -977,7 +796,7 @@ function TableToolbar({
                   type="button"
                   onClick={() => setIndenanOpen(true)}
                   className={cn(
-                    "group hidden 2xl:inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-blue-800 bg-blue-700 px-3 text-xs font-black shadow-lg shadow-blue-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                    "group inline-flex h-8 max-2xl:h-7 max-2xl:px-1.5 max-2xl:text-[9px] max-2xl:gap-1 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-blue-800 bg-blue-700 px-3 text-xs font-black shadow-lg shadow-blue-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
                     "text-white",
                     "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
                   )}
@@ -1000,7 +819,7 @@ function TableToolbar({
                   type="button"
                   onClick={() => setJadwalCathOpen(true)}
                   className={cn(
-                    "group hidden 2xl:inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-violet-800 bg-violet-700 px-3 text-xs font-black shadow-lg shadow-violet-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
+                    "group inline-flex h-8 max-2xl:h-7 max-2xl:px-1.5 max-2xl:text-[9px] max-2xl:gap-1 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-violet-800 bg-violet-700 px-3 text-xs font-black shadow-lg shadow-violet-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500",
                     "text-white",
                     "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
                   )}
@@ -1024,7 +843,7 @@ function TableToolbar({
                     type="button"
                     onClick={onPhoneDirectoryOpen}
                     className={cn(
-                      "group hidden 2xl:inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-amber-800 bg-amber-700 px-3 text-xs font-black shadow-lg shadow-amber-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500",
+                      "group inline-flex h-8 max-2xl:h-7 max-2xl:px-1.5 max-2xl:text-[9px] max-2xl:gap-1 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-amber-800 bg-amber-700 px-3 text-xs font-black shadow-lg shadow-amber-600/30 transition hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500",
                       "text-white",
                       "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
                     )}

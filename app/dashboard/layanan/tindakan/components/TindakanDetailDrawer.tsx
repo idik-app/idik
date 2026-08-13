@@ -968,10 +968,7 @@ function TindakanDetailDrawer({
             onClick={onClose}
           />
           {/* Flex center (bukan translate -50%) agar teks tidak blur di subpiksel / Windows */}
-          <div className={cn(
-            "absolute inset-0 z-[1] flex items-center justify-center pointer-events-none px-2 sm:px-4 transition-all duration-500 ease-in-out",
-            sidebarCollapsed && "sm:translate-x-[12%]"
-          )}>
+          <div className="absolute inset-0 z-[1] flex items-center justify-center pointer-events-none px-2 sm:px-4">
             <motion.div
               role="dialog"
               aria-modal="false"
@@ -993,7 +990,7 @@ function TindakanDetailDrawer({
               }}
               className={cn(
                 "pointer-events-auto flex h-[min(85vh,660px)] max-h-[min(85vh,660px)] min-w-0 w-full max-w-[min(48rem,92vw)] cursor-default flex-col overflow-hidden rounded-xl border antialiased [text-rendering:optimizeLegibility]",
-                "lg:max-w-[min(56rem,92vw)] xl:h-[85vh] xl:max-h-[85vh] xl:max-w-5xl xl:rounded-2xl",
+                "lg:max-w-[min(56rem,92vw)] 2xl:h-[85vh] 2xl:max-h-[85vh] 2xl:max-w-5xl 2xl:rounded-2xl",
                 "border-slate-200/90 bg-slate-50/90 shadow-[0_24px_56px_rgba(15,23,42,0.15),0_0_1px_rgba(15,23,42,0.1)]",
                 "font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
               )}
@@ -1212,7 +1209,7 @@ function TindakanDetailDrawer({
 
                 <div
                   className={cn(
-                    "clinical-detail-drawer-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-3 py-3 sm:px-3 sm:py-3 xl:px-5 xl:py-5",
+                    "clinical-detail-drawer-panel min-h-0 min-w-0 flex-1 overflow-y-auto px-3 py-3 sm:px-3 sm:py-3 2xl:px-5 2xl:py-5",
                     "bg-gradient-to-br from-slate-100 via-[#E6E9EF] to-slate-200 text-slate-700 scrollbar-thin scrollbar-thumb-slate-300/60",
                     "font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
                     "[&_input:not([type='checkbox']):not([type='radio'])]:rounded-lg",

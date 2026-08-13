@@ -4,7 +4,7 @@ import { useMemo, memo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_SIZES = [10, 15, 25, 50, 100];
+const DEFAULT_SIZES = [10, 15, 25, 50, 100, 1000, 10000];
 
 interface Props {
   currentPage: number;
@@ -88,7 +88,7 @@ function TablePagination({
           >
             {sizeChoices.map((n) => (
               <option key={n} value={n} className="dark:bg-slate-900">
-                {n}
+                {n.toLocaleString("id-ID")}
               </option>
             ))}
           </select>

@@ -154,7 +154,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const limitRaw = Number(searchParams.get("limit") ?? 2000);
     const limit = Number.isFinite(limitRaw)
-      ? Math.min(Math.max(Math.trunc(limitRaw), 1), 5000)
+      ? Math.min(Math.max(Math.trunc(limitRaw), 1), 10000)
       : 2000;
 
     const dateFrom = searchParams.get("from")?.trim();

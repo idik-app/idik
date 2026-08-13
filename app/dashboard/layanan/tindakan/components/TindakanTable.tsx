@@ -223,7 +223,7 @@ const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
   "text-amber-800 placeholder:text-amber-700/55 dark:text-white dark:placeholder:text-white/90";
 
 const ZOOM_CELL_CLASSES = `focus-within:${UI_LAYERS.tableZoomedCell} focus-within:relative`;
-const ZOOM_INNER_CLASSES = `focus-within:absolute focus-within:left-1/2 focus-within:-translate-x-1/2 focus-within:top-1/2 focus-within:-translate-y-1/2 focus-within:scale-[1.3] focus-within:w-[180%] focus-within:shadow-2xl focus-within:transition-all focus-within:duration-200 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:${UI_LAYERS.popover} focus-within:p-1 focus-within:rounded-md`;
+const ZOOM_INNER_CLASSES = "";
 
 /** Highlight sel terpilih (seleksi blok seperti spreadsheet) */
 const TINDAKAN_CELL_SELECTION_CLASS =
@@ -1203,6 +1203,7 @@ export default function TindakanTable({
   filterRm = "",
   onFilteredSummaryChange,
   isFilterCollapsed = false,
+  onFilterActiveChange,
   onPhoneDirectoryOpen,
 }: {
   adapter: Adapter;
@@ -1211,6 +1212,7 @@ export default function TindakanTable({
   /** Sinkronkan jumlah & ringkasan filter ke ringkasan header */
   onFilteredSummaryChange?: (summary: TindakanFilteredSummary) => void;
   isFilterCollapsed?: boolean;
+  onFilterActiveChange?: (active: boolean) => void;
   onPhoneDirectoryOpen?: () => void;
 }) {
   const {
@@ -1374,7 +1376,33 @@ export default function TindakanTable({
     TindakanJoinResult[]
   >([]);
   const [page, setPage] = useState(1);
+  const PER_PAGE_KEY = "idik_tindakan_per_page";
+  const PER_PAGE_ALLOWED = [10, 15, 25, 50, 100, 1000, 10000] as const;
   const [perPage, setPerPage] = useState(15);
+
+  useEffect(() => {
+    try {
+      const n = Number(localStorage.getItem(PER_PAGE_KEY));
+      if ((PER_PAGE_ALLOWED as readonly number[]).includes(n)) {
+        setPerPage(n);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PER_PAGE_KEY, String(perPage));
+    } catch {
+      /* ignore */
+    }
+    adapter.setServerFilters((prev) => {
+      const limit = perPage >= 1000 ? 10000 : 2000;
+      if (prev.limit === limit) return prev;
+      return { ...prev, limit };
+    });
+  }, [perPage, adapter]);
   const [filterDokter, setFilterDokter] = useState("");
   const [filterRuangan, setFilterRuangan] = useState("");
   const [filterTindakan, setFilterTindakan] = useState("");
@@ -3133,6 +3161,7 @@ export default function TindakanTable({
 
         <TableToolbar
           isCollapsed={isFilterCollapsed}
+          onFilterActiveChange={onFilterActiveChange}
           onSearch={(val) => {
             setSearch(val);
           }}
@@ -3328,7 +3357,7 @@ export default function TindakanTable({
                     closeAnestesiArcImmediate();
                   }
                 }}
-                className="w-full min-w-[1200px] text-sm font-semibold border-collapse border border-amber-200/65 dark:border-amber-800/50"
+                className="w-full min-w-[980px] max-xl:text-xs text-sm font-semibold border-collapse border border-amber-200/65 dark:border-amber-800/50 2xl:min-w-[1200px] 2xl:text-sm"
               >
                 <thead className={cn("sticky top-0", UI_LAYERS.tableHeader)}>
                   <tr
@@ -3341,7 +3370,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[4.5rem] max-w-[6rem] text-center",
+                        "px-2 sm:px-2.5 py-1.5 max-xl:px-1.5 max-xl:py-0.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[4.5rem] max-w-[6rem] text-center",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
@@ -3350,7 +3379,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        "px-2 sm:px-2.5 py-1.5 max-xl:px-1.5 max-xl:py-0.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
@@ -3359,7 +3388,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        "px-2 sm:px-2.5 py-1.5 max-xl:px-1.5 max-xl:py-0.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
@@ -3368,7 +3397,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        "px-2 sm:px-2.5 py-1.5 max-xl:px-1.5 max-xl:py-0.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
@@ -3377,7 +3406,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem] text-left",
+                        "px-2 sm:px-2.5 py-1.5 max-xl:px-1.5 max-xl:py-0.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem] text-left",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
@@ -3386,7 +3415,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[12rem]",
+                        "px-2 sm:px-2.5 py-1.5 max-xl:px-1.5 max-xl:py-0.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[12rem]",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
@@ -3395,7 +3424,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        "px-2 sm:px-2.5 py-1.5 max-xl:px-1.5 max-xl:py-0.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
@@ -3404,7 +3433,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        "px-2 sm:px-2.5 py-1.5 max-xl:px-1.5 max-xl:py-0.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
@@ -3413,7 +3442,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[12rem]",
+                        "px-2 sm:px-2.5 py-1.5 max-xl:px-1.5 max-xl:py-0.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[12rem]",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
@@ -3422,7 +3451,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
+                        "px-2 sm:px-2.5 py-1.5 max-xl:px-1.5 max-xl:py-0.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem]",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
@@ -3431,7 +3460,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem] text-left",
+                        "px-2 sm:px-2.5 py-1.5 max-xl:px-1.5 max-xl:py-0.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider min-w-[10rem] text-left",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
@@ -3440,7 +3469,7 @@ export default function TindakanTable({
                     <th
                       className={cn(
                         TINDAKAN_SHEET_CELL,
-                        "px-2 sm:px-2.5 py-1.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
+                        "px-2 sm:px-2.5 py-1.5 max-xl:px-1.5 max-xl:py-0.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider whitespace-nowrap",
                         "text-cyan-950 dark:text-slate-100",
                       )}
                     >
@@ -3592,6 +3621,8 @@ export default function TindakanTable({
                               // Baris lebih atas harus "di atas" saat tumpang-tindih; arc menu / before
                               // anak baris bawah jangan melayang menerima klik ke RM/ sel baris di atas.
                               zIndex: 20 + pagedRecords.length - i,
+                              contentVisibility: "auto",
+                              containIntrinsicSize: "auto 2rem",
                             }}
                           >
                             <td
@@ -3604,7 +3635,7 @@ export default function TindakanTable({
                               }
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
-                                "relative overflow-visible px-2 sm:px-2.5 py-1 min-w-[4.5rem] max-w-[6rem] text-center align-middle",
+                                "relative overflow-visible px-2 sm:px-2.5 py-1 max-xl:px-1.5 max-xl:py-0.5 min-w-[4.5rem] max-w-[6rem] text-center align-middle",
                                 "text-cyan-800 dark:text-slate-100",
                                 cellSelection.isCellSelected(i, TCol.NO) &&
                                   TINDAKAN_CELL_SELECTION_CLASS,
@@ -3668,7 +3699,7 @@ export default function TindakanTable({
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 ZOOM_CELL_CLASSES,
-                                "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle",
+                                "px-2 sm:px-2.5 py-1 max-xl:px-1.5 max-xl:py-0.5 whitespace-nowrap font-mono text-[11px] text-center align-middle",
                                 "text-amber-800 dark:text-slate-100",
                                 cellSelection.isCellSelected(i, TCol.TANGGAL) &&
                                   TINDAKAN_CELL_SELECTION_CLASS,
@@ -3696,7 +3727,7 @@ export default function TindakanTable({
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 ZOOM_CELL_CLASSES,
-                                "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle tabular-nums",
+                                "px-2 sm:px-2.5 py-1 max-xl:px-1.5 max-xl:py-0.5 whitespace-nowrap font-mono text-[11px] text-center align-middle tabular-nums",
                                 "text-slate-800 dark:text-slate-100",
                                 cellSelection.isCellSelected(
                                   i,
@@ -3730,7 +3761,7 @@ export default function TindakanTable({
                               {...cellSelection.getTdProps(i, TCol.RM)}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
-                                "px-2 sm:px-2.5 py-1 font-mono text-[11px] text-center align-middle cursor-pointer hover:bg-cyan-50/50 dark:hover:bg-cyan-950/30 transition-colors",
+                                "px-2 sm:px-2.5 py-1 max-xl:px-1.5 max-xl:py-0.5 font-mono text-[11px] text-center align-middle cursor-pointer hover:bg-cyan-50/50 dark:hover:bg-cyan-950/30 transition-colors",
                                 "text-amber-800 dark:text-slate-100",
                                 cellSelection.isCellSelected(i, TCol.RM) &&
                                   TINDAKAN_CELL_SELECTION_CLASS,
@@ -3820,7 +3851,7 @@ export default function TindakanTable({
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 ZOOM_CELL_CLASSES,
-                                "relative px-2 sm:px-2.5 py-1 max-w-[18rem] text-left align-middle",
+                                "relative px-2 sm:px-2.5 py-1 max-xl:px-1.5 max-xl:py-0.5 max-w-[18rem] text-left align-middle",
                                 "text-amber-800 dark:text-white",
                                 cellSelection.isCellSelected(
                                   i,
@@ -4316,7 +4347,7 @@ export default function TindakanTable({
                               {...cellSelection.getTdProps(i, TCol.UMUR)}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
-                                "px-2 sm:px-2.5 py-1 whitespace-nowrap font-mono text-[11px] text-center align-middle tabular-nums",
+                                "px-2 sm:px-2.5 py-1 max-xl:px-1.5 max-xl:py-0.5 whitespace-nowrap font-mono text-[11px] text-center align-middle tabular-nums",
                                 "text-slate-800 dark:text-slate-100",
                                 cellSelection.isCellSelected(i, TCol.UMUR) &&
                                   TINDAKAN_CELL_SELECTION_CLASS,
@@ -4368,7 +4399,7 @@ export default function TindakanTable({
                               )}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
-                                "px-2 sm:px-2.5 py-1 text-[11px] text-center align-middle whitespace-nowrap",
+                                "px-2 sm:px-2.5 py-1 max-xl:px-1.5 max-xl:py-0.5 text-[11px] text-center align-middle whitespace-nowrap",
                                 "text-slate-800 dark:text-slate-100",
                                 cellSelection.isCellSelected(
                                   i,
@@ -4393,7 +4424,7 @@ export default function TindakanTable({
                                className={cn(
                                  TINDAKAN_SHEET_CELL,
                                  ZOOM_CELL_CLASSES,
-                                 "px-2 sm:px-2.5 py-1 max-w-[18rem] min-w-[12rem] text-center align-middle overflow-visible",
+                                 "px-2 sm:px-2.5 py-1 max-xl:px-1.5 max-xl:py-0.5 max-w-[18rem] min-w-[12rem] text-center align-middle overflow-visible",
                                  "text-amber-800 dark:text-slate-100",
                                  anestesiArcRowKey === key &&
                                    cn("relative", UI_LAYERS.tableZoomedCell),
@@ -4420,7 +4451,7 @@ export default function TindakanTable({
                                  >
                                    <div
                                      className={cn(
-                                       "flex min-h-[2.25rem] w-full min-w-0 items-stretch",
+                                       "flex min-h-8 w-full min-w-0 items-stretch 2xl:min-h-[2.25rem]",
                                        ZOOM_INNER_CLASSES,
                                      )}
                                    >
@@ -4500,7 +4531,7 @@ export default function TindakanTable({
                                 className={cn(
                                   TINDAKAN_SHEET_CELL,
                                   ZOOM_CELL_CLASSES,
-                                "px-2 sm:px-2.5 py-1 max-w-[14rem] text-center align-middle",
+                                "px-2 sm:px-2.5 py-1 max-xl:px-1.5 max-xl:py-0.5 max-w-[14rem] text-center align-middle",
                                 "text-amber-800 dark:text-white",
                                 cellSelection.isCellSelected(
                                   i,
@@ -4551,7 +4582,7 @@ export default function TindakanTable({
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
                                 ZOOM_CELL_CLASSES,
-                                "px-2 sm:px-2.5 py-1 max-w-[14rem] text-left align-middle",
+                                "px-2 sm:px-2.5 py-1 max-xl:px-1.5 max-xl:py-0.5 max-w-[14rem] text-left align-middle",
                                 "text-amber-800 dark:text-amber-300",
                                 cellSelection.isCellSelected(i, TCol.RUANGAN) &&
                                   TINDAKAN_CELL_SELECTION_CLASS,
@@ -4596,7 +4627,7 @@ export default function TindakanTable({
                               {...cellSelection.getTdProps(i, TCol.AKSI)}
                               className={cn(
                                 TINDAKAN_SHEET_CELL,
-                                "px-2 sm:px-2.5 py-1 align-middle text-center",
+                                "px-2 sm:px-2.5 py-1 max-xl:px-1.5 max-xl:py-0.5 align-middle text-center",
                                 cellSelection.isCellSelected(i, TCol.AKSI) &&
                                   TINDAKAN_CELL_SELECTION_CLASS,
                               )}

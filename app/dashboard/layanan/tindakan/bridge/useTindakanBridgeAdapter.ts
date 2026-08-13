@@ -36,6 +36,7 @@ export function useTindakanBridgeAdapter() {
     from?: string;
     to?: string;
     search?: string;
+    limit?: number;
   }>({});
 
   // --------------------------------------------------------------------

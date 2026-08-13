@@ -435,8 +435,8 @@ function TindakanSummary({
                         className={cn(
                           "font-extrabold tabular-nums",
                           header
-                            ? "text-sm sm:text-base"
-                            : "text-base sm:text-lg",
+                            ? "text-sm 2xl:text-base"
+                            : "text-base 2xl:text-lg",
                           accentText || "text-slate-900",
                           "dark:text-white",
                         )}
@@ -514,8 +514,8 @@ function TindakanSummary({
                         className={cn(
                           "font-extrabold tabular-nums",
                           header
-                            ? "mt-0 text-sm sm:text-base"
-                            : "mt-0.5 text-base sm:text-lg",
+                            ? "mt-0 text-sm 2xl:text-base"
+                            : "mt-0.5 text-base 2xl:text-lg",
                           accentText || "text-slate-900",
                           item.value === 0
                             ? "text-slate-400 dark:text-white/40"

@@ -19,6 +19,7 @@ function TindakanHeader({
   isCollapsed = false,
   onToggleCollapse,
   isFilterCollapsed = false,
+  filterActive = false,
   onToggleFilterCollapse,
 }: {
   themeTone: ThemeTone;
@@ -35,6 +36,8 @@ function TindakanHeader({
   onToggleCollapse?: () => void;
   /** Status collapse untuk filter (TableToolbar) */
   isFilterCollapsed?: boolean;
+  /** Ada filter non-default (tampilkan badge saat filter tertutup) */
+  filterActive?: boolean;
   /** Callback untuk trigger toggle collapse filter */
   onToggleFilterCollapse?: () => void;
 }) {
@@ -88,16 +91,25 @@ function TindakanHeader({
               <button
                 onClick={onToggleFilterCollapse}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-black transition-all",
+                  "relative flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-black transition-all",
                   "bg-white/80 border-slate-300 text-slate-700 hover:border-slate-400 active:scale-95",
                   "dark:bg-black/60 dark:border-white/10 dark:text-white/90 dark:hover:border-white/20",
                   !isFilterCollapsed && "bg-orange-500/10 border-orange-500/40 text-orange-700 dark:text-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.15)]",
+                  isFilterCollapsed &&
+                    filterActive &&
+                    "border-orange-500/50 text-orange-800 dark:text-orange-300",
                 )}
                 title={isFilterCollapsed ? "Tampilkan filter pencarian" : "Sembunyikan filter pencarian"}
               >
                 <Sparkles size={12} className={cn(!isFilterCollapsed && "animate-pulse")} />
                 <span className="hidden sm:inline">{isFilterCollapsed ? "Tampilkan Filter" : "Sembunyikan Filter"}</span>
                 <span className="sm:hidden">{isFilterCollapsed ? "Filter" : "Tutup"}</span>
+                {isFilterCollapsed && filterActive ? (
+                  <span
+                    className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-orange-500"
+                    aria-label="Filter aktif"
+                  />
+                ) : null}
                 {isFilterCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
               </button>
             )}

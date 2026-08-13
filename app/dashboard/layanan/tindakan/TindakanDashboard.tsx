@@ -45,7 +45,8 @@ export default function TindakanDashboard() {
   const { isMobile } = useUI();
 
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(true);
-  const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState(true);
+  const [filterActive, setFilterActive] = useState(false);
 
   // Auto-collapse on mobile on mount/resize
   useEffect(() => {
@@ -216,6 +217,7 @@ export default function TindakanDashboard() {
           isCollapsed={isHeaderCollapsed}
           onToggleCollapse={() => setIsHeaderCollapsed((prev) => !prev)}
           isFilterCollapsed={isFilterCollapsed}
+          filterActive={filterActive}
           onToggleFilterCollapse={() => setIsFilterCollapsed((prev) => !prev)}
           summary={
             <TindakanSummary
@@ -257,6 +259,7 @@ export default function TindakanDashboard() {
             adapter={adapter}
             onFilteredSummaryChange={onFilteredSummaryChange}
             isFilterCollapsed={isFilterCollapsed}
+            onFilterActiveChange={setFilterActive}
             onPhoneDirectoryOpen={() => setPhoneDirectoryOpen(true)}
           />
         </section>

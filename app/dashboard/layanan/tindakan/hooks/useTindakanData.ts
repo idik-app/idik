@@ -15,15 +15,20 @@ export function useTindakanData(params?: {
   from?: string;
   to?: string;
   search?: string;
+  limit?: number;
 }) {
   const query = useMemo(() => {
     const p = new URLSearchParams();
-    p.set("limit", String(DEFAULT_TINDAKAN_LIMIT));
+    const limit =
+      typeof params?.limit === "number" && Number.isFinite(params.limit)
+        ? Math.min(Math.max(Math.trunc(params.limit), 1), 10000)
+        : DEFAULT_TINDAKAN_LIMIT;
+    p.set("limit", String(limit));
     if (params?.from) p.set("from", params.from);
     if (params?.to) p.set("to", params.to);
     if (params?.search) p.set("search", params.search);
     return p.toString();
-  }, [params?.from, params?.to, params?.search]);
+  }, [params?.from, params?.to, params?.search, params?.limit]);
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
     `/api/tindakan?${query}`,

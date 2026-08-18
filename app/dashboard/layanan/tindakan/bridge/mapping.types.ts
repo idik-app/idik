@@ -98,6 +98,10 @@ export interface TindakanJoinResult {
 
   accession_no?: string | null;
 
+  /** Skema angiografi koroner (URL WebP/PNG gambar arsiran & JSON state anotasi) */
+  skema_koroner_url?: string | null;
+  skema_koroner_data?: Record<string, any> | string | null;
+
   /** Cek obat klinis (tab Tindakan) */
   cek_ntg_cedocard?: boolean | null;
   cek_ntg_cedocard_ket?: string | null;

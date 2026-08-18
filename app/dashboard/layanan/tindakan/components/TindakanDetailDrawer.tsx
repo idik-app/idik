@@ -14,7 +14,9 @@ import {
   MapPin,
   Minus,
   PanelLeft,
+  Pencil,
   Plus,
+  Printer,
   Stethoscope,
   User,
   Users,
@@ -71,6 +73,8 @@ import SignTimeFields from "./SignTimeFields";
 import LogBarangKlinisFields from "./LogBarangKlinisFields";
 import TindakanTanggalDrawerField from "./TindakanTanggalDrawerField";
 import { buildResumeWhatsAppText } from "../lib/buildResumeWhatsAppText";
+import { printReportHtml } from "../lib/reportExport";
+import { buildCoronaryAngiographyReportRm20cHtml } from "../lib/tindakanPasienReportTemplates";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
@@ -85,6 +89,12 @@ import {
   type DoctorOption,
 } from "@/components/ui/doctor-combobox";
 import { mutate as mutateSwrGlobal } from "swr";
+import dynamic from "next/dynamic";
+
+const CoronaryDiagramCanvasModal = dynamic(
+  () => import("./CoronaryDiagramCanvasModal"),
+  { ssr: false }
+);
 
 const DRAWER_ZOOM_STORAGE_KEY = "idik_tindakan_drawer_zoom";
 const DRAWER_ZOOM_MIN = 70;
@@ -607,6 +617,7 @@ function TindakanDetailDrawer({
 
   const [waCopied, setWaCopied] = useState(false);
   const [titleCopied, setTitleCopied] = useState(false);
+  const [showCoronaryCanvasModal, setShowCoronaryCanvasModal] = useState(false);
   /** Di viewport < sm: panel tab bisa disembunyikan agar konten lebar; default tertutup. */
   const [mobileTabMenuOpen, setMobileTabMenuOpen] = useState(false);
   /** Desktop sidebar toggle: jika true, sidebar kiri (nav) disembunyikan. */
@@ -937,7 +948,8 @@ function TindakanDetailDrawer({
   if (!mountPoint) return null;
 
   const layer = (
-    <AnimatePresence>
+    <>
+      <AnimatePresence>
       {open && (
         <div
           className={cn(
@@ -2186,12 +2198,95 @@ function TindakanDetailDrawer({
                                   />
                                 </div>
                               )}
+                              {def.id === "tindakan" && (
+                                <div className="mt-3 rounded-xl border border-slate-300/80 bg-white/95 p-3.5 shadow-sm dark:border-slate-700 dark:bg-slate-900/90">
+                                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5 dark:border-slate-800">
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-500/10 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400">
+                                        <Activity className="h-4 w-4" />
+                                      </div>
+                                      <div>
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                                          Skema Angiografi Koroner
+                                        </h4>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                          Diagram pembuluh darah koroner (Arsiran Stent, Stenosis & Magnet Snapping)
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const html = buildCoronaryAngiographyReportRm20cHtml(displayRecord);
+                                          printReportHtml(html);
+                                        }}
+                                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                                      >
+                                        <Printer className="h-3.5 w-3.5" />
+                                        <span>Cetak RM 20c (PDF)</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setShowCoronaryCanvasModal(true)}
+                                        className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition hover:bg-rose-500"
+                                      >
+                                        <Pencil className="h-3.5 w-3.5" />
+                                        <span>Edit / Arsir Skema</span>
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3 items-center">
+                                    {/* Thumbnail Preview */}
+                                    <div
+                                      onClick={() => setShowCoronaryCanvasModal(true)}
+                                      className="group relative cursor-pointer overflow-hidden rounded-lg border border-slate-200 bg-slate-50 p-2 text-center transition hover:border-rose-400 dark:border-slate-800 dark:bg-slate-950 sm:col-span-1"
+                                    >
+                                      {displayRecord.skema_koroner_url ? (
+                                        <img
+                                          src={displayRecord.skema_koroner_url}
+                                          alt="Skema Koroner Pasien"
+                                          className="mx-auto max-h-40 object-contain transition group-hover:scale-105"
+                                        />
+                                      ) : (
+                                        <div className="flex flex-col items-center justify-center py-6 text-slate-400">
+                                          <Activity className="h-10 w-10 opacity-40 mb-1" />
+                                          <span className="text-xs font-medium">Belum ada arsiran skema</span>
+                                          <span className="text-[10px] text-rose-500 underline mt-1">Klik untuk menggambar</span>
+                                        </div>
+                                      )}
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
+                                        <span className="rounded bg-rose-600 px-2.5 py-1 text-xs font-bold text-white shadow">
+                                          Perbesar & Arsir
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Structured Summary Notes */}
+                                    <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 sm:col-span-2">
+                                      <div className="rounded-md border border-slate-100 bg-slate-50/80 p-2.5 dark:border-slate-800 dark:bg-slate-950/50">
+                                        <span className="font-semibold text-slate-700 dark:text-slate-200">
+                                          Catatan Anatomi & Arsir Stent:
+                                        </span>
+                                        <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                                          {displayRecord.temuan_pembuluh || "Belum ada catatan temuan pembuluh darah (RCA, LAD, LCx)."}
+                                        </p>
+                                      </div>
+                                      <div className="flex items-center justify-between text-[11px] text-slate-400">
+                                        <span>Status Skema: {displayRecord.skema_koroner_url ? "✅ Tersimpan" : "⏳ Kosong"}</span>
+                                        <span className="font-mono font-bold text-indigo-500">Form RM 20c Compliant</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </>
                           )}
-                          </>
-                          )}
-                        </div>
-                      ),
+                        </>
+                      )}
+                    </div>
+                  ),
                     )}
                   </>
                 )}
@@ -2202,6 +2297,20 @@ function TindakanDetailDrawer({
       </div>
       )}
     </AnimatePresence>
+
+    {showCoronaryCanvasModal && displayRecord && (
+      <CoronaryDiagramCanvasModal
+        open={showCoronaryCanvasModal}
+        tindakanId={String(displayRecord.id ?? "").trim()}
+        initialUrl={displayRecord.skema_koroner_url}
+        initialData={displayRecord.skema_koroner_data}
+        onClose={() => setShowCoronaryCanvasModal(false)}
+        onSaved={(newUrl) => {
+          handleRecordPatch({ field: "skema_koroner_url" });
+        }}
+      />
+    )}
+  </>
   );
 
   return createPortal(layer, mountPoint);

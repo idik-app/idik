@@ -22,7 +22,7 @@ export const maxDuration = 60;
 const POSTGREST_SAFE_CHUNK = 1000;
 
 const CEK_OBAT_PROJECTION =
-  "cek_ntg_cedocard, cek_ntg_cedocard_ket, cek_ntg_cedocard_jam, cek_ntg_cedocard_oleh, cek_heparin, cek_heparin_ket, cek_heparin_jam, cek_heparin_oleh, cek_lain, cek_lain_ket, cek_lain_jam, cek_lain_oleh, log_barang_klinis";
+  "cek_ntg_cedocard, cek_ntg_cedocard_ket, cek_ntg_cedocard_jam, cek_ntg_cedocard_oleh, cek_heparin, cek_heparin_ket, cek_heparin_jam, cek_heparin_oleh, cek_lain, cek_lain_ket, cek_lain_jam, cek_lain_oleh, log_barang_klinis, skema_koroner_url, skema_koroner_data";
 
 const PROJECTIONS_LIST = [
   // Prioritas 1: Proyeksi tanpa created_at/inserted_at/updated_at agar kompatibel jika tabel tindakan tidak memiliki kolom timestamp tersebut

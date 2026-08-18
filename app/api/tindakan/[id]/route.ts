@@ -70,6 +70,8 @@ const PATCHABLE_TINDAKAN_KEYS = new Set([
   "status_keterangan",
   "kelas_pembiayaan",
   "accession_no",
+  "skema_koroner_url",
+  "skema_koroner_data",
   "cek_ntg_cedocard",
   "cek_ntg_cedocard_ket",
   "cek_ntg_cedocard_jam",

@@ -470,3 +470,106 @@ export function downloadPasienReportExcel(opts: {
   });
   saveAs(finalBlob, `${opts.filename}.xlsx`);
 }
+
+export function buildCoronaryAngiographyReportRm20cHtml(row: TindakanJoinResult): string {
+  const nama = escapeHtml(displayNamaPasien(row as any) || "—");
+  const rm = escapeHtml(displayRm(row as any) || "—");
+  const dob = escapeHtml(row.tgl_lahir || "—");
+  const umur = row.umur != null ? `${row.umur} TH` : "";
+  const jk = escapeHtml(row.jenis_kelamin || "LAKI-LAKI");
+  const status = escapeHtml(row.kelas_pembiayaan || row.pembiayaan || "BPJS");
+  const alamat = escapeHtml(row.alamat || "—");
+  const telp = escapeHtml(row.no_telp || "—");
+  const dokter = escapeHtml(row.dokter || "—");
+  const tindakan = escapeHtml(row.tindakan || "CORONARY ANGIOGRAPHY");
+  const tanggal = escapeHtml(row.tanggal || "—");
+  const temuan = escapeHtml(row.temuan_pembuluh || row.kesimpulan_laporan || "");
+  const pemakaian = escapeHtml(row.pemakaian || "");
+  const skemaUrl = row.skema_koroner_url;
+
+  const notesText = [pemakaian, temuan].filter(Boolean).join("\n\n") || "- Tidak ada catatan alat / prosedur.";
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>CORONARY ANGIOGRAPHY REPORT - ${rm}</title>
+  <style>
+    @page { size: A4; margin: 10mm; }
+    body { font-family: 'Times New Roman', Times, serif; color: #000; background: #fff; margin: 0; padding: 0; font-size: 11px; }
+    .border-box { border: 2px solid #000; padding: 8px; margin-bottom: 12px; }
+    .header-table { width: 100%; border-collapse: collapse; }
+    .header-table td { vertical-align: top; font-size: 10px; }
+    .title-center { text-align: center; font-size: 18px; font-weight: bold; margin: 15px 0 10px 0; text-transform: uppercase; letter-spacing: 1px; }
+    .diagram-container { text-align: center; margin-top: 5px; }
+    .diagram-img { max-width: 100%; max-height: 520px; object-fit: contain; }
+    .notes-box { font-family: sans-serif; font-size: 10px; background: #f8fafc; border: 1px solid #ccc; padding: 8px; border-radius: 4px; }
+    .footer-table { width: 100%; margin-top: 30px; border-collapse: collapse; font-size: 11px; }
+    @media print {
+      body { margin: 0; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Top Header Box RM 20c -->
+  <div class="border-box">
+    <table class="header-table">
+      <tr>
+        <td style="width: 55%; border-right: 1px solid #000; padding-right: 8px;">
+          <div style="font-weight: bold; font-size: 11px;">PEMERINTAH KOTA SURABAYA</div>
+          <div style="font-weight: bold; font-size: 12px;">RUMAH SAKIT UMUM DAERAH dr. MOHAMAD SOEWANDHIE</div>
+          <div style="font-size: 9px;">JL. TAMBAK REJO NO 45-47 TELP. 031 3717141, 3725905</div>
+          <div style="font-weight: bold; font-size: 11px; margin-top: 4px;">CORONARY ANGIOGRAPHY REPORT</div>
+        </td>
+        <td style="width: 45%; padding-left: 8px; position: relative;">
+          <div style="position: absolute; right: 0; top: -4px; font-weight: bold; font-size: 10px;">RM 20c</div>
+          <div><strong>NAMA / REG :</strong> ${nama} / ${rm}</div>
+          <div><strong>DOB / JK :</strong> ${dob} ${umur ? `(${umur})` : ""} / ${jk}</div>
+          <div><strong>STATUS :</strong> ${status}</div>
+          <div><strong>ALAMAT :</strong> ${alamat}</div>
+          <div><strong>TELP :</strong> ${telp}</div>
+          <div><strong>DOKTER :</strong> ${dokter}</div>
+          <div><strong>TINDAKAN :</strong> ${tindakan} (${tanggal})</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- Title -->
+  <div class="title-center">CORONARY ANGIOGRAPHY REPORT</div>
+
+  <!-- Layout Section: Right Procedural Notes + Central Diagram -->
+  <table style="width: 100%; border-collapse: collapse;">
+    <tr>
+      <td style="vertical-align: top; width: 68%;">
+        <div class="diagram-container">
+          ${skemaUrl ? `<img src="${skemaUrl}" class="diagram-img" alt="Skema Koroner" />` : `<div style="padding: 60px; border: 1px dashed #ccc; color: #888; border-radius: 8px;">[ Skema Koroner Belum Diarsir ]</div>`}
+        </div>
+      </td>
+      <td style="vertical-align: top; width: 32%; padding-left: 10px;">
+        <div class="notes-box">
+          <div style="font-weight: bold; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 6px;">CATATAN PROSEDUR & ALAT:</div>
+          <div style="white-space: pre-wrap; font-family: monospace; font-size: 10px; line-height: 1.4;">${notesText}</div>
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <!-- Footer Signature -->
+  <table class="footer-table">
+    <tr>
+      <td style="width: 50%;"></td>
+      <td style="width: 50%; text-align: center;">
+        <div>Attending Physician : <strong>${dokter}</strong></div>
+        <div style="height: 60px; margin: 10px 0;">
+          <!-- Signature area -->
+        </div>
+        <div>Signature : _______________________</div>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+

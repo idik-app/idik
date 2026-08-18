@@ -20,6 +20,8 @@ import {
   Magnet,
   Maximize2,
   Minimize2,
+  MousePointer,
+  MoveRight,
   Pencil,
   PenTool,
   RotateCcw,
@@ -39,7 +41,7 @@ import {
 } from "./CoronaryTreeBaseSvg";
 import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
 
-type ToolMode = "hatch" | "pen" | "text" | "badge" | "pan" | "eraser" | "signature";
+type ToolMode = "hatch" | "pen" | "arrow" | "text" | "badge" | "select" | "pan" | "eraser" | "signature";
 
 type ColorOption = "#ef4444" | "#2563eb" | "#0f172a" | "#eab308" | "#16a34a";
 
@@ -95,14 +97,34 @@ export default function CoronaryDiagramCanvasModal({
   const [redoStack, setRedoStack] = useState<DrawStroke[][]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPoints, setCurrentPoints] = useState<{ x: number; y: number }[]>([]);
-  const [snappedVessel, setSnappedVessel] = useState<string | null>(null);
-
+  const [selectedStrokeId, setSelectedStrokeId] = useState<string | null>(null);
+  const [isDraggingElement, setIsDraggingElement] = useState(false);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [textInput, setTextInput] = useState("");
   const [textPos, setTextPos] = useState<{ x: number; y: number } | null>(null);
 
+  const [snappedVessel, setSnappedVessel] = useState<string | null>(null);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [isDrawingSignature, setIsDrawingSignature] = useState(false);
+
+  const saveLocalDraft = useCallback(
+    (currentStrokes: DrawStroke[], currentSigData?: string | null) => {
+      try {
+        localStorage.setItem(
+          `${LOCAL_DRAFT_KEY_PREFIX}${tindakanId}`,
+          JSON.stringify({
+            strokes: currentStrokes,
+            signatureDataUrl: currentSigData ?? signatureDataUrl,
+            updatedAt: new Date().toISOString(),
+          })
+        );
+      } catch {
+        // Ignore storage limit
+      }
+    },
+    [tindakanId, signatureDataUrl]
+  );
 
   const [saving, setSaving] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -196,13 +218,47 @@ export default function CoronaryDiagramCanvasModal({
       if (stroke.tool === "text" && stroke.text && stroke.points[0]) {
         ctx.font = "bold 16px sans-serif";
         ctx.fillText(stroke.text, stroke.points[0].x, stroke.points[0].y);
+        if (stroke.id === selectedStrokeId) {
+          const w = ctx.measureText(stroke.text).width;
+          ctx.strokeStyle = "#3b82f6";
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 4]);
+          ctx.strokeRect(stroke.points[0].x - 4, stroke.points[0].y - 18, w + 8, 24);
+          ctx.setLineDash([]);
+        }
       } else if (stroke.tool === "badge" && stroke.text && stroke.points[0]) {
         const { x, y } = stroke.points[0];
-        ctx.fillStyle = "#0f172a";
-        ctx.fillRect(x - 4, y - 18, ctx.measureText(stroke.text).width + 8, 22);
+        const w = ctx.measureText(stroke.text).width + 12;
+        ctx.fillStyle = stroke.id === selectedStrokeId ? "#2563eb" : "#0f172a";
+        ctx.beginPath();
+        ctx.roundRect ? ctx.roundRect(x - 6, y - 20, w, 24, 4) : ctx.fillRect(x - 6, y - 20, w, 24);
+        ctx.fill();
         ctx.fillStyle = "#ffffff";
         ctx.font = "bold 13px monospace";
-        ctx.fillText(stroke.text, x, y - 2);
+        ctx.fillText(stroke.text, x, y - 4);
+      } else if (stroke.tool === "arrow" && stroke.points.length >= 2) {
+        const p1 = stroke.points[0];
+        const p2 = stroke.points[stroke.points.length - 1];
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+
+        // Arrowhead at p2
+        const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+        const headLen = 14;
+        ctx.beginPath();
+        ctx.moveTo(p2.x, p2.y);
+        ctx.lineTo(
+          p2.x - headLen * Math.cos(angle - Math.PI / 6),
+          p2.y - headLen * Math.sin(angle - Math.PI / 6)
+        );
+        ctx.lineTo(
+          p2.x - headLen * Math.cos(angle + Math.PI / 6),
+          p2.y - headLen * Math.sin(angle + Math.PI / 6)
+        );
+        ctx.closePath();
+        ctx.fill();
       } else if (stroke.tool === "hatch") {
         // Draw cross-hatching pattern along points
         ctx.lineWidth = 2.5;
@@ -285,6 +341,26 @@ export default function CoronaryDiagramCanvasModal({
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
 
+    // Hit test draggable text/badge elements
+    const hitElement = strokes.slice().reverse().find((s) => {
+      if ((s.tool === "badge" || s.tool === "text") && s.points[0]) {
+        const pt = s.points[0];
+        const dx = x - pt.x;
+        const dy = y - pt.y;
+        return dx >= -10 && dx <= 120 && dy >= -30 && dy <= 15;
+      }
+      return false;
+    });
+
+    if (hitElement && (tool === "select" || tool === "badge" || tool === "text")) {
+      setSelectedStrokeId(hitElement.id);
+      setIsDraggingElement(true);
+      setDragOffset({ x: x - hitElement.points[0].x, y: y - hitElement.points[0].y });
+      return;
+    }
+
+    setSelectedStrokeId(null);
+
     if (tool === "text") {
       setTextPos({ x, y });
       return;
@@ -302,7 +378,7 @@ export default function CoronaryDiagramCanvasModal({
     let targetY = y;
     let vesselId: string | null = null;
 
-    if (useMagnet) {
+    if (useMagnet && tool === "hatch") {
       vesselId = getNearestVessel(x, y);
       setSnappedVessel(vesselId);
     }
@@ -320,8 +396,6 @@ export default function CoronaryDiagramCanvasModal({
       return;
     }
 
-    if (!isDrawing) return;
-
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
 
@@ -331,10 +405,23 @@ export default function CoronaryDiagramCanvasModal({
     const x = (e.clientX - rect.left) * scaleX;
     const y = (e.clientY - rect.top) * scaleY;
 
+    if (isDraggingElement && selectedStrokeId) {
+      setStrokes((prev) =>
+        prev.map((s) =>
+          s.id === selectedStrokeId && s.points[0]
+            ? { ...s, points: [{ x: Math.round(x - dragOffset.x), y: Math.round(y - dragOffset.y) }] }
+            : s
+        )
+      );
+      return;
+    }
+
+    if (!isDrawing) return;
+
     let targetX = x;
     let targetY = y;
 
-    if (useMagnet) {
+    if (useMagnet && tool === "hatch") {
       const vesselId = getNearestVessel(x, y);
       setSnappedVessel(vesselId);
     }
@@ -345,6 +432,12 @@ export default function CoronaryDiagramCanvasModal({
   const handlePointerUp = () => {
     if (isPanning) {
       setIsPanning(false);
+      return;
+    }
+
+    if (isDraggingElement) {
+      setIsDraggingElement(false);
+      saveLocalDraft(strokes);
       return;
     }
 
@@ -595,6 +688,21 @@ export default function CoronaryDiagramCanvasModal({
         <div className="flex items-center gap-1 overflow-x-auto py-1">
           <button
             type="button"
+            onClick={() => setTool("select")}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition",
+              tool === "select"
+                ? "bg-blue-600 text-white font-bold"
+                : "bg-slate-800/80 text-slate-300 hover:bg-slate-700"
+            )}
+            title="Klik untuk memilih dan menyeret badge/teks ke mana saja"
+          >
+            <MousePointer className="h-4 w-4" />
+            <span>Pilih / Geser</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setTool("hatch")}
             className={cn(
               "flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition",
@@ -605,6 +713,21 @@ export default function CoronaryDiagramCanvasModal({
           >
             <Grid className="h-4 w-4" />
             <span>Arsir Stent</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setTool("arrow")}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition",
+              tool === "arrow"
+                ? "bg-rose-600 text-white font-bold"
+                : "bg-slate-800/80 text-slate-300 hover:bg-slate-700"
+            )}
+            title="Tarik garis panah penunjuk dari teks/badge ke pembuluh darah"
+          >
+            <MoveRight className="h-4 w-4" />
+            <span>Panah Penunjuk</span>
           </button>
 
           <button
@@ -662,6 +785,34 @@ export default function CoronaryDiagramCanvasModal({
             <Hand className="h-4 w-4" />
             <span>Geser (Pan)</span>
           </button>
+        </div>
+
+        {/* Badges Stenosis Quick Bar */}
+        <div className="flex items-center gap-1 overflow-x-auto border-t border-slate-800/80 pt-1.5 mt-1 w-full">
+          <span className="text-[11px] font-bold text-slate-400 mr-1">Badge Stenosis (Draggable):</span>
+          {["50%", "70%", "90%", "100%", "TIMI 3", "Stent 3.5/44"].map((badgeText) => (
+            <button
+              key={badgeText}
+              type="button"
+              onClick={() => {
+                const newBadge: DrawStroke = {
+                  id: `badge_${Date.now()}_${Math.random()}`,
+                  tool: "badge",
+                  color: "#0f172a",
+                  size: 2,
+                  points: [{ x: 450 + Math.floor(Math.random() * 30), y: 350 + Math.floor(Math.random() * 30) }],
+                  text: badgeText,
+                };
+                setStrokes((prev) => [...prev, newBadge]);
+                setSelectedStrokeId(newBadge.id);
+                setTool("select");
+                toast.success(`Badge "${badgeText}" ditambahkan! Geser dengan jari/mouse ke posisi segmen.`);
+              }}
+              className="rounded bg-slate-800 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-200 hover:bg-rose-600 hover:text-white transition shadow-sm border border-slate-700"
+            >
+              + {badgeText}
+            </button>
+          ))}
         </div>
 
         {/* Color Palette & Presets */}

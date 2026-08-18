@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   Activity,
   AlertCircle,
@@ -74,6 +75,15 @@ export default function CoronaryDiagramCanvasModal({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const [mountPoint, setMountPoint] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setMountPoint((document.fullscreenElement as HTMLElement) || document.body);
+    const handle = () => setMountPoint((document.fullscreenElement as HTMLElement) || document.body);
+    document.addEventListener("fullscreenchange", handle);
+    return () => document.removeEventListener("fullscreenchange", handle);
+  }, []);
 
   const [tool, setTool] = useState<ToolMode>("hatch");
   const [color, setColor] = useState<ColorOption>("#ef4444");
@@ -507,12 +517,12 @@ export default function CoronaryDiagramCanvasModal({
     toast.success("Gambar skema koroner berhasil diunduh.");
   };
 
-  if (!open) return null;
+  if (!open || !mountPoint) return null;
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 flex flex-col bg-slate-950/95 text-slate-100 backdrop-blur-md transition-all"
-      style={{ zIndex: UI_LAYERS.drawerPortal + 100 }}
+      className="fixed inset-0 flex flex-col bg-slate-950/95 text-slate-100 backdrop-blur-md transition-all pointer-events-auto"
+      style={{ zIndex: 100100 }}
     >
       {/* Header Bar */}
       <header className="flex items-center justify-between border-b border-slate-800 bg-slate-900/90 px-4 py-2.5">
@@ -853,4 +863,6 @@ export default function CoronaryDiagramCanvasModal({
       )}
     </div>
   );
+
+  return createPortal(modalContent, mountPoint);
 }

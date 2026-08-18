@@ -1,0 +1,4 @@
+cd D:\website\idik-app
+npm run bot:simrs
+
+agent: npm run bot:simrs:agent

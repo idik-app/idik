@@ -25,11 +25,13 @@ const CEK_OBAT_PROJECTION =
   "cek_ntg_cedocard, cek_ntg_cedocard_ket, cek_ntg_cedocard_jam, cek_ntg_cedocard_oleh, cek_heparin, cek_heparin_ket, cek_heparin_jam, cek_heparin_oleh, cek_lain, cek_lain_ket, cek_lain_jam, cek_lain_oleh, log_barang_klinis";
 
 const PROJECTIONS_LIST = [
+  // Prioritas 1: Proyeksi tanpa created_at/inserted_at/updated_at agar kompatibel jika tabel tindakan tidak memiliki kolom timestamp tersebut
+  `id, tanggal, dokter, dokter_anestesi, ppds, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, status_keterangan, ruangan, pasien_id, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, faktor_risiko, jenis_kelamin, fluoro_time, dose, kv, ma, waktu, total_kontras, air_kerma, dap_dose, accession_no, total, krs, consumable, selisih, temuan_pembuluh, kesimpulan_laporan, plan_medis, ${CEK_OBAT_PROJECTION}`,
+  `id, tanggal, dokter, dokter_anestesi, ppds, nama_pasien, no_rm, tindakan, kategori, status, status_keterangan, ruangan, pasien_id, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, faktor_risiko, jenis_kelamin, fluoro_time, dose, kv, ma, waktu, total_kontras, air_kerma, dap_dose, accession_no, total, krs, consumable, selisih, temuan_pembuluh, kesimpulan_laporan, plan_medis, ${CEK_OBAT_PROJECTION}`,
+  // Proyeksi dengan created_at (apabila tabel memilikinya)
   `id, tanggal, dokter, dokter_anestesi, ppds, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, status_keterangan, ruangan, pasien_id, created_at, inserted_at, updated_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, faktor_risiko, jenis_kelamin, fluoro_time, dose, kv, ma, waktu, total_kontras, air_kerma, dap_dose, accession_no, total, krs, consumable, selisih, temuan_pembuluh, kesimpulan_laporan, plan_medis, ${CEK_OBAT_PROJECTION}`,
-  `id, tanggal, dokter, dokter_anestesi, ppds, nama_pasien, no_rm, tindakan, kategori, status, status_keterangan, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, faktor_risiko, jenis_kelamin, fluoro_time, dose, kv, ma, waktu, total_kontras, air_kerma, dap_dose, accession_no, total, krs, consumable, selisih, temuan_pembuluh, kesimpulan_laporan, plan_medis, ${CEK_OBAT_PROJECTION}`,
-  // Fallback tanpa kolom cek (instalasi belum migrasi)
-  "id, tanggal, dokter, dokter_anestesi, ppds, operator, nama_pasien, nama, no_rm, no_rekam_medis, tindakan, jenis, alkes_utama, kategori, status, status_keterangan, ruangan, pasien_id, created_at, inserted_at, updated_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, faktor_risiko, jenis_kelamin, fluoro_time, dose, kv, ma, waktu, total_kontras, air_kerma, dap_dose, accession_no, total, krs, consumable, selisih",
-  "id, tanggal, dokter, dokter_anestesi, ppds, nama_pasien, no_rm, tindakan, kategori, status, status_keterangan, ruangan, pasien_id, created_at, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, faktor_risiko, jenis_kelamin, fluoro_time, dose, kv, ma, waktu, total_kontras, air_kerma, dap_dose, accession_no, total, krs, consumable, selisih",
+  // Fallback tanpa kolom cek
+  "id, tanggal, dokter, dokter_anestesi, ppds, nama_pasien, no_rm, tindakan, kategori, status, status_keterangan, ruangan, pasien_id, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, pci_report_link, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, diagnosa, faktor_risiko, jenis_kelamin, fluoro_time, dose, kv, ma, waktu, total_kontras, air_kerma, dap_dose, accession_no, total, krs, consumable, selisih",
 ];
 
 async function fetchTableOrderedInChunks(
@@ -131,23 +133,23 @@ function mapLegacyTindakanMedikRow(
 let workingProjectionCache: string | null = null;
 
 function projectionHasFastTrackClockFields(projection: string | null): boolean {
-  return Boolean(projection?.includes("fast_track_time_out"));
+  return Boolean(projection && (projection.includes("fast_track_time_out") || projection === "*"));
 }
 
 function projectionHasStatusKeteranganField(projection: string | null): boolean {
-  return Boolean(projection?.includes("status_keterangan"));
+  return Boolean(projection && (projection.includes("status_keterangan") || projection === "*"));
 }
 
 function projectionHasAccessionNoField(projection: string | null): boolean {
-  return Boolean(projection?.includes("accession_no"));
+  return Boolean(projection && (projection.includes("accession_no") || projection === "*"));
 }
 
 function projectionHasFaktorRisikoField(projection: string | null): boolean {
-  return Boolean(projection?.includes("faktor_risiko"));
+  return Boolean(projection && (projection.includes("faktor_risiko") || projection === "*"));
 }
 
 function projectionHasCekObatFields(projection: string | null): boolean {
-  return Boolean(projection?.includes("cek_ntg_cedocard"));
+  return Boolean(projection && (projection.includes("cek_ntg_cedocard") || projection === "*"));
 }
 
 /** Daftar tindakan untuk dashboard (server-side service role, tahan RLS). */

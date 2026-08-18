@@ -1561,7 +1561,7 @@ function TindakanDetailDrawer({
                                 ).trim()}
                                 namaPasien={String(
                                   displayRecord.nama_pasien ??
-                                    displayRecord.nama ??
+                                    (displayRecord as any).nama ??
                                     "",
                                 ).trim()}
                                 isFastTrackValue={getWireframeFieldValue(
@@ -1849,7 +1849,7 @@ function TindakanDetailDrawer({
                                           ).trim()}
                                           namaPasien={String(
                                             displayRecord.nama_pasien ??
-                                              displayRecord.nama ??
+                                              (displayRecord as any).nama ??
                                               "",
                                           ).trim()}
                                           fieldKey={key}

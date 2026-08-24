@@ -437,7 +437,6 @@ export default function JadwalCathModal({
       setFullscreen(false);
       setDraftByRowId({});
       setDirtyIds(new Set());
-      setPinnedRows([]);
       setNewRowHighlightId(null);
     }
   }, [open]);
@@ -459,6 +458,12 @@ export default function JadwalCathModal({
   const patchField = useCallback(
     async (id: string, patch: Record<string, unknown>) => {
       try {
+        const patchWithCathlab = {
+          kategori: "Cathlab",
+          ruangan: (patch.ruangan as string) || "Cathlab",
+          ...patch,
+        };
+
         if (id.startsWith("temp-draft-")) {
           const payload = {
             tanggal: selectedDate,
@@ -483,12 +488,15 @@ export default function JadwalCathModal({
           return false;
         }
 
-        await updateOne(id, patch);
+        await updateOne(id, patchWithCathlab);
+        setPinnedRows((prev) =>
+          prev.map((r) => (r.id === id ? { ...r, ...patchWithCathlab } : r)),
+        );
         setDraftByRowId((prev) => ({
           ...prev,
-          [id]: { ...(prev[id] ?? {}), ...(patch as Partial<JadwalRow>) },
+          [id]: { ...(prev[id] ?? {}), ...(patchWithCathlab as Partial<JadwalRow>) },
         }));
-        onPatchRow?.(id, patch);
+        onPatchRow?.(id, patchWithCathlab);
         clearDirty(id);
         scheduleSync();
         return true;
@@ -712,13 +720,13 @@ export default function JadwalCathModal({
           </span>
         </div>
       ) : (
-        <table className="w-full min-w-[1580px] table-fixed border-collapse text-xs text-slate-800">
+        <table className="w-full min-w-[1400px] border-collapse text-xs text-slate-800">
           <thead>
             <tr>
               {/* Sticky Column 0: NO & Add button */}
               <th
                 className={cn(TH_BASE, "left-0 z-30 border-r border-white/20 text-center")}
-                style={{ left: 0, width: 44, minWidth: 44 }}
+                style={{ left: 0, width: 40, minWidth: 40 }}
               >
                 <div className="flex items-center justify-center gap-1">
                   <span>NO</span>
@@ -736,16 +744,16 @@ export default function JadwalCathModal({
 
               {/* Sticky Column 1: HARI/TGL */}
               <th
-                className={cn(TH_BASE, "left-[44px] z-30 border-r border-white/20 text-center")}
-                style={{ left: 44, width: 110, minWidth: 110 }}
+                className={cn(TH_BASE, "left-[40px] z-30 border-r border-white/20 text-center")}
+                style={{ left: 40, width: 90, minWidth: 90 }}
               >
                 Hari/tgl
               </th>
 
               {/* Sticky Column 2: NO. RM */}
               <th
-                className={cn(TH_BASE, "left-[154px] z-30 border-r border-white/20 text-center")}
-                style={{ left: 154, width: 110, minWidth: 110 }}
+                className={cn(TH_BASE, "left-[130px] z-30 border-r border-white/20 text-center")}
+                style={{ left: 130, width: 90, minWidth: 90 }}
               >
                 No. RM
               </th>
@@ -754,25 +762,25 @@ export default function JadwalCathModal({
               <th
                 className={cn(
                   TH_BASE,
-                  "left-[264px] z-30 border-r-2 border-slate-400/60 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.15)] text-left",
+                  "left-[220px] z-30 border-r-2 border-slate-400/60 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.15)] text-left",
                 )}
-                style={{ left: 264, width: 150, minWidth: 150 }}
+                style={{ left: 220, width: 150, minWidth: 150 }}
               >
                 Nama
               </th>
 
               {/* Non-sticky Columns */}
-              <th className={cn(TH_BASE, "text-center")} style={{ width: 85, minWidth: 85 }}>Kelas</th>
-              <th className={cn(TH_BASE, "text-center")} style={{ width: 50, minWidth: 50 }}>Umur</th>
-              <th className={cn(TH_BASE, "text-center")} style={{ width: 100, minWidth: 100 }}>Ruangan</th>
+              <th className={cn(TH_BASE, "text-center")} style={{ width: 80, minWidth: 80 }}>Kelas</th>
+              <th className={cn(TH_BASE, "text-center")} style={{ width: 45, minWidth: 45 }}>Umur</th>
+              <th className={cn(TH_BASE, "text-center")} style={{ width: 95, minWidth: 95 }}>Ruangan</th>
               <th className={cn(TH_BASE, "text-left")} style={{ width: 140, minWidth: 140 }}>Diagnosa</th>
               <th className={cn(TH_BASE, "text-left")} style={{ width: 140, minWidth: 140 }}>Tindakan</th>
               <th className={cn(TH_BASE, "text-left")} style={{ width: 140, minWidth: 140 }}>Dokter</th>
               <th className={cn(TH_BASE, "text-left")} style={{ width: 100, minWidth: 100 }}>Hasil lab</th>
-              <th className={cn(TH_BASE, "text-center")} style={{ width: 100, minWidth: 100 }}>Asisten</th>
-              <th className={cn(TH_BASE, "text-center")} style={{ width: 100, minWidth: 100 }}>Sirkuler</th>
-              <th className={cn(TH_BASE, "text-center")} style={{ width: 100, minWidth: 100 }}>Logger</th>
-              <th className={cn(TH_BASE, "text-left")} style={{ width: 130, minWidth: 130 }}>Keterangan</th>
+              <th className={cn(TH_BASE, "text-center")} style={{ width: 95, minWidth: 95 }}>Asisten</th>
+              <th className={cn(TH_BASE, "text-center")} style={{ width: 95, minWidth: 95 }}>Sirkuler</th>
+              <th className={cn(TH_BASE, "text-center")} style={{ width: 95, minWidth: 95 }}>Logger</th>
+              <th className={cn(TH_BASE, "text-left")} style={{ width: 120, minWidth: 120 }}>Keterangan</th>
             </tr>
           </thead>
           <tbody>
@@ -805,7 +813,7 @@ export default function JadwalCathModal({
                       TD_BASE,
                       "sticky left-0 z-10 text-center font-mono font-bold bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
                     )}
-                    style={{ left: 0, width: 44, minWidth: 44 }}
+                    style={{ left: 0, width: 40, minWidth: 40 }}
                   >
                     <div className="flex items-center justify-center gap-0.5">
                       <span>{rowNum}</span>
@@ -833,8 +841,8 @@ export default function JadwalCathModal({
                         patchField(row.id, { tanggal: next || null })
                       }
                     />,
-                    "sticky left-[44px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
-                    { left: 44, width: 110, minWidth: 110 },
+                    "sticky left-[40px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
+                    { left: 40, width: 90, minWidth: 90 },
                   )}
 
                   {/* Sticky TD Col 2: NO. RM */}
@@ -842,9 +850,9 @@ export default function JadwalCathModal({
                     className={cn(
                       TD_BASE,
                       JADWAL_ZOOM_CELL_CLASSES,
-                      "sticky left-[154px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
+                      "sticky left-[130px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
                     )}
-                    style={{ left: 154, width: 110, minWidth: 110 }}
+                    style={{ left: 130, width: 90, minWidth: 90 }}
                   >
                     <div className="flex min-w-0 items-center gap-0.5">
                       <div
@@ -890,8 +898,8 @@ export default function JadwalCathModal({
                         })
                       }
                     />,
-                    "sticky left-[264px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r-2 border-slate-300 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.12)]",
-                    { left: 264, width: 150, minWidth: 150 },
+                    "sticky left-[220px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r-2 border-slate-300 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.12)]",
+                    { left: 220, width: 150, minWidth: 150 },
                   )}
 
                   {/* Non-sticky Cells */}
@@ -909,9 +917,9 @@ export default function JadwalCathModal({
                       }
                     />,
                     undefined,
-                    { width: 85, minWidth: 85 },
+                    { width: 80, minWidth: 80 },
                   )}
-                  <td className={cn(TD_BASE, "text-center text-slate-700 font-semibold")} style={{ width: 50, minWidth: 50 }}>
+                  <td className={cn(TD_BASE, "text-center text-slate-700 font-semibold")} style={{ width: 45, minWidth: 45 }}>
                     {txt(row.umur) || ""}
                   </td>
                   {zoomTd(
@@ -927,7 +935,7 @@ export default function JadwalCathModal({
                       }}
                     />,
                     undefined,
-                    { width: 100, minWidth: 100 },
+                    { width: 95, minWidth: 95 },
                   )}
                   {zoomTd(
                     "left",
@@ -1001,7 +1009,7 @@ export default function JadwalCathModal({
                       }}
                     />,
                     undefined,
-                    { width: 100, minWidth: 100 },
+                    { width: 95, minWidth: 95 },
                   )}
                   {zoomTd(
                     "center",
@@ -1016,7 +1024,7 @@ export default function JadwalCathModal({
                       }}
                     />,
                     undefined,
-                    { width: 100, minWidth: 100 },
+                    { width: 95, minWidth: 95 },
                   )}
                   {zoomTd(
                     "center",
@@ -1031,7 +1039,7 @@ export default function JadwalCathModal({
                       }}
                     />,
                     undefined,
-                    { width: 100, minWidth: 100 },
+                    { width: 95, minWidth: 95 },
                   )}
                   {zoomTd(
                     "left",
@@ -1045,7 +1053,7 @@ export default function JadwalCathModal({
                       }
                     />,
                     undefined,
-                    { width: 130, minWidth: 130 },
+                    { width: 120, minWidth: 120 },
                   )}
                 </tr>
               );

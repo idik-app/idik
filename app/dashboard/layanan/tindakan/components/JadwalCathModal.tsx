@@ -324,6 +324,101 @@ export default function JadwalCathModal({
     );
   }, [sourceMapped, from, to, pinnedRows, draftByRowId, dirtyIds]);
 
+  /** Spreadsheet Grid Mode: selalu sediakan baris sel input kosong saat 0 rows, atau 1 baris draft ekstra di paling bawah. */
+  const displayRows = useMemo(() => {
+    if (rows.length === 0) {
+      return [
+        {
+          id: "temp-draft-0",
+          tanggal: selectedDate,
+          no_rm: null,
+          nama_pasien: null,
+          kelas_pembiayaan: null,
+          umur: null,
+          ruangan: "Cathlab",
+          diagnosa: null,
+          tindakan: null,
+          dokter: null,
+          hasil_lab_ppm: null,
+          asisten: null,
+          sirkuler: null,
+          logger: null,
+          keterangan: null,
+          waktu: null,
+          status: "Menunggu",
+          pasien_id: null,
+          kategori: "Cathlab",
+        },
+        {
+          id: "temp-draft-1",
+          tanggal: selectedDate,
+          no_rm: null,
+          nama_pasien: null,
+          kelas_pembiayaan: null,
+          umur: null,
+          ruangan: "Cathlab",
+          diagnosa: null,
+          tindakan: null,
+          dokter: null,
+          hasil_lab_ppm: null,
+          asisten: null,
+          sirkuler: null,
+          logger: null,
+          keterangan: null,
+          waktu: null,
+          status: "Menunggu",
+          pasien_id: null,
+          kategori: "Cathlab",
+        },
+        {
+          id: "temp-draft-2",
+          tanggal: selectedDate,
+          no_rm: null,
+          nama_pasien: null,
+          kelas_pembiayaan: null,
+          umur: null,
+          ruangan: "Cathlab",
+          diagnosa: null,
+          tindakan: null,
+          dokter: null,
+          hasil_lab_ppm: null,
+          asisten: null,
+          sirkuler: null,
+          logger: null,
+          keterangan: null,
+          waktu: null,
+          status: "Menunggu",
+          pasien_id: null,
+          kategori: "Cathlab",
+        },
+      ] as JadwalRow[];
+    }
+
+    const extraBottom: JadwalRow = {
+      id: "temp-draft-bottom",
+      tanggal: selectedDate,
+      no_rm: null,
+      nama_pasien: null,
+      kelas_pembiayaan: null,
+      umur: null,
+      ruangan: "Cathlab",
+      diagnosa: null,
+      tindakan: null,
+      dokter: null,
+      hasil_lab_ppm: null,
+      asisten: null,
+      sirkuler: null,
+      logger: null,
+      keterangan: null,
+      waktu: null,
+      status: "Menunggu",
+      pasien_id: null,
+      kategori: "Cathlab",
+    };
+
+    return [...rows, extraBottom];
+  }, [rows, selectedDate]);
+
   const stats = useMemo(() => {
     let waiting = 0;
     let processing = 0;
@@ -364,6 +459,30 @@ export default function JadwalCathModal({
   const patchField = useCallback(
     async (id: string, patch: Record<string, unknown>) => {
       try {
+        if (id.startsWith("temp-draft-")) {
+          const payload = {
+            tanggal: selectedDate,
+            status: "Menunggu",
+            kategori: "Cathlab",
+            ruangan: "Cathlab",
+            ...patch,
+          };
+          const created = onCreateRecord
+            ? await onCreateRecord(payload)
+            : await createOne(payload);
+          const realId = String((created as { id?: string } | null)?.id ?? "");
+          if (realId) {
+            const local: JadwalRow = mapApiRow({ id: realId, ...payload });
+            setPinnedRows((prev) => [local, ...prev.filter((r) => r.id !== realId)]);
+            setNewRowHighlightId(realId);
+            setTimeout(() => setNewRowHighlightId(null), 3000);
+            show({ type: "success", message: "Jadwal tersimpan." });
+            scheduleSync();
+            return true;
+          }
+          return false;
+        }
+
         await updateOne(id, patch);
         setDraftByRowId((prev) => ({
           ...prev,
@@ -382,7 +501,7 @@ export default function JadwalCathModal({
         return false;
       }
     },
-    [clearDirty, onPatchRow, scheduleSync, show, updateOne],
+    [clearDirty, createOne, onCreateRecord, onPatchRow, scheduleSync, selectedDate, show, updateOne],
   );
 
   const onRmCommit = useCallback(
@@ -499,6 +618,7 @@ export default function JadwalCathModal({
 
   const removeDraft = useCallback(
     async (row: JadwalRow) => {
+      if (row.id.startsWith("temp-draft-")) return;
       if (txt(row.status).toLowerCase() !== "menunggu") {
         show({
           type: "warning",
@@ -648,286 +768,276 @@ export default function JadwalCathModal({
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
-              <tr className="bg-white">
-                <td colSpan={15} className="py-16 text-center text-slate-500">
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-[#1B2B44] border border-indigo-100">
-                      <Calendar size={20} />
-                    </div>
-                    <p className="text-sm font-bold text-[#1B2B44]">
-                      Belum ada jadwal pada tanggal ini
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      Klik tombol di bawah ini atau icon (+) pada header tabel untuk menambah baris jadwal draft baru.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => void addJadwal()}
-                      disabled={creating || crudLoading}
-                      className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#1B2B44] px-4 py-2 text-xs font-bold text-white shadow hover:bg-[#2D4A6E] disabled:opacity-50 transition"
-                    >
-                      {creating ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        <Plus size={14} />
-                      )}
-                      Tambah Baris Jadwal Baru
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              rows.map((row, i) => {
-                const isNew = row.id === newRowHighlightId;
-                return (
-                  <tr
-                    key={row.id}
+            {displayRows.map((row, i) => {
+              const isTemp = row.id.startsWith("temp-draft-");
+              const isNew = row.id === newRowHighlightId;
+              const rowNum = isTemp ? (rows.length === 0 ? i + 1 : rows.length + 1) : i + 1;
+
+              return (
+                <tr
+                  key={row.id}
+                  className={cn(
+                    "group transition-colors duration-200",
+                    isNew
+                      ? "bg-emerald-50/90 hover:bg-emerald-100/90"
+                      : isTemp
+                      ? "bg-white hover:bg-[#EEF3FA]"
+                      : "odd:bg-white even:bg-slate-50/80 hover:bg-[#EEF3FA]",
+                  )}
+                  onDoubleClick={(e) => {
+                    if (isTemp) return;
+                    const t = e.target as HTMLElement;
+                    if (t.closest("input,select,textarea,button")) return;
+                    emitOpenDetail(row.id);
+                  }}
+                >
+                  {/* Sticky TD Col 0: NO */}
+                  <td
                     className={cn(
-                      "group transition-colors duration-200",
-                      isNew
-                        ? "bg-emerald-50/90 hover:bg-emerald-100/90"
-                        : "odd:bg-white even:bg-slate-50/80 hover:bg-[#EEF3FA]",
+                      TD_BASE,
+                      "sticky left-0 z-10 text-center font-mono font-bold bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
                     )}
-                    onDoubleClick={(e) => {
-                      const t = e.target as HTMLElement;
-                      if (t.closest("input,select,textarea,button")) return;
-                      emitOpenDetail(row.id);
-                    }}
+                    style={{ left: 0, width: 44, minWidth: 44 }}
                   >
-                    {/* Sticky TD Col 0: NO */}
-                    <td
-                      className={cn(
-                        TD_BASE,
-                        "sticky left-0 z-10 text-center font-mono font-bold bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
-                      )}
-                      style={{ left: 0, width: 44, minWidth: 44 }}
-                    >
-                      <div className="flex items-center justify-center gap-0.5">
-                        <span>{i + 1}</span>
-                        {txt(row.status).toLowerCase() === "menunggu" ? (
-                          <button
-                            type="button"
-                            title="Hapus draft"
-                            onClick={() => void removeDraft(row)}
-                            className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-red-500/15 hover:text-red-600"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        ) : null}
-                      </div>
-                    </td>
-
-                    {/* Sticky TD Col 1: HARI/TGL */}
-                    {zoomTd(
-                      "center",
-                      <EditableDateCell
-                        variant="table"
-                        value={txt(row.tanggal)}
-                        onDirty={() => markDirty(row.id)}
-                        onCommit={(next) =>
-                          patchField(row.id, { tanggal: next || null })
-                        }
-                      />,
-                      "sticky left-[44px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
-                    )}
-
-                    {/* Sticky TD Col 2: NO. RM */}
-                    <td
-                      className={cn(
-                        TD_BASE,
-                        JADWAL_ZOOM_CELL_CLASSES,
-                        "sticky left-[134px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
-                      )}
-                      style={{ left: 134, width: 110, minWidth: 110 }}
-                    >
-                      <div className="flex min-w-0 items-center gap-0.5">
-                        <div
-                          className={cn(
-                            JADWAL_ZOOM_INNER_CLASSES,
-                            "origin-left min-w-0 flex-1",
-                          )}
+                    <div className="flex items-center justify-center gap-0.5">
+                      <span>{rowNum}</span>
+                      {!isTemp && txt(row.status).toLowerCase() === "menunggu" ? (
+                        <button
+                          type="button"
+                          title="Hapus draft"
+                          onClick={() => void removeDraft(row)}
+                          className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-red-500/15 hover:text-red-600"
                         >
-                          <EditableTextCell
-                            variant="table"
-                            value={txt(row.no_rm)}
-                            placeholder="RM"
-                            onDirty={() => markDirty(row.id)}
-                            onCommit={(next) => onRmCommit(row, next)}
-                          />
-                        </div>
-                        {txt(row.no_rm) ? (
-                          <JadwalRmRiwayatPopover
-                            rowId={row.id}
-                            noRm={txt(row.no_rm)}
-                            pasienId={row.pasien_id}
-                            tanggal={row.tanggal}
-                            waktu={row.waktu}
-                            tindakan={row.tindakan}
-                            onOpenDetail={emitOpenDetail}
-                          />
-                        ) : null}
+                          <Trash2 size={12} />
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
+
+                  {/* Sticky TD Col 1: HARI/TGL */}
+                  {zoomTd(
+                    "center",
+                    <EditableDateCell
+                      variant="table"
+                      value={txt(row.tanggal)}
+                      onDirty={() => markDirty(row.id)}
+                      onCommit={(next) =>
+                        patchField(row.id, { tanggal: next || null })
+                      }
+                    />,
+                    "sticky left-[44px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
+                  )}
+
+                  {/* Sticky TD Col 2: NO. RM */}
+                  <td
+                    className={cn(
+                      TD_BASE,
+                      JADWAL_ZOOM_CELL_CLASSES,
+                      "sticky left-[134px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
+                    )}
+                    style={{ left: 134, width: 110, minWidth: 110 }}
+                  >
+                    <div className="flex min-w-0 items-center gap-0.5">
+                      <div
+                        className={cn(
+                          JADWAL_ZOOM_INNER_CLASSES,
+                          "origin-left min-w-0 flex-1",
+                        )}
+                      >
+                        <EditableTextCell
+                          variant="table"
+                          value={txt(row.no_rm)}
+                          placeholder="RM"
+                          onDirty={() => markDirty(row.id)}
+                          onCommit={(next) => onRmCommit(row, next)}
+                        />
                       </div>
-                    </td>
+                      {!isTemp && txt(row.no_rm) ? (
+                        <JadwalRmRiwayatPopover
+                          rowId={row.id}
+                          noRm={txt(row.no_rm)}
+                          pasienId={row.pasien_id}
+                          tanggal={row.tanggal}
+                          waktu={row.waktu}
+                          tindakan={row.tindakan}
+                          onOpenDetail={emitOpenDetail}
+                        />
+                      ) : null}
+                    </div>
+                  </td>
 
-                    {/* Sticky TD Col 3: NAMA (Floating border & shadow) */}
-                    {zoomTd(
-                      "left",
-                      <EditableTextCell
-                        variant="table"
-                        value={txt(row.nama_pasien)}
-                        placeholder="Nama"
-                        onDirty={() => markDirty(row.id)}
-                        onCommit={(next) =>
-                          patchField(row.id, {
-                            nama_pasien: next || null,
-                            nama: next || null,
-                          })
-                        }
-                      />,
-                      "sticky left-[244px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r-2 border-slate-300 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.12)]",
-                    )}
+                  {/* Sticky TD Col 3: NAMA (Floating border & shadow) */}
+                  {zoomTd(
+                    "left",
+                    <EditableTextCell
+                      variant="table"
+                      value={txt(row.nama_pasien)}
+                      placeholder="Nama"
+                      onDirty={() => markDirty(row.id)}
+                      onCommit={(next) =>
+                        patchField(row.id, {
+                          nama_pasien: next || null,
+                          nama: next || null,
+                        })
+                      }
+                    />,
+                    "sticky left-[244px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r-2 border-slate-300 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.12)]",
+                  )}
 
-                    {/* Non-sticky Cells */}
-                    {zoomTd(
-                      "center",
-                      <EditableTextCell
-                        variant="table"
-                        value={txt(row.kelas_pembiayaan)}
-                        placeholder="NPBI - 1"
-                        onDirty={() => markDirty(row.id)}
-                        onCommit={(next) =>
-                          patchField(row.id, {
-                            kelas_pembiayaan: next || null,
-                          })
-                        }
-                      />,
-                    )}
-                    <td className={cn(TD_BASE, "text-center text-slate-700 font-semibold")}>
-                      {txt(row.umur) || "—"}
-                    </td>
-                    {zoomTd(
-                      "center",
-                      <EditableRuanganCell
-                        value={txt(row.ruangan)}
-                        ruanganMaster={ruanganOptions}
-                        loading={ruanganLoading}
-                        listboxId={`jadwal-ruang-${row.id}`}
-                        onCommit={(next) => {
-                          markDirty(row.id);
-                          return patchField(row.id, { ruangan: next || null });
-                        }}
-                      />,
-                    )}
-                    {zoomTd(
-                      "left",
-                      <EditableTextCell
-                        variant="table"
-                        value={txt(row.diagnosa)}
-                        placeholder="Diagnosa"
-                        onDirty={() => markDirty(row.id)}
-                        onCommit={(next) =>
-                          patchField(row.id, { diagnosa: next || null })
-                        }
-                      />,
-                    )}
-                    {zoomTd(
-                      "left",
-                      <EditableMasterTindakanCell
-                        value={txt(row.tindakan)}
-                        masterOptions={tindakanOptions}
-                        loading={tindakanLoading}
-                        listboxId={`jadwal-tin-${row.id}`}
-                        onCommit={(next) => {
-                          markDirty(row.id);
-                          return patchField(row.id, { tindakan: next || null });
-                        }}
-                      />,
-                    )}
-                    {zoomTd(
-                      "left",
-                      <EditableDokterCell
-                        value={txt(row.dokter)}
-                        doctorOptionsMaster={doctorOptions}
-                        dokterOptions={doctorOptions.map((d) => d.nama_dokter)}
-                        loading={doctorsLoading}
-                        listboxId={`jadwal-dok-${row.id}`}
-                        onCommit={(next) => {
-                          markDirty(row.id);
-                          return patchField(row.id, { dokter: next || null });
-                        }}
-                      />,
-                    )}
-                    {zoomTd(
-                      "left",
-                      <EditableTextCell
-                        variant="table"
-                        value={txt(row.hasil_lab_ppm)}
-                        placeholder="Lab"
-                        onDirty={() => markDirty(row.id)}
-                        onCommit={(next) =>
-                          patchField(row.id, { hasil_lab_ppm: next || null })
-                        }
-                      />,
-                    )}
-                    {zoomTd(
-                      "center",
-                      <EditablePerawatCell
-                        value={txt(row.asisten)}
-                        perawatMaster={perawatOptions}
-                        loading={perawatLoading}
-                        listboxId={`jadwal-as-${row.id}`}
-                        onCommit={(next) => {
-                          markDirty(row.id);
-                          return patchField(row.id, { asisten: next || null });
-                        }}
-                      />,
-                    )}
-                    {zoomTd(
-                      "center",
-                      <EditablePerawatCell
-                        value={txt(row.sirkuler)}
-                        perawatMaster={perawatOptions}
-                        loading={perawatLoading}
-                        listboxId={`jadwal-sk-${row.id}`}
-                        onCommit={(next) => {
-                          markDirty(row.id);
-                          return patchField(row.id, { sirkuler: next || null });
-                        }}
-                      />,
-                    )}
-                    {zoomTd(
-                      "center",
-                      <EditablePerawatCell
-                        value={txt(row.logger)}
-                        perawatMaster={perawatOptions}
-                        loading={perawatLoading}
-                        listboxId={`jadwal-lg-${row.id}`}
-                        onCommit={(next) => {
-                          markDirty(row.id);
-                          return patchField(row.id, { logger: next || null });
-                        }}
-                      />,
-                    )}
-                    {zoomTd(
-                      "left",
-                      <EditableTextCell
-                        variant="table"
-                        value={txt(row.keterangan)}
-                        placeholder="Ket"
-                        onDirty={() => markDirty(row.id)}
-                        onCommit={(next) =>
-                          patchField(row.id, { keterangan: next || null })
-                        }
-                      />,
-                    )}
-                  </tr>
-                );
-              })
-            )}
+                  {/* Non-sticky Cells */}
+                  {zoomTd(
+                    "center",
+                    <EditableTextCell
+                      variant="table"
+                      value={txt(row.kelas_pembiayaan)}
+                      placeholder="NPBI - 1"
+                      onDirty={() => markDirty(row.id)}
+                      onCommit={(next) =>
+                        patchField(row.id, {
+                          kelas_pembiayaan: next || null,
+                        })
+                      }
+                    />,
+                  )}
+                  <td className={cn(TD_BASE, "text-center text-slate-700 font-semibold")}>
+                    {txt(row.umur) || "—"}
+                  </td>
+                  {zoomTd(
+                    "center",
+                    <EditableRuanganCell
+                      value={txt(row.ruangan)}
+                      ruanganMaster={ruanganOptions}
+                      loading={ruanganLoading}
+                      listboxId={`jadwal-ruang-${row.id}`}
+                      onCommit={(next) => {
+                        markDirty(row.id);
+                        return patchField(row.id, { ruangan: next || null });
+                      }}
+                    />,
+                  )}
+                  {zoomTd(
+                    "left",
+                    <EditableTextCell
+                      variant="table"
+                      value={txt(row.diagnosa)}
+                      placeholder="Diagnosa"
+                      onDirty={() => markDirty(row.id)}
+                      onCommit={(next) =>
+                        patchField(row.id, { diagnosa: next || null })
+                      }
+                    />,
+                  )}
+                  {zoomTd(
+                    "left",
+                    <EditableMasterTindakanCell
+                      value={txt(row.tindakan)}
+                      masterOptions={tindakanOptions}
+                      loading={tindakanLoading}
+                      listboxId={`jadwal-tin-${row.id}`}
+                      onCommit={(next) => {
+                        markDirty(row.id);
+                        return patchField(row.id, { tindakan: next || null });
+                      }}
+                    />,
+                  )}
+                  {zoomTd(
+                    "left",
+                    <EditableDokterCell
+                      value={txt(row.dokter)}
+                      doctorOptionsMaster={doctorOptions}
+                      dokterOptions={doctorOptions.map((d) => d.nama_dokter)}
+                      loading={doctorsLoading}
+                      listboxId={`jadwal-dok-${row.id}`}
+                      onCommit={(next) => {
+                        markDirty(row.id);
+                        return patchField(row.id, { dokter: next || null });
+                      }}
+                    />,
+                  )}
+                  {zoomTd(
+                    "left",
+                    <EditableTextCell
+                      variant="table"
+                      value={txt(row.hasil_lab_ppm)}
+                      placeholder="Lab"
+                      onDirty={() => markDirty(row.id)}
+                      onCommit={(next) =>
+                        patchField(row.id, { hasil_lab_ppm: next || null })
+                      }
+                    />,
+                  )}
+                  {zoomTd(
+                    "center",
+                    <EditablePerawatCell
+                      value={txt(row.asisten)}
+                      perawatMaster={perawatOptions}
+                      loading={perawatLoading}
+                      listboxId={`jadwal-as-${row.id}`}
+                      onCommit={(next) => {
+                        markDirty(row.id);
+                        return patchField(row.id, { asisten: next || null });
+                      }}
+                    />,
+                  )}
+                  {zoomTd(
+                    "center",
+                    <EditablePerawatCell
+                      value={txt(row.sirkuler)}
+                      perawatMaster={perawatOptions}
+                      loading={perawatLoading}
+                      listboxId={`jadwal-sk-${row.id}`}
+                      onCommit={(next) => {
+                        markDirty(row.id);
+                        return patchField(row.id, { sirkuler: next || null });
+                      }}
+                    />,
+                  )}
+                  {zoomTd(
+                    "center",
+                    <EditablePerawatCell
+                      value={txt(row.logger)}
+                      perawatMaster={perawatOptions}
+                      loading={perawatLoading}
+                      listboxId={`jadwal-lg-${row.id}`}
+                      onCommit={(next) => {
+                        markDirty(row.id);
+                        return patchField(row.id, { logger: next || null });
+                      }}
+                    />,
+                  )}
+                  {zoomTd(
+                    "left",
+                    <EditableTextCell
+                      variant="table"
+                      value={txt(row.keterangan)}
+                      placeholder="Ket"
+                      onDirty={() => markDirty(row.id)}
+                      onCommit={(next) =>
+                        patchField(row.id, { keterangan: next || null })
+                      }
+                    />,
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
+      <div className="mt-3 flex items-center justify-center">
+        <button
+          type="button"
+          onClick={() => void addJadwal()}
+          disabled={creating || crudLoading}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-bold text-[#1B2B44] shadow-sm hover:bg-slate-100 disabled:opacity-50 transition"
+        >
+          {creating ? (
+            <Loader2 size={14} className="animate-spin text-[#1B2B44]" />
+          ) : (
+            <Plus size={14} className="text-[#1B2B44]" />
+          )}
+          + Tambah Baris Jadwal Baru
+        </button>
+      </div>
     </div>
   );
 
@@ -1015,7 +1125,7 @@ export default function JadwalCathModal({
           <button
             type="button"
             title={fullscreen ? "Keluar layar penuh" : "Layar penuh"}
-            aria-label={fullscreen ? "Keluar layar penuh" : "Layar penuh"}
+            aria-label="Salin jadwal ke WhatsApp"
             onClick={() => setFullscreen((v) => !v)}
             className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm transition"
           >

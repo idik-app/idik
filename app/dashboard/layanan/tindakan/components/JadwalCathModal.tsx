@@ -446,10 +446,13 @@ export default function JadwalCathModal({
         status: "Menunggu",
         kategori: "Cathlab",
         ruangan: "Cathlab",
-        nama: "Pasien",
-        nama_pasien: "Pasien",
-        dokter: "Belum ditentukan",
-        tindakan: "Belum diisi",
+        nama: null,
+        nama_pasien: null,
+        dokter: null,
+        tindakan: null,
+        no_rm: null,
+        diagnosa: null,
+        kelas_pembiayaan: null,
       };
       const created = onCreateRecord
         ? await onCreateRecord(payload)

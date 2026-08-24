@@ -27,9 +27,9 @@ import {
 
 // Styling constants matching TindakanTable.tsx
 export const TINDAKAN_TABLE_INPUT_TEXT =
-  "w-full min-w-0 truncate text-center border-none bg-transparent p-0 text-xs font-semibold focus:outline-none focus:ring-0 select-all hover:bg-black/5 dark:hover:bg-white/5";
+  "w-full min-w-0 truncate text-center border-none bg-transparent p-0 text-xs font-semibold text-slate-800 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-none focus:ring-0 select-all hover:bg-slate-200/50 dark:hover:bg-white/5";
 export const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
-  "w-full min-w-0 truncate text-left border-none bg-transparent p-0 text-xs font-semibold focus:outline-none focus:ring-0 select-all hover:bg-black/5 dark:hover:bg-white/5";
+  "w-full min-w-0 truncate text-left border-none bg-transparent p-0 text-xs font-semibold text-slate-800 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-none focus:ring-0 select-all hover:bg-slate-200/50 dark:hover:bg-white/5";
 
 /** Zoom sel fokus di modal Jadwal Cath Lab (compact 14 kolom). */
 export const JADWAL_ZOOM_CELL_CLASSES =
@@ -42,7 +42,7 @@ export const JADWAL_ZOOM_INNER_CLASSES = cn(
   "focus-within:shadow-xl focus-within:ring-2 focus-within:ring-indigo-500/70",
 );
 export const JADWAL_TABLE_INPUT =
-  "w-full min-w-0 truncate border-none bg-transparent p-0 text-center text-xs font-semibold text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-0 focus:text-sm max-md:focus:text-base select-all";
+  "w-full min-w-0 truncate border-none bg-transparent p-0 text-center text-xs font-semibold text-slate-800 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-none focus:ring-0 focus:text-sm max-md:focus:text-base select-all";
 
 const CAL_MONTH: Record<string, string> = {
   jan: "01",

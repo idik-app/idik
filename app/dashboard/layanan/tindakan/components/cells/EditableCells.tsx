@@ -26,10 +26,15 @@ import {
 } from "@/components/ui/perawat-combobox";
 
 // Styling constants matching TindakanTable.tsx
-export const TINDAKAN_TABLE_INPUT_TEXT =
-  "w-full min-w-0 truncate text-center border-none bg-transparent p-0 text-xs font-semibold text-slate-800 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-none focus:ring-0 select-all hover:bg-slate-200/50 dark:hover:bg-white/5";
-export const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
-  "w-full min-w-0 truncate text-left border-none bg-transparent p-0 text-xs font-semibold text-slate-800 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-none focus:ring-0 select-all hover:bg-slate-200/50 dark:hover:bg-white/5";
+export const JADWAL_LIGHT_INPUT =
+  "!w-full !min-w-0 !truncate !border-none !bg-transparent !p-0 !text-center !text-xs !font-extrabold !text-[#1B2B44] !placeholder:text-slate-400 focus:!outline-none focus:!ring-0 select-all";
+
+export const JADWAL_PRIMARY_LIGHT_INPUT =
+  "!w-full !min-w-0 !truncate !border-none !bg-transparent !p-0 !text-left !text-xs !font-extrabold !text-[#1B2B44] !placeholder:text-slate-400 focus:!outline-none focus:!ring-0 select-all";
+
+export const TINDAKAN_TABLE_INPUT_TEXT = JADWAL_LIGHT_INPUT;
+export const TINDAKAN_TABLE_PRIMARY_COL_INPUT = JADWAL_PRIMARY_LIGHT_INPUT;
+export const JADWAL_TABLE_INPUT = JADWAL_LIGHT_INPUT;
 
 /** Zoom sel fokus di modal Jadwal Cath Lab (compact 14 kolom). */
 export const JADWAL_ZOOM_CELL_CLASSES =
@@ -38,11 +43,9 @@ export const JADWAL_ZOOM_INNER_CLASSES = cn(
   "min-w-0 w-full transition-transform duration-150 ease-out",
   "focus-within:scale-[1.2] max-md:focus-within:scale-[1.35]",
   "focus-within:min-w-[8rem]",
-  "focus-within:rounded focus-within:bg-white focus-within:px-1.5 focus-within:py-1",
-  "focus-within:shadow-xl focus-within:ring-2 focus-within:ring-indigo-500/70",
+  "focus-within:rounded focus-within:!bg-white focus-within:px-1.5 focus-within:py-1",
+  "focus-within:shadow-2xl focus-within:ring-2 focus-within:ring-indigo-600 focus-within:border focus-within:border-indigo-300",
 );
-export const JADWAL_TABLE_INPUT =
-  "w-full min-w-0 truncate border-none bg-transparent p-0 text-center text-xs font-semibold text-slate-800 dark:text-slate-100 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:outline-none focus:ring-0 focus:text-sm max-md:focus:text-base select-all";
 
 const CAL_MONTH: Record<string, string> = {
   jan: "01",
@@ -372,7 +375,7 @@ export function EditableDateCell({
         variant === "table"
           ? cn(
               JADWAL_TABLE_INPUT,
-              "min-w-0 [color-scheme:light] dark:[color-scheme:dark]",
+              "min-w-0 !text-[#1B2B44] [color-scheme:light]",
             )
           : cn(
               "w-full min-w-0 max-2xl:min-w-0 2xl:min-w-[8.5rem] rounded border px-2 py-1 max-2xl:px-0.5 text-xs font-semibold focus:outline-none",
@@ -571,6 +574,7 @@ export function EditablePerawatCell({
       options={perawatMaster}
       loading={loading || saving}
       className="max-w-none w-full"
+      inputClassName={JADWAL_LIGHT_INPUT}
       tone="default"
     />
   );

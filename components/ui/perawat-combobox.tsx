@@ -44,6 +44,7 @@ export function PerawatCombobox({
   loading,
   disabled,
   className,
+  inputClassName,
   listboxId = "perawat-listbox",
   tone = "drawer",
 }: {
@@ -56,6 +57,7 @@ export function PerawatCombobox({
   loading?: boolean;
   disabled?: boolean;
   className?: string;
+  inputClassName?: string;
   listboxId?: string;
   tone?: keyof typeof inputToneDark;
 }) {
@@ -88,9 +90,9 @@ export function PerawatCombobox({
     "py-1 shadow-xl",
     tone === "drawer"
       ? drawerLight
-        ? "border border-cyan-400/55 bg-white"
-        : "border border-cyan-900/50 bg-[#070d14]"
-      : "border border-white/15 bg-[#0a1628]",
+        ? "border border-cyan-400/55 bg-white text-slate-800"
+        : "border border-cyan-900/50 bg-[#070d14] text-white"
+      : "border border-slate-300 bg-white text-slate-800",
   );
 
   const spinColor =
@@ -98,7 +100,7 @@ export function PerawatCombobox({
       ? drawerLight
         ? "text-cyan-600"
         : "text-cyan-400/80"
-      : "text-[#E8C547]/80";
+      : "text-indigo-600";
 
   return (
     <div ref={wrapRef} className={cn("relative w-full", className)}>
@@ -121,11 +123,12 @@ export function PerawatCombobox({
           placeholder={
             loading ? "Memuat master perawat…" : "Cari / pilih perawat…"
           }
-          className={
+          className={cn(
             drawerLight
               ? inputToneDrawerLight
-              : inputToneDark[tone]
-          }
+              : inputToneDark[tone],
+            inputClassName,
+          )}
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={listboxId}

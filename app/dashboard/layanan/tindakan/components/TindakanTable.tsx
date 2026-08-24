@@ -1842,6 +1842,41 @@ export default function TindakanTable({
     pemakaianOrderByTindakanId,
   ]);
 
+  const isCathlabRowComplete = useCallback((row: any): boolean => {
+    const isCath = `${row?.kategori ?? ""} ${row?.ruangan ?? ""}`.toLowerCase().includes("cath");
+    if (!isCath) return true; // Baris non-Cathlab tidak terkena aturan ini
+
+    const txt = (v: any) => String(v ?? "").trim();
+    const isPlaceholder = (s: string) => {
+      const l = s.toLowerCase();
+      return !l || l === "pasien" || l === "belum diisi" || l.includes("cari / pilih");
+    };
+
+    const hasTanggal = Boolean(txt(row?.tanggal));
+    const hasRm = Boolean(txt(row?.no_rm ?? row?.rm)) && txt(row?.no_rm ?? row?.rm) !== "—";
+    const hasNama = Boolean(txt(row?.nama_pasien ?? row?.nama)) && !isPlaceholder(txt(row?.nama_pasien ?? row?.nama));
+    const hasKelas = Boolean(txt(row?.kelas_pembiayaan));
+    const hasUmur = Boolean(txt(row?.umur));
+    const hasRuangan = Boolean(txt(row?.ruangan));
+    const hasDiagnosa = Boolean(txt(row?.diagnosa));
+    const hasTindakan = Boolean(txt(row?.tindakan));
+    const hasDokter = Boolean(txt(row?.dokter));
+    const hasHasilLab = Boolean(txt(row?.hasil_lab_ppm));
+
+    return (
+      hasTanggal &&
+      hasRm &&
+      hasNama &&
+      hasKelas &&
+      hasUmur &&
+      hasRuangan &&
+      hasDiagnosa &&
+      hasTindakan &&
+      hasDokter &&
+      hasHasilLab
+    );
+  }, []);
+
   const filteredRecords = useMemo(() => {
     const merged = [...rowsForPemakaianLink];
     const dedupByKey = new Map<string, TindakanJoinResult>();
@@ -1861,7 +1896,7 @@ export default function TindakanTable({
       if (!dedupByKey.has(key)) dedupByKey.set(key, row);
     }
     const fullList = Array.from(dedupByKey.values());
-    let list = fullList;
+    let list = fullList.filter(isCathlabRowComplete);
     const pasienId = String(filterPasienId ?? "").trim();
     const rmOrQuery = String(filterRm ?? "").trim();
     const pasienParsed = parsePasienAktifFilter(filterRm);
@@ -2006,6 +2041,7 @@ export default function TindakanTable({
     pasienLabelByRowId,
     debouncedSearchTrim,
     doctorOptionsMaster,
+    isCathlabRowComplete,
   ]);
 
   const filterSummaryLines = useMemo(() => {

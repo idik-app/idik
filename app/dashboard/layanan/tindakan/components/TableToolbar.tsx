@@ -823,7 +823,7 @@ function TableToolbar({
                     "text-white",
                     "focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-black/60",
                   )}
-                  title="Lihat Jadwal Tindakan Cath Lab (Google Sheets)"
+                  title="Input jadwal tindakan Cath Lab"
                 >
                   <Calendar
                     size={16}

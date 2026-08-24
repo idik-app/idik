@@ -19,6 +19,11 @@ import {
   resolveDoctorFromLooseInput,
   type DoctorOption,
 } from "@/components/ui/doctor-combobox";
+import {
+  PerawatCombobox,
+  formatPerawatLabel,
+  type PerawatOption,
+} from "@/components/ui/perawat-combobox";
 
 // Styling constants matching TindakanTable.tsx
 export const TINDAKAN_TABLE_INPUT_TEXT =
@@ -440,6 +445,61 @@ export function EditableDokterCell({
       loading={loading || saving}
       className="max-w-none w-full [&_input]:pr-2"
       inputClassName={TINDAKAN_TABLE_PRIMARY_COL_INPUT}
+    />
+  );
+}
+
+export function EditablePerawatCell({
+  value,
+  perawatMaster,
+  loading,
+  listboxId,
+  onCommit,
+}: {
+  value: string;
+  perawatMaster: PerawatOption[];
+  loading: boolean;
+  listboxId: string;
+  onCommit: (next: string) => Promise<boolean>;
+}) {
+  const [draft, setDraft] = useState(value.trim());
+  const [saving, setSaving] = useState(false);
+  const draftRef = useRef(draft);
+
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  useEffect(() => {
+    if (!saving) setDraft(value.trim());
+  }, [value, saving]);
+
+  const tryCommit = async (nextRaw: string) => {
+    const cur = value.trim();
+    const next = nextRaw.trim();
+    if (next === cur || saving) return;
+    setDraft(next);
+    setSaving(true);
+    const ok = await onCommit(next);
+    setSaving(false);
+    if (!ok) setDraft(cur);
+  };
+
+  return (
+    <PerawatCombobox
+      listboxId={listboxId}
+      value={draft}
+      onChange={setDraft}
+      onSelectOption={(p) => {
+        void tryCommit(formatPerawatLabel(p));
+      }}
+      onBlurCommit={() => {
+        void tryCommit(draftRef.current);
+      }}
+      options={perawatMaster}
+      loading={loading || saving}
+      className="max-w-none w-full"
+      tone="default"
     />
   );
 }

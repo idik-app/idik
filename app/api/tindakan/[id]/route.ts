@@ -69,6 +69,7 @@ const PATCHABLE_TINDAKAN_KEYS = new Set([
   "keterangan",
   "status_keterangan",
   "kelas_pembiayaan",
+  "umur",
   "accession_no",
   "skema_koroner_url",
   "skema_koroner_data",

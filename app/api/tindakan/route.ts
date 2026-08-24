@@ -499,3 +499,108 @@ export async function GET(request: Request) {
     );
   }
 }
+
+/** Create a new tindakan record via Service Role — RLS resilient, used for Jadwal Cath Lab draft creation */
+export async function POST(request: Request) {
+  try {
+    const { requireRole } = await import("@/lib/auth/guards");
+    const auth = await requireRole([
+      "perawat",
+      "dokter",
+      "admin",
+      "administrator",
+      "superadmin",
+      "casemix",
+    ]);
+    if (!auth.ok) return auth.response;
+
+    let body: Record<string, unknown> = {};
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
+
+    const supabase = getServiceSupabaseAdmin();
+    if (!supabase) {
+      return NextResponse.json(
+        { ok: false, error: "Supabase service role tidak dikonfigurasi" },
+        { status: 503 },
+      );
+    }
+
+    const payload: Record<string, unknown> = {
+      tanggal: body.tanggal ?? new Date().toISOString().split("T")[0],
+      status: body.status ?? "Menunggu",
+      kategori: body.kategori ?? "Cathlab",
+      ruangan: body.ruangan ?? "Cathlab",
+    };
+
+    if (body.nama_pasien != null || body.nama != null) {
+      payload.nama_pasien = body.nama_pasien ?? body.nama ?? null;
+      payload.nama = body.nama ?? body.nama_pasien ?? null;
+    }
+    if (body.no_rm != null || body.rm != null) {
+      payload.no_rm = body.no_rm ?? body.rm ?? null;
+    }
+    if (body.dokter != null) payload.dokter = body.dokter;
+    if (body.tindakan != null) payload.tindakan = body.tindakan;
+    if (body.diagnosa != null) payload.diagnosa = body.diagnosa;
+    if (body.kelas_pembiayaan != null) payload.kelas_pembiayaan = body.kelas_pembiayaan;
+    if (body.umur != null) payload.umur = body.umur;
+    if (body.hasil_lab_ppm != null) payload.hasil_lab_ppm = body.hasil_lab_ppm;
+    if (body.asisten != null) payload.asisten = body.asisten;
+    if (body.sirkuler != null) payload.sirkuler = body.sirkuler;
+    if (body.logger != null) payload.logger = body.logger;
+    if (body.keterangan != null) payload.keterangan = body.keterangan;
+    if (body.pasien_id != null) payload.pasien_id = body.pasien_id;
+    if (body.waktu != null) payload.waktu = body.waktu;
+
+    let attemptBody: Record<string, unknown> = { ...payload };
+    let lastError: unknown = null;
+
+    for (let i = 0; i < 8; i += 1) {
+      const { data, error } = await supabase
+        .from("tindakan")
+        .insert(attemptBody)
+        .select("id")
+        .single();
+
+      if (!error && data?.id) {
+        return NextResponse.json(
+          { ok: true, data: { id: data.id, ...attemptBody } },
+          { status: 201 },
+        );
+      }
+
+      lastError = error;
+      const msg = String((error as { message?: string })?.message ?? "");
+      if (!msg.includes("column") || !msg.includes("schema cache")) break;
+      const missingColMatch = msg.match(/'([^']+)'/);
+      const missingCol = missingColMatch?.[1]?.trim();
+      if (!missingCol || !(missingCol in attemptBody)) break;
+      delete attemptBody[missingCol];
+    }
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error: String(
+          (lastError as { message?: string })?.message ??
+            "Gagal membuat jadwal baru.",
+        ),
+      },
+      { status: 500 },
+    );
+  } catch (err) {
+    console.error("[POST api/tindakan]", err);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: err instanceof Error ? err.message : "Terjadi kesalahan server",
+      },
+      { status: 500 },
+    );
+  }
+}
+

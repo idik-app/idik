@@ -47,6 +47,7 @@ export function PerawatCombobox({
   inputClassName,
   listboxId = "perawat-listbox",
   tone = "drawer",
+  placeholder,
 }: {
   value: string;
   onChange: (label: string) => void;
@@ -60,6 +61,7 @@ export function PerawatCombobox({
   inputClassName?: string;
   listboxId?: string;
   tone?: keyof typeof inputToneDark;
+  placeholder?: string;
 }) {
   const { theme } = useTheme();
   const drawerLight = tone === "drawer" && theme === "light";
@@ -121,7 +123,11 @@ export function PerawatCombobox({
           }}
           autoComplete="off"
           placeholder={
-            loading ? "Memuat master perawat…" : "Cari / pilih perawat…"
+            placeholder !== undefined
+              ? placeholder
+              : loading
+              ? "Memuat master perawat…"
+              : ""
           }
           className={cn(
             drawerLight

@@ -53,6 +53,7 @@ export function MasterTindakanCombobox({
   className,
   inputClassName,
   listboxId = "master-tindakan-listbox",
+  placeholder,
 }: {
   value: string;
   onChange: (label: string) => void;
@@ -64,6 +65,7 @@ export function MasterTindakanCombobox({
   className?: string;
   inputClassName?: string;
   listboxId?: string;
+  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
@@ -192,7 +194,11 @@ export function MasterTindakanCombobox({
           autoComplete="off"
           spellCheck={false}
           placeholder={
-            loading ? "Memuat daftar tindakan…" : "Ketik untuk autofill…"
+            placeholder !== undefined
+              ? placeholder
+              : loading
+              ? "Memuat daftar tindakan…"
+              : ""
           }
           className={cn(
             "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40",

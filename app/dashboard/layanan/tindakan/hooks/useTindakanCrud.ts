@@ -13,51 +13,23 @@ export function useTindakanCrud() {
 
   const createOne = useCallback(
     async (payload: Record<string, unknown>) => {
-      if (!isPublicSupabaseConfigured()) return null;
       setLoading(true);
       try {
-        const mod = await import("@/lib/supabase/supabaseClient");
-        const sb: any = mod.supabase as any;
-
-        const variants: Record<string, unknown>[] = [payload];
-        const p = { ...payload };
-        if ("nama_pasien" in p) {
-          const v = p.nama_pasien;
-          delete p.nama_pasien;
-          p.nama = v;
-          variants.push({ ...p });
+        const res = await fetch("/api/tindakan", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          data?: { id?: string } | null;
+          error?: string;
+        };
+        if (!res.ok || !json.ok || !json.data?.id) {
+          throw new Error(json.error || "Gagal membuat jadwal baru.");
         }
-        if ("no_rm" in p) {
-          const v = p.no_rm;
-          delete p.no_rm;
-          p.rm = v;
-          variants.push({ ...p });
-        }
-
-        let lastError: unknown = null;
-        for (const body of variants) {
-          let attemptBody: Record<string, unknown> = { ...body };
-          for (let i = 0; i < 6; i += 1) {
-            const { data, error } = await sb
-              .from("tindakan")
-              .insert(attemptBody)
-              .select("id")
-              .single();
-            if (!error) return data ?? null;
-            lastError = error;
-            const msg = String((error as { message?: string })?.message ?? "");
-            // Retry only for schema column mismatch; others should fail fast.
-            if (!msg.includes("column") || !msg.includes("schema cache")) break;
-            const missingColMatch = msg.match(/'([^']+)'/);
-            const missingCol = missingColMatch?.[1]?.trim();
-            if (!missingCol || !(missingCol in attemptBody)) break;
-            // Drop kolom yang tidak ada di schema env ini, lalu coba lagi.
-            const nextBody = { ...attemptBody };
-            delete nextBody[missingCol];
-            attemptBody = nextBody;
-          }
-        }
-        throw lastError;
+        return json.data;
       } finally {
         setLoading(false);
       }

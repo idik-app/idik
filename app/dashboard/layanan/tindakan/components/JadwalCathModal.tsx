@@ -335,7 +335,7 @@ export default function JadwalCathModal({
           nama_pasien: null,
           kelas_pembiayaan: null,
           umur: null,
-          ruangan: "Cathlab",
+          ruangan: null,
           diagnosa: null,
           tindakan: null,
           dokter: null,
@@ -356,7 +356,7 @@ export default function JadwalCathModal({
           nama_pasien: null,
           kelas_pembiayaan: null,
           umur: null,
-          ruangan: "Cathlab",
+          ruangan: null,
           diagnosa: null,
           tindakan: null,
           dokter: null,
@@ -377,7 +377,7 @@ export default function JadwalCathModal({
           nama_pasien: null,
           kelas_pembiayaan: null,
           umur: null,
-          ruangan: "Cathlab",
+          ruangan: null,
           diagnosa: null,
           tindakan: null,
           dokter: null,
@@ -401,7 +401,7 @@ export default function JadwalCathModal({
       nama_pasien: null,
       kelas_pembiayaan: null,
       umur: null,
-      ruangan: "Cathlab",
+      ruangan: null,
       diagnosa: null,
       tindakan: null,
       dokter: null,
@@ -695,7 +695,7 @@ export default function JadwalCathModal({
   );
 
   const tableBlock = (
-    <div className="min-h-0 flex-1 overflow-auto bg-slate-50 p-2 sm:p-3">
+    <div className="min-h-0 flex-1 overflow-auto bg-slate-50 p-2 sm:p-3 [scrollbar-width:thin] [scrollbar-color:#94A3B8_#E2E8F0] [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-track]:bg-slate-200 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-400 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-600">
       {sourceLoading ? (
         <div className="flex h-40 flex-col items-center justify-center gap-2 text-slate-500">
           <Loader2 className="h-8 w-8 animate-spin text-[#1B2B44]" />
@@ -847,7 +847,7 @@ export default function JadwalCathModal({
                         <EditableTextCell
                           variant="table"
                           value={txt(row.no_rm)}
-                          placeholder="RM"
+                          placeholder=""
                           onDirty={() => markDirty(row.id)}
                           onCommit={(next) => onRmCommit(row, next)}
                         />
@@ -872,7 +872,7 @@ export default function JadwalCathModal({
                     <EditableTextCell
                       variant="table"
                       value={txt(row.nama_pasien)}
-                      placeholder="Nama"
+                      placeholder=""
                       onDirty={() => markDirty(row.id)}
                       onCommit={(next) =>
                         patchField(row.id, {
@@ -890,7 +890,7 @@ export default function JadwalCathModal({
                     <EditableTextCell
                       variant="table"
                       value={txt(row.kelas_pembiayaan)}
-                      placeholder="NPBI - 1"
+                      placeholder=""
                       onDirty={() => markDirty(row.id)}
                       onCommit={(next) =>
                         patchField(row.id, {
@@ -900,7 +900,7 @@ export default function JadwalCathModal({
                     />,
                   )}
                   <td className={cn(TD_BASE, "text-center text-slate-700 font-semibold")}>
-                    {txt(row.umur) || "—"}
+                    {txt(row.umur) || ""}
                   </td>
                   {zoomTd(
                     "center",
@@ -920,7 +920,7 @@ export default function JadwalCathModal({
                     <EditableTextCell
                       variant="table"
                       value={txt(row.diagnosa)}
-                      placeholder="Diagnosa"
+                      placeholder=""
                       onDirty={() => markDirty(row.id)}
                       onCommit={(next) =>
                         patchField(row.id, { diagnosa: next || null })
@@ -959,7 +959,7 @@ export default function JadwalCathModal({
                     <EditableTextCell
                       variant="table"
                       value={txt(row.hasil_lab_ppm)}
-                      placeholder="Lab"
+                      placeholder=""
                       onDirty={() => markDirty(row.id)}
                       onCommit={(next) =>
                         patchField(row.id, { hasil_lab_ppm: next || null })
@@ -1010,7 +1010,7 @@ export default function JadwalCathModal({
                     <EditableTextCell
                       variant="table"
                       value={txt(row.keterangan)}
-                      placeholder="Ket"
+                      placeholder=""
                       onDirty={() => markDirty(row.id)}
                       onCommit={(next) =>
                         patchField(row.id, { keterangan: next || null })
@@ -1108,6 +1108,11 @@ export default function JadwalCathModal({
               <span>Selesai: <strong className="font-extrabold text-emerald-700">{stats.done}</strong></span>
             </>
           )}
+        </div>
+
+        {/* Indikator Petunjuk Scroll Horizontal */}
+        <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 shadow-sm">
+          <span>Gulir mendatar →</span>
         </div>
 
         <div className="ml-auto flex items-center gap-1.5">

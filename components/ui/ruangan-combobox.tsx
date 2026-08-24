@@ -39,6 +39,7 @@ export function RuanganCombobox({
   className,
   inputClassName,
   listboxId = "pemakaian-ruangan-listbox",
+  placeholder,
 }: {
   value: string;
   onChange: (label: string) => void;
@@ -51,6 +52,7 @@ export function RuanganCombobox({
   className?: string;
   inputClassName?: string;
   listboxId?: string;
+  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -98,7 +100,11 @@ export function RuanganCombobox({
           onFocus={() => setOpen(true)}
           autoComplete="off"
           placeholder={
-            loading ? "Memuat daftar ruangan…" : "Cari / pilih ruangan…"
+            placeholder !== undefined
+              ? placeholder
+              : loading
+              ? "Memuat daftar ruangan…"
+              : ""
           }
           className={cn(
             "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40 uppercase",

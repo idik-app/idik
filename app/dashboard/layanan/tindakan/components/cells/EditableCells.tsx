@@ -40,11 +40,8 @@ export const JADWAL_TABLE_INPUT = JADWAL_LIGHT_INPUT;
 export const JADWAL_ZOOM_CELL_CLASSES =
   "focus-within:relative focus-within:z-[80]";
 export const JADWAL_ZOOM_INNER_CLASSES = cn(
-  "min-w-0 w-full transition-transform duration-150 ease-out",
-  "focus-within:scale-[1.2] max-md:focus-within:scale-[1.35]",
-  "focus-within:min-w-[8rem]",
-  "focus-within:rounded focus-within:!bg-white focus-within:px-1.5 focus-within:py-1",
-  "focus-within:shadow-2xl focus-within:ring-2 focus-within:ring-indigo-600 focus-within:border focus-within:border-indigo-300",
+  "min-w-0 w-full rounded transition-all duration-150 ease-out p-0.5",
+  "focus-within:bg-[#EEF2FF] focus-within:ring-2 focus-within:ring-indigo-600 focus-within:rounded-md",
 );
 
 const CAL_MONTH: Record<string, string> = {
@@ -139,7 +136,7 @@ export function EditableMasterTindakanCell({
 export function EditableTimeCell({
   value,
   onCommit,
-  placeholder = "—",
+  placeholder = "",
 }: {
   value: string;
   onCommit: (next: string) => Promise<boolean>;
@@ -215,7 +212,7 @@ export function EditableTimeCell({
 export function EditableTextCell({
   value,
   onCommit,
-  placeholder = "...",
+  placeholder = "",
   variant = "default",
   onDirty,
 }: {

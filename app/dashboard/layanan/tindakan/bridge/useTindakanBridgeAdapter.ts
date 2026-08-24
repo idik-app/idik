@@ -128,7 +128,11 @@ export function useTindakanBridgeAdapter() {
     [bridge, deleteOne, removeLocalById],
   );
 
-  const refresh = useCallback(() => reload({ silent: true }), [reload]);
+  const refresh = useCallback(
+    (options?: { silent?: boolean; force?: boolean }) =>
+      reload({ silent: options?.silent ?? true, force: options?.force }),
+    [reload],
+  );
 
   /** Sesudah autosave (Biaya, dll.): patch baris di memori dulu agar tabel/drawer respons cepat, lalu SWR silent. */
   const syncListAfterAutosave = useCallback(

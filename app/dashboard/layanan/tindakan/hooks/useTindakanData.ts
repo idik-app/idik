@@ -69,9 +69,16 @@ export function useTindakanData(params?: {
     }
   }, [data]);
 
-  const reload = useCallback(async (options?: { silent?: boolean }) => {
-    await mutate();
-  }, [mutate]);
+  const reload = useCallback(
+    async (options?: { silent?: boolean; force?: boolean }) => {
+      if (options?.force) {
+        await mutate(undefined, { revalidate: true });
+        return;
+      }
+      await mutate();
+    },
+    [mutate],
+  );
 
   const removeLocalById = useCallback((id: string) => {
     const idStr = String(id ?? "").trim();

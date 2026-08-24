@@ -78,6 +78,18 @@ interface Props {
   isCollapsed?: boolean;
   /** Ada filter non-default (badge di header) */
   onFilterActiveChange?: (active: boolean) => void;
+  /** Sumber data sama dengan tabel tindakan. */
+  jadwalRowsSource?: Record<string, unknown>[];
+  onJadwalCreateRecord?: (
+    payload: Record<string, unknown>,
+  ) => Promise<{ id?: string } | null | unknown>;
+  onJadwalPatchRow?: (id: string, patch: Record<string, unknown>) => void;
+  onJadwalDeleteRow?: (id: string) => Promise<void> | void;
+  onJadwalSyncMainTable?: (opts?: {
+    force?: boolean;
+  }) => Promise<void> | void;
+  jadwalMainDateFrom?: string;
+  jadwalMainDateTo?: string;
 }
 
 /** Interval auto-refresh saat tab terlihat (detik). */
@@ -113,6 +125,13 @@ function TableToolbar({
   onPhoneDirectoryOpen,
   isCollapsed = false,
   onFilterActiveChange,
+  jadwalRowsSource,
+  onJadwalCreateRecord,
+  onJadwalPatchRow,
+  onJadwalDeleteRow,
+  onJadwalSyncMainTable,
+  jadwalMainDateFrom,
+  jadwalMainDateTo,
 }: Props) {
   const [dokter, setDokter] = useState("");
   const [ruangan, setRuangan] = useState("");
@@ -1371,6 +1390,13 @@ function TableToolbar({
         <JadwalCathModal
           open={jadwalCathOpen}
           onClose={() => setJadwalCathOpen(false)}
+          rowsSource={jadwalRowsSource}
+          onCreateRecord={onJadwalCreateRecord}
+          onPatchRow={onJadwalPatchRow}
+          onDeleteRow={onJadwalDeleteRow}
+          onSyncMainTable={onJadwalSyncMainTable}
+          mainTableDateFrom={jadwalMainDateFrom}
+          mainTableDateTo={jadwalMainDateTo}
         />
       ) : null}
     </div>

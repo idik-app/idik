@@ -19,6 +19,8 @@ interface ModalWrapperProps {
   isWide?: boolean;
   /** Jika true, klik pada backdrop tidak akan menutup modal (default false) */
   disableOutsideClick?: boolean;
+  /** Backdrop solid tanpa blur (nested / tabel padat) */
+  solidBackdrop?: boolean;
 }
 
 export function ModalWrapperContent({
@@ -29,6 +31,7 @@ export function ModalWrapperContent({
   zIndex = 300,
   isWide = false,
   disableOutsideClick = false,
+  solidBackdrop = false,
 }: ModalWrapperProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -74,7 +77,10 @@ export function ModalWrapperContent({
       onClick={backdropClick}
       style={{ zIndex }}
       className={cn(
-        "fixed inset-0 overflow-y-auto overflow-x-hidden bg-black/45 backdrop-blur-[2px] sm:bg-black/60 sm:backdrop-blur-sm",
+        "fixed inset-0 overflow-y-auto overflow-x-hidden",
+        solidBackdrop
+          ? "bg-black/75"
+          : "bg-black/45 backdrop-blur-[2px] sm:bg-black/60 sm:backdrop-blur-sm",
         UI_LAYERS.dialogOverlayTop, // Pastikan ModalWrapper juga punya z-index tinggi tapi di bawah AppDialog
       )}
     >

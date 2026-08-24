@@ -3212,6 +3212,13 @@ export default function TindakanTable({
             setLaporanPasienModalOpen(true);
           }}
           onPhoneDirectoryOpen={onPhoneDirectoryOpen}
+          jadwalRowsSource={tindakanList as Record<string, unknown>[]}
+          onJadwalCreateRecord={createRecord}
+          onJadwalPatchRow={patchLocalRow}
+          onJadwalDeleteRow={deleteRecord}
+          onJadwalSyncMainTable={(opts) => refresh({ force: opts?.force })}
+          jadwalMainDateFrom={filterTanggalFrom}
+          jadwalMainDateTo={filterTanggalTo}
         />
 
         {laporanModalOpen ? (

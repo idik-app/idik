@@ -4,8 +4,10 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -45,6 +47,9 @@ import {
   EditablePerawatCell,
   EditableRuanganCell,
   EditableTextCell,
+  JADWAL_ZOOM_CELL_CLASSES,
+  JADWAL_ZOOM_INNER_CLASSES,
+  extractCalendarDateKey,
 } from "./cells/EditableCells";
 import { buildJadwalElektifWhatsApp } from "../lib/buildJadwalElektifWhatsApp";
 import JadwalRmRiwayatPopover from "./JadwalRmRiwayatPopover";
@@ -109,6 +114,11 @@ function isCathlabRow(row: JadwalRow): boolean {
   return blob.includes("cath");
 }
 
+function isPlaceholderNama(v: string): boolean {
+  const s = v.trim().toLowerCase();
+  return !s || s === "pasien" || s === "belum diisi";
+}
+
 function mapApiRow(raw: Record<string, unknown>): JadwalRow {
   return {
     id: txt(raw.id),
@@ -159,14 +169,34 @@ const TD = "border border-white/10 px-0.5 py-0.5 align-middle min-w-0";
 type Props = {
   open: boolean;
   onClose: () => void;
-  onChanged?: () => void;
+  /** Sumber sama dengan tabel tindakan (adapter.tindakanList). */
+  rowsSource?: Record<string, unknown>[];
+  onCreateRecord?: (
+    payload: Record<string, unknown>,
+  ) => Promise<{ id?: string } | null | unknown>;
+  onPatchRow?: (id: string, patch: Record<string, unknown>) => void;
+  onDeleteRow?: (id: string) => Promise<void> | void;
+  onSyncMainTable?: (opts?: { force?: boolean }) => Promise<void> | void;
+  /** Filter tanggal aktif di tabel utama — untuk toast hint. */
+  mainTableDateFrom?: string;
+  mainTableDateTo?: string;
 };
 
-export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
+export default function JadwalCathModal({
+  open,
+  onClose,
+  rowsSource,
+  onCreateRecord,
+  onPatchRow,
+  onDeleteRow,
+  onSyncMainTable,
+  mainTableDateFrom = "",
+  mainTableDateTo = "",
+}: Props) {
   const { show } = useNotification();
   const { createOne, updateOne, deleteOne, loading: crudLoading } =
     useTindakanCrud();
-  const { emitRefresh, emitOpenDetail } = useTindakanEventBridge();
+  const { emitOpenDetail } = useTindakanEventBridge();
   const { doctors, isLoading: doctorsLoading } = useMasterDoctors();
   const { masterTindakan, isLoading: tindakanLoading } = useMasterTindakan();
   const { ruangan, isLoading: ruanganLoading } = useMasterRuangan();
@@ -175,11 +205,14 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
   const today = todayWibYmd();
   const [selectedDate, setSelectedDate] = useState(today);
   const [rangeMode, setRangeMode] = useState<"day" | "month">("day");
-  const [rows, setRows] = useState<JadwalRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [draftByRowId, setDraftByRowId] = useState<
+    Record<string, Partial<JadwalRow>>
+  >({});
+  const [dirtyIds, setDirtyIds] = useState<Set<string>>(() => new Set());
+  const [pinnedRows, setPinnedRows] = useState<JadwalRow[]>([]);
   const [fullscreen, setFullscreen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { year, month } = ymdParts(selectedDate);
   const { from, to } =
@@ -224,47 +257,79 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
     [perawat],
   );
 
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const q = new URLSearchParams({
-        from,
-        to,
-        limit: "500",
-      });
-      const res = await fetch(`/api/tindakan?${q.toString()}`, {
-        credentials: "include",
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        data?: Record<string, unknown>[];
-        error?: string;
-      };
-      if (!res.ok || json.ok === false) {
-        throw new Error(json.error || "Gagal memuat jadwal.");
-      }
-      const list = Array.isArray(json.data) ? json.data.map(mapApiRow) : [];
-      setRows(
-        list
-          .filter((r) => r.id && isCathlabRow(r))
-          .sort((a, b) => txt(a.tanggal).localeCompare(txt(b.tanggal))),
-      );
-    } catch (e) {
-      setRows([]);
-      setLoadError(e instanceof Error ? e.message : "Gagal memuat jadwal.");
-    } finally {
-      setLoading(false);
+  const scheduleSync = useCallback(() => {
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => {
+      void onSyncMainTable?.({ force: true });
+    }, 500);
+  }, [onSyncMainTable]);
+
+  useEffect(() => {
+    return () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    };
+  }, []);
+
+  const markDirty = useCallback((id: string) => {
+    setDirtyIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearDirty = useCallback((id: string) => {
+    setDirtyIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setDraftByRowId((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
+  const sourceMapped = useMemo(() => {
+    const list = Array.isArray(rowsSource) ? rowsSource : [];
+    return list.map((r) => mapApiRow(r as Record<string, unknown>)).filter((r) => r.id);
+  }, [rowsSource]);
+
+  const rows = useMemo(() => {
+    const byId = new Map<string, JadwalRow>();
+    for (const r of sourceMapped) {
+      if (!isCathlabRow(r)) continue;
+      const tKey = extractCalendarDateKey(txt(r.tanggal)) ?? txt(r.tanggal);
+      if (tKey && (tKey < from || tKey > to)) continue;
+      byId.set(r.id, r);
     }
-  }, [from, to]);
+    for (const p of pinnedRows) {
+      if (!byId.has(p.id)) byId.set(p.id, p);
+    }
+    for (const [id, draft] of Object.entries(draftByRowId)) {
+      const base = byId.get(id);
+      if (base) byId.set(id, { ...base, ...draft });
+      else if (dirtyIds.has(id)) {
+        byId.set(id, { ...mapApiRow({ id }), ...draft } as JadwalRow);
+      }
+    }
+    return Array.from(byId.values()).sort((a, b) =>
+      txt(a.tanggal).localeCompare(txt(b.tanggal)),
+    );
+  }, [sourceMapped, from, to, pinnedRows, draftByRowId, dirtyIds]);
 
   useEffect(() => {
     if (!open) {
       setFullscreen(false);
-      return;
+      setDraftByRowId({});
+      setDirtyIds(new Set());
+      setPinnedRows([]);
     }
-    void reload();
-  }, [open, reload]);
+  }, [open]);
 
   useEffect(() => {
     if (!open || !fullscreen) return;
@@ -275,19 +340,22 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, fullscreen]);
 
-  const bump = useCallback(() => {
-    emitRefresh();
-    onChanged?.();
-  }, [emitRefresh, onChanged]);
+  const handleClose = useCallback(() => {
+    void onSyncMainTable?.({ force: true });
+    onClose();
+  }, [onClose, onSyncMainTable]);
 
   const patchField = useCallback(
     async (id: string, patch: Record<string, unknown>) => {
       try {
         await updateOne(id, patch);
-        setRows((prev) =>
-          prev.map((r) => (r.id === id ? { ...r, ...patch } : r)),
-        );
-        bump();
+        setDraftByRowId((prev) => ({
+          ...prev,
+          [id]: { ...(prev[id] ?? {}), ...(patch as Partial<JadwalRow>) },
+        }));
+        onPatchRow?.(id, patch);
+        clearDirty(id);
+        scheduleSync();
         return true;
       } catch (e) {
         show({
@@ -298,7 +366,7 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
         return false;
       }
     },
-    [bump, show, updateOne],
+    [clearDirty, onPatchRow, scheduleSync, show, updateOne],
   );
 
   const onRmCommit = useCallback(
@@ -320,7 +388,10 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
           ? hitungUsia(p.tanggalLahir).teks
           : "";
         const dup = rows.some(
-          (r) => r.id !== row.id && txt(r.no_rm) === rm && txt(r.tanggal) === txt(row.tanggal),
+          (r) =>
+            r.id !== row.id &&
+            txt(r.no_rm) === rm &&
+            txt(r.tanggal) === txt(row.tanggal),
         );
         if (dup) {
           show({
@@ -328,15 +399,18 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
             message: "RM yang sama sudah ada di tanggal ini. Tetap disimpan.",
           });
         }
-        const ok = await patchField(row.id, {
+        const keepNama = !isPlaceholderNama(txt(row.nama_pasien));
+        const patch: Record<string, unknown> = {
           no_rm: p.noRM || rm,
-          nama_pasien: p.nama,
-          nama: p.nama,
           pasien_id: p.id,
           kelas_pembiayaan: kelasDariPasien(p) || null,
           umur: umurTeks || null,
-        });
-        return ok;
+        };
+        if (!keepNama) {
+          patch.nama_pasien = p.nama;
+          patch.nama = p.nama;
+        }
+        return patchField(row.id, patch);
       } catch (e) {
         show({
           type: "error",
@@ -351,7 +425,7 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
   const addJadwal = useCallback(async () => {
     setCreating(true);
     try {
-      const created = await createOne({
+      const payload = {
         tanggal: selectedDate,
         status: "Menunggu",
         kategori: "Cathlab",
@@ -360,12 +434,30 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
         nama_pasien: "Pasien",
         dokter: "Belum ditentukan",
         tindakan: "Belum diisi",
-      });
+      };
+      const created = onCreateRecord
+        ? await onCreateRecord(payload)
+        : await createOne(payload);
       const id = String((created as { id?: string } | null)?.id ?? "");
       if (!id) throw new Error("Draft jadwal tidak mengembalikan id.");
+      const local: JadwalRow = {
+        ...mapApiRow({ id, ...payload }),
+      };
+      setPinnedRows((prev) => [local, ...prev.filter((r) => r.id !== id)]);
       show({ type: "success", message: "Baris jadwal ditambahkan." });
-      bump();
-      await reload();
+      const fromMain = txt(mainTableDateFrom);
+      const toMain = txt(mainTableDateTo);
+      if (
+        (fromMain && selectedDate < fromMain) ||
+        (toMain && selectedDate > toMain)
+      ) {
+        show({
+          type: "info",
+          message:
+            "Baris tersimpan — sesuaikan filter tabel untuk melihatnya.",
+        });
+      }
+      void onSyncMainTable?.({ force: true });
     } catch (e) {
       show({
         type: "error",
@@ -374,7 +466,15 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
     } finally {
       setCreating(false);
     }
-  }, [bump, createOne, reload, selectedDate, show]);
+  }, [
+    createOne,
+    mainTableDateFrom,
+    mainTableDateTo,
+    onCreateRecord,
+    onSyncMainTable,
+    selectedDate,
+    show,
+  ]);
 
   const removeDraft = useCallback(
     async (row: JadwalRow) => {
@@ -390,10 +490,15 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
       );
       if (!ok) return;
       try {
-        await deleteOne(row.id);
-        setRows((prev) => prev.filter((r) => r.id !== row.id));
+        if (onDeleteRow) {
+          await onDeleteRow(row.id);
+        } else {
+          await deleteOne(row.id);
+        }
+        setPinnedRows((prev) => prev.filter((r) => r.id !== row.id));
+        clearDirty(row.id);
         show({ type: "success", message: "Draft jadwal dihapus." });
-        bump();
+        void onSyncMainTable?.({ force: true });
       } catch (e) {
         show({
           type: "error",
@@ -401,7 +506,7 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
         });
       }
     },
-    [bump, deleteOne, show],
+    [clearDirty, deleteOne, onDeleteRow, onSyncMainTable, show],
   );
 
   const copyWa = useCallback(async () => {
@@ -419,9 +524,7 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
         ruangan: r.ruangan,
       })),
     });
-    const hasRow = rows.some(
-      (r) => txt(r.nama_pasien) || txt(r.no_rm),
-    );
+    const hasRow = rows.some((r) => txt(r.nama_pasien) || txt(r.no_rm));
     if (!hasRow) {
       show({ type: "warning", message: "Belum ada jadwal" });
       return;
@@ -435,26 +538,29 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
   }, [from, rangeMode, rows, selectedDate, show]);
 
   const waDisabled = !rows.some((r) => txt(r.nama_pasien) || txt(r.no_rm));
+  const sourceLoading = rowsSource === undefined;
+
+  const zoomTd = (origin: "left" | "center", children: ReactNode) => (
+    <td className={cn(TD, JADWAL_ZOOM_CELL_CLASSES)}>
+      <div
+        className={cn(
+          JADWAL_ZOOM_INNER_CLASSES,
+          origin === "left" ? "origin-left" : "origin-center",
+        )}
+      >
+        {children}
+      </div>
+    </td>
+  );
 
   const tableBlock = (
     <div className="min-h-0 flex-1 overflow-auto">
-      {loading ? (
+      {sourceLoading ? (
         <div className="flex h-40 flex-col items-center justify-center gap-2 text-zinc-400">
           <Loader2 className="h-8 w-8 animate-spin text-violet-400" />
           <span className="text-[10px] font-bold uppercase tracking-widest">
             Memuat jadwal…
           </span>
-        </div>
-      ) : loadError ? (
-        <div className="flex h-40 flex-col items-center justify-center gap-3 px-4 text-center">
-          <p className="text-sm font-semibold text-red-300">{loadError}</p>
-          <button
-            type="button"
-            onClick={() => void reload()}
-            className="rounded-lg border border-white/20 px-3 py-2 text-xs font-bold text-white hover:bg-white/10"
-          >
-            Coba lagi
-          </button>
         </div>
       ) : rows.length === 0 ? (
         <div className="flex h-40 flex-col items-center justify-center gap-2 text-zinc-400">
@@ -510,20 +616,30 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
                     ) : null}
                   </div>
                 </td>
-                <td className={TD}>
+                {zoomTd(
+                  "center",
                   <EditableDateCell
+                    variant="table"
                     value={txt(row.tanggal)}
+                    onDirty={() => markDirty(row.id)}
                     onCommit={(next) =>
                       patchField(row.id, { tanggal: next || null })
                     }
-                  />
-                </td>
-                <td className={TD}>
+                  />,
+                )}
+                <td className={cn(TD, JADWAL_ZOOM_CELL_CLASSES)}>
                   <div className="flex min-w-0 items-center gap-0.5">
-                    <div className="min-w-0 flex-1">
+                    <div
+                      className={cn(
+                        JADWAL_ZOOM_INNER_CLASSES,
+                        "origin-left min-w-0 flex-1",
+                      )}
+                    >
                       <EditableTextCell
+                        variant="table"
                         value={txt(row.no_rm)}
                         placeholder="RM"
+                        onDirty={() => markDirty(row.id)}
                         onCommit={(next) => onRmCommit(row, next)}
                       />
                     </div>
@@ -540,126 +656,153 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
                     ) : null}
                   </div>
                 </td>
-                <td className={TD}>
+                {zoomTd(
+                  "left",
                   <EditableTextCell
+                    variant="table"
                     value={txt(row.nama_pasien)}
                     placeholder="Nama"
+                    onDirty={() => markDirty(row.id)}
                     onCommit={(next) =>
                       patchField(row.id, {
                         nama_pasien: next || null,
                         nama: next || null,
                       })
                     }
-                  />
-                </td>
-                <td className={TD}>
+                  />,
+                )}
+                {zoomTd(
+                  "center",
                   <EditableTextCell
+                    variant="table"
                     value={txt(row.kelas_pembiayaan)}
                     placeholder="NPBI - 1"
+                    onDirty={() => markDirty(row.id)}
                     onCommit={(next) =>
                       patchField(row.id, {
                         kelas_pembiayaan: next || null,
                       })
                     }
-                  />
-                </td>
+                  />,
+                )}
                 <td className={cn(TD, "text-center text-white/90")}>
                   {txt(row.umur) || "—"}
                 </td>
-                <td className={TD}>
+                {zoomTd(
+                  "center",
                   <EditableRuanganCell
                     value={txt(row.ruangan)}
                     ruanganMaster={ruanganOptions}
                     loading={ruanganLoading}
                     listboxId={`jadwal-ruang-${row.id}`}
-                    onCommit={(next) =>
-                      patchField(row.id, { ruangan: next || null })
-                    }
-                  />
-                </td>
-                <td className={TD}>
+                    onCommit={(next) => {
+                      markDirty(row.id);
+                      return patchField(row.id, { ruangan: next || null });
+                    }}
+                  />,
+                )}
+                {zoomTd(
+                  "left",
                   <EditableTextCell
+                    variant="table"
                     value={txt(row.diagnosa)}
                     placeholder="Diagnosa"
+                    onDirty={() => markDirty(row.id)}
                     onCommit={(next) =>
                       patchField(row.id, { diagnosa: next || null })
                     }
-                  />
-                </td>
-                <td className={TD}>
+                  />,
+                )}
+                {zoomTd(
+                  "left",
                   <EditableMasterTindakanCell
                     value={txt(row.tindakan)}
                     masterOptions={tindakanOptions}
                     loading={tindakanLoading}
                     listboxId={`jadwal-tin-${row.id}`}
-                    onCommit={(next) =>
-                      patchField(row.id, { tindakan: next || null })
-                    }
-                  />
-                </td>
-                <td className={TD}>
+                    onCommit={(next) => {
+                      markDirty(row.id);
+                      return patchField(row.id, { tindakan: next || null });
+                    }}
+                  />,
+                )}
+                {zoomTd(
+                  "left",
                   <EditableDokterCell
                     value={txt(row.dokter)}
                     doctorOptionsMaster={doctorOptions}
                     dokterOptions={doctorOptions.map((d) => d.nama_dokter)}
                     loading={doctorsLoading}
                     listboxId={`jadwal-dok-${row.id}`}
-                    onCommit={(next) =>
-                      patchField(row.id, { dokter: next || null })
-                    }
-                  />
-                </td>
-                <td className={TD}>
+                    onCommit={(next) => {
+                      markDirty(row.id);
+                      return patchField(row.id, { dokter: next || null });
+                    }}
+                  />,
+                )}
+                {zoomTd(
+                  "left",
                   <EditableTextCell
+                    variant="table"
                     value={txt(row.hasil_lab_ppm)}
                     placeholder="Lab"
+                    onDirty={() => markDirty(row.id)}
                     onCommit={(next) =>
                       patchField(row.id, { hasil_lab_ppm: next || null })
                     }
-                  />
-                </td>
-                <td className={TD}>
+                  />,
+                )}
+                {zoomTd(
+                  "center",
                   <EditablePerawatCell
                     value={txt(row.asisten)}
                     perawatMaster={perawatOptions}
                     loading={perawatLoading}
                     listboxId={`jadwal-as-${row.id}`}
-                    onCommit={(next) =>
-                      patchField(row.id, { asisten: next || null })
-                    }
-                  />
-                </td>
-                <td className={TD}>
+                    onCommit={(next) => {
+                      markDirty(row.id);
+                      return patchField(row.id, { asisten: next || null });
+                    }}
+                  />,
+                )}
+                {zoomTd(
+                  "center",
                   <EditablePerawatCell
                     value={txt(row.sirkuler)}
                     perawatMaster={perawatOptions}
                     loading={perawatLoading}
                     listboxId={`jadwal-sk-${row.id}`}
-                    onCommit={(next) =>
-                      patchField(row.id, { sirkuler: next || null })
-                    }
-                  />
-                </td>
-                <td className={TD}>
+                    onCommit={(next) => {
+                      markDirty(row.id);
+                      return patchField(row.id, { sirkuler: next || null });
+                    }}
+                  />,
+                )}
+                {zoomTd(
+                  "center",
                   <EditablePerawatCell
                     value={txt(row.logger)}
                     perawatMaster={perawatOptions}
                     loading={perawatLoading}
                     listboxId={`jadwal-lg-${row.id}`}
-                    onCommit={(next) =>
-                      patchField(row.id, { logger: next || null })
-                    }
-                  />
-                </td>
-                <td className={TD}>
+                    onCommit={(next) => {
+                      markDirty(row.id);
+                      return patchField(row.id, { logger: next || null });
+                    }}
+                  />,
+                )}
+                {zoomTd(
+                  "left",
                   <EditableTextCell
+                    variant="table"
                     value={txt(row.keterangan)}
                     placeholder="Ket"
+                    onDirty={() => markDirty(row.id)}
                     onCommit={(next) =>
                       patchField(row.id, { keterangan: next || null })
                     }
-                  />
-                </td>
+                  />,
+                )}
               </tr>
             ))}
           </tbody>
@@ -673,59 +816,30 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
       className={cn(
         "flex h-full min-h-0 flex-col bg-zinc-950 text-white",
         fullscreen &&
-          cn(
-            "fixed inset-0 h-dvh w-screen",
-            UI_LAYERS.fullscreen,
-          ),
+          cn("fixed inset-0 h-dvh w-screen", UI_LAYERS.fullscreen),
       )}
     >
-      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3 py-2 sm:px-5 sm:py-3">
-        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-600 sm:h-11 sm:w-11">
-            <Calendar size={18} />
+      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3 py-2 sm:px-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600">
+            <Calendar size={16} />
           </div>
-          <div className="min-w-0">
-            <h2 className="truncate text-sm font-black tracking-tight sm:text-lg">
-              Jadwal Tindakan Cath Lab
-            </h2>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-              Input tabel · selaras drawer
-            </p>
-          </div>
+          <h2 className="truncate text-sm font-black tracking-tight sm:text-base">
+            Jadwal Tindakan Cath Lab
+          </h2>
         </div>
-        <div className="flex items-center gap-1 sm:gap-2">
+        {!fullscreen ? (
           <button
             type="button"
-            title="Salin jadwal ke WhatsApp"
-            aria-label="Salin jadwal ke WhatsApp"
-            disabled={waDisabled}
-            onClick={() => void copyWa()}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-40"
+            onClick={handleClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-zinc-800 hover:bg-red-500/20 hover:text-red-300"
           >
-            <MessageCircle size={18} />
+            <X size={16} />
           </button>
-          <button
-            type="button"
-            title={fullscreen ? "Keluar layar penuh" : "Layar penuh"}
-            aria-label={fullscreen ? "Keluar layar penuh" : "Layar penuh"}
-            onClick={() => setFullscreen((v) => !v)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/15"
-          >
-            {fullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
-          </button>
-          {!fullscreen ? (
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-zinc-800 hover:bg-red-500/20 hover:text-red-300"
-            >
-              <X size={18} />
-            </button>
-          ) : null}
-        </div>
+        ) : null}
       </header>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/5 px-3 py-2 sm:px-5">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/5 px-3 py-2 sm:px-4">
         <input
           type="date"
           value={selectedDate}
@@ -733,13 +847,13 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
             setRangeMode("day");
             setSelectedDate(e.target.value || today);
           }}
-          className="h-11 min-h-11 rounded-lg border border-white/15 bg-zinc-900 px-2 text-sm text-white [color-scheme:dark]"
+          className="h-9 min-h-9 rounded-lg border border-white/15 bg-zinc-900 px-2 text-sm text-white [color-scheme:dark]"
         />
         <button
           type="button"
           onClick={() => void addJadwal()}
           disabled={creating || crudLoading}
-          className="inline-flex h-11 min-h-11 items-center gap-1.5 rounded-lg bg-violet-600 px-3 text-xs font-black uppercase tracking-wide hover:bg-violet-500 disabled:opacity-50"
+          className="inline-flex h-9 min-h-9 items-center gap-1.5 rounded-lg bg-violet-600 px-3 text-xs font-black uppercase tracking-wide hover:bg-violet-500 disabled:opacity-50"
         >
           {creating ? (
             <Loader2 size={14} className="animate-spin" />
@@ -748,11 +862,35 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
           )}
           Tambah Jadwal
         </button>
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            type="button"
+            title="Salin jadwal ke WhatsApp"
+            aria-label="Salin jadwal ke WhatsApp"
+            disabled={waDisabled}
+            onClick={() => void copyWa()}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-40"
+          >
+            <MessageCircle size={16} />
+          </button>
+          <button
+            type="button"
+            title={fullscreen ? "Keluar layar penuh" : "Layar penuh"}
+            aria-label={fullscreen ? "Keluar layar penuh" : "Layar penuh"}
+            onClick={() => setFullscreen((v) => !v)}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/15"
+          >
+            {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </button>
+        </div>
       </div>
 
       {tableBlock}
 
-      <footer className="flex shrink-0 gap-1 overflow-x-auto border-t border-white/5 px-2 py-2">
+      <footer className="flex shrink-0 items-center gap-1 overflow-x-auto border-t border-white/5 px-2 py-1.5">
+        <span className="shrink-0 px-1 text-[9px] font-bold uppercase tracking-wider text-zinc-500">
+          Bulan:
+        </span>
         {BULAN_TAB.map((tab) => {
           const active = rangeMode === "month" && month === tab.month;
           const isNow = month === tab.month && rangeMode === "day";
@@ -761,12 +899,18 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
               key={tab.label}
               type="button"
               onClick={() => {
+                if (dirtyIds.size > 0) {
+                  const ok = window.confirm(
+                    "Ada perubahan belum tersimpan di sel. Ganti filter bulan tetap lanjut?",
+                  );
+                  if (!ok) return;
+                }
                 setRangeMode("month");
                 const mm = String(tab.month).padStart(2, "0");
                 setSelectedDate(`${year}-${mm}-01`);
               }}
               className={cn(
-                "relative h-11 shrink-0 rounded-lg px-3 text-[10px] font-black uppercase tracking-widest",
+                "relative h-8 shrink-0 rounded-md px-2.5 text-[9px] font-black uppercase tracking-widest",
                 active
                   ? "bg-white text-black"
                   : "bg-white/5 text-zinc-400 hover:text-white",
@@ -791,8 +935,9 @@ export default function JadwalCathModal({ open, onClose, onChanged }: Props) {
 
   return (
     <ModalWrapper
-      onClose={onClose}
+      onClose={handleClose}
       isWide
+      solidBackdrop
       zIndex={130}
       className="h-[95vh] max-w-[98vw] overflow-hidden rounded-[1.5rem] border-white/10 bg-zinc-950 p-0 shadow-2xl sm:rounded-[2rem]"
     >

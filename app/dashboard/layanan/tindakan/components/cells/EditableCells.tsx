@@ -31,6 +31,19 @@ export const TINDAKAN_TABLE_INPUT_TEXT =
 export const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
   "w-full min-w-0 truncate text-left border-none bg-transparent p-0 text-xs font-semibold focus:outline-none focus:ring-0 select-all hover:bg-black/5 dark:hover:bg-white/5";
 
+/** Zoom sel fokus di modal Jadwal Cath Lab (compact 14 kolom). */
+export const JADWAL_ZOOM_CELL_CLASSES =
+  "focus-within:relative focus-within:z-[80]";
+export const JADWAL_ZOOM_INNER_CLASSES = cn(
+  "min-w-0 w-full transition-transform duration-150 ease-out",
+  "focus-within:scale-[1.2] max-md:focus-within:scale-[1.35]",
+  "focus-within:min-w-[8rem]",
+  "focus-within:rounded focus-within:bg-zinc-900/95 focus-within:px-1.5 focus-within:py-1",
+  "focus-within:shadow-lg focus-within:ring-1 focus-within:ring-violet-400/50",
+);
+export const JADWAL_TABLE_INPUT =
+  "w-full min-w-0 truncate border-none bg-transparent p-0 text-center text-xs font-semibold text-white placeholder:text-white/50 focus:outline-none focus:ring-0 focus:text-sm max-md:focus:text-base select-all";
+
 const CAL_MONTH: Record<string, string> = {
   jan: "01",
   feb: "02",
@@ -200,17 +213,30 @@ export function EditableTextCell({
   value,
   onCommit,
   placeholder = "...",
+  variant = "default",
+  onDirty,
 }: {
   value: string;
   onCommit: (next: string) => Promise<boolean>;
   placeholder?: string;
+  variant?: "default" | "table";
+  onDirty?: () => void;
 }) {
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!saving) setDraft(value);
-  }, [value, saving]);
+    if (saving || focused) return;
+    if (
+      inputRef.current &&
+      document.activeElement === inputRef.current
+    ) {
+      return;
+    }
+    setDraft(value);
+  }, [value, saving, focused]);
 
   const commit = useCallback(async () => {
     if (saving) return;
@@ -225,14 +251,25 @@ export function EditableTextCell({
 
   return (
     <input
+      ref={inputRef}
       type="text"
       readOnly={saving}
       value={draft}
       placeholder={placeholder}
-      onChange={(e) => setDraft(e.target.value)}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        onDirty?.();
+      }}
+      onFocus={() => {
+        setFocused(true);
+        onDirty?.();
+      }}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
-      onBlur={() => void commit()}
+      onBlur={() => {
+        setFocused(false);
+        void commit();
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           e.preventDefault();
@@ -243,10 +280,14 @@ export function EditableTextCell({
           setDraft(value.trim());
         }
       }}
-      className={cn(
-        "w-full rounded border px-2 py-1 text-xs font-semibold focus:outline-none text-center",
-        "border-cyan-400/55 bg-white text-slate-800 dark:border-cyan-700/50 dark:bg-black/40 dark:text-slate-100",
-      )}
+      className={
+        variant === "table"
+          ? JADWAL_TABLE_INPUT
+          : cn(
+              "w-full rounded border px-2 py-1 text-xs font-semibold focus:outline-none text-center",
+              "border-cyan-400/55 bg-white text-slate-800 dark:border-cyan-700/50 dark:bg-black/40 dark:text-slate-100",
+            )
+      }
     />
   );
 }
@@ -254,18 +295,31 @@ export function EditableTextCell({
 export function EditableDateCell({
   value,
   onCommit,
+  variant = "default",
+  onDirty,
 }: {
   value: string;
   onCommit: (next: string) => Promise<boolean>;
+  variant?: "default" | "table";
+  onDirty?: () => void;
 }) {
   const normalizedValue =
     extractCalendarDateKey(String(value ?? "").trim()) ?? "";
   const [draft, setDraft] = useState(normalizedValue);
   const [saving, setSaving] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!saving) setDraft(normalizedValue);
-  }, [normalizedValue, saving]);
+    if (saving || focused) return;
+    if (
+      inputRef.current &&
+      document.activeElement === inputRef.current
+    ) {
+      return;
+    }
+    setDraft(normalizedValue);
+  }, [normalizedValue, saving, focused]);
 
   const commit = useCallback(async () => {
     if (saving) return;
@@ -285,14 +339,25 @@ export function EditableDateCell({
 
   return (
     <input
+      ref={inputRef}
       type="date"
       readOnly={saving}
       value={draft}
       min="1900-01-01"
-      onChange={(e) => setDraft(e.target.value)}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        onDirty?.();
+      }}
+      onFocus={() => {
+        setFocused(true);
+        onDirty?.();
+      }}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
-      onBlur={() => void commit()}
+      onBlur={() => {
+        setFocused(false);
+        void commit();
+      }}
       onKeyDown={(e) => {
         if (e.key === "Enter") {
           e.preventDefault();
@@ -303,10 +368,17 @@ export function EditableDateCell({
           setDraft(normalizedValue);
         }
       }}
-      className={cn(
-        "w-full min-w-0 max-2xl:min-w-0 2xl:min-w-[8.5rem] rounded border px-2 py-1 max-2xl:px-0.5 text-xs font-semibold focus:outline-none",
-        "border-cyan-400/55 bg-white text-amber-800 [color-scheme:light] dark:border-cyan-700/50 dark:bg-black/40 dark:text-slate-100 dark:[color-scheme:dark]",
-      )}
+      className={
+        variant === "table"
+          ? cn(
+              JADWAL_TABLE_INPUT,
+              "min-w-0 [color-scheme:dark]",
+            )
+          : cn(
+              "w-full min-w-0 max-2xl:min-w-0 2xl:min-w-[8.5rem] rounded border px-2 py-1 max-2xl:px-0.5 text-xs font-semibold focus:outline-none",
+              "border-cyan-400/55 bg-white text-amber-800 [color-scheme:light] dark:border-cyan-700/50 dark:bg-black/40 dark:text-slate-100 dark:[color-scheme:dark]",
+            )
+      }
     />
   );
 }

@@ -534,17 +534,15 @@ export async function POST(request: Request) {
       status: body.status ?? "Menunggu",
       kategori: body.kategori ?? "Cathlab",
       ruangan: body.ruangan ?? "Cathlab",
+      nama: body.nama ?? body.nama_pasien ?? "",
+      nama_pasien: body.nama_pasien ?? body.nama ?? "",
+      tindakan: body.tindakan ?? "",
+      dokter: body.dokter ?? "",
     };
 
-    if (body.nama_pasien != null || body.nama != null) {
-      payload.nama_pasien = body.nama_pasien ?? body.nama ?? null;
-      payload.nama = body.nama ?? body.nama_pasien ?? null;
-    }
     if (body.no_rm != null || body.rm != null) {
       payload.no_rm = body.no_rm ?? body.rm ?? null;
     }
-    if (body.dokter != null) payload.dokter = body.dokter;
-    if (body.tindakan != null) payload.tindakan = body.tindakan;
     if (body.diagnosa != null) payload.diagnosa = body.diagnosa;
     if (body.kelas_pembiayaan != null) payload.kelas_pembiayaan = body.kelas_pembiayaan;
     if (body.umur != null) payload.umur = body.umur;
@@ -575,11 +573,28 @@ export async function POST(request: Request) {
 
       lastError = error;
       const msg = String((error as { message?: string })?.message ?? "");
-      if (!msg.includes("column") || !msg.includes("schema cache")) break;
-      const missingColMatch = msg.match(/'([^']+)'/);
-      const missingCol = missingColMatch?.[1]?.trim();
-      if (!missingCol || !(missingCol in attemptBody)) break;
-      delete attemptBody[missingCol];
+
+      // 1. Tangani error missing column di cache PostgREST (hapus kolom yang tidak ada di skema DB)
+      if (msg.includes("column") && msg.includes("schema cache")) {
+        const missingColMatch = msg.match(/'([^']+)'/);
+        const missingCol = missingColMatch?.[1]?.trim();
+        if (missingCol && missingCol in attemptBody) {
+          delete attemptBody[missingCol];
+          continue;
+        }
+      }
+
+      // 2. Tangani error NOT NULL constraint di PostgreSQL (otomatis isi string kosong "" jika kolom tidak boleh NULL)
+      if (msg.includes("not-null constraint") || msg.includes("violates not-null constraint")) {
+        const notNullColMatch = msg.match(/column\s+"([^"]+)"/i) || msg.match(/'([^']+)'/);
+        const notNullCol = notNullColMatch?.[1]?.trim();
+        if (notNullCol) {
+          attemptBody[notNullCol] = "";
+          continue;
+        }
+      }
+
+      break;
     }
 
     return NextResponse.json(

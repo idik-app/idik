@@ -58,14 +58,12 @@ export function finalizeTindakanPatchForSupabase(
   const db: Record<string, unknown> = {};
 
   if (sanitized.nama_pasien !== undefined) {
-    db.nama =
-      sanitized.nama_pasien === "" || sanitized.nama_pasien === null
-        ? null
-        : sanitized.nama_pasien;
+    db.nama = sanitized.nama_pasien ?? "";
+    db.nama_pasien = sanitized.nama_pasien ?? "";
   }
   if (sanitized.nama !== undefined) {
-    db.nama =
-      sanitized.nama === "" || sanitized.nama === null ? null : sanitized.nama;
+    db.nama = sanitized.nama ?? "";
+    db.nama_pasien = sanitized.nama ?? "";
   }
 
   for (const key of [

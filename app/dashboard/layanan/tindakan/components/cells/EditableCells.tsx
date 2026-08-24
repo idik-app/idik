@@ -38,11 +38,11 @@ export const JADWAL_ZOOM_INNER_CLASSES = cn(
   "min-w-0 w-full transition-transform duration-150 ease-out",
   "focus-within:scale-[1.2] max-md:focus-within:scale-[1.35]",
   "focus-within:min-w-[8rem]",
-  "focus-within:rounded focus-within:bg-zinc-900/95 focus-within:px-1.5 focus-within:py-1",
-  "focus-within:shadow-lg focus-within:ring-1 focus-within:ring-violet-400/50",
+  "focus-within:rounded focus-within:bg-white focus-within:px-1.5 focus-within:py-1",
+  "focus-within:shadow-xl focus-within:ring-2 focus-within:ring-indigo-500/70",
 );
 export const JADWAL_TABLE_INPUT =
-  "w-full min-w-0 truncate border-none bg-transparent p-0 text-center text-xs font-semibold text-white placeholder:text-white/50 focus:outline-none focus:ring-0 focus:text-sm max-md:focus:text-base select-all";
+  "w-full min-w-0 truncate border-none bg-transparent p-0 text-center text-xs font-semibold text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:outline-none focus:ring-0 focus:text-sm max-md:focus:text-base select-all";
 
 const CAL_MONTH: Record<string, string> = {
   jan: "01",
@@ -372,7 +372,7 @@ export function EditableDateCell({
         variant === "table"
           ? cn(
               JADWAL_TABLE_INPUT,
-              "min-w-0 [color-scheme:dark]",
+              "min-w-0 [color-scheme:light] dark:[color-scheme:dark]",
             )
           : cn(
               "w-full min-w-0 max-2xl:min-w-0 2xl:min-w-[8.5rem] rounded border px-2 py-1 max-2xl:px-0.5 text-xs font-semibold focus:outline-none",

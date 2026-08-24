@@ -162,9 +162,10 @@ async function lookupPasienByRm(rm: string): Promise<Pasien | null> {
   return null;
 }
 
-const TH =
-  "px-0.5 py-1 font-mono font-black text-[8px] uppercase tracking-wide text-violet-200 bg-zinc-900 sticky top-0";
-const TD = "border border-white/10 px-0.5 py-0.5 align-middle min-w-0";
+// Styling Constants (Matching Laporan MUTU Theme)
+const TH_BASE =
+  "px-2 py-2 font-mono font-black text-[10px] uppercase tracking-wide text-white bg-[#1B2B44] border border-white/15 sticky top-0 z-20";
+const TD_BASE = "border border-slate-200/80 px-1 py-1 align-middle min-w-0 text-slate-800 text-[11px]";
 
 type Props = {
   open: boolean;
@@ -210,6 +211,7 @@ export default function JadwalCathModal({
   >({});
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(() => new Set());
   const [pinnedRows, setPinnedRows] = useState<JadwalRow[]>([]);
+  const [newRowHighlightId, setNewRowHighlightId] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [creating, setCreating] = useState(false);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -322,12 +324,26 @@ export default function JadwalCathModal({
     );
   }, [sourceMapped, from, to, pinnedRows, draftByRowId, dirtyIds]);
 
+  const stats = useMemo(() => {
+    let waiting = 0;
+    let processing = 0;
+    let done = 0;
+    for (const r of rows) {
+      const s = txt(r.status).toLowerCase();
+      if (s === "selesai") done++;
+      else if (s === "proses" || s === "sedang berjalan") processing++;
+      else waiting++;
+    }
+    return { total: rows.length, waiting, processing, done };
+  }, [rows]);
+
   useEffect(() => {
     if (!open) {
       setFullscreen(false);
       setDraftByRowId({});
       setDirtyIds(new Set());
       setPinnedRows([]);
+      setNewRowHighlightId(null);
     }
   }, [open]);
 
@@ -444,6 +460,8 @@ export default function JadwalCathModal({
         ...mapApiRow({ id, ...payload }),
       };
       setPinnedRows((prev) => [local, ...prev.filter((r) => r.id !== id)]);
+      setNewRowHighlightId(id);
+      setTimeout(() => setNewRowHighlightId(null), 3000);
       show({ type: "success", message: "Baris jadwal ditambahkan." });
       const fromMain = txt(mainTableDateFrom);
       const toMain = txt(mainTableDateTo);
@@ -540,8 +558,8 @@ export default function JadwalCathModal({
   const waDisabled = !rows.some((r) => txt(r.nama_pasien) || txt(r.no_rm));
   const sourceLoading = rowsSource === undefined;
 
-  const zoomTd = (origin: "left" | "center", children: ReactNode) => (
-    <td className={cn(TD, JADWAL_ZOOM_CELL_CLASSES)}>
+  const zoomTd = (origin: "left" | "center", children: ReactNode, extraTdClasses?: string) => (
+    <td className={cn(TD_BASE, JADWAL_ZOOM_CELL_CLASSES, extraTdClasses)}>
       <div
         className={cn(
           JADWAL_ZOOM_INNER_CLASSES,
@@ -554,257 +572,356 @@ export default function JadwalCathModal({
   );
 
   const tableBlock = (
-    <div className="min-h-0 flex-1 overflow-auto">
+    <div className="min-h-0 flex-1 overflow-auto bg-slate-50 p-2 sm:p-3">
       {sourceLoading ? (
-        <div className="flex h-40 flex-col items-center justify-center gap-2 text-zinc-400">
-          <Loader2 className="h-8 w-8 animate-spin text-violet-400" />
-          <span className="text-[10px] font-bold uppercase tracking-widest">
+        <div className="flex h-40 flex-col items-center justify-center gap-2 text-slate-500">
+          <Loader2 className="h-8 w-8 animate-spin text-[#1B2B44]" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#1B2B44]">
             Memuat jadwal…
           </span>
         </div>
-      ) : rows.length === 0 ? (
-        <div className="flex h-40 flex-col items-center justify-center gap-2 text-zinc-400">
-          <p className="text-sm font-semibold text-white">Belum ada jadwal</p>
-          <p className="text-xs">Tambah Jadwal untuk baris draft.</p>
-        </div>
       ) : (
-        <table className="w-full min-w-0 table-fixed border-collapse text-[10px] text-white sm:text-[11px]">
+        <table className="w-full min-w-[1300px] border-collapse text-xs text-slate-800">
           <thead>
             <tr>
-              <th className={cn(TH, "w-[4%]")} style={{ width: "4%" } as CSSProperties}>
-                No
+              {/* Sticky Column 0: NO & Add button */}
+              <th
+                className={cn(TH_BASE, "left-0 z-30 w-[44px] border-r border-white/20 text-center")}
+                style={{ left: 0, width: 44, minWidth: 44 }}
+              >
+                <div className="flex items-center justify-center gap-1">
+                  <span>NO</span>
+                  <button
+                    type="button"
+                    title="Tambah Baris Jadwal Baru"
+                    onClick={() => void addJadwal()}
+                    disabled={creating || crudLoading}
+                    className="inline-flex h-4 w-4 items-center justify-center rounded bg-white/20 text-white hover:bg-emerald-500 hover:text-white transition disabled:opacity-50"
+                  >
+                    {creating ? <Loader2 size={10} className="animate-spin" /> : <Plus size={10} />}
+                  </button>
+                </div>
               </th>
-              <th className={cn(TH, "w-[8%]")}>Hari/tgl</th>
-              <th className={cn(TH, "w-[7%]")}>No. RM</th>
-              <th className={cn(TH, "w-[10%]")}>Nama</th>
-              <th className={cn(TH, "w-[7%]")}>Kelas</th>
-              <th className={cn(TH, "w-[4%]")}>Umur</th>
-              <th className={cn(TH, "w-[7%]")}>Ruangan</th>
-              <th className={cn(TH, "w-[8%]")}>Diagnosa</th>
-              <th className={cn(TH, "w-[8%]")}>Tindakan</th>
-              <th className={cn(TH, "w-[8%]")}>Dokter</th>
-              <th className={cn(TH, "w-[8%]")}>Hasil lab</th>
-              <th className={cn(TH, "w-[6%]")}>Asisten</th>
-              <th className={cn(TH, "w-[6%]")}>Sirkuler</th>
-              <th className={cn(TH, "w-[6%]")}>Logger</th>
-              <th className={cn(TH, "w-[7%]")}>Keterangan</th>
+
+              {/* Sticky Column 1: HARI/TGL */}
+              <th
+                className={cn(TH_BASE, "left-[44px] z-30 w-[90px] border-r border-white/20 text-center")}
+                style={{ left: 44, width: 90, minWidth: 90 }}
+              >
+                Hari/tgl
+              </th>
+
+              {/* Sticky Column 2: NO. RM */}
+              <th
+                className={cn(TH_BASE, "left-[134px] z-30 w-[110px] border-r border-white/20 text-center")}
+                style={{ left: 134, width: 110, minWidth: 110 }}
+              >
+                No. RM
+              </th>
+
+              {/* Sticky Column 3: NAMA (dengan border & shadow pembatas) */}
+              <th
+                className={cn(
+                  TH_BASE,
+                  "left-[244px] z-30 w-[140px] border-r-2 border-slate-400/60 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.15)] text-left",
+                )}
+                style={{ left: 244, width: 140, minWidth: 140 }}
+              >
+                Nama
+              </th>
+
+              {/* Non-sticky Columns */}
+              <th className={cn(TH_BASE, "w-[85px] text-center")}>Kelas</th>
+              <th className={cn(TH_BASE, "w-[50px] text-center")}>Umur</th>
+              <th className={cn(TH_BASE, "w-[90px] text-center")}>Ruangan</th>
+              <th className={cn(TH_BASE, "w-[130px] text-left")}>Diagnosa</th>
+              <th className={cn(TH_BASE, "w-[130px] text-left")}>Tindakan</th>
+              <th className={cn(TH_BASE, "w-[130px] text-left")}>Dokter</th>
+              <th className={cn(TH_BASE, "w-[100px] text-left")}>Hasil lab</th>
+              <th className={cn(TH_BASE, "w-[95px] text-center")}>Asisten</th>
+              <th className={cn(TH_BASE, "w-[95px] text-center")}>Sirkuler</th>
+              <th className={cn(TH_BASE, "w-[95px] text-center")}>Logger</th>
+              <th className={cn(TH_BASE, "w-[120px] text-left")}>Keterangan</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, i) => (
-              <tr
-                key={row.id}
-                className="hover:bg-white/5"
-                onDoubleClick={(e) => {
-                  const t = e.target as HTMLElement;
-                  if (t.closest("input,select,textarea,button")) return;
-                  emitOpenDetail(row.id);
-                }}
-              >
-                <td className={cn(TD, "text-center font-mono")}>
-                  <div className="flex items-center justify-center gap-0.5">
-                    <span>{i + 1}</span>
-                    {txt(row.status).toLowerCase() === "menunggu" ? (
-                      <button
-                        type="button"
-                        title="Hapus draft"
-                        onClick={() => void removeDraft(row)}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded text-zinc-400 hover:bg-red-500/20 hover:text-red-300"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    ) : null}
+            {rows.length === 0 ? (
+              <tr className="bg-white">
+                <td colSpan={15} className="py-16 text-center text-slate-500">
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-[#1B2B44] border border-indigo-100">
+                      <Calendar size={20} />
+                    </div>
+                    <p className="text-sm font-bold text-[#1B2B44]">
+                      Belum ada jadwal pada tanggal ini
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Klik tombol di bawah ini atau icon (+) pada header tabel untuk menambah baris jadwal draft baru.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void addJadwal()}
+                      disabled={creating || crudLoading}
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[#1B2B44] px-4 py-2 text-xs font-bold text-white shadow hover:bg-[#2D4A6E] disabled:opacity-50 transition"
+                    >
+                      {creating ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Plus size={14} />
+                      )}
+                      Tambah Baris Jadwal Baru
+                    </button>
                   </div>
                 </td>
-                {zoomTd(
-                  "center",
-                  <EditableDateCell
-                    variant="table"
-                    value={txt(row.tanggal)}
-                    onDirty={() => markDirty(row.id)}
-                    onCommit={(next) =>
-                      patchField(row.id, { tanggal: next || null })
-                    }
-                  />,
-                )}
-                <td className={cn(TD, JADWAL_ZOOM_CELL_CLASSES)}>
-                  <div className="flex min-w-0 items-center gap-0.5">
-                    <div
+              </tr>
+            ) : (
+              rows.map((row, i) => {
+                const isNew = row.id === newRowHighlightId;
+                return (
+                  <tr
+                    key={row.id}
+                    className={cn(
+                      "group transition-colors duration-200",
+                      isNew
+                        ? "bg-emerald-50/90 hover:bg-emerald-100/90"
+                        : "odd:bg-white even:bg-slate-50/80 hover:bg-[#EEF3FA]",
+                    )}
+                    onDoubleClick={(e) => {
+                      const t = e.target as HTMLElement;
+                      if (t.closest("input,select,textarea,button")) return;
+                      emitOpenDetail(row.id);
+                    }}
+                  >
+                    {/* Sticky TD Col 0: NO */}
+                    <td
                       className={cn(
-                        JADWAL_ZOOM_INNER_CLASSES,
-                        "origin-left min-w-0 flex-1",
+                        TD_BASE,
+                        "sticky left-0 z-10 text-center font-mono font-bold bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
                       )}
+                      style={{ left: 0, width: 44, minWidth: 44 }}
                     >
+                      <div className="flex items-center justify-center gap-0.5">
+                        <span>{i + 1}</span>
+                        {txt(row.status).toLowerCase() === "menunggu" ? (
+                          <button
+                            type="button"
+                            title="Hapus draft"
+                            onClick={() => void removeDraft(row)}
+                            className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-red-500/15 hover:text-red-600"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+
+                    {/* Sticky TD Col 1: HARI/TGL */}
+                    {zoomTd(
+                      "center",
+                      <EditableDateCell
+                        variant="table"
+                        value={txt(row.tanggal)}
+                        onDirty={() => markDirty(row.id)}
+                        onCommit={(next) =>
+                          patchField(row.id, { tanggal: next || null })
+                        }
+                      />,
+                      "sticky left-[44px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
+                    )}
+
+                    {/* Sticky TD Col 2: NO. RM */}
+                    <td
+                      className={cn(
+                        TD_BASE,
+                        JADWAL_ZOOM_CELL_CLASSES,
+                        "sticky left-[134px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
+                      )}
+                      style={{ left: 134, width: 110, minWidth: 110 }}
+                    >
+                      <div className="flex min-w-0 items-center gap-0.5">
+                        <div
+                          className={cn(
+                            JADWAL_ZOOM_INNER_CLASSES,
+                            "origin-left min-w-0 flex-1",
+                          )}
+                        >
+                          <EditableTextCell
+                            variant="table"
+                            value={txt(row.no_rm)}
+                            placeholder="RM"
+                            onDirty={() => markDirty(row.id)}
+                            onCommit={(next) => onRmCommit(row, next)}
+                          />
+                        </div>
+                        {txt(row.no_rm) ? (
+                          <JadwalRmRiwayatPopover
+                            rowId={row.id}
+                            noRm={txt(row.no_rm)}
+                            pasienId={row.pasien_id}
+                            tanggal={row.tanggal}
+                            waktu={row.waktu}
+                            tindakan={row.tindakan}
+                            onOpenDetail={emitOpenDetail}
+                          />
+                        ) : null}
+                      </div>
+                    </td>
+
+                    {/* Sticky TD Col 3: NAMA (Floating border & shadow) */}
+                    {zoomTd(
+                      "left",
                       <EditableTextCell
                         variant="table"
-                        value={txt(row.no_rm)}
-                        placeholder="RM"
+                        value={txt(row.nama_pasien)}
+                        placeholder="Nama"
                         onDirty={() => markDirty(row.id)}
-                        onCommit={(next) => onRmCommit(row, next)}
-                      />
-                    </div>
-                    {txt(row.no_rm) ? (
-                      <JadwalRmRiwayatPopover
-                        rowId={row.id}
-                        noRm={txt(row.no_rm)}
-                        pasienId={row.pasien_id}
-                        tanggal={row.tanggal}
-                        waktu={row.waktu}
-                        tindakan={row.tindakan}
-                        onOpenDetail={emitOpenDetail}
-                      />
-                    ) : null}
-                  </div>
-                </td>
-                {zoomTd(
-                  "left",
-                  <EditableTextCell
-                    variant="table"
-                    value={txt(row.nama_pasien)}
-                    placeholder="Nama"
-                    onDirty={() => markDirty(row.id)}
-                    onCommit={(next) =>
-                      patchField(row.id, {
-                        nama_pasien: next || null,
-                        nama: next || null,
-                      })
-                    }
-                  />,
-                )}
-                {zoomTd(
-                  "center",
-                  <EditableTextCell
-                    variant="table"
-                    value={txt(row.kelas_pembiayaan)}
-                    placeholder="NPBI - 1"
-                    onDirty={() => markDirty(row.id)}
-                    onCommit={(next) =>
-                      patchField(row.id, {
-                        kelas_pembiayaan: next || null,
-                      })
-                    }
-                  />,
-                )}
-                <td className={cn(TD, "text-center text-white/90")}>
-                  {txt(row.umur) || "—"}
-                </td>
-                {zoomTd(
-                  "center",
-                  <EditableRuanganCell
-                    value={txt(row.ruangan)}
-                    ruanganMaster={ruanganOptions}
-                    loading={ruanganLoading}
-                    listboxId={`jadwal-ruang-${row.id}`}
-                    onCommit={(next) => {
-                      markDirty(row.id);
-                      return patchField(row.id, { ruangan: next || null });
-                    }}
-                  />,
-                )}
-                {zoomTd(
-                  "left",
-                  <EditableTextCell
-                    variant="table"
-                    value={txt(row.diagnosa)}
-                    placeholder="Diagnosa"
-                    onDirty={() => markDirty(row.id)}
-                    onCommit={(next) =>
-                      patchField(row.id, { diagnosa: next || null })
-                    }
-                  />,
-                )}
-                {zoomTd(
-                  "left",
-                  <EditableMasterTindakanCell
-                    value={txt(row.tindakan)}
-                    masterOptions={tindakanOptions}
-                    loading={tindakanLoading}
-                    listboxId={`jadwal-tin-${row.id}`}
-                    onCommit={(next) => {
-                      markDirty(row.id);
-                      return patchField(row.id, { tindakan: next || null });
-                    }}
-                  />,
-                )}
-                {zoomTd(
-                  "left",
-                  <EditableDokterCell
-                    value={txt(row.dokter)}
-                    doctorOptionsMaster={doctorOptions}
-                    dokterOptions={doctorOptions.map((d) => d.nama_dokter)}
-                    loading={doctorsLoading}
-                    listboxId={`jadwal-dok-${row.id}`}
-                    onCommit={(next) => {
-                      markDirty(row.id);
-                      return patchField(row.id, { dokter: next || null });
-                    }}
-                  />,
-                )}
-                {zoomTd(
-                  "left",
-                  <EditableTextCell
-                    variant="table"
-                    value={txt(row.hasil_lab_ppm)}
-                    placeholder="Lab"
-                    onDirty={() => markDirty(row.id)}
-                    onCommit={(next) =>
-                      patchField(row.id, { hasil_lab_ppm: next || null })
-                    }
-                  />,
-                )}
-                {zoomTd(
-                  "center",
-                  <EditablePerawatCell
-                    value={txt(row.asisten)}
-                    perawatMaster={perawatOptions}
-                    loading={perawatLoading}
-                    listboxId={`jadwal-as-${row.id}`}
-                    onCommit={(next) => {
-                      markDirty(row.id);
-                      return patchField(row.id, { asisten: next || null });
-                    }}
-                  />,
-                )}
-                {zoomTd(
-                  "center",
-                  <EditablePerawatCell
-                    value={txt(row.sirkuler)}
-                    perawatMaster={perawatOptions}
-                    loading={perawatLoading}
-                    listboxId={`jadwal-sk-${row.id}`}
-                    onCommit={(next) => {
-                      markDirty(row.id);
-                      return patchField(row.id, { sirkuler: next || null });
-                    }}
-                  />,
-                )}
-                {zoomTd(
-                  "center",
-                  <EditablePerawatCell
-                    value={txt(row.logger)}
-                    perawatMaster={perawatOptions}
-                    loading={perawatLoading}
-                    listboxId={`jadwal-lg-${row.id}`}
-                    onCommit={(next) => {
-                      markDirty(row.id);
-                      return patchField(row.id, { logger: next || null });
-                    }}
-                  />,
-                )}
-                {zoomTd(
-                  "left",
-                  <EditableTextCell
-                    variant="table"
-                    value={txt(row.keterangan)}
-                    placeholder="Ket"
-                    onDirty={() => markDirty(row.id)}
-                    onCommit={(next) =>
-                      patchField(row.id, { keterangan: next || null })
-                    }
-                  />,
-                )}
-              </tr>
-            ))}
+                        onCommit={(next) =>
+                          patchField(row.id, {
+                            nama_pasien: next || null,
+                            nama: next || null,
+                          })
+                        }
+                      />,
+                      "sticky left-[244px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r-2 border-slate-300 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.12)]",
+                    )}
+
+                    {/* Non-sticky Cells */}
+                    {zoomTd(
+                      "center",
+                      <EditableTextCell
+                        variant="table"
+                        value={txt(row.kelas_pembiayaan)}
+                        placeholder="NPBI - 1"
+                        onDirty={() => markDirty(row.id)}
+                        onCommit={(next) =>
+                          patchField(row.id, {
+                            kelas_pembiayaan: next || null,
+                          })
+                        }
+                      />,
+                    )}
+                    <td className={cn(TD_BASE, "text-center text-slate-700 font-semibold")}>
+                      {txt(row.umur) || "—"}
+                    </td>
+                    {zoomTd(
+                      "center",
+                      <EditableRuanganCell
+                        value={txt(row.ruangan)}
+                        ruanganMaster={ruanganOptions}
+                        loading={ruanganLoading}
+                        listboxId={`jadwal-ruang-${row.id}`}
+                        onCommit={(next) => {
+                          markDirty(row.id);
+                          return patchField(row.id, { ruangan: next || null });
+                        }}
+                      />,
+                    )}
+                    {zoomTd(
+                      "left",
+                      <EditableTextCell
+                        variant="table"
+                        value={txt(row.diagnosa)}
+                        placeholder="Diagnosa"
+                        onDirty={() => markDirty(row.id)}
+                        onCommit={(next) =>
+                          patchField(row.id, { diagnosa: next || null })
+                        }
+                      />,
+                    )}
+                    {zoomTd(
+                      "left",
+                      <EditableMasterTindakanCell
+                        value={txt(row.tindakan)}
+                        masterOptions={tindakanOptions}
+                        loading={tindakanLoading}
+                        listboxId={`jadwal-tin-${row.id}`}
+                        onCommit={(next) => {
+                          markDirty(row.id);
+                          return patchField(row.id, { tindakan: next || null });
+                        }}
+                      />,
+                    )}
+                    {zoomTd(
+                      "left",
+                      <EditableDokterCell
+                        value={txt(row.dokter)}
+                        doctorOptionsMaster={doctorOptions}
+                        dokterOptions={doctorOptions.map((d) => d.nama_dokter)}
+                        loading={doctorsLoading}
+                        listboxId={`jadwal-dok-${row.id}`}
+                        onCommit={(next) => {
+                          markDirty(row.id);
+                          return patchField(row.id, { dokter: next || null });
+                        }}
+                      />,
+                    )}
+                    {zoomTd(
+                      "left",
+                      <EditableTextCell
+                        variant="table"
+                        value={txt(row.hasil_lab_ppm)}
+                        placeholder="Lab"
+                        onDirty={() => markDirty(row.id)}
+                        onCommit={(next) =>
+                          patchField(row.id, { hasil_lab_ppm: next || null })
+                        }
+                      />,
+                    )}
+                    {zoomTd(
+                      "center",
+                      <EditablePerawatCell
+                        value={txt(row.asisten)}
+                        perawatMaster={perawatOptions}
+                        loading={perawatLoading}
+                        listboxId={`jadwal-as-${row.id}`}
+                        onCommit={(next) => {
+                          markDirty(row.id);
+                          return patchField(row.id, { asisten: next || null });
+                        }}
+                      />,
+                    )}
+                    {zoomTd(
+                      "center",
+                      <EditablePerawatCell
+                        value={txt(row.sirkuler)}
+                        perawatMaster={perawatOptions}
+                        loading={perawatLoading}
+                        listboxId={`jadwal-sk-${row.id}`}
+                        onCommit={(next) => {
+                          markDirty(row.id);
+                          return patchField(row.id, { sirkuler: next || null });
+                        }}
+                      />,
+                    )}
+                    {zoomTd(
+                      "center",
+                      <EditablePerawatCell
+                        value={txt(row.logger)}
+                        perawatMaster={perawatOptions}
+                        loading={perawatLoading}
+                        listboxId={`jadwal-lg-${row.id}`}
+                        onCommit={(next) => {
+                          markDirty(row.id);
+                          return patchField(row.id, { logger: next || null });
+                        }}
+                      />,
+                    )}
+                    {zoomTd(
+                      "left",
+                      <EditableTextCell
+                        variant="table"
+                        value={txt(row.keterangan)}
+                        placeholder="Ket"
+                        onDirty={() => markDirty(row.id)}
+                        onCommit={(next) =>
+                          patchField(row.id, { keterangan: next || null })
+                        }
+                      />,
+                    )}
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       )}
@@ -814,32 +931,43 @@ export default function JadwalCathModal({
   const shell = (
     <div
       className={cn(
-        "flex h-full min-h-0 flex-col bg-zinc-950 text-white",
+        "flex h-full min-h-0 flex-col bg-slate-50 text-slate-800 font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
         fullscreen &&
           cn("fixed inset-0 h-dvh w-screen", UI_LAYERS.fullscreen),
       )}
     >
-      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3 py-2 sm:px-4">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600">
-            <Calendar size={16} />
+      {/* Header — Tema Laporan MUTU (Navy Gradient) */}
+      <header className="relative flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-gradient-to-r from-[#1B2B44] to-[#2D4A6E] px-4 py-3 sm:px-5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-400/20 text-amber-300 border border-amber-300/30">
+            <Calendar size={18} strokeWidth={2.25} />
           </div>
-          <h2 className="truncate text-sm font-black tracking-tight sm:text-base">
-            Jadwal Tindakan Cath Lab
-          </h2>
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-black tracking-tight text-white sm:text-lg">
+              Jadwal Tindakan Cath Lab
+            </h2>
+            <p className="hidden sm:block truncate text-[11px] font-medium text-slate-200">
+              Tabel sinkronisasi jadwal real-time · Klik 2x pada baris untuk membuka Detail Drawer Pasien
+            </p>
+          </div>
         </div>
-        {!fullscreen ? (
-          <button
-            type="button"
-            onClick={handleClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-zinc-800 hover:bg-red-500/20 hover:text-red-300"
-          >
-            <X size={16} />
-          </button>
-        ) : null}
+
+        <div className="flex items-center gap-2">
+          {!fullscreen ? (
+            <button
+              type="button"
+              onClick={handleClose}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-slate-200 hover:bg-white/20 hover:text-white transition"
+              title="Tutup Modal"
+            >
+              <X size={17} />
+            </button>
+          ) : null}
+        </div>
       </header>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/5 px-3 py-2 sm:px-4">
+      {/* Sub-Header / Control Toolbar */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-100 px-3 py-2 sm:px-4">
         <input
           type="date"
           value={selectedDate}
@@ -847,49 +975,59 @@ export default function JadwalCathModal({
             setRangeMode("day");
             setSelectedDate(e.target.value || today);
           }}
-          className="h-9 min-h-9 rounded-lg border border-white/15 bg-zinc-900 px-2 text-sm text-white [color-scheme:dark]"
+          className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
         />
-        <button
-          type="button"
-          onClick={() => void addJadwal()}
-          disabled={creating || crudLoading}
-          className="inline-flex h-9 min-h-9 items-center gap-1.5 rounded-lg bg-violet-600 px-3 text-xs font-black uppercase tracking-wide hover:bg-violet-500 disabled:opacity-50"
-        >
-          {creating ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <Plus size={14} />
+
+        {/* Ringkasan Jumlah Jadwal */}
+        <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-sm">
+          <span>Total: <strong className="font-extrabold text-[#1B2B44]">{stats.total}</strong></span>
+          <span className="text-slate-300">·</span>
+          <span>Menunggu: <strong className="font-extrabold text-amber-700">{stats.waiting}</strong></span>
+          {stats.processing > 0 && (
+            <>
+              <span className="text-slate-300">·</span>
+              <span>Proses: <strong className="font-extrabold text-cyan-700">{stats.processing}</strong></span>
+            </>
           )}
-          Tambah Jadwal
-        </button>
-        <div className="ml-auto flex items-center gap-1">
+          {stats.done > 0 && (
+            <>
+              <span className="text-slate-300">·</span>
+              <span>Selesai: <strong className="font-extrabold text-emerald-700">{stats.done}</strong></span>
+            </>
+          )}
+        </div>
+
+        <div className="ml-auto flex items-center gap-1.5">
           <button
             type="button"
             title="Salin jadwal ke WhatsApp"
             aria-label="Salin jadwal ke WhatsApp"
             disabled={waDisabled}
             onClick={() => void copyWa()}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-40"
+            className="inline-flex h-8 items-center gap-1 rounded-lg border border-emerald-600/40 bg-emerald-50 px-2.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 transition shadow-sm"
           >
-            <MessageCircle size={16} />
+            <MessageCircle size={15} />
+            <span className="hidden sm:inline">Salin WA</span>
           </button>
           <button
             type="button"
             title={fullscreen ? "Keluar layar penuh" : "Layar penuh"}
             aria-label={fullscreen ? "Keluar layar penuh" : "Layar penuh"}
             onClick={() => setFullscreen((v) => !v)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/15"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm transition"
           >
-            {fullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            {fullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
           </button>
         </div>
       </div>
 
+      {/* Main Table Block */}
       {tableBlock}
 
-      <footer className="flex shrink-0 items-center gap-1 overflow-x-auto border-t border-white/5 px-2 py-1.5">
-        <span className="shrink-0 px-1 text-[9px] font-bold uppercase tracking-wider text-zinc-500">
-          Bulan:
+      {/* Footer Month Tabs — Soft Navy Gradient */}
+      <footer className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-t border-slate-300 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] px-3 py-2">
+        <span className="shrink-0 px-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+          Filter Bulan:
         </span>
         {BULAN_TAB.map((tab) => {
           const active = rangeMode === "month" && month === tab.month;
@@ -910,15 +1048,15 @@ export default function JadwalCathModal({
                 setSelectedDate(`${year}-${mm}-01`);
               }}
               className={cn(
-                "relative h-8 shrink-0 rounded-md px-2.5 text-[9px] font-black uppercase tracking-widest",
+                "relative h-7 shrink-0 rounded-md px-2.5 text-[10px] font-black uppercase tracking-wider transition",
                 active
-                  ? "bg-white text-black"
-                  : "bg-white/5 text-zinc-400 hover:text-white",
+                  ? "bg-white text-[#1B2B44] shadow-sm border border-slate-300"
+                  : "bg-white/40 text-slate-700 hover:bg-white hover:text-slate-900 border border-transparent",
               )}
             >
               {tab.label}
               {isNow && !active ? (
-                <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-violet-400" />
+                <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-indigo-600" />
               ) : null}
             </button>
           );
@@ -939,7 +1077,7 @@ export default function JadwalCathModal({
       isWide
       solidBackdrop
       zIndex={130}
-      className="h-[95vh] max-w-[98vw] overflow-hidden rounded-[1.5rem] border-white/10 bg-zinc-950 p-0 shadow-2xl sm:rounded-[2rem]"
+      className="h-[95vh] max-w-[98vw] overflow-hidden rounded-[1.5rem] border-slate-300 bg-slate-50 p-0 shadow-2xl sm:rounded-[2rem]"
     >
       {shell}
     </ModalWrapper>

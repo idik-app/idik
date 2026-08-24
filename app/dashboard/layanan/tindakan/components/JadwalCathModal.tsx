@@ -720,7 +720,7 @@ export default function JadwalCathModal({
           </span>
         </div>
       ) : (
-        <table className="w-full min-w-[1400px] border-collapse text-xs text-slate-800">
+        <table className="w-full min-w-[1450px] table-fixed border-collapse text-xs text-slate-800">
           <thead>
             <tr>
               {/* Sticky Column 0: NO & Add button */}
@@ -745,15 +745,15 @@ export default function JadwalCathModal({
               {/* Sticky Column 1: HARI/TGL */}
               <th
                 className={cn(TH_BASE, "left-[40px] z-30 border-r border-white/20 text-center")}
-                style={{ left: 40, width: 90, minWidth: 90 }}
+                style={{ left: 40, width: 115, minWidth: 115 }}
               >
                 Hari/tgl
               </th>
 
               {/* Sticky Column 2: NO. RM */}
               <th
-                className={cn(TH_BASE, "left-[130px] z-30 border-r border-white/20 text-center")}
-                style={{ left: 130, width: 90, minWidth: 90 }}
+                className={cn(TH_BASE, "left-[155px] z-30 border-r border-white/20 text-center")}
+                style={{ left: 155, width: 105, minWidth: 105 }}
               >
                 No. RM
               </th>
@@ -762,9 +762,9 @@ export default function JadwalCathModal({
               <th
                 className={cn(
                   TH_BASE,
-                  "left-[220px] z-30 border-r-2 border-slate-400/60 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.15)] text-left",
+                  "left-[260px] z-30 border-r-2 border-slate-400/60 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.15)] text-left",
                 )}
-                style={{ left: 220, width: 150, minWidth: 150 }}
+                style={{ left: 260, width: 160, minWidth: 160 }}
               >
                 Nama
               </th>
@@ -842,7 +842,7 @@ export default function JadwalCathModal({
                       }
                     />,
                     "sticky left-[40px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
-                    { left: 40, width: 90, minWidth: 90 },
+                    { left: 40, width: 115, minWidth: 115 },
                   )}
 
                   {/* Sticky TD Col 2: NO. RM */}
@@ -850,9 +850,9 @@ export default function JadwalCathModal({
                     className={cn(
                       TD_BASE,
                       JADWAL_ZOOM_CELL_CLASSES,
-                      "sticky left-[130px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
+                      "sticky left-[155px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
                     )}
-                    style={{ left: 130, width: 90, minWidth: 90 }}
+                    style={{ left: 155, width: 105, minWidth: 105 }}
                   >
                     <div className="flex min-w-0 items-center gap-0.5">
                       <div
@@ -898,8 +898,8 @@ export default function JadwalCathModal({
                         })
                       }
                     />,
-                    "sticky left-[220px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r-2 border-slate-300 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.12)]",
-                    { left: 220, width: 150, minWidth: 150 },
+                    "sticky left-[260px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r-2 border-slate-300 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.12)]",
+                    { left: 260, width: 160, minWidth: 160 },
                   )}
 
                   {/* Non-sticky Cells */}

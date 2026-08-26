@@ -222,7 +222,7 @@ const TINDAKAN_TABLE_INPUT_TEXT =
 const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
   "text-amber-800 placeholder:text-amber-700/55 dark:text-white dark:placeholder:text-white/90";
 
-const ZOOM_CELL_CLASSES = `focus-within:${UI_LAYERS.tableZoomedCell} focus-within:relative`;
+const ZOOM_CELL_CLASSES = `focus-within:${UI_LAYERS.tableZoomedCell}`;
 const ZOOM_INNER_CLASSES = "";
 
 /** Highlight sel terpilih (seleksi blok seperti spreadsheet) */

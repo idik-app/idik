@@ -850,17 +850,17 @@ export default function JadwalCathModal({
                     className={cn(
                       TD_BASE,
                       JADWAL_ZOOM_CELL_CLASSES,
-                      "sticky left-[155px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
+                      "sticky left-[155px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80 px-0.5",
                     )}
                     style={{ left: 155, width: 105, minWidth: 105 }}
                   >
-                    <div className="flex min-w-0 items-center gap-0.5">
-                      <div
-                        className={cn(
-                          JADWAL_ZOOM_INNER_CLASSES,
-                          "origin-left min-w-0 flex-1",
-                        )}
-                      >
+                    <div
+                      className={cn(
+                        JADWAL_ZOOM_INNER_CLASSES,
+                        "origin-center min-w-0 w-full flex items-center justify-between gap-0.5 px-0.5",
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
                         <EditableTextCell
                           variant="table"
                           value={txt(row.no_rm)}

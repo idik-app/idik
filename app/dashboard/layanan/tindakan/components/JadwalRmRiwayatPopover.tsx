@@ -218,9 +218,9 @@ export default function JadwalRmRiwayatPopover({
           onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           className={cn(
-            "inline-flex h-9 min-h-9 w-9 min-w-9 shrink-0 items-center justify-center rounded-md",
-            "text-amber-400 hover:bg-amber-500/15 hover:text-amber-300",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50",
+            "inline-flex h-5 w-5 min-h-5 min-w-5 shrink-0 items-center justify-center rounded",
+            "text-amber-600 hover:bg-amber-500/15 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-500/50",
           )}
         >
           <History size={14} strokeWidth={2.5} />

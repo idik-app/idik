@@ -38,9 +38,9 @@ export const JADWAL_TABLE_INPUT = JADWAL_LIGHT_INPUT;
 
 /** Zoom sel fokus di modal Jadwal Cath Lab (compact 14 kolom). */
 export const JADWAL_ZOOM_CELL_CLASSES =
-  "focus-within:relative focus-within:z-[80]";
+  "focus-within:z-[80]";
 export const JADWAL_ZOOM_INNER_CLASSES = cn(
-  "min-w-0 w-full rounded transition-all duration-150 ease-out p-0.5",
+  "min-w-0 w-full rounded transition-all duration-150 ease-out p-0.5 overflow-hidden",
   "focus-within:bg-[#EEF2FF] focus-within:ring-2 focus-within:ring-indigo-600 focus-within:rounded-md",
 );
 

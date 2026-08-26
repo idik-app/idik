@@ -78,6 +78,15 @@ export async function middleware(req: NextRequest) {
   // 2. Terapkan Security Headers ke semua response (termasuk redirect)
   res = applySecurityHeaders(res);
 
+  // Bypass static files & media assets (sfx, sounds, images, fonts, etc.)
+  if (
+    pathname.startsWith("/sfx/") ||
+    pathname.startsWith("/sounds/") ||
+    /\.(png|jpg|jpeg|gif|svg|webp|ico|mp3|wav|ogg|woff2?|ttf|eot)$/i.test(pathname)
+  ) {
+    return res;
+  }
+
   // 3. Bypass Auth untuk Rute Publik
   const isPublicApi = PUBLIC_API_ROUTES.some((route) => pathname.startsWith(route));
   /** Login & logout JWT (`app/api/auth/route.ts`) — tanpa cookie; jangan pakai prefix `/api/auth` agar `/api/auth/me` tetap terlindungi. */
@@ -216,7 +225,7 @@ export const config = {
     "/system/:path*",
     "/distributor/:path*",
     "/depo/:path*",
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sfx/|sounds/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|mp3|wav|ogg|woff|woff2|ttf|eot)$).*)",
   ],
 };
 

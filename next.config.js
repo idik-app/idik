@@ -16,6 +16,20 @@ const nextConfig = {
   // ✅ Supabase SSR: gunakan opsi stabil untuk paket eksternal
   serverExternalPackages: ["@supabase/ssr"],
 
+  // ✅ Optimasi impor paket besar untuk mempercepat dev build
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "recharts",
+      "@hello-pangea/dnd",
+      "date-fns",
+      "@mui/x-data-grid",
+      "ag-grid-react",
+      "framer-motion",
+      "react-bootstrap-icons",
+    ],
+  },
+
   // ✅ Konfigurasi gambar
   images: {
     remotePatterns: [

@@ -239,27 +239,43 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
   }, [phase, reducedMotion, isMobile]);
 
   useEffect(() => {
-    ambientRef.current = new Audio("/sfx/ambient-sot.mp3");
-    heartbeatRef.current = new Audio("/sfx/heartbeat-soft.mp3");
+    try {
+      const amb = new Audio("/sfx/ambient-sot.mp3");
+      amb.onerror = () => { ambientRef.current = null; };
+      ambientRef.current = amb;
+    } catch {
+      ambientRef.current = null;
+    }
+
+    try {
+      const hb = new Audio("/sfx/heartbeat-soft.mp3");
+      hb.onerror = () => { heartbeatRef.current = null; };
+      heartbeatRef.current = hb;
+    } catch {
+      heartbeatRef.current = null;
+    }
+
     const ambient = ambientRef.current;
     const heartbeat = heartbeatRef.current;
 
-    ambient.loop = heartbeat.loop = true;
-    ambient.volume = heartbeat.volume = 0;
+    if (ambient) ambient.loop = true;
+    if (heartbeat) heartbeat.loop = true;
+    if (ambient) ambient.volume = 0;
+    if (heartbeat) heartbeat.volume = 0;
 
     // hanya mulai saat user sudah berinteraksi
     const startAudio = () => {
       if (audioStartedRef.current) return;
       audioStartedRef.current = true;
 
-      ambient.play().catch(() => {});
-      heartbeat.play().catch(() => {});
+      if (ambientRef.current) ambientRef.current.play().catch(() => {});
+      if (heartbeatRef.current) heartbeatRef.current.play().catch(() => {});
 
       let vol = 0;
       fadeIntervalRef.current = setInterval(() => {
         vol = Math.min(1, vol + 0.02);
-        ambient.volume = Math.min(vol * 0.25, 0.25);
-        heartbeat.volume = Math.min(vol * 0.1, 0.1);
+        if (ambient) ambient.volume = Math.min(vol * 0.25, 0.25);
+        if (heartbeat) heartbeat.volume = Math.min(vol * 0.1, 0.1);
         if (vol >= 1 && fadeIntervalRef.current) {
           clearInterval(fadeIntervalRef.current);
           fadeIntervalRef.current = null;
@@ -279,8 +295,8 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
     return () => {
       window.removeEventListener("keydown", onFirstKeyDown);
       if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
-      ambient.pause();
-      heartbeat.pause();
+      if (ambient) ambient.pause();
+      if (heartbeat) heartbeat.pause();
     };
   }, []);
 

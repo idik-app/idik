@@ -51,8 +51,10 @@ import {
   JADWAL_ZOOM_INNER_CLASSES,
   extractCalendarDateKey,
 } from "./cells/EditableCells";
+import { mutate } from "swr";
 import { buildJadwalElektifWhatsApp } from "../lib/buildJadwalElektifWhatsApp";
 import JadwalRmRiwayatPopover from "./JadwalRmRiwayatPopover";
+import TambahPasienQuickModal from "./TambahPasienQuickModal";
 
 const BULAN_TAB = [
   { label: "JAN", month: 1 },
@@ -204,8 +206,13 @@ export default function JadwalCathModal({
   const { perawat, isLoading: perawatLoading } = useMasterPerawat();
 
   const today = todayWibYmd();
+  const todayParts = ymdParts(today);
+  /** Tanggal untuk Salin WA + baris baru (date picker). */
   const [selectedDate, setSelectedDate] = useState(today);
-  const [rangeMode, setRangeMode] = useState<"day" | "month">("day");
+  /** Default: seluruh tanggal bulan berjalan. */
+  const [rangeMode, setRangeMode] = useState<"day" | "month">("month");
+  const [filterYear, setFilterYear] = useState(todayParts.year);
+  const [filterMonth, setFilterMonth] = useState(todayParts.month);
   const [draftByRowId, setDraftByRowId] = useState<
     Record<string, Partial<JadwalRow>>
   >({});
@@ -214,13 +221,15 @@ export default function JadwalCathModal({
   const [newRowHighlightId, setNewRowHighlightId] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [addPasienOpen, setAddPasienOpen] = useState(false);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { year, month } = ymdParts(selectedDate);
   const { from, to } =
     rangeMode === "month"
-      ? monthRange(year, month)
+      ? monthRange(filterYear, filterMonth)
       : { from: selectedDate, to: selectedDate };
+  /** Tanggal kasus baru: date picker; di mode bulan tetap hari yang dipilih (default hari ini). */
+  const newRowDate = selectedDate || today;
 
   const doctorOptions = useMemo<DoctorOption[]>(
     () =>
@@ -324,100 +333,8 @@ export default function JadwalCathModal({
     );
   }, [sourceMapped, from, to, pinnedRows, draftByRowId, dirtyIds]);
 
-  /** Spreadsheet Grid Mode: selalu sediakan baris sel input kosong saat 0 rows, atau 1 baris draft ekstra di paling bawah. */
-  const displayRows = useMemo(() => {
-    if (rows.length === 0) {
-      return [
-        {
-          id: "temp-draft-0",
-          tanggal: selectedDate,
-          no_rm: null,
-          nama_pasien: null,
-          kelas_pembiayaan: null,
-          umur: null,
-          ruangan: null,
-          diagnosa: null,
-          tindakan: null,
-          dokter: null,
-          hasil_lab_ppm: null,
-          asisten: null,
-          sirkuler: null,
-          logger: null,
-          keterangan: null,
-          waktu: null,
-          status: "Menunggu",
-          pasien_id: null,
-          kategori: "Cathlab",
-        },
-        {
-          id: "temp-draft-1",
-          tanggal: selectedDate,
-          no_rm: null,
-          nama_pasien: null,
-          kelas_pembiayaan: null,
-          umur: null,
-          ruangan: null,
-          diagnosa: null,
-          tindakan: null,
-          dokter: null,
-          hasil_lab_ppm: null,
-          asisten: null,
-          sirkuler: null,
-          logger: null,
-          keterangan: null,
-          waktu: null,
-          status: "Menunggu",
-          pasien_id: null,
-          kategori: "Cathlab",
-        },
-        {
-          id: "temp-draft-2",
-          tanggal: selectedDate,
-          no_rm: null,
-          nama_pasien: null,
-          kelas_pembiayaan: null,
-          umur: null,
-          ruangan: null,
-          diagnosa: null,
-          tindakan: null,
-          dokter: null,
-          hasil_lab_ppm: null,
-          asisten: null,
-          sirkuler: null,
-          logger: null,
-          keterangan: null,
-          waktu: null,
-          status: "Menunggu",
-          pasien_id: null,
-          kategori: "Cathlab",
-        },
-      ] as JadwalRow[];
-    }
-
-    const extraBottom: JadwalRow = {
-      id: "temp-draft-bottom",
-      tanggal: selectedDate,
-      no_rm: null,
-      nama_pasien: null,
-      kelas_pembiayaan: null,
-      umur: null,
-      ruangan: null,
-      diagnosa: null,
-      tindakan: null,
-      dokter: null,
-      hasil_lab_ppm: null,
-      asisten: null,
-      sirkuler: null,
-      logger: null,
-      keterangan: null,
-      waktu: null,
-      status: "Menunggu",
-      pasien_id: null,
-      kategori: "Cathlab",
-    };
-
-    return [...rows, extraBottom];
-  }, [rows, selectedDate]);
+  /** Tanpa baris hantu yang bisa POST kosong — hanya data nyata. */
+  const displayRows = useMemo(() => rows, [rows]);
 
   const stats = useMemo(() => {
     let waiting = 0;
@@ -438,55 +355,45 @@ export default function JadwalCathModal({
       setDraftByRowId({});
       setDirtyIds(new Set());
       setNewRowHighlightId(null);
+      setAddPasienOpen(false);
     }
   }, [open]);
 
   useEffect(() => {
     if (!open || !fullscreen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFullscreen(false);
+      if (e.key === "Escape") {
+        if (addPasienOpen) return;
+        setFullscreen(false);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, fullscreen]);
+  }, [open, fullscreen, addPasienOpen]);
 
   const handleClose = useCallback(() => {
+    if (addPasienOpen) return;
     void onSyncMainTable?.({ force: true });
     onClose();
-  }, [onClose, onSyncMainTable]);
+  }, [addPasienOpen, onClose, onSyncMainTable]);
+
+  const openTambahPasien = useCallback(() => {
+    setAddPasienOpen(true);
+  }, []);
 
   const patchField = useCallback(
     async (id: string, patch: Record<string, unknown>) => {
       try {
+        if (id.startsWith("temp-draft-")) {
+          openTambahPasien();
+          return false;
+        }
+
         const patchWithCathlab = {
           kategori: "Cathlab",
           ruangan: (patch.ruangan as string) || "Cathlab",
           ...patch,
         };
-
-        if (id.startsWith("temp-draft-")) {
-          const payload = {
-            tanggal: selectedDate,
-            status: "Menunggu",
-            kategori: "Cathlab",
-            ruangan: "Cathlab",
-            ...patch,
-          };
-          const created = onCreateRecord
-            ? await onCreateRecord(payload)
-            : await createOne(payload);
-          const realId = String((created as { id?: string } | null)?.id ?? "");
-          if (realId) {
-            const local: JadwalRow = mapApiRow({ id: realId, ...payload });
-            setPinnedRows((prev) => [local, ...prev.filter((r) => r.id !== realId)]);
-            setNewRowHighlightId(realId);
-            setTimeout(() => setNewRowHighlightId(null), 3000);
-            show({ type: "success", message: "Jadwal tersimpan." });
-            scheduleSync();
-            return true;
-          }
-          return false;
-        }
 
         await updateOne(id, patchWithCathlab);
         setPinnedRows((prev) =>
@@ -509,7 +416,7 @@ export default function JadwalCathModal({
         return false;
       }
     },
-    [clearDirty, createOne, onCreateRecord, onPatchRow, scheduleSync, selectedDate, show, updateOne],
+    [clearDirty, onPatchRow, openTambahPasien, scheduleSync, show, updateOne],
   );
 
   const onRmCommit = useCallback(
@@ -530,17 +437,22 @@ export default function JadwalCathModal({
         const umurTeks = p.tanggalLahir
           ? hitungUsia(p.tanggalLahir).teks
           : "";
-        const dup = rows.some(
-          (r) =>
+        const rowTanggal =
+          extractCalendarDateKey(txt(row.tanggal)) ?? txt(row.tanggal);
+        const dup = rows.some((r) => {
+          const t =
+            extractCalendarDateKey(txt(r.tanggal)) ?? txt(r.tanggal);
+          return (
             r.id !== row.id &&
             txt(r.no_rm) === rm &&
-            txt(r.tanggal) === txt(row.tanggal),
-        );
+            t === rowTanggal
+          );
+        });
         if (dup) {
-          show({
-            type: "warning",
-            message: "RM yang sama sudah ada di tanggal ini. Tetap disimpan.",
-          });
+          const ok = window.confirm(
+            "RM yang sama sudah ada di tanggal ini. Tetap simpan sebagai kasus ulang?",
+          );
+          if (!ok) return false;
         }
         const keepNama = !isPlaceholderNama(txt(row.nama_pasien));
         const patch: Record<string, unknown> = {
@@ -565,64 +477,100 @@ export default function JadwalCathModal({
     [patchField, rows, show],
   );
 
-  const addJadwal = useCallback(async () => {
-    setCreating(true);
-    try {
-      const payload = {
-        tanggal: selectedDate,
-        status: "Menunggu",
-        kategori: "Cathlab",
-        ruangan: "Cathlab",
-        nama: "",
-        nama_pasien: "",
-        dokter: "",
-        tindakan: "",
-        no_rm: null,
-        diagnosa: null,
-        kelas_pembiayaan: null,
-      };
-      const created = onCreateRecord
-        ? await onCreateRecord(payload)
-        : await createOne(payload);
-      const id = String((created as { id?: string } | null)?.id ?? "");
-      if (!id) throw new Error("Draft jadwal tidak mengembalikan id.");
-      const local: JadwalRow = {
-        ...mapApiRow({ id, ...payload }),
-      };
-      setPinnedRows((prev) => [local, ...prev.filter((r) => r.id !== id)]);
-      setNewRowHighlightId(id);
-      setTimeout(() => setNewRowHighlightId(null), 3000);
-      show({ type: "success", message: "Baris jadwal ditambahkan." });
-      const fromMain = txt(mainTableDateFrom);
-      const toMain = txt(mainTableDateTo);
-      if (
-        (fromMain && selectedDate < fromMain) ||
-        (toMain && selectedDate > toMain)
-      ) {
-        show({
-          type: "info",
-          message:
-            "Baris tersimpan — sesuaikan filter tabel untuk melihatnya.",
+  /** Buka form Tambah Pasien — jangan POST baris kosong. */
+  const addJadwal = useCallback(() => {
+    openTambahPasien();
+  }, [openTambahPasien]);
+
+  const handleSavedPasienFromJadwal = useCallback(
+    async (patient: Pasien) => {
+      setCreating(true);
+      try {
+        const pasienId = String(patient.id ?? "").trim();
+        const rm = String(patient.noRM ?? "").trim();
+        const nama = String(patient.nama ?? "").trim();
+        const tanggal = newRowDate;
+        const tanggalKey = extractCalendarDateKey(tanggal) ?? tanggal;
+
+        const dup = sourceMapped.some((r) => {
+          if (!isCathlabRow(r)) return false;
+          const t =
+            extractCalendarDateKey(txt(r.tanggal)) ?? txt(r.tanggal);
+          return txt(r.no_rm) === rm && t === tanggalKey && Boolean(rm);
         });
+        if (dup) {
+          const ok = window.confirm(
+            "RM yang sama sudah ada di tanggal ini. Tetap tambah sebagai kasus ulang?",
+          );
+          if (!ok) return;
+        }
+
+        const umurTeks = patient.tanggalLahir
+          ? hitungUsia(patient.tanggalLahir).teks
+          : "";
+        const payload: Record<string, unknown> = {
+          tanggal,
+          pasien_id: pasienId || null,
+          no_rm: rm || null,
+          nama: nama || (rm ? `Pasien ${rm}` : "Pasien"),
+          nama_pasien: nama || (rm ? `Pasien ${rm}` : "Pasien"),
+          dokter: "Belum ditentukan",
+          tindakan: "Belum diisi",
+          status: "Menunggu",
+          kategori: "Cathlab",
+          ruangan: "Cathlab",
+          kelas_pembiayaan: kelasDariPasien(patient) || null,
+          umur: umurTeks || null,
+        };
+
+        const created = onCreateRecord
+          ? await onCreateRecord(payload)
+          : await createOne(payload);
+        const id = String((created as { id?: string } | null)?.id ?? "");
+        if (!id) throw new Error("Draft jadwal tidak mengembalikan id.");
+
+        const local = mapApiRow({ id, ...payload });
+        setPinnedRows((prev) => [local, ...prev.filter((r) => r.id !== id)]);
+        setNewRowHighlightId(id);
+        setTimeout(() => setNewRowHighlightId(null), 3000);
+        void mutate("/api/pasien?compact=1&limit=5000&force=1");
+        show({ type: "success", message: "Pasien & jadwal tersimpan." });
+
+        const fromMain = txt(mainTableDateFrom);
+        const toMain = txt(mainTableDateTo);
+        if (
+          (fromMain && tanggal < fromMain) ||
+          (toMain && tanggal > toMain)
+        ) {
+          show({
+            type: "info",
+            message:
+              "Baris tersimpan — sesuaikan filter tabel untuk melihatnya.",
+          });
+        }
+        void onSyncMainTable?.({ force: true });
+      } catch (e) {
+        show({
+          type: "error",
+          message:
+            e instanceof Error ? e.message : "Gagal menambah jadwal pasien.",
+        });
+      } finally {
+        setCreating(false);
+        setAddPasienOpen(false);
       }
-      void onSyncMainTable?.({ force: true });
-    } catch (e) {
-      show({
-        type: "error",
-        message: e instanceof Error ? e.message : "Gagal menambah jadwal.",
-      });
-    } finally {
-      setCreating(false);
-    }
-  }, [
-    createOne,
-    mainTableDateFrom,
-    mainTableDateTo,
-    onCreateRecord,
-    onSyncMainTable,
-    selectedDate,
-    show,
-  ]);
+    },
+    [
+      createOne,
+      mainTableDateFrom,
+      mainTableDateTo,
+      newRowDate,
+      onCreateRecord,
+      onSyncMainTable,
+      sourceMapped,
+      show,
+    ],
+  );
 
   const removeDraft = useCallback(
     async (row: JadwalRow) => {
@@ -658,10 +606,27 @@ export default function JadwalCathModal({
     [clearDirty, deleteOne, onDeleteRow, onSyncMainTable, show],
   );
 
+  const rowsForWaDay = useMemo(() => {
+    const dayKey = extractCalendarDateKey(selectedDate) ?? selectedDate;
+    return rows.filter((r) => {
+      const t = extractCalendarDateKey(txt(r.tanggal)) ?? txt(r.tanggal);
+      return t === dayKey;
+    });
+  }, [rows, selectedDate]);
+
   const copyWa = useCallback(async () => {
+    const dayRows = rowsForWaDay;
+    const hasRow = dayRows.some((r) => txt(r.nama_pasien) || txt(r.no_rm));
+    if (!hasRow) {
+      show({
+        type: "warning",
+        message: "Belum ada jadwal pada tanggal yang dipilih",
+      });
+      return;
+    }
     const text = buildJadwalElektifWhatsApp({
-      tanggalYmd: rangeMode === "day" ? selectedDate : from,
-      rows: rows.map((r) => ({
+      tanggalYmd: selectedDate,
+      rows: dayRows.map((r) => ({
         nama_pasien: r.nama_pasien,
         no_rm: r.no_rm,
         kelas_pembiayaan: r.kelas_pembiayaan,
@@ -673,20 +638,17 @@ export default function JadwalCathModal({
         ruangan: r.ruangan,
       })),
     });
-    const hasRow = rows.some((r) => txt(r.nama_pasien) || txt(r.no_rm));
-    if (!hasRow) {
-      show({ type: "warning", message: "Belum ada jadwal" });
-      return;
-    }
     try {
       await navigator.clipboard.writeText(text);
       show({ type: "success", message: "Teks jadwal disalin" });
     } catch {
       show({ type: "error", message: "Gagal menyalin ke clipboard." });
     }
-  }, [from, rangeMode, rows, selectedDate, show]);
+  }, [rowsForWaDay, selectedDate, show]);
 
-  const waDisabled = !rows.some((r) => txt(r.nama_pasien) || txt(r.no_rm));
+  const waDisabled = !rowsForWaDay.some(
+    (r) => txt(r.nama_pasien) || txt(r.no_rm),
+  );
   const sourceLoading = rowsSource === undefined;
 
   const zoomTd = (
@@ -719,6 +681,21 @@ export default function JadwalCathModal({
             Memuat jadwal…
           </span>
         </div>
+      ) : displayRows.length === 0 ? (
+        <div className="flex h-40 flex-col items-center justify-center gap-3 text-slate-600">
+          <p className="text-sm font-semibold text-slate-700">
+            Belum ada jadwal Cath Lab di rentang ini.
+          </p>
+          <button
+            type="button"
+            onClick={() => addJadwal()}
+            disabled={creating || crudLoading}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-bold text-[#1B2B44] shadow-sm hover:bg-slate-100 disabled:opacity-50 transition"
+          >
+            <Plus size={14} className="text-[#1B2B44]" />
+            + Tambah Baris Jadwal Baru
+          </button>
+        </div>
       ) : (
         <table className="w-full min-w-[1450px] table-fixed border-collapse text-xs text-slate-800">
           <thead>
@@ -733,7 +710,7 @@ export default function JadwalCathModal({
                   <button
                     type="button"
                     title="Tambah Baris Jadwal Baru"
-                    onClick={() => void addJadwal()}
+                    onClick={() => addJadwal()}
                     disabled={creating || crudLoading}
                     className="inline-flex h-4 w-4 items-center justify-center rounded bg-white/20 text-white hover:bg-emerald-500 hover:text-white transition disabled:opacity-50"
                   >
@@ -787,7 +764,7 @@ export default function JadwalCathModal({
             {displayRows.map((row, i) => {
               const isTemp = row.id.startsWith("temp-draft-");
               const isNew = row.id === newRowHighlightId;
-              const rowNum = isTemp ? (rows.length === 0 ? i + 1 : rows.length + 1) : i + 1;
+              const rowNum = i + 1;
 
               return (
                 <tr
@@ -1064,7 +1041,7 @@ export default function JadwalCathModal({
       <div className="mt-3 flex items-center justify-center">
         <button
           type="button"
-          onClick={() => void addJadwal()}
+          onClick={() => addJadwal()}
           disabled={creating || crudLoading}
           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-bold text-[#1B2B44] shadow-sm hover:bg-slate-100 disabled:opacity-50 transition"
         >
@@ -1122,12 +1099,35 @@ export default function JadwalCathModal({
         <input
           type="date"
           value={selectedDate}
+          title="Tanggal untuk Salin WA & baris baru"
           onChange={(e) => {
-            setRangeMode("day");
-            setSelectedDate(e.target.value || today);
+            const v = e.target.value || today;
+            setSelectedDate(v);
+            const parts = ymdParts(v);
+            setFilterYear(parts.year);
+            setFilterMonth(parts.month);
           }}
           className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
         />
+        <button
+          type="button"
+          title={
+            rangeMode === "day"
+              ? "Tampilkan seluruh bulan"
+              : "Filter tabel ke tanggal yang dipilih"
+          }
+          onClick={() =>
+            setRangeMode((m) => (m === "day" ? "month" : "day"))
+          }
+          className={cn(
+            "h-8 rounded-lg border px-2.5 text-[11px] font-bold shadow-sm transition",
+            rangeMode === "day"
+              ? "border-indigo-500 bg-indigo-50 text-indigo-800"
+              : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
+          )}
+        >
+          {rangeMode === "day" ? "1 hari" : "Bulan"}
+        </button>
 
         {/* Ringkasan Jumlah Jadwal */}
         <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-sm">
@@ -1186,8 +1186,12 @@ export default function JadwalCathModal({
           Filter Bulan:
         </span>
         {BULAN_TAB.map((tab) => {
-          const active = rangeMode === "month" && month === tab.month;
-          const isNow = month === tab.month && rangeMode === "day";
+          const active = rangeMode === "month" && filterMonth === tab.month;
+          const selectedParts = ymdParts(selectedDate);
+          const isNow =
+            filterMonth === tab.month &&
+            selectedParts.month === tab.month &&
+            selectedParts.year === filterYear;
           return (
             <button
               key={tab.label}
@@ -1200,8 +1204,18 @@ export default function JadwalCathModal({
                   if (!ok) return;
                 }
                 setRangeMode("month");
+                setFilterMonth(tab.month);
+                // Jangan paksa selectedDate ke tanggal 1 — pertahankan hari jika memungkinkan.
+                const dayNum = Math.min(
+                  Number(selectedDate.split("-")[2] || "1") || 1,
+                  new Date(filterYear, tab.month, 0).getDate(),
+                );
                 const mm = String(tab.month).padStart(2, "0");
-                setSelectedDate(`${year}-${mm}-01`);
+                const dd = String(dayNum).padStart(2, "0");
+                const nextDate = `${filterYear}-${mm}-${dd}`;
+                if (ymdParts(selectedDate).month !== tab.month) {
+                  setSelectedDate(nextDate);
+                }
               }}
               className={cn(
                 "relative h-7 shrink-0 rounded-md px-2.5 text-[10px] font-black uppercase tracking-wider transition",
@@ -1223,19 +1237,36 @@ export default function JadwalCathModal({
 
   if (!open) return null;
 
+  const pasienModal = addPasienOpen ? (
+    <TambahPasienQuickModal
+      open={addPasienOpen}
+      onClose={() => setAddPasienOpen(false)}
+      onSaved={handleSavedPasienFromJadwal}
+    />
+  ) : null;
+
   if (fullscreen && typeof document !== "undefined") {
-    return createPortal(shell, document.body);
+    return createPortal(
+      <>
+        {shell}
+        {pasienModal}
+      </>,
+      document.body,
+    );
   }
 
   return (
-    <ModalWrapper
-      onClose={handleClose}
-      isWide
-      solidBackdrop
-      zIndex={130}
-      className="h-[95vh] max-w-[98vw] overflow-hidden rounded-[1.5rem] border-slate-300 bg-slate-50 p-0 shadow-2xl sm:rounded-[2rem]"
-    >
-      {shell}
-    </ModalWrapper>
+    <>
+      <ModalWrapper
+        onClose={handleClose}
+        isWide
+        solidBackdrop
+        zIndex={130}
+        className="h-[95vh] max-w-[98vw] overflow-hidden rounded-[1.5rem] border-slate-300 bg-slate-50 p-0 shadow-2xl sm:rounded-[2rem]"
+      >
+        {shell}
+      </ModalWrapper>
+      {pasienModal}
+    </>
   );
 }

@@ -71,6 +71,18 @@ export function extractCalendarDateKey(raw: string): string | null {
     const year = m[3];
     if (mon) return `${year}-${mon}-${day}`;
   }
+  // dd/mm/yyyy or dd-mm-yyyy
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  if (m) {
+    const day = m[1].padStart(2, "0");
+    const mon = m[2].padStart(2, "0");
+    const year = m[3];
+    const mi = Number(mon);
+    const di = Number(day);
+    if (mi >= 1 && mi <= 12 && di >= 1 && di <= 31) {
+      return `${year}-${mon}-${day}`;
+    }
+  }
   return null;
 }
 

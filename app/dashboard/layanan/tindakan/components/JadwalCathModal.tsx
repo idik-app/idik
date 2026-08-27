@@ -111,6 +111,49 @@ function monthRange(year: number, month: number) {
   };
 }
 
+/** Semua tanggal inklusif dari `from`…`to` (yyyy-MM-dd). */
+function eachYmdInclusive(from: string, to: string): string[] {
+  const out: string[] = [];
+  const start = new Date(`${from}T12:00:00`);
+  const end = new Date(`${to}T12:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return out;
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    out.push(`${y}-${m}-${day}`);
+  }
+  return out;
+}
+
+function emptyDayPlaceholder(ymd: string): JadwalRow {
+  return {
+    id: `empty-day-${ymd}`,
+    tanggal: ymd,
+    no_rm: null,
+    nama_pasien: null,
+    kelas_pembiayaan: null,
+    umur: null,
+    ruangan: null,
+    diagnosa: null,
+    tindakan: null,
+    dokter: null,
+    hasil_lab_ppm: null,
+    asisten: null,
+    sirkuler: null,
+    logger: null,
+    keterangan: null,
+    waktu: null,
+    status: null,
+    pasien_id: null,
+    kategori: "Cathlab",
+  };
+}
+
+function isEmptyDayId(id: string): boolean {
+  return id.startsWith("empty-day-");
+}
+
 function isCathlabRow(row: JadwalRow): boolean {
   const blob = `${row.kategori ?? ""} ${row.ruangan ?? ""}`.toLowerCase();
   return blob.includes("cath");
@@ -222,6 +265,7 @@ export default function JadwalCathModal({
   const [fullscreen, setFullscreen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [addPasienOpen, setAddPasienOpen] = useState(false);
+  const [pasienDefaultTanggal, setPasienDefaultTanggal] = useState(today);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { from, to } =
@@ -333,8 +377,28 @@ export default function JadwalCathModal({
     );
   }, [sourceMapped, from, to, pinnedRows, draftByRowId, dirtyIds]);
 
-  /** Tanpa baris hantu yang bisa POST kosong — hanya data nyata. */
-  const displayRows = useMemo(() => rows, [rows]);
+  /** Setiap hari di rentang filter; hari tanpa pasien = placeholder tampilan. */
+  const displayRows = useMemo(() => {
+    const byDay = new Map<string, JadwalRow[]>();
+    for (const r of rows) {
+      const key =
+        extractCalendarDateKey(txt(r.tanggal)) ?? txt(r.tanggal);
+      if (!key) continue;
+      const list = byDay.get(key) ?? [];
+      list.push(r);
+      byDay.set(key, list);
+    }
+    const out: JadwalRow[] = [];
+    for (const day of eachYmdInclusive(from, to)) {
+      const dayRows = byDay.get(day);
+      if (dayRows && dayRows.length > 0) {
+        out.push(...dayRows);
+      } else {
+        out.push(emptyDayPlaceholder(day));
+      }
+    }
+    return out;
+  }, [rows, from, to]);
 
   const stats = useMemo(() => {
     let waiting = 0;
@@ -377,15 +441,24 @@ export default function JadwalCathModal({
     onClose();
   }, [addPasienOpen, onClose, onSyncMainTable]);
 
-  const openTambahPasien = useCallback(() => {
-    setAddPasienOpen(true);
-  }, []);
+  const openTambahPasien = useCallback(
+    (tanggal?: string) => {
+      const t = (tanggal || selectedDate || today).trim() || today;
+      setSelectedDate(t);
+      setPasienDefaultTanggal(t);
+      setAddPasienOpen(true);
+    },
+    [selectedDate, today],
+  );
 
   const patchField = useCallback(
     async (id: string, patch: Record<string, unknown>) => {
       try {
-        if (id.startsWith("temp-draft-")) {
-          openTambahPasien();
+        if (isEmptyDayId(id) || id.startsWith("temp-draft-")) {
+          const fromId = isEmptyDayId(id)
+            ? id.replace(/^empty-day-/, "")
+            : undefined;
+          openTambahPasien(fromId);
           return false;
         }
 
@@ -479,17 +552,19 @@ export default function JadwalCathModal({
 
   /** Buka form Tambah Pasien — jangan POST baris kosong. */
   const addJadwal = useCallback(() => {
-    openTambahPasien();
-  }, [openTambahPasien]);
+    openTambahPasien(selectedDate);
+  }, [openTambahPasien, selectedDate]);
 
   const handleSavedPasienFromJadwal = useCallback(
-    async (patient: Pasien) => {
+    async (patient: Pasien, opts?: { tanggal?: string }) => {
       setCreating(true);
       try {
         const pasienId = String(patient.id ?? "").trim();
         const rm = String(patient.noRM ?? "").trim();
         const nama = String(patient.nama ?? "").trim();
-        const tanggal = newRowDate;
+        const tanggal =
+          extractCalendarDateKey(String(opts?.tanggal ?? "").trim()) ||
+          newRowDate;
         const tanggalKey = extractCalendarDateKey(tanggal) ?? tanggal;
 
         const dup = sourceMapped.some((r) => {
@@ -681,21 +756,6 @@ export default function JadwalCathModal({
             Memuat jadwal…
           </span>
         </div>
-      ) : displayRows.length === 0 ? (
-        <div className="flex h-40 flex-col items-center justify-center gap-3 text-slate-600">
-          <p className="text-sm font-semibold text-slate-700">
-            Belum ada jadwal Cath Lab di rentang ini.
-          </p>
-          <button
-            type="button"
-            onClick={() => addJadwal()}
-            disabled={creating || crudLoading}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-bold text-[#1B2B44] shadow-sm hover:bg-slate-100 disabled:opacity-50 transition"
-          >
-            <Plus size={14} className="text-[#1B2B44]" />
-            + Tambah Baris Jadwal Baru
-          </button>
-        </div>
       ) : (
         <table className="w-full min-w-[1450px] table-fixed border-collapse text-xs text-slate-800">
           <thead>
@@ -761,10 +821,68 @@ export default function JadwalCathModal({
             </tr>
           </thead>
           <tbody>
-            {displayRows.map((row, i) => {
+            {(() => {
+              let patientNo = 0;
+              return displayRows.map((row) => {
+              const isEmptyDay = isEmptyDayId(row.id);
               const isTemp = row.id.startsWith("temp-draft-");
               const isNew = row.id === newRowHighlightId;
-              const rowNum = i + 1;
+              if (!isEmptyDay && !isTemp) patientNo += 1;
+              const rowNum = isEmptyDay ? "·" : patientNo;
+              const dayKey =
+                extractCalendarDateKey(txt(row.tanggal)) ?? txt(row.tanggal);
+
+              const openEmpty = () => {
+                if (dayKey) openTambahPasien(dayKey);
+                else openTambahPasien();
+              };
+
+              if (isEmptyDay) {
+                return (
+                  <tr
+                    key={row.id}
+                    className="group cursor-pointer bg-slate-50/60 hover:bg-[#EEF3FA] transition-colors duration-200"
+                    onClick={openEmpty}
+                    title="Klik untuk tambah pasien di tanggal ini"
+                  >
+                    <td
+                      className={cn(
+                        TD_BASE,
+                        "sticky left-0 z-10 text-center font-mono text-slate-400 bg-slate-50/60 group-hover:bg-[#EEF3FA] border-r border-slate-200/80",
+                      )}
+                      style={{ left: 0, width: 40, minWidth: 40 }}
+                    >
+                      {rowNum}
+                    </td>
+                    {zoomTd(
+                      "center",
+                      <span className="block w-full px-1 text-center font-semibold text-[#1B2B44]">
+                        {txt(row.tanggal)}
+                      </span>,
+                      "sticky left-[40px] z-10 bg-slate-50/60 group-hover:bg-[#EEF3FA] border-r border-slate-200/80",
+                      { left: 40, width: 115, minWidth: 115 },
+                    )}
+                    <td
+                      className={cn(
+                        TD_BASE,
+                        "sticky left-[155px] z-10 bg-slate-50/60 group-hover:bg-[#EEF3FA] border-r border-slate-200/80 text-slate-400",
+                      )}
+                      style={{ left: 155, width: 105, minWidth: 105 }}
+                      colSpan={1}
+                    />
+                    <td
+                      className={cn(
+                        TD_BASE,
+                        "sticky left-[260px] z-10 bg-slate-50/60 group-hover:bg-[#EEF3FA] border-r-2 border-slate-300 text-[10px] text-slate-400 italic",
+                      )}
+                      style={{ left: 260, width: 160, minWidth: 160 }}
+                    >
+                      + Tambah pasien…
+                    </td>
+                    <td className={TD_BASE} colSpan={11} />
+                  </tr>
+                );
+              }
 
               return (
                 <tr
@@ -1034,7 +1152,8 @@ export default function JadwalCathModal({
                   )}
                 </tr>
               );
-            })}
+            });
+            })()}
           </tbody>
         </table>
       )}
@@ -1242,6 +1361,7 @@ export default function JadwalCathModal({
       open={addPasienOpen}
       onClose={() => setAddPasienOpen(false)}
       onSaved={handleSavedPasienFromJadwal}
+      defaultTanggal={pasienDefaultTanggal}
     />
   ) : null;
 

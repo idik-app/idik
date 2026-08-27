@@ -15,6 +15,8 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAppDialog } from "@/app/contexts/AppDialogContext";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
+import { extractCalendarDateKey } from "./cells/EditableCells";
+import { todayWibYmd } from "../utils/tindakanHelpers";
 
 const RM_LOOKUP_DEBOUNCE_MS = 420;
 const RM_LOOKUP_MIN_LEN = 2;
@@ -265,16 +267,27 @@ export default function TambahPasienQuickModal({
   open,
   onClose,
   onSaved,
+  defaultTanggal,
 }: {
   open: boolean;
   onClose: () => void;
-  onSaved: (patient: Pasien) => Promise<void> | void;
+  onSaved: (
+    patient: Pasien,
+    opts?: { tanggal?: string },
+  ) => Promise<void> | void;
+  /** Tanggal tindakan/jadwal default (yyyy-MM-dd). */
+  defaultTanggal?: string;
 }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const { confirm } = useAppDialog();
 
   const [formData, setFormData] = useState<Omit<Pasien, "id">>(initialForm);
+  const [tanggalTindakan, setTanggalTindakan] = useState(() =>
+    extractCalendarDateKey(String(defaultTanggal ?? "").trim()) ||
+    todayWibYmd(),
+  );
+  const [tanggalDraft, setTanggalDraft] = useState(tanggalTindakan);
   const [matchedPatient, setMatchedPatient] = useState<Pasien | null>(null);
   const [simrsMatched, setSimrsMatched] = useState(false);
   const [rmChecking, setRmChecking] = useState(false);
@@ -294,6 +307,11 @@ export default function TambahPasienQuickModal({
   useEffect(() => {
     if (open && !lastOpenRef.current) {
       setFormData(initialForm());
+      const t =
+        extractCalendarDateKey(String(defaultTanggal ?? "").trim()) ||
+        todayWibYmd();
+      setTanggalTindakan(t);
+      setTanggalDraft(t);
       setMatchedPatient(null);
       setSimrsMatched(false);
       setError("");
@@ -308,7 +326,24 @@ export default function TambahPasienQuickModal({
       }, 100);
     }
     lastOpenRef.current = open;
-  }, [open]);
+  }, [open, defaultTanggal]);
+
+  const commitTanggalDraft = useCallback(() => {
+    const parsed =
+      extractCalendarDateKey(tanggalDraft.trim()) ||
+      extractCalendarDateKey(tanggalDraft.trim().replace(/\s+/g, "-"));
+    if (!parsed) {
+      setError("Format tanggal tindakan tidak valid. Contoh: 26-Aug-2026 atau 26/08/2026");
+      setTanggalDraft(tanggalTindakan);
+      return false;
+    }
+    setTanggalTindakan(parsed);
+    setTanggalDraft(parsed);
+    setError((e) =>
+      e.startsWith("Format tanggal") ? "" : e,
+    );
+    return true;
+  }, [tanggalDraft, tanggalTindakan]);
 
   const umurTeks = useMemo(() => {
     const t = formatTanggalLahirFromDb(formData.tanggalLahir?.trim() ?? "");
@@ -493,6 +528,17 @@ export default function TambahPasienQuickModal({
       setError("No. RM dan Nama wajib diisi");
       return;
     }
+    const tanggalParsed =
+      extractCalendarDateKey(tanggalDraft.trim()) ||
+      extractCalendarDateKey(tanggalDraft.trim().replace(/\s+/g, "-"));
+    if (!tanggalParsed) {
+      setError(
+        "Format tanggal tindakan tidak valid. Contoh: 26-Aug-2026 atau 26/08/2026",
+      );
+      return;
+    }
+    setTanggalTindakan(tanggalParsed);
+    setTanggalDraft(tanggalParsed);
 
     setLoading(true);
     setError("");
@@ -546,8 +592,8 @@ export default function TambahPasienQuickModal({
           throw new Error(formatPasienApiValidationError(putJson));
         }
 
-        onClose(); // Berhasil simpan, langsung tutup tanpa konfirmasi
-        await onSaved(putJson.data);
+        onClose();
+        await onSaved(putJson.data, { tanggal: tanggalParsed });
         return;
       }
 
@@ -583,8 +629,8 @@ export default function TambahPasienQuickModal({
       }
 
       const patient = json.data as Pasien;
-      onClose(); // Berhasil simpan, langsung tutup tanpa konfirmasi
-      await onSaved(patient);
+      onClose();
+      await onSaved(patient, { tanggal: tanggalParsed });
     } catch (err: any) {
       setError(err?.message || "Terjadi kesalahan saat menyimpan data");
     } finally {
@@ -715,6 +761,79 @@ export default function TambahPasienQuickModal({
           ) : null}
 
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+              <div className="sm:col-span-2">
+                <label
+                  className={cn(
+                    "mb-1 block text-[11px] font-semibold sm:text-xs",
+                    isDark ? "text-white" : "text-slate-700",
+                  )}
+                >
+                  Tanggal tindakan
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    name="tanggalTindakan"
+                    value={tanggalDraft}
+                    placeholder="26-Aug-2026 atau 26/08/2026"
+                    autoComplete="off"
+                    onChange={(e) => setTanggalDraft(e.target.value)}
+                    onPaste={(e) => {
+                      const text = e.clipboardData.getData("text");
+                      if (!text) return;
+                      e.preventDefault();
+                      const parsed =
+                        extractCalendarDateKey(text.trim()) ||
+                        extractCalendarDateKey(
+                          text.trim().replace(/\s+/g, "-"),
+                        );
+                      if (parsed) {
+                        setTanggalDraft(parsed);
+                        setTanggalTindakan(parsed);
+                        setError((err) =>
+                          err.startsWith("Format tanggal") ? "" : err,
+                        );
+                      } else {
+                        setTanggalDraft(text.trim());
+                      }
+                    }}
+                    onBlur={() => {
+                      void commitTanggalDraft();
+                    }}
+                    className={cn(
+                      "h-9 w-full min-w-0 flex-1 rounded-md border px-2.5 text-xs font-semibold outline-none focus:ring-2",
+                      isDark
+                        ? "border-cyan-700/50 bg-black/40 text-white placeholder:text-white/90 focus:ring-cyan-400/30"
+                        : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400 focus:ring-cyan-500/35",
+                    )}
+                  />
+                  <input
+                    type="date"
+                    value={tanggalTindakan}
+                    title="Pilih dari kalender"
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (!v) return;
+                      setTanggalTindakan(v);
+                      setTanggalDraft(v);
+                    }}
+                    className={cn(
+                      "h-9 w-[7.5rem] shrink-0 rounded-md border px-1 text-xs outline-none focus:ring-2",
+                      isDark
+                        ? "border-cyan-700/50 bg-black/40 text-white [color-scheme:dark] focus:ring-cyan-400/30"
+                        : "border-slate-300 bg-white text-slate-900 [color-scheme:light] focus:ring-cyan-500/35",
+                    )}
+                  />
+                </div>
+                <p
+                  className={cn(
+                    "mt-1 text-[10px]",
+                    isDark ? "text-white/85" : "text-slate-500",
+                  )}
+                >
+                  Bisa dipaste: 26-Aug-2026, 26/08/2026, atau 2026-08-26
+                </p>
+              </div>
               <div>
                 <InputField
                   label="No. RM"

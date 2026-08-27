@@ -39,6 +39,7 @@ interface Props {
     pasienId: string;
     rm: string;
     nama: string;
+    tanggal?: string;
   }) => Promise<void> | void;
   onSearch: (val: string) => void;
   onFilter: (
@@ -240,12 +241,20 @@ function TableToolbar({
     };
   }, [laporanMenuOpen]);
 
-  const handleSavedPasien = async (patient: Pasien) => {
+  const handleSavedPasien = async (
+    patient: Pasien,
+    opts?: { tanggal?: string },
+  ) => {
     const pasienId = String(patient.id ?? "").trim();
     const rm = String(patient.noRM ?? "").trim();
     const nama = String(patient.nama ?? "").trim();
     if (typeof onCreateDraftForPasien === "function") {
-      await onCreateDraftForPasien({ pasienId, rm, nama });
+      await onCreateDraftForPasien({
+        pasienId,
+        rm,
+        nama,
+        tanggal: opts?.tanggal,
+      });
     }
     // Update the master patient list SWR cache immediately
     void mutate("/api/pasien?compact=1&limit=5000&force=1");

@@ -2509,14 +2509,21 @@ export default function TindakanTable({
   ]);
 
   const createDraftForPasien = useCallback(
-    async (p: { pasienId: string; rm: string; nama: string }) => {
+    async (p: {
+      pasienId: string;
+      rm: string;
+      nama: string;
+      tanggal?: string;
+    }) => {
       const pasienId = String(p.pasienId ?? "").trim();
       const rmResolved = String(p.rm ?? "").trim();
       const namaResolved =
         String(p.nama ?? "").trim() ||
         (rmResolved ? `Pasien ${rmResolved}` : "Pasien");
+      const tanggal =
+        String(p.tanggal ?? "").trim() || todayWibYmd();
       const payload: Record<string, unknown> = {
-        tanggal: todayWibYmd(),
+        tanggal,
         pasien_id: pasienId || null,
         no_rm: rmResolved || null,
         nama: namaResolved,

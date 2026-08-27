@@ -24,6 +24,24 @@ export function coalesceNoRm(row: Record<string, unknown>): string | null {
   );
 }
 
+/** Normalisasi umur untuk kolom `numeric` — terima angka atau teks "64 TH". */
+export function coerceUmurForDb(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  if (typeof v === "number" && Number.isFinite(v)) {
+    return v >= 0 ? v : null;
+  }
+  const s = String(v).trim();
+  if (!s) return null;
+  const direct = Number(s);
+  if (Number.isFinite(direct)) return direct >= 0 ? direct : null;
+  const m = s.match(/^(\d+(?:\.\d+)?)\s*(?:th|tahun)?$/i);
+  if (m) {
+    const n = Number(m[1]);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  }
+  return null;
+}
+
 /** Satu baris dari Supabase → bentuk yang diharapkan UI (nama_pasien, no_rm, created_at). */
 export function enrichTindakanRowForApi(
   row: Record<string, unknown>,

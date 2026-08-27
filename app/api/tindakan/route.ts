@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/guards";
 import { getServiceSupabaseAdmin } from "@/lib/auth/serviceSupabase";
 import {
   coalesceNoRm,
+  coerceUmurForDb,
   enrichTindakanRowForApi,
   toText,
 } from "@/lib/tindakan/tindakanDbMap";
@@ -545,7 +546,10 @@ export async function POST(request: Request) {
     }
     if (body.diagnosa != null) payload.diagnosa = body.diagnosa;
     if (body.kelas_pembiayaan != null) payload.kelas_pembiayaan = body.kelas_pembiayaan;
-    if (body.umur != null) payload.umur = body.umur;
+    if (body.umur != null) {
+      const umur = coerceUmurForDb(body.umur);
+      if (umur != null) payload.umur = umur;
+    }
     if (body.hasil_lab_ppm != null) payload.hasil_lab_ppm = body.hasil_lab_ppm;
     if (body.asisten != null) payload.asisten = body.asisten;
     if (body.sirkuler != null) payload.sirkuler = body.sirkuler;

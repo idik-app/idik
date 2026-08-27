@@ -164,6 +164,14 @@ function isPlaceholderNama(v: string): boolean {
   return !s || s === "pasien" || s === "belum diisi";
 }
 
+function formatUmurDisplay(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  const n = Number(v);
+  if (Number.isFinite(n) && n > 0) return `${n} TH`;
+  const s = String(v).trim();
+  return s;
+}
+
 function mapApiRow(raw: Record<string, unknown>): JadwalRow {
   return {
     id: txt(raw.id),
@@ -520,9 +528,9 @@ export default function JadwalCathModal({
           });
           return patchField(row.id, { no_rm: rm });
         }
-        const umurTeks = p.tanggalLahir
-          ? hitungUsia(p.tanggalLahir).teks
-          : "";
+        const umurAngka = p.tanggalLahir
+          ? hitungUsia(p.tanggalLahir).angka
+          : null;
         const rowTanggal =
           extractCalendarDateKey(txt(row.tanggal)) ?? txt(row.tanggal);
         const dup = rows.some((r) => {
@@ -545,7 +553,7 @@ export default function JadwalCathModal({
           no_rm: p.noRM || rm,
           pasien_id: p.id,
           kelas_pembiayaan: kelasDariPasien(p) || null,
-          umur: umurTeks || null,
+          umur: umurAngka && umurAngka > 0 ? umurAngka : null,
         };
         if (!keepNama) {
           patch.nama_pasien = p.nama;
@@ -593,9 +601,9 @@ export default function JadwalCathModal({
           if (!ok) return;
         }
 
-        const umurTeks = patient.tanggalLahir
-          ? hitungUsia(patient.tanggalLahir).teks
-          : "";
+        const umurAngka = patient.tanggalLahir
+          ? hitungUsia(patient.tanggalLahir).angka
+          : null;
         const payload: Record<string, unknown> = {
           tanggal,
           pasien_id: pasienId || null,
@@ -608,7 +616,7 @@ export default function JadwalCathModal({
           kategori: "Cathlab",
           ruangan: "Cathlab",
           kelas_pembiayaan: kelasDariPasien(patient) || null,
-          umur: umurTeks || null,
+          umur: umurAngka && umurAngka > 0 ? umurAngka : null,
         };
 
         const created = onCreateRecord
@@ -1031,7 +1039,7 @@ export default function JadwalCathModal({
                     { width: 80, minWidth: 80 },
                   )}
                   <td className={cn(TD_BASE, "text-center text-slate-700 font-semibold")} style={{ width: 45, minWidth: 45 }}>
-                    {txt(row.umur) || ""}
+                    {formatUmurDisplay(row.umur)}
                   </td>
                   {zoomTd(
                     "center",

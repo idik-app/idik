@@ -275,6 +275,19 @@ export default function JadwalCathModal({
   /** Tanggal kasus baru: date picker; di mode bulan tetap hari yang dipilih (default hari ini). */
   const newRowDate = selectedDate || today;
 
+  /** Aktifkan tab bulan/tahun yang sesuai tanggal (JAN–DES, lintas tahun). */
+  const syncFilterToYmd = useCallback((raw: string) => {
+    const ymd =
+      extractCalendarDateKey(String(raw ?? "").trim()) ||
+      String(raw ?? "").trim();
+    if (!ymd) return;
+    const parts = ymdParts(ymd);
+    setRangeMode("month");
+    setFilterYear(parts.year);
+    setFilterMonth(parts.month);
+    setSelectedDate(ymd);
+  }, []);
+
   const doctorOptions = useMemo<DoctorOption[]>(
     () =>
       (doctors as any[]).map((r) => ({
@@ -444,11 +457,11 @@ export default function JadwalCathModal({
   const openTambahPasien = useCallback(
     (tanggal?: string) => {
       const t = (tanggal || selectedDate || today).trim() || today;
-      setSelectedDate(t);
+      syncFilterToYmd(t);
       setPasienDefaultTanggal(t);
       setAddPasienOpen(true);
     },
-    [selectedDate, today],
+    [selectedDate, syncFilterToYmd, today],
   );
 
   const patchField = useCallback(
@@ -604,6 +617,8 @@ export default function JadwalCathModal({
         const id = String((created as { id?: string } | null)?.id ?? "");
         if (!id) throw new Error("Draft jadwal tidak mengembalikan id.");
 
+        syncFilterToYmd(tanggal);
+
         const local = mapApiRow({ id, ...payload });
         setPinnedRows((prev) => [local, ...prev.filter((r) => r.id !== id)]);
         setNewRowHighlightId(id);
@@ -644,6 +659,7 @@ export default function JadwalCathModal({
       onSyncMainTable,
       sourceMapped,
       show,
+      syncFilterToYmd,
     ],
   );
 
@@ -1220,11 +1236,7 @@ export default function JadwalCathModal({
           value={selectedDate}
           title="Tanggal untuk Salin WA & baris baru"
           onChange={(e) => {
-            const v = e.target.value || today;
-            setSelectedDate(v);
-            const parts = ymdParts(v);
-            setFilterYear(parts.year);
-            setFilterMonth(parts.month);
+            syncFilterToYmd(e.target.value || today);
           }}
           className="h-8 rounded-lg border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
         />

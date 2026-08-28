@@ -1460,6 +1460,28 @@ export default function TindakanTable({
   );
   const [filterPciOnly, setFilterPciOnly] = useState(false);
   const [filterStatus, setFilterStatus] = useState("");
+  const TINDAKAN_FETCH_LIMIT = 2000;
+
+  useEffect(() => {
+    const from =
+      extractCalendarDateKey(filterTanggalFrom.trim()) ??
+      filterTanggalFrom.trim();
+    const to =
+      extractCalendarDateKey(filterTanggalTo.trim()) ?? filterTanggalTo.trim();
+    const today = todayWibYmd();
+    let toServer = to || today;
+    if (!allowFutureDateFetchRef.current && toServer > today) {
+      toServer = today;
+    }
+    const fromServer = from || undefined;
+    const toParam = toServer || today;
+
+    adapter.setServerFilters((prev) => {
+      if (prev.from === fromServer && prev.to === toParam) return prev;
+      return { ...prev, from: fromServer, to: toParam };
+    });
+  }, [filterTanggalFrom, filterTanggalTo, adapter]);
+
   const [highlightTindakanRowId, setHighlightTindakanRowId] = useState<
     string | null
   >(null);
@@ -1475,6 +1497,8 @@ export default function TindakanTable({
       opts?: { silent?: boolean },
     ) => Promise<void>
   >(async () => {});
+  /** Izinkan fetch API dengan tanggal > hari ini (mis. reveal dari Jadwal). */
+  const allowFutureDateFetchRef = useRef(false);
   const [fastTrackModalOpen, setFastTrackModalOpen] = useState(false);
   const [tindakanTerbanyakLabOpen, setTindakanTerbanyakLabOpen] =
     useState(false);
@@ -2214,6 +2238,28 @@ export default function TindakanTable({
       ),
     [filterTanggalFrom, filterTanggalTo],
   );
+
+  const dataFetchMeta = useMemo(() => {
+    const from = String(filterTanggalFrom ?? "").trim();
+    const to = String(filterTanggalTo ?? "").trim();
+    let filterLabel = "semua";
+    if (from && to && from === to) {
+      filterLabel = formatTanggalDdMmYyyy(from);
+    } else if (!from && to) {
+      filterLabel = `s/d ${formatTanggalDdMmYyyy(to)}`;
+    } else if (from && to) {
+      filterLabel = `${formatTanggalDdMmYyyy(from)} – ${formatTanggalDdMmYyyy(to)}`;
+    } else if (from) {
+      filterLabel = `dari ${formatTanggalDdMmYyyy(from)}`;
+    } else if (to) {
+      filterLabel = `sampai ${formatTanggalDdMmYyyy(to)}`;
+    }
+    return {
+      filterLabel,
+      fetchedCount: tindakanList.length,
+      atFetchLimit: tindakanList.length >= TINDAKAN_FETCH_LIMIT,
+    };
+  }, [filterTanggalFrom, filterTanggalTo, tindakanList.length]);
 
   // TOTAL PASIEN mengikuti filter toolbar agar sinkron dengan baris tabel yang tampil.
   const filteredRowStatsFixedTotalPasien = useMemo(
@@ -3354,6 +3400,10 @@ export default function TindakanTable({
       const label = nama || rm || "baris";
 
       if (tanggalKey) {
+        const today = todayWibYmd();
+        if (tanggalKey > today) {
+          allowFutureDateFetchRef.current = true;
+        }
         setFilterTanggalFrom(tanggalKey);
         setFilterTanggalTo(tanggalKey);
         persistTindakanDateFilter(tanggalKey, tanggalKey);
@@ -3443,6 +3493,7 @@ export default function TindakanTable({
           onCreateDraftForPasien={createDraftForPasien}
           onSyncMasterPasien={syncMasterPasienFromTindakan}
           onFilter={(d, rg, t, from, to, pci, st) => {
+            allowFutureDateFetchRef.current = false;
             setFilterDokter(d);
             setFilterRuangan(rg);
             setFilterTindakan(t ?? "");
@@ -5410,6 +5461,26 @@ export default function TindakanTable({
                   "bg-slate-50/80 dark:bg-black/15",
                 )}
               >
+                <p
+                  className={cn(
+                    "border-t border-slate-200/80 px-2 py-1 text-[10px] font-medium leading-snug sm:px-2.5",
+                    "text-slate-700 dark:text-white/90",
+                  )}
+                >
+                  Data:{" "}
+                  <span className="font-mono font-bold tabular-nums text-slate-950 dark:text-white">
+                    {dataFetchMeta.fetchedCount.toLocaleString("id-ID")}
+                  </span>{" "}
+                  baris (maks. {TINDAKAN_FETCH_LIMIT.toLocaleString("id-ID")}) •
+                  filter: {dataFetchMeta.filterLabel}
+                  {dataFetchMeta.atFetchLimit ? (
+                    <span className="text-amber-800 dark:text-amber-200">
+                      {" "}
+                      — Batas {TINDAKAN_FETCH_LIMIT.toLocaleString("id-ID")}{" "}
+                      tercapai, persempit rentang tanggal.
+                    </span>
+                  ) : null}
+                </p>
                 <TablePagination
                   currentPage={page}
                   totalPages={totalPages}

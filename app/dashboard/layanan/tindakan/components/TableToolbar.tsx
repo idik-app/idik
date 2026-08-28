@@ -356,7 +356,9 @@ function TableToolbar({
   };
 
   /** 📅 Shortcut filter tanggal cepat */
-  const setShortcutDate = (type: "today" | "yesterday" | "thisWeek") => {
+  const setShortcutDate = (
+    type: "today" | "yesterday" | "thisWeek" | "untilToday",
+  ) => {
     const formatter = new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Jakarta",
       year: "numeric",
@@ -370,6 +372,9 @@ function TableToolbar({
 
     if (type === "today") {
       from = to;
+    } else if (type === "untilToday") {
+      from = "";
+      to = formatter.format(now);
     } else if (type === "yesterday") {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
@@ -1194,6 +1199,18 @@ function TableToolbar({
                       title="Filter tindakan kemarin"
                     >
                       Kemarin
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShortcutDate("untilToday")}
+                      className={cn(
+                        "px-2 py-1 text-[10px] font-extrabold uppercase tracking-tight rounded-md border transition-all",
+                        "border-violet-500/40 bg-violet-100/90 text-violet-950 hover:bg-violet-200/90",
+                        "dark:border-violet-500/30 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:bg-violet-900/40",
+                      )}
+                      title="Tindakan hari ini dan semua tanggal sebelumnya (maks. 2000 baris)"
+                    >
+                      S/d Hari Ini
                     </button>
                     <button
                       type="button"

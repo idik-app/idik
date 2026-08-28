@@ -29,8 +29,7 @@ function findTindakanRow(list: unknown[], id: string) {
 export function useTindakanBridgeAdapter() {
   // --------------------------------------------------------------------
   // SERVER FILTERS (Date Range)
-  // Default: tanpa batas tanggal — agar RM / riwayat bulan lalu tetap bisa
-  // ditemukan (filter tanggal opsional lewat toolbar).
+  // Tanggal disinkronkan dari toolbar TindakanTable → API ?from=&to= (maks. 2000 baris).
   // --------------------------------------------------------------------
   const [serverFilters, setServerFilters] = useState<{
     from?: string;

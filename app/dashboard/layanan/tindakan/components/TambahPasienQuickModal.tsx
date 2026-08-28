@@ -15,6 +15,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAppDialog } from "@/app/contexts/AppDialogContext";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
+import { Table2 } from "lucide-react";
 import { extractCalendarDateKey } from "./cells/EditableCells";
 import { todayWibYmd } from "../utils/tindakanHelpers";
 
@@ -270,6 +271,7 @@ export default function TambahPasienQuickModal({
   defaultTanggal,
   entryPoint = "toolbar",
   cathlabRuanganOptions = [],
+  onRevealTindakanInTable,
 }: {
   open: boolean;
   onClose: () => void;
@@ -283,6 +285,11 @@ export default function TambahPasienQuickModal({
   entryPoint?: "toolbar" | "jadwal";
   /** Label ruangan Cathlab dari master (untuk picker Jadwal). */
   cathlabRuanganOptions?: string[];
+  /** Fokus baris riwayat di tabel utama (filter tanggal + cari RM). */
+  onRevealTindakanInTable?: (
+    row: Record<string, unknown>,
+    opts?: { silent?: boolean },
+  ) => Promise<void> | void;
 }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -770,12 +777,49 @@ export default function TambahPasienQuickModal({
                 {riwayatTindakan.length > 0 && (
                   <div className="mt-1 border-t border-amber-400/30 pt-1">
                     <p className="font-medium mb-0.5">- Pernah dilakukan:</p>
-                    <ol className="list-decimal pl-4 space-y-0.5">
+                    <p
+                      className={cn(
+                        "mb-1 text-[10px] leading-snug",
+                        isDark ? "text-white/90" : "text-amber-900/85",
+                      )}
+                    >
+                      Baris sudah ada di database. Jika tidak terlihat di tabel,
+                      gunakan tombol di bawah.
+                    </p>
+                    <ol className="list-decimal pl-4 space-y-1">
                       {riwayatTindakan.map((t, i) => (
-                        <li key={t.id || i}>
-                          <span className="font-semibold">{t.tindakan || "Tindakan"}</span>{" "}
-                          {t.tanggal ? formatTanggalIndo(t.tanggal) : ""}{" "}
-                          {t.dokter ? formatDokter(t.dokter) : ""}
+                        <li
+                          key={t.id || i}
+                          className="flex items-center justify-between gap-2"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="font-semibold">
+                              {t.tindakan || "Tindakan"}
+                            </span>{" "}
+                            {t.tanggal ? formatTanggalIndo(t.tanggal) : ""}{" "}
+                            {t.dokter ? formatDokter(t.dokter) : ""}
+                          </span>
+                          {typeof onRevealTindakanInTable === "function" ? (
+                            <button
+                              type="button"
+                              title="Tampilkan di tabel tindakan"
+                              onClick={() => {
+                                onClose();
+                                void onRevealTindakanInTable(t);
+                              }}
+                              className={cn(
+                                "inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                                isDark
+                                  ? "text-white hover:bg-cyan-500/20"
+                                  : "text-cyan-800 hover:bg-cyan-100",
+                              )}
+                            >
+                              <Table2 size={12} aria-hidden />
+                              <span className="sr-only sm:not-sr-only">
+                                Tabel
+                              </span>
+                            </button>
+                          ) : null}
                         </li>
                       ))}
                     </ol>

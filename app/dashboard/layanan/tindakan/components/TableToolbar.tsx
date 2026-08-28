@@ -93,6 +93,11 @@ interface Props {
     row: Record<string, unknown>,
     opts?: { silent?: boolean },
   ) => Promise<void> | void;
+  /** Fokus baris riwayat dari modal Tambah Pasien ke tabel utama. */
+  onRevealTindakanInTable?: (
+    row: Record<string, unknown>,
+    opts?: { silent?: boolean },
+  ) => Promise<void> | void;
   /** Sinkronkan input filter toolbar dari parent (mis. reveal dari Jadwal). */
   toolbarFilterSync?: {
     search?: string;
@@ -141,6 +146,7 @@ function TableToolbar({
   onJadwalDeleteRow,
   onJadwalSyncMainTable,
   onJadwalRevealInMainTable,
+  onRevealTindakanInTable,
   toolbarFilterSync,
 }: Props) {
   const [dokter, setDokter] = useState("");
@@ -1388,6 +1394,7 @@ function TableToolbar({
           onClose={() => setAddPasienOpen(false)}
           onSaved={handleSavedPasien}
           entryPoint="toolbar"
+          onRevealTindakanInTable={onRevealTindakanInTable}
         />
       ) : null}
 

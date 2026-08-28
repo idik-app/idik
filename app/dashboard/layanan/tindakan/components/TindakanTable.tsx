@@ -1429,6 +1429,12 @@ export default function TindakanTable({
     tanggalTo?: string;
     seq: number;
   } | null>(null);
+  const revealRowInMainTableRef = useRef<
+    (
+      row: Record<string, unknown>,
+      opts?: { silent?: boolean },
+    ) => Promise<void>
+  >(async () => {});
   const [fastTrackModalOpen, setFastTrackModalOpen] = useState(false);
   const [tindakanTerbanyakLabOpen, setTindakanTerbanyakLabOpen] =
     useState(false);
@@ -1880,8 +1886,10 @@ export default function TindakanTable({
     const status = txt(row?.status).toLowerCase();
     const isDraftLike =
       !status || status === "menunggu" || status === "proses";
-    if (isDraftLike) {
-      // Draft Jadwal Cath Lab: tampilkan di tabel utama dengan identitas minimal.
+    const tindakanPlaceholder = isPlaceholder(txt(row?.tindakan));
+    const dokterPlaceholder = isPlaceholder(txt(row?.dokter));
+    if (isDraftLike || tindakanPlaceholder || dokterPlaceholder) {
+      // Draft Cath Lab / toolbar: tampilkan di tabel utama dengan identitas minimal.
       return hasTanggal && hasRm && hasNama;
     }
 
@@ -2594,12 +2602,17 @@ export default function TindakanTable({
         ruangan: "Belum diisi",
       };
       try {
-        await createRecord(payload);
+        const created = await createRecord(payload);
+        const id = String((created as { id?: string } | null)?.id ?? "");
         notify({
           type: "success",
           message: "Pasien ditambahkan dan draft tindakan dibuat.",
           duration: 2800,
         });
+        void revealRowInMainTableRef.current(
+          { id, ...payload, tanggal: tanggalKey },
+          { silent: true },
+        );
       } catch (e) {
         notify({
           type: "error",
@@ -3317,6 +3330,10 @@ export default function TindakanTable({
   );
 
   useEffect(() => {
+    revealRowInMainTableRef.current = revealRowInMainTable;
+  }, [revealRowInMainTable]);
+
+  useEffect(() => {
     if (!highlightTindakanRowId) return;
     const idx = filteredRecords.findIndex(
       (r) => String(r.id ?? "").trim() === highlightTindakanRowId,
@@ -3408,6 +3425,7 @@ export default function TindakanTable({
           onJadwalDeleteRow={deleteRecord}
           onJadwalSyncMainTable={(opts) => refresh({ force: opts?.force })}
           onJadwalRevealInMainTable={revealRowInMainTable}
+          onRevealTindakanInTable={revealRowInMainTable}
           toolbarFilterSync={toolbarFilterSync}
         />
 

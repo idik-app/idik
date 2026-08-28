@@ -1,6 +1,14 @@
 -- Opsional: draft Menunggu yang masih kategori Cathlab generik (dibuat toolbar lama).
 -- Jalankan manual di Supabase SQL Editor jika ingin menyembunyikan dari Jadwal Cath Lab.
 -- Tinjau hasil SELECT dulu sebelum UPDATE.
+--
+-- Contoh kasus SUPARMAN RM 931678 (28-Aug-2026) — baris ada di riwayat modal tetapi
+-- tersembunyi di tabel karena kategori Cathlab + field klinis belum lengkap:
+--
+-- SELECT id, tanggal, no_rm, nama_pasien, kategori, ruangan, status, tindakan, dokter
+-- FROM public.tindakan
+-- WHERE no_rm IN ('931678', '0931678')
+--   AND tanggal::text LIKE '2026-08-28%';
 
 -- SELECT id, tanggal, no_rm, nama_pasien, kategori, ruangan, status
 -- FROM public.tindakan

@@ -17,6 +17,7 @@ import {
   MessageCircle,
   Minimize2,
   Plus,
+  Table2,
   Trash2,
   X,
 } from "lucide-react";
@@ -238,9 +239,11 @@ type Props = {
   onPatchRow?: (id: string, patch: Record<string, unknown>) => void;
   onDeleteRow?: (id: string) => Promise<void> | void;
   onSyncMainTable?: (opts?: { force?: boolean }) => Promise<void> | void;
-  /** Filter tanggal aktif di tabel utama — untuk toast hint. */
-  mainTableDateFrom?: string;
-  mainTableDateTo?: string;
+  /** Fokus baris di tabel utama: set filter tanggal + cari RM + highlight. */
+  onRevealInMainTable?: (
+    row: JadwalRow,
+    opts?: { silent?: boolean },
+  ) => Promise<void> | void;
 };
 
 export default function JadwalCathModal({
@@ -251,8 +254,7 @@ export default function JadwalCathModal({
   onPatchRow,
   onDeleteRow,
   onSyncMainTable,
-  mainTableDateFrom = "",
-  mainTableDateTo = "",
+  onRevealInMainTable,
 }: Props) {
   const { show } = useNotification();
   const { confirm: appConfirm } = useAppDialog();
@@ -658,18 +660,7 @@ export default function JadwalCathModal({
         void mutate("/api/pasien?compact=1&limit=5000&force=1");
         show({ type: "success", message: "Pasien & jadwal tersimpan." });
 
-        const fromMain = txt(mainTableDateFrom);
-        const toMain = txt(mainTableDateTo);
-        if (
-          (fromMain && tanggal < fromMain) ||
-          (toMain && tanggal > toMain)
-        ) {
-          show({
-            type: "info",
-            message:
-              "Baris tersimpan — sesuaikan filter tabel untuk melihatnya.",
-          });
-        }
+        void onRevealInMainTable?.(local, { silent: true });
         void onSyncMainTable?.({ force: true });
       } catch (e) {
         show({
@@ -686,10 +677,9 @@ export default function JadwalCathModal({
       appConfirm,
       createOne,
       defaultCathlabRuangan,
-      mainTableDateFrom,
-      mainTableDateTo,
       newRowDate,
       onCreateRecord,
+      onRevealInMainTable,
       onSyncMainTable,
       sourceMapped,
       show,
@@ -962,6 +952,16 @@ export default function JadwalCathModal({
                   >
                     <div className="flex items-center justify-center gap-0.5">
                       <span>{rowNum}</span>
+                      {!isTemp && !isEmptyDayId(row.id) ? (
+                        <button
+                          type="button"
+                          title="Tampilkan di tabel tindakan"
+                          onClick={() => void onRevealInMainTable?.(row)}
+                          className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-cyan-500/15 hover:text-cyan-700 dark:text-white/85 dark:hover:text-white"
+                        >
+                          <Table2 size={12} />
+                        </button>
+                      ) : null}
                       {!isTemp && txt(row.status).toLowerCase() === "menunggu" ? (
                         <button
                           type="button"

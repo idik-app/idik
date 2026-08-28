@@ -89,8 +89,17 @@ interface Props {
   onJadwalSyncMainTable?: (opts?: {
     force?: boolean;
   }) => Promise<void> | void;
-  jadwalMainDateFrom?: string;
-  jadwalMainDateTo?: string;
+  onJadwalRevealInMainTable?: (
+    row: Record<string, unknown>,
+    opts?: { silent?: boolean },
+  ) => Promise<void> | void;
+  /** Sinkronkan input filter toolbar dari parent (mis. reveal dari Jadwal). */
+  toolbarFilterSync?: {
+    search?: string;
+    tanggalFrom?: string;
+    tanggalTo?: string;
+    seq: number;
+  } | null;
 }
 
 /** Interval auto-refresh saat tab terlihat (detik). */
@@ -131,8 +140,8 @@ function TableToolbar({
   onJadwalPatchRow,
   onJadwalDeleteRow,
   onJadwalSyncMainTable,
-  jadwalMainDateFrom,
-  jadwalMainDateTo,
+  onJadwalRevealInMainTable,
+  toolbarFilterSync,
 }: Props) {
   const [dokter, setDokter] = useState("");
   const [ruangan, setRuangan] = useState("");
@@ -197,6 +206,14 @@ function TableToolbar({
   useEffect(() => {
     onFilterActiveChange?.(filterActive);
   }, [filterActive, onFilterActiveChange]);
+
+  useEffect(() => {
+    if (!toolbarFilterSync) return;
+    const { search, tanggalFrom, tanggalTo } = toolbarFilterSync;
+    if (search !== undefined) setSearchValue(search);
+    if (tanggalFrom !== undefined) setTanggalFrom(tanggalFrom);
+    if (tanggalTo !== undefined) setTanggalTo(tanggalTo);
+  }, [toolbarFilterSync?.seq, toolbarFilterSync]);
 
   useEffect(() => {
     if (!laporanMenuOpen) {
@@ -1405,8 +1422,10 @@ function TableToolbar({
           onPatchRow={onJadwalPatchRow}
           onDeleteRow={onJadwalDeleteRow}
           onSyncMainTable={onJadwalSyncMainTable}
-          mainTableDateFrom={jadwalMainDateFrom}
-          mainTableDateTo={jadwalMainDateTo}
+          onRevealInMainTable={(row) => {
+            void onJadwalRevealInMainTable?.(row);
+            setJadwalCathOpen(false);
+          }}
         />
       ) : null}
     </div>

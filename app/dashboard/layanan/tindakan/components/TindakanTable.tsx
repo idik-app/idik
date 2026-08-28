@@ -1420,6 +1420,15 @@ export default function TindakanTable({
   const [filterTanggalTo, setFilterTanggalTo] = useState("");
   const [filterPciOnly, setFilterPciOnly] = useState(false);
   const [filterStatus, setFilterStatus] = useState("");
+  const [highlightTindakanRowId, setHighlightTindakanRowId] = useState<
+    string | null
+  >(null);
+  const [toolbarFilterSync, setToolbarFilterSync] = useState<{
+    search?: string;
+    tanggalFrom?: string;
+    tanggalTo?: string;
+    seq: number;
+  } | null>(null);
   const [fastTrackModalOpen, setFastTrackModalOpen] = useState(false);
   const [tindakanTerbanyakLabOpen, setTindakanTerbanyakLabOpen] =
     useState(false);
@@ -1869,7 +1878,9 @@ export default function TindakanTable({
     const hasNama = Boolean(txt(row?.nama_pasien ?? row?.nama)) && !isPlaceholder(txt(row?.nama_pasien ?? row?.nama));
 
     const status = txt(row?.status).toLowerCase();
-    if (status === "menunggu") {
+    const isDraftLike =
+      !status || status === "menunggu" || status === "proses";
+    if (isDraftLike) {
       // Draft Jadwal Cath Lab: tampilkan di tabel utama dengan identitas minimal.
       return hasTanggal && hasRm && hasNama;
     }
@@ -1974,7 +1985,9 @@ export default function TindakanTable({
       const from = filterTanggalFrom.trim();
       const to = filterTanggalTo.trim();
       list = list.filter((r) => {
-        const t = String(r.tanggal ?? "").trim();
+        const t =
+          extractCalendarDateKey(String(r.tanggal ?? "").trim()) ??
+          String(r.tanggal ?? "").trim();
         if (!t) return false;
         if (from && t < from) return false;
         if (to && t > to) return false;
@@ -3253,6 +3266,77 @@ export default function TindakanTable({
     };
   }, [syncMasterPasienFromTindakanCore]);
 
+  const revealRowInMainTable = useCallback(
+    async (
+      row: Record<string, unknown>,
+      opts?: { silent?: boolean },
+    ) => {
+      const tanggalKey =
+        extractCalendarDateKey(String(row.tanggal ?? "").trim()) ??
+        String(row.tanggal ?? "").trim();
+      const rm = String(row.no_rm ?? row.rm ?? "").trim();
+      const nama = String(row.nama_pasien ?? row.nama ?? "").trim();
+      const searchQuery = rm || nama;
+      const rowId = String(row.id ?? "").trim();
+      const label = nama || rm || "baris";
+
+      if (tanggalKey) {
+        setFilterTanggalFrom(tanggalKey);
+        setFilterTanggalTo(tanggalKey);
+      }
+      if (searchQuery) {
+        setSearch(searchQuery);
+      }
+      setToolbarFilterSync({
+        search: searchQuery,
+        tanggalFrom: tanggalKey,
+        tanggalTo: tanggalKey,
+        seq: Date.now(),
+      });
+
+      try {
+        await refresh({ force: true });
+      } catch {
+        /* tetap lanjut highlight jika data sudah ada lokal */
+      }
+
+      if (rowId) {
+        setHighlightTindakanRowId(rowId);
+        window.setTimeout(() => setHighlightTindakanRowId(null), 3000);
+      }
+
+      if (!opts?.silent) {
+        const dateDisp = tanggalKey ? formatTanggalDdMmYyyy(tanggalKey) : "—";
+        notify({
+          type: "success",
+          message: `Filter diset ke tanggal ${dateDisp} — ${label} ditampilkan di tabel.`,
+        });
+      }
+    },
+    [notify, refresh],
+  );
+
+  useEffect(() => {
+    if (!highlightTindakanRowId) return;
+    const idx = filteredRecords.findIndex(
+      (r) => String(r.id ?? "").trim() === highlightTindakanRowId,
+    );
+    if (idx < 0) return;
+    const targetPage = Math.floor(idx / perPage) + 1;
+    setPage((p) => (p !== targetPage ? targetPage : p));
+  }, [highlightTindakanRowId, filteredRecords, perPage]);
+
+  useEffect(() => {
+    if (!highlightTindakanRowId) return;
+    const timer = window.setTimeout(() => {
+      const el = document.querySelector(
+        `tr[data-tindakan-row-id="${CSS.escape(highlightTindakanRowId)}"]`,
+      );
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [highlightTindakanRowId, page, pagedRecords]);
+
   return (
     <TableContainer>
       <div className="relative flex h-full min-h-0 max-h-full flex-1 flex-col min-w-0 max-md:h-auto max-md:max-h-none max-md:flex-none">
@@ -3323,8 +3407,8 @@ export default function TindakanTable({
           onJadwalPatchRow={patchLocalRow}
           onJadwalDeleteRow={deleteRecord}
           onJadwalSyncMainTable={(opts) => refresh({ force: opts?.force })}
-          jadwalMainDateFrom={filterTanggalFrom}
-          jadwalMainDateTo={filterTanggalTo}
+          onJadwalRevealInMainTable={revealRowInMainTable}
+          toolbarFilterSync={toolbarFilterSync}
         />
 
         {laporanModalOpen ? (
@@ -3725,6 +3809,9 @@ export default function TindakanTable({
                             tabIndex={id ? 0 : undefined}
                             className={cn(
                               "group relative transition-colors duration-150",
+                              highlightTindakanRowId === id
+                                ? "bg-emerald-100/90 ring-2 ring-inset ring-emerald-500/60 dark:bg-emerald-950/45 dark:ring-emerald-400/50"
+                                : "",
                               isDuplicateRm
                                 ? "bg-amber-100/75 dark:bg-amber-950/35"
                                 : "",

@@ -1370,6 +1370,7 @@ function TableToolbar({
           open={addPasienOpen}
           onClose={() => setAddPasienOpen(false)}
           onSaved={handleSavedPasien}
+          entryPoint="toolbar"
         />
       ) : null}
 

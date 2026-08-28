@@ -159,6 +159,7 @@ import { runDeduped } from "@/lib/api/runDeduped";
 import {
   confirmDuplicateRmOnDate,
   hasDuplicateRmOnDate,
+  mergeTindakanRowsForDupCheck,
   type RmDateRow,
 } from "../lib/tindakanRmDateDuplicate";
 import { useEventBridge } from "@/contexts/EventBridgeContext";
@@ -2513,6 +2514,15 @@ export default function TindakanTable({
     cathlabFallbackRows.length,
   ]);
 
+  const rowsForDupCheck = useMemo(
+    () =>
+      mergeTindakanRowsForDupCheck(
+        tindakanList as RmDateRow[],
+        cathlabFallbackRows as RmDateRow[],
+      ),
+    [tindakanList, cathlabFallbackRows],
+  );
+
   const createDraftForPasien = useCallback(
     async (p: {
       pasienId: string;
@@ -2531,17 +2541,14 @@ export default function TindakanTable({
 
       if (
         rmResolved &&
-        hasDuplicateRmOnDate(
-          tindakanList as RmDateRow[],
-          rmResolved,
-          tanggalKey,
-        )
+        hasDuplicateRmOnDate(rowsForDupCheck, rmResolved, tanggalKey)
       ) {
         const ok = await confirmDuplicateRmOnDate({
           rm: rmResolved,
           tanggalKey,
           showWarning: (message) =>
             notify({ type: "warning", message, duration: 5000 }),
+          confirm: appConfirm,
         });
         if (!ok) return;
       }
@@ -2573,7 +2580,7 @@ export default function TindakanTable({
         });
       }
     },
-    [createRecord, notify, tindakanList],
+    [appConfirm, createRecord, notify, rowsForDupCheck],
   );
 
   const handleCreateForActivePasien = useCallback(async () => {
@@ -2594,17 +2601,14 @@ export default function TindakanTable({
 
     if (
       rmResolved &&
-      hasDuplicateRmOnDate(
-        tindakanList as RmDateRow[],
-        rmResolved,
-        tanggalKey,
-      )
+      hasDuplicateRmOnDate(rowsForDupCheck, rmResolved, tanggalKey)
     ) {
       const ok = await confirmDuplicateRmOnDate({
         rm: rmResolved,
         tanggalKey,
         showWarning: (message) =>
           notify({ type: "warning", message, duration: 5000 }),
+        confirm: appConfirm,
       });
       if (!ok) return;
     }
@@ -2638,7 +2642,7 @@ export default function TindakanTable({
     } finally {
       setCreatingForPasien(false);
     }
-  }, [createRecord, filterPasienId, filterRm, notify, tindakanList]);
+  }, [appConfirm, createRecord, filterPasienId, filterRm, notify, rowsForDupCheck]);
 
   useEffect(() => {
     const pasienId = filterPasienId.trim();

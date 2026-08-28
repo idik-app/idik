@@ -268,15 +268,21 @@ export default function TambahPasienQuickModal({
   onClose,
   onSaved,
   defaultTanggal,
+  entryPoint = "toolbar",
+  cathlabRuanganOptions = [],
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: (
     patient: Pasien,
-    opts?: { tanggal?: string },
+    opts?: { tanggal?: string; ruangan?: string },
   ) => Promise<void> | void;
   /** Tanggal tindakan/jadwal default (yyyy-MM-dd). */
   defaultTanggal?: string;
+  /** Dari toolbar = draft tabel tindakan; dari jadwal = Jadwal Cath Lab. */
+  entryPoint?: "toolbar" | "jadwal";
+  /** Label ruangan Cathlab dari master (untuk picker Jadwal). */
+  cathlabRuanganOptions?: string[];
 }) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -297,6 +303,25 @@ export default function TambahPasienQuickModal({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [riwayatTindakan, setRiwayatTindakan] = useState<any[]>([]);
+  const [selectedRuangan, setSelectedRuangan] = useState("");
+
+  const showRuanganPicker =
+    entryPoint === "jadwal" && cathlabRuanganOptions.length > 1;
+
+  const savedOpts = useCallback(
+    (tanggal: string) => {
+      const opts: { tanggal: string; ruangan?: string } = { tanggal };
+      if (entryPoint === "jadwal") {
+        const ruangan =
+          selectedRuangan.trim() ||
+          cathlabRuanganOptions[0]?.trim() ||
+          "";
+        if (ruangan) opts.ruangan = ruangan;
+      }
+      return opts;
+    },
+    [cathlabRuanganOptions, entryPoint, selectedRuangan],
+  );
 
   const noRmInputRef = useRef<HTMLInputElement>(null);
   const rmInputRef = useRef("");
@@ -320,13 +345,18 @@ export default function TambahPasienQuickModal({
       setLoading(false);
       setRiwayatTindakan([]);
       rmInputRef.current = "";
+      if (entryPoint === "jadwal" && cathlabRuanganOptions.length > 0) {
+        setSelectedRuangan(cathlabRuanganOptions[0] ?? "");
+      } else {
+        setSelectedRuangan("");
+      }
       // Autofokus kursor ke input No. RM
       setTimeout(() => {
         noRmInputRef.current?.focus();
       }, 100);
     }
     lastOpenRef.current = open;
-  }, [open, defaultTanggal]);
+  }, [open, defaultTanggal, entryPoint, cathlabRuanganOptions]);
 
   const commitTanggalDraft = useCallback(() => {
     const parsed =
@@ -593,7 +623,7 @@ export default function TambahPasienQuickModal({
         }
 
         onClose();
-        await onSaved(putJson.data, { tanggal: tanggalParsed });
+        await onSaved(putJson.data, savedOpts(tanggalParsed));
         return;
       }
 
@@ -630,7 +660,7 @@ export default function TambahPasienQuickModal({
 
       const patient = json.data as Pasien;
       onClose();
-      await onSaved(patient, { tanggal: tanggalParsed });
+      await onSaved(patient, savedOpts(tanggalParsed));
     } catch (err: any) {
       setError(err?.message || "Terjadi kesalahan saat menyimpan data");
     } finally {
@@ -701,12 +731,22 @@ export default function TambahPasienQuickModal({
           >
             <DialogPrimitive.Title
               className={cn(
-                "mb-2 text-center text-lg font-semibold sm:mb-4 sm:text-2xl",
+                "mb-1 text-center text-lg font-semibold sm:text-2xl",
                 isDark ? "text-cyan-100" : "text-cyan-900",
               )}
             >
               ➕ Tambah Pasien
             </DialogPrimitive.Title>
+            <p
+              className={cn(
+                "mb-2 text-center text-[11px] font-medium sm:mb-4 sm:text-xs",
+                isDark ? "text-white/90" : "text-slate-600",
+              )}
+            >
+              {entryPoint === "jadwal"
+                ? "Baris baru akan masuk Jadwal Cath Lab (dan tabel tindakan pada tanggal yang sama)."
+                : "Baris baru akan masuk tabel tindakan (tidak masuk Jadwal Cath Lab)."}
+            </p>
             <DialogPrimitive.Description className="sr-only">
               Lengkapi data pasien untuk menambahkan ke master dan kasus
               tindakan baru.
@@ -834,6 +874,34 @@ export default function TambahPasienQuickModal({
                   Bisa dipaste: 26-Aug-2026, 26/08/2026, atau 2026-08-26
                 </p>
               </div>
+              {showRuanganPicker ? (
+                <div className="sm:col-span-2">
+                  <label
+                    className={cn(
+                      "mb-1 block text-[11px] font-semibold sm:text-xs",
+                      isDark ? "text-white" : "text-slate-700",
+                    )}
+                  >
+                    Ruangan Cath Lab
+                  </label>
+                  <select
+                    value={selectedRuangan}
+                    onChange={(e) => setSelectedRuangan(e.target.value)}
+                    className={cn(
+                      "h-9 w-full rounded-md border px-2.5 text-xs font-semibold outline-none focus:ring-2",
+                      isDark
+                        ? "border-cyan-700/50 bg-black/40 text-white focus:ring-cyan-400/30"
+                        : "border-slate-300 bg-white text-slate-900 focus:ring-cyan-500/35",
+                    )}
+                  >
+                    {cathlabRuanganOptions.map((label) => (
+                      <option key={label} value={label}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
               <div>
                 <InputField
                   label="No. RM"

@@ -533,8 +533,8 @@ export async function POST(request: Request) {
     const payload: Record<string, unknown> = {
       tanggal: body.tanggal ?? new Date().toISOString().split("T")[0],
       status: body.status ?? "Menunggu",
-      kategori: body.kategori ?? "Cathlab",
-      ruangan: body.ruangan ?? "Cathlab",
+      kategori: body.kategori ?? "Belum diisi",
+      ruangan: body.ruangan ?? "Belum diisi",
       nama: body.nama ?? body.nama_pasien ?? "",
       nama_pasien: body.nama_pasien ?? body.nama ?? "",
       tindakan: body.tindakan ?? "",

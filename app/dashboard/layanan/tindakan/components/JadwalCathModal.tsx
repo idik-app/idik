@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
 import ModalWrapper from "@/components/global/ModalWrapper";
 import { useNotification } from "@/app/contexts/NotificationContext";
+import { useAppDialog } from "@/contexts/AppDialogContext";
 import {
   useMasterDoctors,
   useMasterPerawat,
@@ -56,6 +57,7 @@ import { buildJadwalElektifWhatsApp } from "../lib/buildJadwalElektifWhatsApp";
 import {
   confirmDuplicateRmOnDate,
   hasDuplicateRmOnDate,
+  listCathlabRuanganLabels,
   pickDefaultCathlabRuangan,
 } from "../lib/tindakanRmDateDuplicate";
 import JadwalRmRiwayatPopover from "./JadwalRmRiwayatPopover";
@@ -253,6 +255,7 @@ export default function JadwalCathModal({
   mainTableDateTo = "",
 }: Props) {
   const { show } = useNotification();
+  const { confirm: appConfirm } = useAppDialog();
   const { createOne, updateOne, deleteOne, loading: crudLoading } =
     useTindakanCrud();
   const { emitOpenDetail } = useTindakanEventBridge();
@@ -329,6 +332,11 @@ export default function JadwalCathModal({
 
   const defaultCathlabRuangan = useMemo(
     () => pickDefaultCathlabRuangan(ruanganOptions),
+    [ruanganOptions],
+  );
+
+  const cathlabRuanganLabels = useMemo(
+    () => listCathlabRuanganLabels(ruanganOptions),
     [ruanganOptions],
   );
 
@@ -554,6 +562,7 @@ export default function JadwalCathModal({
             tanggalKey: rowTanggal,
             showWarning: (message) =>
               show({ type: "warning", message }),
+            confirm: appConfirm,
           });
           if (!ok) return false;
         }
@@ -577,7 +586,7 @@ export default function JadwalCathModal({
         return false;
       }
     },
-    [patchField, sourceMapped, show],
+    [appConfirm, patchField, sourceMapped, show],
   );
 
   /** Buka form Tambah Pasien — jangan POST baris kosong. */
@@ -586,7 +595,10 @@ export default function JadwalCathModal({
   }, [openTambahPasien, selectedDate]);
 
   const handleSavedPasienFromJadwal = useCallback(
-    async (patient: Pasien, opts?: { tanggal?: string }) => {
+    async (
+      patient: Pasien,
+      opts?: { tanggal?: string; ruangan?: string },
+    ) => {
       setCreating(true);
       try {
         const pasienId = String(patient.id ?? "").trim();
@@ -604,6 +616,7 @@ export default function JadwalCathModal({
             tanggalKey,
             showWarning: (message) =>
               show({ type: "warning", message }),
+            confirm: appConfirm,
           });
           if (!ok) return;
         }
@@ -611,6 +624,10 @@ export default function JadwalCathModal({
         const umurAngka = patient.tanggalLahir
           ? hitungUsia(patient.tanggalLahir).angka
           : null;
+        const ruanganResolved =
+          String(opts?.ruangan ?? "").trim() ||
+          defaultCathlabRuangan ||
+          null;
         const payload: Record<string, unknown> = {
           tanggal,
           pasien_id: pasienId || null,
@@ -621,7 +638,7 @@ export default function JadwalCathModal({
           tindakan: "Belum diisi",
           status: "Menunggu",
           kategori: "Cathlab",
-          ruangan: defaultCathlabRuangan || null,
+          ruangan: ruanganResolved,
           kelas_pembiayaan: kelasDariPasien(patient) || null,
           umur: umurAngka && umurAngka > 0 ? umurAngka : null,
         };
@@ -666,6 +683,7 @@ export default function JadwalCathModal({
       }
     },
     [
+      appConfirm,
       createOne,
       defaultCathlabRuangan,
       mainTableDateFrom,
@@ -1390,6 +1408,8 @@ export default function JadwalCathModal({
       onClose={() => setAddPasienOpen(false)}
       onSaved={handleSavedPasienFromJadwal}
       defaultTanggal={pasienDefaultTanggal}
+      entryPoint="jadwal"
+      cathlabRuanganOptions={cathlabRuanganLabels}
     />
   ) : null;
 

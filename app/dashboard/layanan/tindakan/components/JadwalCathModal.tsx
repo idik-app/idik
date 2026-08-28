@@ -53,6 +53,11 @@ import {
 } from "./cells/EditableCells";
 import { mutate } from "swr";
 import { buildJadwalElektifWhatsApp } from "../lib/buildJadwalElektifWhatsApp";
+import {
+  confirmDuplicateRmOnDate,
+  hasDuplicateRmOnDate,
+  pickDefaultCathlabRuangan,
+} from "../lib/tindakanRmDateDuplicate";
 import JadwalRmRiwayatPopover from "./JadwalRmRiwayatPopover";
 import TambahPasienQuickModal from "./TambahPasienQuickModal";
 
@@ -322,6 +327,11 @@ export default function JadwalCathModal({
     [ruangan],
   );
 
+  const defaultCathlabRuangan = useMemo(
+    () => pickDefaultCathlabRuangan(ruanganOptions),
+    [ruanganOptions],
+  );
+
   const perawatOptions = useMemo<PerawatOption[]>(
     () =>
       (perawat as any[]).map((r, i) => ({
@@ -485,7 +495,6 @@ export default function JadwalCathModal({
 
         const patchWithCathlab = {
           kategori: "Cathlab",
-          ruangan: (patch.ruangan as string) || "Cathlab",
           ...patch,
         };
 
@@ -533,19 +542,19 @@ export default function JadwalCathModal({
           : null;
         const rowTanggal =
           extractCalendarDateKey(txt(row.tanggal)) ?? txt(row.tanggal);
-        const dup = rows.some((r) => {
-          const t =
-            extractCalendarDateKey(txt(r.tanggal)) ?? txt(r.tanggal);
-          return (
-            r.id !== row.id &&
-            txt(r.no_rm) === rm &&
-            t === rowTanggal
-          );
-        });
+        const dup = hasDuplicateRmOnDate(
+          sourceMapped,
+          rm,
+          rowTanggal,
+          row.id,
+        );
         if (dup) {
-          const ok = window.confirm(
-            "RM yang sama sudah ada di tanggal ini. Tetap simpan sebagai kasus ulang?",
-          );
+          const ok = await confirmDuplicateRmOnDate({
+            rm,
+            tanggalKey: rowTanggal,
+            showWarning: (message) =>
+              show({ type: "warning", message }),
+          });
           if (!ok) return false;
         }
         const keepNama = !isPlaceholderNama(txt(row.nama_pasien));
@@ -568,7 +577,7 @@ export default function JadwalCathModal({
         return false;
       }
     },
-    [patchField, rows, show],
+    [patchField, sourceMapped, show],
   );
 
   /** Buka form Tambah Pasien — jangan POST baris kosong. */
@@ -588,16 +597,14 @@ export default function JadwalCathModal({
           newRowDate;
         const tanggalKey = extractCalendarDateKey(tanggal) ?? tanggal;
 
-        const dup = sourceMapped.some((r) => {
-          if (!isCathlabRow(r)) return false;
-          const t =
-            extractCalendarDateKey(txt(r.tanggal)) ?? txt(r.tanggal);
-          return txt(r.no_rm) === rm && t === tanggalKey && Boolean(rm);
-        });
+        const dup = hasDuplicateRmOnDate(sourceMapped, rm, tanggalKey);
         if (dup) {
-          const ok = window.confirm(
-            "RM yang sama sudah ada di tanggal ini. Tetap tambah sebagai kasus ulang?",
-          );
+          const ok = await confirmDuplicateRmOnDate({
+            rm,
+            tanggalKey,
+            showWarning: (message) =>
+              show({ type: "warning", message }),
+          });
           if (!ok) return;
         }
 
@@ -614,7 +621,7 @@ export default function JadwalCathModal({
           tindakan: "Belum diisi",
           status: "Menunggu",
           kategori: "Cathlab",
-          ruangan: "Cathlab",
+          ruangan: defaultCathlabRuangan || null,
           kelas_pembiayaan: kelasDariPasien(patient) || null,
           umur: umurAngka && umurAngka > 0 ? umurAngka : null,
         };
@@ -660,6 +667,7 @@ export default function JadwalCathModal({
     },
     [
       createOne,
+      defaultCathlabRuangan,
       mainTableDateFrom,
       mainTableDateTo,
       newRowDate,

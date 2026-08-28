@@ -156,6 +156,11 @@ import {
   usePemakaianOrders,
 } from "@/app/hooks/useMasterData";
 import { runDeduped } from "@/lib/api/runDeduped";
+import {
+  confirmDuplicateRmOnDate,
+  hasDuplicateRmOnDate,
+  type RmDateRow,
+} from "../lib/tindakanRmDateDuplicate";
 import { useEventBridge } from "@/contexts/EventBridgeContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import JarvisIcon from "@/components/JarvisIcon";
@@ -2522,6 +2527,25 @@ export default function TindakanTable({
         (rmResolved ? `Pasien ${rmResolved}` : "Pasien");
       const tanggal =
         String(p.tanggal ?? "").trim() || todayWibYmd();
+      const tanggalKey = extractCalendarDateKey(tanggal) ?? tanggal;
+
+      if (
+        rmResolved &&
+        hasDuplicateRmOnDate(
+          tindakanList as RmDateRow[],
+          rmResolved,
+          tanggalKey,
+        )
+      ) {
+        const ok = await confirmDuplicateRmOnDate({
+          rm: rmResolved,
+          tanggalKey,
+          showWarning: (message) =>
+            notify({ type: "warning", message, duration: 5000 }),
+        });
+        if (!ok) return;
+      }
+
       const payload: Record<string, unknown> = {
         tanggal,
         pasien_id: pasienId || null,
@@ -2531,8 +2555,8 @@ export default function TindakanTable({
         dokter: "Belum diisi",
         tindakan: "Belum diisi",
         status: "Menunggu",
-        kategori: "Cathlab",
-        ruangan: "Cathlab",
+        kategori: "Belum diisi",
+        ruangan: "Belum diisi",
       };
       try {
         await createRecord(payload);
@@ -2549,7 +2573,7 @@ export default function TindakanTable({
         });
       }
     },
-    [createRecord, notify],
+    [createRecord, notify, tindakanList],
   );
 
   const handleCreateForActivePasien = useCallback(async () => {
@@ -2565,8 +2589,28 @@ export default function TindakanTable({
     }
     const rmResolved = rm.trim();
     const namaResolved = rmResolved ? `Pasien ${rmResolved}` : "Pasien";
+    const tanggal = todayWibYmd();
+    const tanggalKey = extractCalendarDateKey(tanggal) ?? tanggal;
+
+    if (
+      rmResolved &&
+      hasDuplicateRmOnDate(
+        tindakanList as RmDateRow[],
+        rmResolved,
+        tanggalKey,
+      )
+    ) {
+      const ok = await confirmDuplicateRmOnDate({
+        rm: rmResolved,
+        tanggalKey,
+        showWarning: (message) =>
+          notify({ type: "warning", message, duration: 5000 }),
+      });
+      if (!ok) return;
+    }
+
     const payload: Record<string, unknown> = {
-      tanggal: todayWibYmd(),
+      tanggal,
       pasien_id: pasienId || null,
       no_rm: rmResolved || null,
       nama: namaResolved,
@@ -2574,8 +2618,8 @@ export default function TindakanTable({
       dokter: "Belum ditentukan",
       tindakan: "Belum diisi",
       status: "Menunggu",
-      kategori: "Cathlab",
-      ruangan: "Cathlab",
+      kategori: "Belum diisi",
+      ruangan: "Belum diisi",
     };
     setCreatingForPasien(true);
     try {
@@ -2594,7 +2638,7 @@ export default function TindakanTable({
     } finally {
       setCreatingForPasien(false);
     }
-  }, [createRecord, filterPasienId, filterRm, notify]);
+  }, [createRecord, filterPasienId, filterRm, notify, tindakanList]);
 
   useEffect(() => {
     const pasienId = filterPasienId.trim();

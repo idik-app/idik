@@ -22,7 +22,7 @@ async function fetcher(url: string) {
 }
 
 /** Batas baris default — cukup untuk filter lokal; turunkan egress vs 10k+. */
-const DEFAULT_TINDAKAN_LIMIT = 2000;
+const DEFAULT_TINDAKAN_LIMIT = 1000;
 /** Debounce refetch realtime (ms) — hindari burst API setelah event DB. */
 const REALTIME_TINDAKAN_DEBOUNCE_MS = 20_000;
 

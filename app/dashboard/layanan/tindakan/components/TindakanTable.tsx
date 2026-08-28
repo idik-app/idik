@@ -473,13 +473,29 @@ function todayWibYmd(): string {
 }
 
 const TINDAKAN_DATE_FILTER_KEY = "idik_tindakan_date_filter";
+const TINDAKAN_DATE_FILTER_VERSION_KEY = "idik_tindakan_date_filter_v2";
+
+function defaultUntilTodayDateFilter(): { from: string; to: string } {
+  const today = todayWibYmd();
+  return { from: "", to: today };
+}
 
 function readInitialTindakanDateFilter(): { from: string; to: string } {
   const today = todayWibYmd();
+  const defaultFilter = defaultUntilTodayDateFilter();
   if (typeof window === "undefined") {
-    return { from: today, to: today };
+    return defaultFilter;
   }
   try {
+    const version = window.localStorage.getItem(TINDAKAN_DATE_FILTER_VERSION_KEY);
+    if (version !== "2") {
+      window.localStorage.setItem(TINDAKAN_DATE_FILTER_VERSION_KEY, "2");
+      window.localStorage.setItem(
+        TINDAKAN_DATE_FILTER_KEY,
+        JSON.stringify(defaultFilter),
+      );
+      return defaultFilter;
+    }
     const raw = window.localStorage.getItem(TINDAKAN_DATE_FILTER_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as { from?: string; to?: string };
@@ -487,13 +503,13 @@ function readInitialTindakanDateFilter(): { from: string; to: string } {
         extractCalendarDateKey(String(parsed.from ?? "").trim()) ?? "";
       const to = extractCalendarDateKey(String(parsed.to ?? "").trim()) ?? "";
       if (from || to) {
-        return { from: from || today, to: to || from || today };
+        return { from, to: to || today };
       }
     }
   } catch {
     /* ignore */
   }
-  return { from: today, to: today };
+  return defaultFilter;
 }
 
 function persistTindakanDateFilter(from: string, to: string) {
@@ -1444,7 +1460,7 @@ export default function TindakanTable({
   useEffect(() => {
     adapter.setServerFilters((prev) => {
       const wantLarge = perPage >= 1000;
-      const limit = wantLarge && tindakanList.length > 0 ? 10000 : 2000;
+      const limit = wantLarge && tindakanList.length > 0 ? 10000 : 1000;
       if (prev.limit === limit) return prev;
       return { ...prev, limit };
     });
@@ -1460,7 +1476,7 @@ export default function TindakanTable({
   );
   const [filterPciOnly, setFilterPciOnly] = useState(false);
   const [filterStatus, setFilterStatus] = useState("");
-  const TINDAKAN_FETCH_LIMIT = 2000;
+  const TINDAKAN_FETCH_LIMIT = 1000;
 
   useEffect(() => {
     const from =

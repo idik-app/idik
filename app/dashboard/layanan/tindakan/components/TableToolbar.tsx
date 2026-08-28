@@ -1208,7 +1208,7 @@ function TableToolbar({
                         "border-violet-500/40 bg-violet-100/90 text-violet-950 hover:bg-violet-200/90",
                         "dark:border-violet-500/30 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:bg-violet-900/40",
                       )}
-                      title="Tindakan hari ini dan semua tanggal sebelumnya (maks. 2000 baris)"
+                      title="Tindakan hari ini dan semua tanggal sebelumnya (maks. 1000 baris)"
                     >
                       S/d Hari Ini
                     </button>

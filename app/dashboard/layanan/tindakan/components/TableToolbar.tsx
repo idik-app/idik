@@ -105,6 +105,9 @@ interface Props {
     tanggalTo?: string;
     seq: number;
   } | null;
+  /** Nilai awal filter tanggal (sinkron dengan parent, default hari ini). */
+  initialTanggalFrom?: string;
+  initialTanggalTo?: string;
 }
 
 /** Interval auto-refresh saat tab terlihat (detik). */
@@ -148,12 +151,14 @@ function TableToolbar({
   onJadwalRevealInMainTable,
   onRevealTindakanInTable,
   toolbarFilterSync,
+  initialTanggalFrom = "",
+  initialTanggalTo = "",
 }: Props) {
   const [dokter, setDokter] = useState("");
   const [ruangan, setRuangan] = useState("");
   const [tindakan, setTindakan] = useState("");
-  const [tanggalFrom, setTanggalFrom] = useState("");
-  const [tanggalTo, setTanggalTo] = useState("");
+  const [tanggalFrom, setTanggalFrom] = useState(initialTanggalFrom);
+  const [tanggalTo, setTanggalTo] = useState(initialTanggalTo);
   const [isPciOnly, setIsPciOnly] = useState(false);
   const [status, setStatus] = useState("");
   const [searchValue, setSearchValue] = useState("");

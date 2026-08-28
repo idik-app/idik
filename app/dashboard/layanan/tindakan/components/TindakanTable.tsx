@@ -472,6 +472,42 @@ function todayWibYmd(): string {
   }).format(new Date());
 }
 
+const TINDAKAN_DATE_FILTER_KEY = "idik_tindakan_date_filter";
+
+function readInitialTindakanDateFilter(): { from: string; to: string } {
+  const today = todayWibYmd();
+  if (typeof window === "undefined") {
+    return { from: today, to: today };
+  }
+  try {
+    const raw = window.localStorage.getItem(TINDAKAN_DATE_FILTER_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as { from?: string; to?: string };
+      const from =
+        extractCalendarDateKey(String(parsed.from ?? "").trim()) ?? "";
+      const to = extractCalendarDateKey(String(parsed.to ?? "").trim()) ?? "";
+      if (from || to) {
+        return { from: from || today, to: to || from || today };
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return { from: today, to: today };
+}
+
+function persistTindakanDateFilter(from: string, to: string) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      TINDAKAN_DATE_FILTER_KEY,
+      JSON.stringify({ from, to }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Senin minggu ini (WIB). */
 function startOfWeekWibYmd(): string {
   const d = new Date();
@@ -1416,8 +1452,12 @@ export default function TindakanTable({
   const [filterDokter, setFilterDokter] = useState("");
   const [filterRuangan, setFilterRuangan] = useState("");
   const [filterTindakan, setFilterTindakan] = useState("");
-  const [filterTanggalFrom, setFilterTanggalFrom] = useState("");
-  const [filterTanggalTo, setFilterTanggalTo] = useState("");
+  const [filterTanggalFrom, setFilterTanggalFrom] = useState(
+    () => readInitialTindakanDateFilter().from,
+  );
+  const [filterTanggalTo, setFilterTanggalTo] = useState(
+    () => readInitialTindakanDateFilter().to,
+  );
   const [filterPciOnly, setFilterPciOnly] = useState(false);
   const [filterStatus, setFilterStatus] = useState("");
   const [highlightTindakanRowId, setHighlightTindakanRowId] = useState<
@@ -1937,6 +1977,22 @@ export default function TindakanTable({
     }
     const fullList = Array.from(dedupByKey.values());
     let list = fullList.filter(isCathlabRowComplete);
+
+    const todayYmd = todayWibYmd();
+    const hasExplicitDateFilter = Boolean(
+      filterTanggalFrom.trim() || filterTanggalTo.trim(),
+    );
+    list = list.filter((r) => {
+      const isCath = `${r.kategori ?? ""} ${r.ruangan ?? ""}`
+        .toLowerCase()
+        .includes("cath");
+      if (!isCath) return true;
+      const rowDate = extractCalendarDateKey(String(r.tanggal ?? "").trim());
+      if (!rowDate) return true;
+      if (!hasExplicitDateFilter && rowDate > todayYmd) return false;
+      return true;
+    });
+
     const pasienId = String(filterPasienId ?? "").trim();
     const rmOrQuery = String(filterRm ?? "").trim();
     const pasienParsed = parsePasienAktifFilter(filterRm);
@@ -1990,8 +2046,12 @@ export default function TindakanTable({
       });
     }
     if (filterTanggalFrom.trim() || filterTanggalTo.trim()) {
-      const from = filterTanggalFrom.trim();
-      const to = filterTanggalTo.trim();
+      const from =
+        extractCalendarDateKey(filterTanggalFrom.trim()) ??
+        filterTanggalFrom.trim();
+      const to =
+        extractCalendarDateKey(filterTanggalTo.trim()) ??
+        filterTanggalTo.trim();
       list = list.filter((r) => {
         const t =
           extractCalendarDateKey(String(r.tanggal ?? "").trim()) ??
@@ -3296,6 +3356,7 @@ export default function TindakanTable({
       if (tanggalKey) {
         setFilterTanggalFrom(tanggalKey);
         setFilterTanggalTo(tanggalKey);
+        persistTindakanDateFilter(tanggalKey, tanggalKey);
       }
       if (searchQuery) {
         setSearch(searchQuery);
@@ -3373,6 +3434,8 @@ export default function TindakanTable({
         <TableToolbar
           isCollapsed={isFilterCollapsed}
           onFilterActiveChange={onFilterActiveChange}
+          initialTanggalFrom={filterTanggalFrom}
+          initialTanggalTo={filterTanggalTo}
           onSearch={(val) => {
             setSearch(val);
           }}
@@ -3387,6 +3450,7 @@ export default function TindakanTable({
             const tx = String(to ?? "");
             setFilterTanggalFrom(f);
             setFilterTanggalTo(tx);
+            persistTindakanDateFilter(f, tx);
             setFilterPciOnly(Boolean(pci));
             setFilterStatus(String(st ?? "").trim());
 

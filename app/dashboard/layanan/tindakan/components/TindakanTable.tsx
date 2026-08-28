@@ -1855,18 +1855,33 @@ export default function TindakanTable({
     const txt = (v: any) => String(v ?? "").trim();
     const isPlaceholder = (s: string) => {
       const l = s.toLowerCase();
-      return !l || l === "pasien" || l === "belum diisi" || l.includes("cari / pilih");
+      return (
+        !l ||
+        l === "pasien" ||
+        l === "belum diisi" ||
+        l === "belum ditentukan" ||
+        l.includes("cari / pilih")
+      );
     };
 
     const hasTanggal = Boolean(txt(row?.tanggal));
     const hasRm = Boolean(txt(row?.no_rm ?? row?.rm)) && txt(row?.no_rm ?? row?.rm) !== "—";
     const hasNama = Boolean(txt(row?.nama_pasien ?? row?.nama)) && !isPlaceholder(txt(row?.nama_pasien ?? row?.nama));
+
+    const status = txt(row?.status).toLowerCase();
+    if (status === "menunggu") {
+      // Draft Jadwal Cath Lab: tampilkan di tabel utama dengan identitas minimal.
+      return hasTanggal && hasRm && hasNama;
+    }
+
     const hasKelas = Boolean(txt(row?.kelas_pembiayaan));
     const hasUmur = Boolean(txt(row?.umur));
     const hasRuangan = Boolean(txt(row?.ruangan));
     const hasDiagnosa = Boolean(txt(row?.diagnosa));
-    const hasTindakan = Boolean(txt(row?.tindakan));
-    const hasDokter = Boolean(txt(row?.dokter));
+    const hasTindakan =
+      Boolean(txt(row?.tindakan)) && !isPlaceholder(txt(row?.tindakan));
+    const hasDokter =
+      Boolean(txt(row?.dokter)) && !isPlaceholder(txt(row?.dokter));
     const hasHasilLab = Boolean(txt(row?.hasil_lab_ppm));
 
     return (

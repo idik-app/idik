@@ -28,6 +28,10 @@ import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
 import type { Pasien } from "@/app/dashboard/pasien/types/pasien";
 import TambahPasienQuickModal from "./TambahPasienQuickModal";
 import { TINDAKAN_STATUS } from "../bridge/bridge.constants";
+import {
+  formatTanggalDdMmYyyy,
+  todayWibYmd,
+} from "../utils/tindakanHelpers";
 import TarifModal from "./TarifModal";
 import DiagnosaModal from "./DiagnosaModal";
 import SeverityLevelModal from "./SeverityLevelModal";
@@ -213,6 +217,42 @@ function TableToolbar({
       tanggalTo ||
       isPciOnly,
   );
+
+  const todayYmd = todayWibYmd();
+  const isDefaultDateFilter =
+    !String(tanggalFrom ?? "").trim() &&
+    String(tanggalTo ?? "").trim() === todayYmd;
+  const showFilterChips = Boolean(
+    searchValue.trim() || !isDefaultDateFilter,
+  );
+
+  const dateChipLabel = (() => {
+    const from = String(tanggalFrom ?? "").trim();
+    const to = String(tanggalTo ?? "").trim();
+    if (from && to && from === to) {
+      return `Tanggal: ${formatTanggalDdMmYyyy(from)}`;
+    }
+    if (from && to) {
+      return `${formatTanggalDdMmYyyy(from)} – ${formatTanggalDdMmYyyy(to)}`;
+    }
+    if (from) return `Dari ${formatTanggalDdMmYyyy(from)}`;
+    if (to) return `s/d ${formatTanggalDdMmYyyy(to)}`;
+    return "Semua tanggal";
+  })();
+
+  const resetFiltersToDefault = () => {
+    const today = todayWibYmd();
+    setSearchValue("");
+    onSearch("");
+    setDokter("");
+    setRuangan("");
+    setTindakan("");
+    setStatus("");
+    setTanggalFrom("");
+    setTanggalTo(today);
+    setIsPciOnly(false);
+    onFilter("", "", "", "", today, false, "");
+  };
 
   useEffect(() => {
     onFilterActiveChange?.(filterActive);
@@ -925,6 +965,37 @@ function TableToolbar({
                 )}
               </div>
 
+              {showFilterChips ? (
+                <div
+                  className="flex flex-wrap items-center gap-1.5 px-0.5 pb-0.5"
+                  data-testid="tindakan-filter-chips"
+                >
+                  {!isDefaultDateFilter ? (
+                    <span className="inline-flex items-center rounded-md border border-cyan-600/40 bg-white px-2 py-0.5 text-[10px] font-bold text-slate-900 dark:border-cyan-500/40 dark:bg-black/50 dark:text-white">
+                      {dateChipLabel}
+                    </span>
+                  ) : null}
+                  {searchValue.trim() ? (
+                    <span className="inline-flex max-w-[14rem] items-center truncate rounded-md border border-cyan-600/40 bg-white px-2 py-0.5 text-[10px] font-bold text-slate-900 dark:border-cyan-500/40 dark:bg-black/50 dark:text-white">
+                      Cari: {searchValue.trim()}
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={resetFiltersToDefault}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                      "text-red-700 bg-red-50 border-red-200 hover:bg-red-100",
+                      "dark:text-white dark:bg-red-950/40 dark:border-red-800/60 dark:hover:bg-red-950/60",
+                    )}
+                    title="Reset ke default: tanpa cari, sampai hari ini"
+                  >
+                    <X size={11} strokeWidth={3} />
+                    Reset
+                  </button>
+                </div>
+              ) : null}
+
               <AnimatePresence initial={false}>
                 {!isCollapsed && (
                   <motion.div
@@ -1381,18 +1452,7 @@ function TableToolbar({
                   isPciOnly) && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setSearchValue("");
-                      onSearch("");
-                      setDokter("");
-                      setRuangan("");
-                      setTindakan("");
-                      setStatus("");
-                      setTanggalFrom("");
-                      setTanggalTo("");
-                      setIsPciOnly(false);
-                      onFilter("", "", "", "", "", false, "");
-                    }}
+                    onClick={resetFiltersToDefault}
                     className={cn(
                       "flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider transition-all",
                       "text-red-600 bg-red-50 hover:bg-red-100 border border-red-200",

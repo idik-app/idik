@@ -3,26 +3,12 @@
 import useSWR from "swr";
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  buildTindakanListKey,
+  fetchTindakanList,
+  mutateAllTindakanLists,
+} from "../lib/tindakanListQuery";
 
-const FETCH_TIMEOUT_MS = 60_000;
-
-async function fetcher(url: string) {
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-    return await res.json();
-  } catch (err) {
-    const name = err instanceof Error ? err.name : "";
-    if (name === "TimeoutError" || name === "AbortError") {
-      throw new Error(
-        "Request terlalu lama (lebih dari 60 detik). Coba muat ulang.",
-      );
-    }
-    throw err;
-  }
-}
-
-/** Batas baris default — cukup untuk filter lokal; turunkan egress vs 10k+. */
-const DEFAULT_TINDAKAN_LIMIT = 1000;
 /** Debounce refetch realtime (ms) — hindari burst API setelah event DB. */
 const REALTIME_TINDAKAN_DEBOUNCE_MS = 20_000;
 
@@ -32,22 +18,20 @@ export function useTindakanData(params?: {
   search?: string;
   limit?: number;
 }) {
-  const query = useMemo(() => {
-    const p = new URLSearchParams();
-    const limit =
-      typeof params?.limit === "number" && Number.isFinite(params.limit)
-        ? Math.min(Math.max(Math.trunc(params.limit), 1), 10000)
-        : DEFAULT_TINDAKAN_LIMIT;
-    p.set("limit", String(limit));
-    if (params?.from) p.set("from", params.from);
-    if (params?.to) p.set("to", params.to);
-    if (params?.search) p.set("search", params.search);
-    return p.toString();
-  }, [params?.from, params?.to, params?.search, params?.limit]);
+  const listKey = useMemo(
+    () =>
+      buildTindakanListKey({
+        from: params?.from,
+        to: params?.to,
+        search: params?.search,
+        limit: params?.limit,
+      }),
+    [params?.from, params?.to, params?.search, params?.limit],
+  );
 
   const { data, error, isLoading, isValidating, mutate } = useSWR(
-    `/api/tindakan?${query}`,
-    fetcher,
+    listKey,
+    fetchTindakanList,
     {
       revalidateOnFocus: false,
       dedupingInterval: 15_000,
@@ -159,7 +143,7 @@ export function useTindakanData(params?: {
           if (document.hidden) return;
           window.setTimeout(() => {
             if (document.hidden) return;
-            void mutate();
+            void mutateAllTindakanLists();
           }, 1500);
         },
       )
@@ -172,7 +156,7 @@ export function useTindakanData(params?: {
         /* ignore */
       }
     };
-  }, [mutate]);
+  }, []);
 
   return {
     tindakanList,

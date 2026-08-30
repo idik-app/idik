@@ -108,6 +108,11 @@ import { formatWaktuDisplay } from "@/lib/tindakan/waktuRangeFormat";
 import { getStatusBadgeClass, getStatusIndicatorMeta, getStatusTooltip } from "@/lib/tindakan/statusIndicator";
 import { buildAutoSelesaiStatusUpdates } from "@/lib/tindakan/autoStatusSelesai";
 import { useTindakanAutoSelesaiSync } from "../hooks/useTindakanAutoSelesaiSync";
+import {
+  cathlabRowNeedsCompletenessBadge,
+  cathlabRowShouldShowInMainTable,
+} from "../lib/cathlabRowVisibility";
+import { mutateAllTindakanLists } from "../lib/tindakanListQuery";
 const rowCacheMap = new WeakMap<object, {
   _idik_row_key: string;
   normalizedRm: string;
@@ -1434,9 +1439,9 @@ export default function TindakanTable({
     TindakanJoinResult[]
   >([]);
   const [page, setPage] = useState(1);
-  const PER_PAGE_KEY = "idik_tindakan_per_page";
+  const PER_PAGE_KEY = "idik_tindakan_per_page_v2";
   const PER_PAGE_ALLOWED = [10, 15, 25, 50, 100, 1000, 10000] as const;
-  const [perPage, setPerPage] = useState(15);
+  const [perPage, setPerPage] = useState(50);
 
   useEffect(() => {
     try {
@@ -1943,59 +1948,10 @@ export default function TindakanTable({
     pemakaianOrderByTindakanId,
   ]);
 
-  const isCathlabRowComplete = useCallback((row: any): boolean => {
-    const isCath = `${row?.kategori ?? ""} ${row?.ruangan ?? ""}`.toLowerCase().includes("cath");
-    if (!isCath) return true; // Baris non-Cathlab tidak terkena aturan ini
-
-    const txt = (v: any) => String(v ?? "").trim();
-    const isPlaceholder = (s: string) => {
-      const l = s.toLowerCase();
-      return (
-        !l ||
-        l === "pasien" ||
-        l === "belum diisi" ||
-        l === "belum ditentukan" ||
-        l.includes("cari / pilih")
-      );
-    };
-
-    const hasTanggal = Boolean(txt(row?.tanggal));
-    const hasRm = Boolean(txt(row?.no_rm ?? row?.rm)) && txt(row?.no_rm ?? row?.rm) !== "—";
-    const hasNama = Boolean(txt(row?.nama_pasien ?? row?.nama)) && !isPlaceholder(txt(row?.nama_pasien ?? row?.nama));
-
-    const status = txt(row?.status).toLowerCase();
-    const isDraftLike =
-      !status || status === "menunggu" || status === "proses";
-    const tindakanPlaceholder = isPlaceholder(txt(row?.tindakan));
-    const dokterPlaceholder = isPlaceholder(txt(row?.dokter));
-    if (isDraftLike || tindakanPlaceholder || dokterPlaceholder) {
-      // Draft Cath Lab / toolbar: tampilkan di tabel utama dengan identitas minimal.
-      return hasTanggal && hasRm && hasNama;
-    }
-
-    const hasKelas = Boolean(txt(row?.kelas_pembiayaan));
-    const hasUmur = Boolean(txt(row?.umur));
-    const hasRuangan = Boolean(txt(row?.ruangan));
-    const hasDiagnosa = Boolean(txt(row?.diagnosa));
-    const hasTindakan =
-      Boolean(txt(row?.tindakan)) && !isPlaceholder(txt(row?.tindakan));
-    const hasDokter =
-      Boolean(txt(row?.dokter)) && !isPlaceholder(txt(row?.dokter));
-    const hasHasilLab = Boolean(txt(row?.hasil_lab_ppm));
-
-    return (
-      hasTanggal &&
-      hasRm &&
-      hasNama &&
-      hasKelas &&
-      hasUmur &&
-      hasRuangan &&
-      hasDiagnosa &&
-      hasTindakan &&
-      hasDokter &&
-      hasHasilLab
-    );
-  }, []);
+  const isCathlabRowComplete = useCallback(
+    (row: TindakanJoinResult) => cathlabRowShouldShowInMainTable(row),
+    [],
+  );
 
   const filteredRecords = useMemo(() => {
     const merged = [...rowsForPemakaianLink];
@@ -3411,49 +3367,24 @@ export default function TindakanTable({
         String(row.tanggal ?? "").trim();
       const rm = String(row.no_rm ?? row.rm ?? "").trim();
       const nama = String(row.nama_pasien ?? row.nama ?? "").trim();
-      const searchQuery = rm || nama;
       const rowId = String(row.id ?? "").trim();
       const label = nama || rm || "baris";
-
-      if (tanggalKey) {
-        const today = todayWibYmd();
-        if (tanggalKey > today) {
-          allowFutureDateFetchRef.current = true;
-        }
-        setFilterTanggalFrom(tanggalKey);
-        setFilterTanggalTo(tanggalKey);
-        persistTindakanDateFilter(tanggalKey, tanggalKey);
-      }
-      if (searchQuery) {
-        setSearch(searchQuery);
-      }
-      setToolbarFilterSync({
-        search: searchQuery,
-        tanggalFrom: tanggalKey,
-        tanggalTo: tanggalKey,
-        seq: Date.now(),
-      });
-
-      try {
-        await refresh({ force: true });
-      } catch {
-        /* tetap lanjut highlight jika data sudah ada lokal */
-      }
+      const silent = Boolean(opts?.silent);
 
       if (rowId) {
         setHighlightTindakanRowId(rowId);
         window.setTimeout(() => setHighlightTindakanRowId(null), 3000);
       }
 
-      if (!opts?.silent) {
+      if (!silent) {
         const dateDisp = tanggalKey ? formatTanggalDdMmYyyy(tanggalKey) : "—";
         notify({
           type: "success",
-          message: `Filter diset ke tanggal ${dateDisp} — ${label} ditampilkan di tabel.`,
+          message: `Baris ${label} (${dateDisp}) ditandai di tabel. Ubah filter tanggal jika tidak terlihat.`,
         });
       }
     },
-    [notify, refresh],
+    [notify],
   );
 
   useEffect(() => {
@@ -3554,11 +3485,27 @@ export default function TindakanTable({
           onJadwalCreateRecord={createRecord}
           onJadwalPatchRow={patchLocalRow}
           onJadwalDeleteRow={deleteRecord}
-          onJadwalSyncMainTable={(opts) => refresh({ force: opts?.force })}
+          onJadwalSyncMainTable={async (opts) => {
+            await mutateAllTindakanLists();
+            await refresh({ force: opts?.force });
+          }}
           onJadwalRevealInMainTable={revealRowInMainTable}
           onRevealTindakanInTable={revealRowInMainTable}
           toolbarFilterSync={toolbarFilterSync}
         />
+
+        {filteredRecords.length > 0 ? (
+          <div className="shrink-0 bg-slate-50/80 dark:bg-black/15">
+            <TablePagination
+              currentPage={page}
+              totalPages={totalPages}
+              totalItems={filteredRecords.length}
+              pageSize={perPage}
+              onPageChange={setPage}
+              onPageSizeChange={setPerPage}
+            />
+          </div>
+        ) : null}
 
         {laporanModalOpen ? (
           <TindakanLaporanModal
@@ -4038,6 +3985,14 @@ export default function TindakanTable({
                                         )}
                                       >
                                         {statusLabel}
+                                      </span>
+                                    ) : null}
+                                    {cathlabRowNeedsCompletenessBadge(rec) ? (
+                                      <span
+                                        className="inline-flex max-w-full rounded border border-amber-600/50 bg-amber-100 px-1 py-px text-[8px] font-bold uppercase leading-tight tracking-wide text-amber-950 dark:border-amber-400/50 dark:bg-amber-950/60 dark:text-white"
+                                        title="Diagnosa atau hasil lab belum diisi"
+                                      >
+                                        Belum lengkap
                                       </span>
                                     ) : null}
                                   </div>

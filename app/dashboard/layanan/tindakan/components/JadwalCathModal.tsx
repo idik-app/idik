@@ -53,8 +53,14 @@ import {
   JADWAL_ZOOM_INNER_CLASSES,
   extractCalendarDateKey,
 } from "./cells/EditableCells";
-import { mutate } from "swr";
+import useSWR, { mutate } from "swr";
 import { buildJadwalElektifWhatsApp } from "../lib/buildJadwalElektifWhatsApp";
+import {
+  buildTindakanListKey,
+  fetchTindakanList,
+  JADWAL_TINDAKAN_LIMIT,
+  mutateAllTindakanLists,
+} from "../lib/tindakanListQuery";
 import {
   confirmDuplicateRmOnDate,
   hasDuplicateRmOnDate,
@@ -231,7 +237,7 @@ const TD_BASE = "border border-slate-200/80 px-1 py-1 align-middle min-w-0 text-
 type Props = {
   open: boolean;
   onClose: () => void;
-  /** Sumber sama dengan tabel tindakan (adapter.tindakanList). */
+  /** Fallback jika fetch Jadwal gagal; jangan diandalkan sebagai sumber utama. */
   rowsSource?: Record<string, unknown>[];
   onCreateRecord?: (
     payload: Record<string, unknown>,
@@ -356,6 +362,7 @@ export default function JadwalCathModal({
   const scheduleSync = useCallback(() => {
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
+      void mutateAllTindakanLists();
       void onSyncMainTable?.({ force: true });
     }, 500);
   }, [onSyncMainTable]);
@@ -390,10 +397,35 @@ export default function JadwalCathModal({
     });
   }, []);
 
+  const jadwalListKey = open
+    ? buildTindakanListKey({ from, to, limit: JADWAL_TINDAKAN_LIMIT })
+    : null;
+  const {
+    data: jadwalFetchData,
+    isLoading: jadwalFetchLoading,
+    error: jadwalFetchError,
+  } = useSWR(jadwalListKey, fetchTindakanList, {
+    revalidateOnFocus: false,
+    dedupingInterval: 5_000,
+    keepPreviousData: true,
+  });
+
+  const fetchedJadwalRaw = useMemo(() => {
+    const data = jadwalFetchData?.data;
+    return Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
+  }, [jadwalFetchData]);
+
   const sourceMapped = useMemo(() => {
-    const list = Array.isArray(rowsSource) ? rowsSource : [];
-    return list.map((r) => mapApiRow(r as Record<string, unknown>)).filter((r) => r.id);
-  }, [rowsSource]);
+    const list =
+      fetchedJadwalRaw.length > 0
+        ? fetchedJadwalRaw
+        : jadwalFetchError && Array.isArray(rowsSource)
+          ? rowsSource
+          : fetchedJadwalRaw;
+    return list
+      .map((r) => mapApiRow(r as Record<string, unknown>))
+      .filter((r) => r.id);
+  }, [fetchedJadwalRaw, jadwalFetchError, rowsSource]);
 
   const rows = useMemo(() => {
     const byId = new Map<string, JadwalRow>();
@@ -478,6 +510,7 @@ export default function JadwalCathModal({
 
   const handleClose = useCallback(() => {
     if (addPasienOpen) return;
+    void mutateAllTindakanLists();
     void onSyncMainTable?.({ force: true });
     onClose();
   }, [addPasienOpen, onClose, onSyncMainTable]);
@@ -504,8 +537,9 @@ export default function JadwalCathModal({
         }
 
         const patchWithCathlab = {
-          kategori: "Cathlab",
           ...patch,
+          kategori:
+            txt((patch as { kategori?: unknown }).kategori) || "Cathlab",
         };
 
         await updateOne(id, patchWithCathlab);
@@ -660,6 +694,7 @@ export default function JadwalCathModal({
         void mutate("/api/pasien?compact=1&limit=5000&force=1");
         show({ type: "success", message: "Pasien & jadwal tersimpan." });
 
+        void mutateAllTindakanLists();
         void onRevealInMainTable?.(local, { silent: true });
         void onSyncMainTable?.({ force: true });
       } catch (e) {
@@ -710,6 +745,7 @@ export default function JadwalCathModal({
         setPinnedRows((prev) => prev.filter((r) => r.id !== row.id));
         clearDirty(row.id);
         show({ type: "success", message: "Draft jadwal dihapus." });
+        void mutateAllTindakanLists();
         void onSyncMainTable?.({ force: true });
       } catch (e) {
         show({
@@ -724,8 +760,9 @@ export default function JadwalCathModal({
   const rowsForWaDay = useMemo(() => {
     const dayKey = extractCalendarDateKey(selectedDate) ?? selectedDate;
     return rows.filter((r) => {
+      if (isEmptyDayId(r.id) || r.id.startsWith("temp-draft-")) return false;
       const t = extractCalendarDateKey(txt(r.tanggal)) ?? txt(r.tanggal);
-      return t === dayKey;
+      return t === dayKey && (txt(r.nama_pasien) || txt(r.no_rm));
     });
   }, [rows, selectedDate]);
 
@@ -761,10 +798,12 @@ export default function JadwalCathModal({
     }
   }, [rowsForWaDay, selectedDate, show]);
 
-  const waDisabled = !rowsForWaDay.some(
-    (r) => txt(r.nama_pasien) || txt(r.no_rm),
-  );
-  const sourceLoading = rowsSource === undefined;
+  const waDisabled = rowsForWaDay.length === 0;
+  const sourceLoading =
+    Boolean(open) &&
+    jadwalFetchLoading &&
+    fetchedJadwalRaw.length === 0 &&
+    pinnedRows.length === 0;
 
   const zoomTd = (
     origin: "left" | "center",
@@ -1244,7 +1283,7 @@ export default function JadwalCathModal({
               Jadwal Tindakan Cath Lab
             </h2>
             <p className="hidden sm:block truncate text-[11px] font-medium text-slate-200">
-              Tabel sinkronisasi jadwal real-time · Klik 2x pada baris untuk membuka Detail Drawer Pasien
+              Data bulan/hari ini independen dari filter tabel utama · tanggal ke depan ikut tampil · klik 2× baris untuk Detail
             </p>
           </div>
         </div>

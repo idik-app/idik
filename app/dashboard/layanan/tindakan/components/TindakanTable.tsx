@@ -476,8 +476,7 @@ const TINDAKAN_DATE_FILTER_KEY = "idik_tindakan_date_filter";
 const TINDAKAN_DATE_FILTER_VERSION_KEY = "idik_tindakan_date_filter_v2";
 
 function defaultUntilTodayDateFilter(): { from: string; to: string } {
-  const today = todayWibYmd();
-  return { from: "", to: today };
+  return { from: "", to: "" };
 }
 
 function readInitialTindakanDateFilter(): { from: string; to: string } {
@@ -1484,13 +1483,9 @@ export default function TindakanTable({
       filterTanggalFrom.trim();
     const to =
       extractCalendarDateKey(filterTanggalTo.trim()) ?? filterTanggalTo.trim();
-    const today = todayWibYmd();
-    let toServer = to || today;
-    if (!allowFutureDateFetchRef.current && toServer > today) {
-      toServer = today;
-    }
+
     const fromServer = from || undefined;
-    const toParam = toServer || today;
+    const toParam = to || undefined;
 
     adapter.setServerFilters((prev) => {
       if (prev.from === fromServer && prev.to === toParam) return prev;

@@ -273,6 +273,8 @@ function TableToolbar({
     patient: Pasien,
     opts?: { tanggal?: string },
   ) => {
+    setSearchValue("");
+    onSearch("");
     const pasienId = String(patient.id ?? "").trim();
     const rm = String(patient.noRM ?? "").trim();
     const nama = String(patient.nama ?? "").trim();

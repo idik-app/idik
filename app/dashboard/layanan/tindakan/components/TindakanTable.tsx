@@ -2688,6 +2688,9 @@ export default function TindakanTable({
       nama: string;
       tanggal?: string;
     }) => {
+      setSearch("");
+      setPerPage(100);
+      setPage(1);
       const pasienId = String(p.pasienId ?? "").trim();
       const rmResolved = String(p.rm ?? "").trim();
       const namaResolved =
@@ -2743,7 +2746,7 @@ export default function TindakanTable({
         });
       }
     },
-    [appConfirm, createRecord, notify, rowsForDupCheck],
+    [appConfirm, createRecord, notify, rowsForDupCheck, setSearch, setPerPage, setPage],
   );
 
   const handleCreateForActivePasien = useCallback(async () => {

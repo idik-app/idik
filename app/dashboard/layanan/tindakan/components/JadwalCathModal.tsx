@@ -164,6 +164,7 @@ function isEmptyDayId(id: string): boolean {
 
 function isCathlabRow(row: JadwalRow): boolean {
   const blob = `${row.kategori ?? ""} ${row.ruangan ?? ""}`.toLowerCase();
+  if (!blob.trim() || blob.includes("belum diisi")) return true;
   return blob.includes("cath");
 }
 

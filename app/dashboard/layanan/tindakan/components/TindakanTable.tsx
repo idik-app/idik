@@ -2723,8 +2723,8 @@ export default function TindakanTable({
         dokter: "Belum diisi",
         tindakan: "Belum diisi",
         status: "Menunggu",
-        kategori: "Belum diisi",
-        ruangan: "Belum diisi",
+        kategori: "Cathlab",
+        ruangan: "Cathlab",
       };
       try {
         const created = await createRecord(payload);

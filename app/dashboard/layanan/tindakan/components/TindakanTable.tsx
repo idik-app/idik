@@ -160,6 +160,7 @@ import {
   confirmDuplicateRmOnDate,
   hasDuplicateRmOnDate,
   mergeTindakanRowsForDupCheck,
+  rmEquivalent,
   type RmDateRow,
 } from "../lib/tindakanRmDateDuplicate";
 import { useEventBridge } from "@/contexts/EventBridgeContext";
@@ -1511,6 +1512,11 @@ export default function TindakanTable({
     search?: string;
     tanggalFrom?: string;
     tanggalTo?: string;
+    dokter?: string;
+    ruangan?: string;
+    tindakan?: string;
+    status?: string;
+    isPciOnly?: boolean;
     seq: number;
   } | null>(null);
   const revealRowInMainTableRef = useRef<
@@ -2717,7 +2723,18 @@ export default function TindakanTable({
             notify({ type: "warning", message, duration: 5000 }),
           confirm: appConfirm,
         });
-        if (!ok) return;
+        if (!ok) {
+          const existingRow = (rowsForDupCheck as any[]).find(
+            (r) =>
+              rmEquivalent(r.no_rm || r.noRM || "", rmResolved) &&
+              (extractCalendarDateKey(String(r.tanggal ?? "").trim()) ??
+                String(r.tanggal ?? "").trim()) === tanggalKey,
+          );
+          if (existingRow) {
+            void revealRowInMainTableRef.current(existingRow);
+          }
+          return;
+        }
       }
 
       const payload: Record<string, unknown> = {
@@ -3424,6 +3441,14 @@ export default function TindakanTable({
       const rowId = String(row.id ?? "").trim();
       const label = nama || rm || "baris";
 
+      // Reset filter berkonflik agar baris yang di-reveal pasti terlihat
+      setFilterDokter("");
+      setFilterRuangan("");
+      setFilterTindakan("");
+      setFilterStatus("");
+      setFilterPciOnly(false);
+      setPage(1);
+
       if (tanggalKey) {
         const today = todayWibYmd();
         if (tanggalKey > today) {
@@ -3441,6 +3466,11 @@ export default function TindakanTable({
           search: searchQuery,
           tanggalFrom: tanggalKey,
           tanggalTo: tanggalKey,
+          dokter: "",
+          ruangan: "",
+          tindakan: "",
+          status: "",
+          isPciOnly: false,
           seq: Date.now(),
         });
       } else {
@@ -3449,6 +3479,11 @@ export default function TindakanTable({
           search: "",
           tanggalFrom: tanggalKey,
           tanggalTo: tanggalKey,
+          dokter: "",
+          ruangan: "",
+          tindakan: "",
+          status: "",
+          isPciOnly: false,
           seq: Date.now(),
         });
       }
@@ -3461,7 +3496,7 @@ export default function TindakanTable({
 
       if (rowId) {
         setHighlightTindakanRowId(rowId);
-        window.setTimeout(() => setHighlightTindakanRowId(null), 3000);
+        window.setTimeout(() => setHighlightTindakanRowId(null), 3500);
       }
 
       if (!opts?.silent) {
@@ -3472,7 +3507,7 @@ export default function TindakanTable({
         });
       }
     },
-    [notify, refresh],
+    [notify, refresh, setSearch, setPage],
   );
 
   useEffect(() => {

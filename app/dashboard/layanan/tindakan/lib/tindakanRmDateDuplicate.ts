@@ -65,6 +65,10 @@ export function normalizeRmForCompare(rm: string): string {
   return stripped || "0";
 }
 
+export function rmEquivalent(a: string, b: string): boolean {
+  return normalizeRmForCompare(a) === normalizeRmForCompare(b);
+}
+
 function isCathlabRuanganOption(r: RuanganLike): boolean {
   const blob = `${r.nama ?? ""} ${r.kategori ?? ""}`.toLowerCase();
   return blob.includes("cath");

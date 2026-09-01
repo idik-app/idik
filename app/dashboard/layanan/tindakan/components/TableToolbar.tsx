@@ -103,6 +103,11 @@ interface Props {
     search?: string;
     tanggalFrom?: string;
     tanggalTo?: string;
+    dokter?: string;
+    ruangan?: string;
+    tindakan?: string;
+    status?: string;
+    isPciOnly?: boolean;
     seq: number;
   } | null;
   /** Nilai awal filter tanggal (sinkron dengan parent, default hari ini). */
@@ -320,6 +325,22 @@ function TableToolbar({
   useEffect(() => {
     onRefreshRef.current = onRefresh;
   }, [onRefresh]);
+
+  /** Sinkronkan filter toolbar dari parent saat baris di-reveal atau filter di-reset. */
+  useEffect(() => {
+    if (!toolbarFilterSync) return;
+    if (toolbarFilterSync.dokter !== undefined) setDokter(toolbarFilterSync.dokter);
+    if (toolbarFilterSync.ruangan !== undefined) setRuangan(toolbarFilterSync.ruangan);
+    if (toolbarFilterSync.tindakan !== undefined) setTindakan(toolbarFilterSync.tindakan);
+    if (toolbarFilterSync.status !== undefined) setStatus(toolbarFilterSync.status);
+    if (toolbarFilterSync.isPciOnly !== undefined) setIsPciOnly(toolbarFilterSync.isPciOnly);
+    if (toolbarFilterSync.search !== undefined) {
+      setSearchValue(toolbarFilterSync.search);
+      onSearch(toolbarFilterSync.search);
+    }
+    if (toolbarFilterSync.tanggalFrom !== undefined) setTanggalFrom(toolbarFilterSync.tanggalFrom);
+    if (toolbarFilterSync.tanggalTo !== undefined) setTanggalTo(toolbarFilterSync.tanggalTo);
+  }, [toolbarFilterSync, onSearch]);
 
   /** Tab terlihat — jangan polling saat background (hemat request & fokus UX). */
   useEffect(() => {

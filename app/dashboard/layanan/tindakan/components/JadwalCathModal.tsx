@@ -660,7 +660,6 @@ export default function JadwalCathModal({
         void mutate("/api/pasien?compact=1&limit=5000&force=1");
         show({ type: "success", message: "Pasien & jadwal tersimpan." });
 
-        void onRevealInMainTable?.(local, { silent: true });
         void onSyncMainTable?.({ force: true });
       } catch (e) {
         show({

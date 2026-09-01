@@ -5,12 +5,18 @@ export type JadwalElektifWaRow = {
   nama?: string | null;
   no_rm?: string | null;
   kelas_pembiayaan?: string | null;
+  umur?: string | number | null;
+  ruangan?: string | null;
   diagnosa?: string | null;
   tindakan?: string | null;
   dokter?: string | null;
   hasil_lab_ppm?: string | null;
   waktu?: string | null;
-  ruangan?: string | null;
+  asisten?: string | null;
+  sirkuler?: string | null;
+  logger?: string | null;
+  keterangan?: string | null;
+  tanggal?: string | null;
 };
 
 const HARI_ID = [
@@ -41,6 +47,13 @@ const BULAN_ID = [
 function dash(v: unknown): string {
   const t = String(v ?? "").trim();
   return t || "-";
+}
+
+function formatUmurTxt(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  const n = Number(v);
+  if (Number.isFinite(n) && n > 0) return `${n} TH`;
+  return String(v).trim();
 }
 
 function namaPasien(row: JadwalElektifWaRow): string {
@@ -81,17 +94,22 @@ export function rowSiapWhatsApp(row: JadwalElektifWaRow): boolean {
 }
 
 export function buildJadwalElektifWhatsApp(args: {
-  tanggalYmd: string;
+  tanggalYmd?: string;
+  dateRangeLabel?: string;
   rows: JadwalElektifWaRow[];
   now?: Date;
 }): string {
   const ready = args.rows.filter(rowSiapWhatsApp);
   const n = ready.length;
+  const headerDate =
+    args.dateRangeLabel ||
+    (args.tanggalYmd ? formatTanggalFilterId(args.tanggalYmd) : "Semua Tanggal");
+
   const lines: string[] = [
     `*${sapaanWib(args.now)}, dokter.*`,
     "",
     "Izin menyampaikan *Jadwal Tindakan Elektif*",
-    `_${formatTanggalFilterId(args.tanggalYmd)}_ · *${n} pasien*`,
+    `_${headerDate}_ · *${n} pasien*`,
     "",
     "━━━━━━━━━━━━━━━━",
     "",
@@ -100,13 +118,37 @@ export function buildJadwalElektifWhatsApp(args: {
   ready.forEach((row, i) => {
     lines.push(`*${i + 1}. ${namaPasien(row)}*`);
     lines.push(`_No RM_ : \`${dash(row.no_rm)}\``);
-    lines.push(`_BPJS_ : *${dash(row.kelas_pembiayaan)}*`);
+    lines.push(`_BPJS/Kelas_ : *${dash(row.kelas_pembiayaan)}*`);
+
+    const u = formatUmurTxt(row.umur);
+    if (u) {
+      lines.push(`_Umur_ : ${u}`);
+    }
+
     lines.push(`_Diagnosa_ : _${dash(row.diagnosa)}_`);
     lines.push(`_Tindakan_ : *${dash(row.tindakan)}*`);
     lines.push(`_Operator_ : ${dash(row.dokter)}`);
     lines.push(`_Lab_ : \`${dash(row.hasil_lab_ppm)}\``);
     lines.push(`_Jam_ : ${dash(row.waktu)}`);
     lines.push(`_Ruang_ : ${dash(row.ruangan)}`);
+
+    const asisten = String(row.asisten ?? "").trim();
+    if (asisten) {
+      lines.push(`_Asisten_ : ${asisten}`);
+    }
+    const sirkuler = String(row.sirkuler ?? "").trim();
+    if (sirkuler) {
+      lines.push(`_Sirkuler_ : ${sirkuler}`);
+    }
+    const logger = String(row.logger ?? "").trim();
+    if (logger) {
+      lines.push(`_Logger_ : ${logger}`);
+    }
+    const ket = String(row.keterangan ?? "").trim();
+    if (ket) {
+      lines.push(`_Ket._ : ${ket}`);
+    }
+
     lines.push("");
   });
 
@@ -114,3 +156,4 @@ export function buildJadwalElektifWhatsApp(args: {
   lines.push("_terima kasih_ 🙏🏻");
   return lines.join("\n");
 }
+

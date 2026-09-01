@@ -1516,7 +1516,7 @@ export default function TindakanTable({
   const revealRowInMainTableRef = useRef<
     (
       row: Record<string, unknown>,
-      opts?: { silent?: boolean },
+      opts?: { silent?: boolean; skipSearchFilter?: boolean },
     ) => Promise<void>
   >(async () => {});
   /** Izinkan fetch API dengan tanggal > hari ini (mis. reveal dari Jadwal). */

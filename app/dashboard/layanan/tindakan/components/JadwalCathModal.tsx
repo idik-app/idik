@@ -63,6 +63,7 @@ import {
 } from "../lib/tindakanRmDateDuplicate";
 import JadwalRmRiwayatPopover from "./JadwalRmRiwayatPopover";
 import TambahPasienQuickModal from "./TambahPasienQuickModal";
+import FormatWaJadwalModal from "./FormatWaJadwalModal";
 
 const BULAN_TAB = [
   { label: "JAN", month: 1 },
@@ -283,6 +284,7 @@ export default function JadwalCathModal({
   const [fullscreen, setFullscreen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [addPasienOpen, setAddPasienOpen] = useState(false);
+  const [waModalOpen, setWaModalOpen] = useState(false);
   const [pasienDefaultTanggal, setPasienDefaultTanggal] = useState(today);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -413,9 +415,11 @@ export default function JadwalCathModal({
         byId.set(id, { ...mapApiRow({ id }), ...draft } as JadwalRow);
       }
     }
-    return Array.from(byId.values()).sort((a, b) =>
-      txt(a.tanggal).localeCompare(txt(b.tanggal)),
-    );
+    return Array.from(byId.values()).sort((a, b) => {
+      const dateCmp = txt(a.tanggal).localeCompare(txt(b.tanggal));
+      if (dateCmp !== 0) return dateCmp;
+      return txt(a.waktu).localeCompare(txt(b.waktu));
+    });
   }, [sourceMapped, from, to, pinnedRows, draftByRowId, dirtyIds]);
 
   /** Setiap hari di rentang filter; hari tanpa pasien = placeholder tampilan. */
@@ -688,16 +692,9 @@ export default function JadwalCathModal({
 
   const removeDraft = useCallback(
     async (row: JadwalRow) => {
-      if (row.id.startsWith("temp-draft-")) return;
-      if (txt(row.status).toLowerCase() !== "menunggu") {
-        show({
-          type: "warning",
-          message: "Hanya draft berstatus Menunggu yang boleh dihapus.",
-        });
-        return;
-      }
+      if (row.id.startsWith("temp-draft-") || isEmptyDayId(row.id)) return;
       const ok = window.confirm(
-        "Hapus baris jadwal kosong ini? Kasus yang sudah berjalan tidak dihapus.",
+        `Hapus baris jadwal ${row.nama_pasien || row.no_rm ? `pasien ${row.nama_pasien || row.no_rm}` : "ini"}? Baris akan dihapus dari jadwal dan tabel tindakan.`,
       );
       if (!ok) return;
       try {
@@ -708,12 +705,14 @@ export default function JadwalCathModal({
         }
         setPinnedRows((prev) => prev.filter((r) => r.id !== row.id));
         clearDirty(row.id);
-        show({ type: "success", message: "Draft jadwal dihapus." });
+        void mutate((key) => typeof key === "string" && key.startsWith("/api/tindakan"));
+        void mutate((key) => typeof key === "string" && key.startsWith("/api/pasien"));
+        show({ type: "success", message: "Baris jadwal dihapus." });
         void onSyncMainTable?.({ force: true });
       } catch (e) {
         show({
           type: "error",
-          message: e instanceof Error ? e.message : "Gagal menghapus draft.",
+          message: e instanceof Error ? e.message : "Gagal menghapus baris jadwal.",
         });
       }
     },
@@ -848,6 +847,7 @@ export default function JadwalCathModal({
               {/* Non-sticky Columns */}
               <th className={cn(TH_BASE, "text-center")} style={{ width: 80, minWidth: 80 }}>Kelas</th>
               <th className={cn(TH_BASE, "text-center")} style={{ width: 45, minWidth: 45 }}>Umur</th>
+              <th className={cn(TH_BASE, "text-center")} style={{ width: 70, minWidth: 70 }}>Jam</th>
               <th className={cn(TH_BASE, "text-center")} style={{ width: 95, minWidth: 95 }}>Ruangan</th>
               <th className={cn(TH_BASE, "text-left")} style={{ width: 140, minWidth: 140 }}>Diagnosa</th>
               <th className={cn(TH_BASE, "text-left")} style={{ width: 140, minWidth: 140 }}>Tindakan</th>
@@ -918,7 +918,7 @@ export default function JadwalCathModal({
                     >
                       + Tambah pasien…
                     </td>
-                    <td className={TD_BASE} colSpan={11} />
+                    <td className={TD_BASE} colSpan={12} />
                   </tr>
                 );
               }
@@ -961,10 +961,10 @@ export default function JadwalCathModal({
                           <Table2 size={12} />
                         </button>
                       ) : null}
-                      {!isTemp && txt(row.status).toLowerCase() === "menunggu" ? (
+                      {!isTemp && !isEmptyDayId(row.id) ? (
                         <button
                           type="button"
-                          title="Hapus draft"
+                          title="Hapus baris jadwal"
                           onClick={() => void removeDraft(row)}
                           className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-red-500/15 hover:text-red-600"
                         >
@@ -1066,6 +1066,20 @@ export default function JadwalCathModal({
                   <td className={cn(TD_BASE, "text-center text-slate-700 font-semibold")} style={{ width: 45, minWidth: 45 }}>
                     {formatUmurDisplay(row.umur)}
                   </td>
+                  {zoomTd(
+                    "center",
+                    <EditableTextCell
+                      variant="table"
+                      value={txt(row.waktu)}
+                      placeholder="08:00"
+                      onDirty={() => markDirty(row.id)}
+                      onCommit={(next) =>
+                        patchField(row.id, { waktu: next || null })
+                      }
+                    />,
+                    undefined,
+                    { width: 70, minWidth: 70 },
+                  )}
                   {zoomTd(
                     "center",
                     <EditableRuanganCell
@@ -1320,11 +1334,10 @@ export default function JadwalCathModal({
         <div className="ml-auto flex items-center gap-1.5">
           <button
             type="button"
-            title="Salin jadwal ke WhatsApp"
-            aria-label="Salin jadwal ke WhatsApp"
-            disabled={waDisabled}
-            onClick={() => void copyWa()}
-            className="inline-flex h-8 items-center gap-1 rounded-lg border border-emerald-600/40 bg-emerald-50 px-2.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 transition shadow-sm"
+            title="Format & Salin jadwal ke WhatsApp"
+            aria-label="Format & Salin jadwal ke WhatsApp"
+            onClick={() => setWaModalOpen(true)}
+            className="inline-flex h-8 items-center gap-1 rounded-lg border border-emerald-600/40 bg-emerald-50 px-2.5 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition shadow-sm"
           >
             <MessageCircle size={15} />
             <span className="hidden sm:inline">Salin WA</span>
@@ -1412,11 +1425,21 @@ export default function JadwalCathModal({
     />
   ) : null;
 
+  const waModal = waModalOpen ? (
+    <FormatWaJadwalModal
+      open={waModalOpen}
+      onClose={() => setWaModalOpen(false)}
+      initialDate={selectedDate}
+      rows={rows}
+    />
+  ) : null;
+
   if (fullscreen && typeof document !== "undefined") {
     return createPortal(
       <>
         {shell}
         {pasienModal}
+        {waModal}
       </>,
       document.body,
     );
@@ -1434,6 +1457,7 @@ export default function JadwalCathModal({
         {shell}
       </ModalWrapper>
       {pasienModal}
+      {waModal}
     </>
   );
 }

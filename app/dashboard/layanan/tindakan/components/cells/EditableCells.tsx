@@ -62,9 +62,9 @@ const CAL_MONTH: Record<string, string> = {
 export function extractCalendarDateKey(raw: string): string | null {
   const s = String(raw ?? "").trim();
   if (!s) return null;
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-  m = s.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})/i);
+  let m = s.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  m = s.match(/^(\d{1,2})[/-]([A-Za-z]{3})[/-](\d{4})/i);
   if (m) {
     const day = m[1].padStart(2, "0");
     const mon = CAL_MONTH[m[2].toLowerCase().slice(0, 3)];
@@ -72,7 +72,7 @@ export function extractCalendarDateKey(raw: string): string | null {
     if (mon) return `${year}-${mon}-${day}`;
   }
   // dd/mm/yyyy or dd-mm-yyyy
-  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
   if (m) {
     const day = m[1].padStart(2, "0");
     const mon = m[2].padStart(2, "0");

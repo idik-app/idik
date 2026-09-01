@@ -2736,7 +2736,7 @@ export default function TindakanTable({
         });
         void revealRowInMainTableRef.current(
           { id, ...payload, tanggal: tanggalKey },
-          { silent: true },
+          { silent: true, skipSearchFilter: true },
         );
       } catch (e) {
         notify({
@@ -3407,14 +3407,14 @@ export default function TindakanTable({
   const revealRowInMainTable = useCallback(
     async (
       row: Record<string, unknown>,
-      opts?: { silent?: boolean },
+      opts?: { silent?: boolean; skipSearchFilter?: boolean },
     ) => {
       const tanggalKey =
         extractCalendarDateKey(String(row.tanggal ?? "").trim()) ??
         String(row.tanggal ?? "").trim();
       const rm = String(row.no_rm ?? row.rm ?? "").trim();
       const nama = String(row.nama_pasien ?? row.nama ?? "").trim();
-      const searchQuery = rm || nama;
+      const searchQuery = opts?.skipSearchFilter ? "" : (rm || nama);
       const rowId = String(row.id ?? "").trim();
       const label = nama || rm || "baris";
 
@@ -3427,15 +3427,25 @@ export default function TindakanTable({
         setFilterTanggalTo(tanggalKey);
         persistTindakanDateFilter(tanggalKey, tanggalKey);
       }
-      if (searchQuery) {
-        setSearch(searchQuery);
+      if (!opts?.skipSearchFilter) {
+        if (searchQuery) {
+          setSearch(searchQuery);
+        }
+        setToolbarFilterSync({
+          search: searchQuery,
+          tanggalFrom: tanggalKey,
+          tanggalTo: tanggalKey,
+          seq: Date.now(),
+        });
+      } else {
+        setSearch("");
+        setToolbarFilterSync({
+          search: "",
+          tanggalFrom: tanggalKey,
+          tanggalTo: tanggalKey,
+          seq: Date.now(),
+        });
       }
-      setToolbarFilterSync({
-        search: searchQuery,
-        tanggalFrom: tanggalKey,
-        tanggalTo: tanggalKey,
-        seq: Date.now(),
-      });
 
       try {
         await refresh({ force: true });

@@ -1436,7 +1436,7 @@ export default function TindakanTable({
   const [page, setPage] = useState(1);
   const PER_PAGE_KEY = "idik_tindakan_per_page";
   const PER_PAGE_ALLOWED = [10, 15, 25, 50, 100, 1000, 10000] as const;
-  const [perPage, setPerPage] = useState(15);
+  const [perPage, setPerPage] = useState(100);
 
   useEffect(() => {
     try {

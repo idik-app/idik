@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Calendar, Check, Copy, ExternalLink, MessageCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { UI_LAYERS } from "@/lib/ui/layers";
+import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
 import { useNotification } from "@/app/contexts/NotificationContext";
 import {
   buildJadwalElektifWhatsApp,
@@ -121,8 +121,9 @@ export default function FormatWaJadwalModal({
     <div
       className={cn(
         "fixed inset-0 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity",
-        UI_LAYERS.modalTop,
+        UI_LAYERS.dialogContentTop,
       )}
+      style={{ zIndex: Z_INDEX_VALUES.dialogContentTop }}
       onClick={onClose}
     >
       <div

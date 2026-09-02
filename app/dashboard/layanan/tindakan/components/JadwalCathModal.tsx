@@ -486,6 +486,14 @@ export default function JadwalCathModal({
     onClose();
   }, [addPasienOpen, onClose, onSyncMainTable]);
 
+  const handleRevealInMainTable = useCallback(
+    (row: JadwalRow) => {
+      handleClose();
+      void onRevealInMainTable?.(row);
+    },
+    [handleClose, onRevealInMainTable],
+  );
+
   const openTambahPasien = useCallback(
     (tanggal?: string) => {
       const t = (tanggal || selectedDate || today).trim() || today;
@@ -801,7 +809,7 @@ export default function JadwalCathModal({
               {/* Sticky Column 0: NO & Add button */}
               <th
                 className={cn(TH_BASE, "left-0 z-30 border-r border-white/20 text-center")}
-                style={{ left: 0, width: 40, minWidth: 40 }}
+                style={{ left: 0, width: 52, minWidth: 52 }}
               >
                 <div className="flex items-center justify-center gap-1">
                   <span>NO</span>
@@ -819,16 +827,16 @@ export default function JadwalCathModal({
 
               {/* Sticky Column 1: HARI/TGL */}
               <th
-                className={cn(TH_BASE, "left-[40px] z-30 border-r border-white/20 text-center")}
-                style={{ left: 40, width: 115, minWidth: 115 }}
+                className={cn(TH_BASE, "left-[52px] z-30 border-r border-white/20 text-center")}
+                style={{ left: 52, width: 115, minWidth: 115 }}
               >
                 Hari/tgl
               </th>
 
               {/* Sticky Column 2: NO. RM */}
               <th
-                className={cn(TH_BASE, "left-[155px] z-30 border-r border-white/20 text-center")}
-                style={{ left: 155, width: 105, minWidth: 105 }}
+                className={cn(TH_BASE, "left-[167px] z-30 border-r border-white/20 text-center")}
+                style={{ left: 167, width: 105, minWidth: 105 }}
               >
                 No. RM
               </th>
@@ -837,9 +845,9 @@ export default function JadwalCathModal({
               <th
                 className={cn(
                   TH_BASE,
-                  "left-[260px] z-30 border-r-2 border-slate-400/60 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.15)] text-left",
+                  "left-[272px] z-30 border-r-2 border-slate-400/60 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.15)] text-left",
                 )}
-                style={{ left: 260, width: 160, minWidth: 160 }}
+                style={{ left: 272, width: 165, minWidth: 165 }}
               >
                 Nama
               </th>
@@ -889,7 +897,7 @@ export default function JadwalCathModal({
                         TD_BASE,
                         "sticky left-0 z-10 text-center font-mono text-slate-400 bg-slate-50/60 group-hover:bg-[#EEF3FA] border-r border-slate-200/80",
                       )}
-                      style={{ left: 0, width: 40, minWidth: 40 }}
+                      style={{ left: 0, width: 52, minWidth: 52 }}
                     >
                       {rowNum}
                     </td>
@@ -898,23 +906,23 @@ export default function JadwalCathModal({
                       <span className="block w-full px-1 text-center font-semibold text-[#1B2B44]">
                         {txt(row.tanggal)}
                       </span>,
-                      "sticky left-[40px] z-10 bg-slate-50/60 group-hover:bg-[#EEF3FA] border-r border-slate-200/80",
-                      { left: 40, width: 115, minWidth: 115 },
+                      "sticky left-[52px] z-10 bg-slate-50/60 group-hover:bg-[#EEF3FA] border-r border-slate-200/80",
+                      { left: 52, width: 115, minWidth: 115 },
                     )}
                     <td
                       className={cn(
                         TD_BASE,
-                        "sticky left-[155px] z-10 bg-slate-50/60 group-hover:bg-[#EEF3FA] border-r border-slate-200/80 text-slate-400",
+                        "sticky left-[167px] z-10 bg-slate-50/60 group-hover:bg-[#EEF3FA] border-r border-slate-200/80 text-slate-400",
                       )}
-                      style={{ left: 155, width: 105, minWidth: 105 }}
+                      style={{ left: 167, width: 105, minWidth: 105 }}
                       colSpan={1}
                     />
                     <td
                       className={cn(
                         TD_BASE,
-                        "sticky left-[260px] z-10 bg-slate-50/60 group-hover:bg-[#EEF3FA] border-r-2 border-slate-300 text-[10px] text-slate-400 italic",
+                        "sticky left-[272px] z-10 bg-slate-50/60 group-hover:bg-[#EEF3FA] border-r-2 border-slate-300 text-[10px] text-slate-400 italic",
                       )}
-                      style={{ left: 260, width: 160, minWidth: 160 }}
+                      style={{ left: 272, width: 165, minWidth: 165 }}
                     >
                       + Tambah pasien…
                     </td>
@@ -945,18 +953,18 @@ export default function JadwalCathModal({
                   <td
                     className={cn(
                       TD_BASE,
-                      "sticky left-0 z-10 text-center font-mono font-bold bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
+                      "sticky left-0 z-10 text-center font-mono font-bold bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80 px-0.5",
                     )}
-                    style={{ left: 0, width: 40, minWidth: 40 }}
+                    style={{ left: 0, width: 52, minWidth: 52 }}
                   >
                     <div className="flex items-center justify-center gap-0.5">
                       <span>{rowNum}</span>
                       {!isTemp && !isEmptyDayId(row.id) ? (
                         <button
                           type="button"
-                          title="Tampilkan di tabel tindakan"
-                          onClick={() => void onRevealInMainTable?.(row)}
-                          className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-cyan-500/15 hover:text-cyan-700 dark:text-white/85 dark:hover:text-white"
+                          title={`Tampilkan ${txt(row.nama_pasien) || "pasien"} di tabel tindakan`}
+                          onClick={() => handleRevealInMainTable(row)}
+                          className="inline-flex h-5 w-5 items-center justify-center rounded text-cyan-600 hover:bg-cyan-100 hover:text-cyan-800 transition-colors"
                         >
                           <Table2 size={12} />
                         </button>
@@ -966,7 +974,7 @@ export default function JadwalCathModal({
                           type="button"
                           title="Hapus baris jadwal"
                           onClick={() => void removeDraft(row)}
-                          className="inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-red-500/15 hover:text-red-600"
+                          className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-red-500/15 hover:text-red-600 transition-colors"
                         >
                           <Trash2 size={12} />
                         </button>
@@ -985,8 +993,8 @@ export default function JadwalCathModal({
                         patchField(row.id, { tanggal: next || null })
                       }
                     />,
-                    "sticky left-[40px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
-                    { left: 40, width: 115, minWidth: 115 },
+                    "sticky left-[52px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80",
+                    { left: 52, width: 115, minWidth: 115 },
                   )}
 
                   {/* Sticky TD Col 2: NO. RM */}
@@ -994,9 +1002,9 @@ export default function JadwalCathModal({
                     className={cn(
                       TD_BASE,
                       JADWAL_ZOOM_CELL_CLASSES,
-                      "sticky left-[155px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80 px-0.5",
+                      "sticky left-[167px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80 px-0.5",
                     )}
-                    style={{ left: 155, width: 105, minWidth: 105 }}
+                    style={{ left: 167, width: 105, minWidth: 105 }}
                   >
                     <div
                       className={cn(
@@ -1028,23 +1036,49 @@ export default function JadwalCathModal({
                   </td>
 
                   {/* Sticky TD Col 3: NAMA (Floating border & shadow) */}
-                  {zoomTd(
-                    "left",
-                    <EditableTextCell
-                      variant="table"
-                      value={txt(row.nama_pasien)}
-                      placeholder=""
-                      onDirty={() => markDirty(row.id)}
-                      onCommit={(next) =>
-                        patchField(row.id, {
-                          nama_pasien: next || null,
-                          nama: next || null,
-                        })
-                      }
-                    />,
-                    "sticky left-[260px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r-2 border-slate-300 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.12)]",
-                    { left: 260, width: 160, minWidth: 160 },
-                  )}
+                  <td
+                    className={cn(
+                      TD_BASE,
+                      JADWAL_ZOOM_CELL_CLASSES,
+                      "sticky left-[272px] z-10 bg-white group-hover:bg-[#EEF3FA] transition-colors border-r-2 border-slate-300 shadow-[4px_0_12px_-2px_rgba(15,23,42,0.12)] px-1",
+                    )}
+                    style={{ left: 272, width: 165, minWidth: 165 }}
+                  >
+                    <div
+                      className={cn(
+                        JADWAL_ZOOM_INNER_CLASSES,
+                        "origin-left min-w-0 w-full flex items-center justify-between gap-1",
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <EditableTextCell
+                          variant="table"
+                          value={txt(row.nama_pasien)}
+                          placeholder=""
+                          onDirty={() => markDirty(row.id)}
+                          onCommit={(next) =>
+                            patchField(row.id, {
+                              nama_pasien: next || null,
+                              nama: next || null,
+                            })
+                          }
+                        />
+                      </div>
+                      {!isTemp && !isEmptyDayId(row.id) && (txt(row.nama_pasien) || txt(row.no_rm)) ? (
+                        <button
+                          type="button"
+                          title={`Tampilkan ${txt(row.nama_pasien) || "pasien"} di tabel tindakan`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRevealInMainTable(row);
+                          }}
+                          className="inline-flex shrink-0 h-5 w-5 items-center justify-center rounded bg-cyan-50 text-cyan-700 hover:bg-cyan-600 hover:text-white border border-cyan-300/70 shadow-2xs transition-all dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-700/60 dark:hover:bg-cyan-600 dark:hover:text-white"
+                        >
+                          <Table2 size={12} />
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
 
                   {/* Non-sticky Cells */}
                   {zoomTd(

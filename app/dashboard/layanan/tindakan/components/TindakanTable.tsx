@@ -3450,7 +3450,7 @@ export default function TindakanTable({
       setPage(1);
 
       // Cek apakah data baris ini sudah ada di tabel utama / rentang tanggal aktif
-      const isAlreadyInCurrentTable = records.some((r) => {
+      const isAlreadyInCurrentTable = (tindakanList as Record<string, unknown>[]).some((r) => {
         const rId = String(r.id ?? "").trim();
         const rRm = String(r.no_rm ?? r.rm ?? "").trim();
         if (rowId && rId === rowId) return true;
@@ -3534,7 +3534,7 @@ export default function TindakanTable({
         });
       }
     },
-    [filterTanggalFrom, filterTanggalTo, notify, records, refresh, setSearch, setPage],
+    [filterTanggalFrom, filterTanggalTo, notify, tindakanList, refresh, setSearch, setPage],
   );
 
   useEffect(() => {

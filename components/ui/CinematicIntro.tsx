@@ -32,12 +32,14 @@ function mulberry32(seed: number) {
 const MOBILE_MQ = "(max-width: 767px)";
 
 function subscribeMobileViewport(cb: () => void) {
+  if (typeof window === "undefined") return () => {};
   const mq = window.matchMedia(MOBILE_MQ);
   mq.addEventListener("change", cb);
   return () => mq.removeEventListener("change", cb);
 }
 
 function getMobileSnapshot() {
+  if (typeof window === "undefined") return false;
   return window.matchMedia(MOBILE_MQ).matches;
 }
 

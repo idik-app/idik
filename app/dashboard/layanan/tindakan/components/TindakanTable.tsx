@@ -3449,7 +3449,31 @@ export default function TindakanTable({
       setFilterPciOnly(false);
       setPage(1);
 
-      if (tanggalKey) {
+      // Cek apakah data baris ini sudah ada di tabel utama / rentang tanggal aktif
+      const isAlreadyInCurrentTable = records.some((r) => {
+        const rId = String(r.id ?? "").trim();
+        const rRm = String(r.no_rm ?? r.rm ?? "").trim();
+        if (rowId && rId === rowId) return true;
+        if (rm && rRm && rmEquivalent(rRm, rm)) return true;
+        return false;
+      });
+
+      const isDateInActiveFilterRange =
+        Boolean(filterTanggalFrom) &&
+        Boolean(filterTanggalTo) &&
+        Boolean(tanggalKey) &&
+        tanggalKey >= filterTanggalFrom &&
+        tanggalKey <= filterTanggalTo;
+
+      // Jika data sudah terisi/ada di tabel tindakan atau sudah dalam rentang tanggal aktif,
+      // JANGAN filter otomatis di tanggal tersebut (pertahankan filter tanggal utama).
+      const shouldChangeDateFilter =
+        tanggalKey && !isAlreadyInCurrentTable && !isDateInActiveFilterRange;
+
+      const targetFrom = shouldChangeDateFilter ? tanggalKey : filterTanggalFrom;
+      const targetTo = shouldChangeDateFilter ? tanggalKey : filterTanggalTo;
+
+      if (shouldChangeDateFilter) {
         const today = todayWibYmd();
         if (tanggalKey > today) {
           allowFutureDateFetchRef.current = true;
@@ -3458,14 +3482,15 @@ export default function TindakanTable({
         setFilterTanggalTo(tanggalKey);
         persistTindakanDateFilter(tanggalKey, tanggalKey);
       }
+
       if (!opts?.skipSearchFilter) {
         if (searchQuery) {
           setSearch(searchQuery);
         }
         setToolbarFilterSync({
           search: searchQuery,
-          tanggalFrom: tanggalKey,
-          tanggalTo: tanggalKey,
+          tanggalFrom: targetFrom,
+          tanggalTo: targetTo,
           dokter: "",
           ruangan: "",
           tindakan: "",
@@ -3477,8 +3502,8 @@ export default function TindakanTable({
         setSearch("");
         setToolbarFilterSync({
           search: "",
-          tanggalFrom: tanggalKey,
-          tanggalTo: tanggalKey,
+          tanggalFrom: targetFrom,
+          tanggalTo: targetTo,
           dokter: "",
           ruangan: "",
           tindakan: "",
@@ -3500,14 +3525,16 @@ export default function TindakanTable({
       }
 
       if (!opts?.silent) {
-        const dateDisp = tanggalKey ? formatTanggalDdMmYyyy(tanggalKey) : "—";
+        const dateDisp = shouldChangeDateFilter
+          ? ` ke tanggal ${formatTanggalDdMmYyyy(tanggalKey)}`
+          : "";
         notify({
           type: "success",
-          message: `Filter diset ke tanggal ${dateDisp} — ${label} ditampilkan di tabel.`,
+          message: `${label} ditampilkan di tabel${dateDisp}.`,
         });
       }
     },
-    [notify, refresh, setSearch, setPage],
+    [filterTanggalFrom, filterTanggalTo, notify, records, refresh, setSearch, setPage],
   );
 
   useEffect(() => {

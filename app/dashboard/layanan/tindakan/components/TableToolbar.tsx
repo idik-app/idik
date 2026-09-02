@@ -190,6 +190,7 @@ function TableToolbar({
   const isPageVisibleRef = useRef(true);
   const isUserTypingRef = useRef(false);
   const onRefreshRef = useRef(onRefresh);
+  const lastProcessedSeqRef = useRef<number | null>(null);
 
   const hasLaporanLab = typeof onOpenTindakanTerbanyakLab === "function";
   const hasLaporanMatriks = typeof onOpenLaporan === "function";
@@ -222,14 +223,6 @@ function TableToolbar({
   useEffect(() => {
     onFilterActiveChange?.(filterActive);
   }, [filterActive, onFilterActiveChange]);
-
-  useEffect(() => {
-    if (!toolbarFilterSync) return;
-    const { search, tanggalFrom, tanggalTo } = toolbarFilterSync;
-    if (search !== undefined) setSearchValue(search);
-    if (tanggalFrom !== undefined) setTanggalFrom(tanggalFrom);
-    if (tanggalTo !== undefined) setTanggalTo(tanggalTo);
-  }, [toolbarFilterSync?.seq, toolbarFilterSync]);
 
   useEffect(() => {
     if (!laporanMenuOpen) {
@@ -274,61 +267,12 @@ function TableToolbar({
     };
   }, [laporanMenuOpen]);
 
-  const handleSavedPasien = async (
-    patient: Pasien,
-    opts?: { tanggal?: string },
-  ) => {
-    setSearchValue("");
-    onSearch("");
-    const pasienId = String(patient.id ?? "").trim();
-    const rm = String(patient.noRM ?? "").trim();
-    const nama = String(patient.nama ?? "").trim();
-    if (typeof onCreateDraftForPasien === "function") {
-      await onCreateDraftForPasien({
-        pasienId,
-        rm,
-        nama,
-        tanggal: opts?.tanggal,
-      });
-    }
-    // Update the master patient list SWR cache immediately
-    void mutate("/api/pasien?compact=1&limit=5000&force=1");
-    await Promise.resolve(
-      typeof onRefresh === "function" ? onRefresh() : undefined,
-    );
-  };
-
-  const isAnySyncing = isSyncing || isSyncingMasterPasien;
-  const isRefreshBusy = isManualRefreshing || isAnySyncing;
-
-  /** Muat ulang data tabel (SWR) tanpa reload halaman. */
-  const handleRefreshTable = async () => {
-    if (typeof onRefresh !== "function" || isManualRefreshing) return;
-    setIsManualRefreshing(true);
-    try {
-      await Promise.resolve(onRefresh());
-    } catch (err) {
-      console.error("[TableToolbar] Manual refresh error:", err);
-    } finally {
-      setIsManualRefreshing(false);
-    }
-  };
-
+  /** Sinkronkan filter toolbar dari parent saat baris di-reveal atau filter di-reset (hanya saat seq baru). */
   useEffect(() => {
-    isPageVisibleRef.current = isPageVisible;
-  }, [isPageVisible]);
+    if (!toolbarFilterSync || !toolbarFilterSync.seq) return;
+    if (lastProcessedSeqRef.current === toolbarFilterSync.seq) return;
+    lastProcessedSeqRef.current = toolbarFilterSync.seq;
 
-  useEffect(() => {
-    isUserTypingRef.current = isUserTyping;
-  }, [isUserTyping]);
-
-  useEffect(() => {
-    onRefreshRef.current = onRefresh;
-  }, [onRefresh]);
-
-  /** Sinkronkan filter toolbar dari parent saat baris di-reveal atau filter di-reset. */
-  useEffect(() => {
-    if (!toolbarFilterSync) return;
     if (toolbarFilterSync.dokter !== undefined) setDokter(toolbarFilterSync.dokter);
     if (toolbarFilterSync.ruangan !== undefined) setRuangan(toolbarFilterSync.ruangan);
     if (toolbarFilterSync.tindakan !== undefined) setTindakan(toolbarFilterSync.tindakan);

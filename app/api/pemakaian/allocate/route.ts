@@ -20,7 +20,7 @@ function normalizeNumber(v: unknown): number | null {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireRole(["perawat", "admin", "administrator", "superadmin"]);
+  const auth = await requireRole(["perawat", "dokter", "cathlab", "admin", "administrator", "superadmin"]);
   if (!auth.ok) return auth.response;
 
   let supabase: ReturnType<typeof createAdminClient>;

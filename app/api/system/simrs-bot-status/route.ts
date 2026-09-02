@@ -28,7 +28,7 @@ let lastStatus: BotStatus = {
 
 const OFFLINE_MS = 45_000;
 
-export function getLastBotStatus(): BotStatus {
+function getLastBotStatus(): BotStatus {
   return lastStatus;
 }
 

@@ -195,6 +195,7 @@ export async function GET(request: Request) {
       const auth = await requireRole([
         "perawat",
         "dokter",
+        "cathlab",
         "admin",
         "administrator",
         "superadmin",
@@ -508,6 +509,7 @@ export async function POST(request: Request) {
     const auth = await requireRole([
       "perawat",
       "dokter",
+      "cathlab",
       "admin",
       "administrator",
       "superadmin",

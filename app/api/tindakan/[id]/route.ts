@@ -116,6 +116,8 @@ export async function GET(_req: Request, ctx: Params) {
   const { requireRole } = await import("@/lib/auth/guards");
   const auth = await requireRole([
     "perawat",
+    "dokter",
+    "cathlab",
     "admin",
     "administrator",
     "superadmin",
@@ -191,6 +193,8 @@ export async function PATCH(req: Request, ctx: Params) {
   const { requireRole } = await import("@/lib/auth/guards");
   const auth = await requireRole([
     "perawat",
+    "dokter",
+    "cathlab",
     "admin",
     "administrator",
     "superadmin",
@@ -390,6 +394,8 @@ export async function DELETE(_req: Request, ctx: Params) {
   const { requireRole } = await import("@/lib/auth/guards");
   const auth = await requireRole([
     "perawat",
+    "dokter",
+    "cathlab",
     "admin",
     "administrator",
     "superadmin",

@@ -220,6 +220,26 @@ function TableToolbar({
       isPciOnly,
   );
 
+  const isAnySyncing = Boolean(isSyncing || isSyncingMasterPasien);
+  const isRefreshBusy = isManualRefreshing || Boolean(isSyncing);
+
+  const handleRefreshTable = async () => {
+    if (typeof onRefresh !== "function" || isRefreshBusy) return;
+    try {
+      setIsManualRefreshing(true);
+      await onRefresh();
+    } finally {
+      setIsManualRefreshing(false);
+    }
+  };
+
+  const handleSavedPasien = () => {
+    setAddPasienOpen(false);
+    if (typeof onRefresh === "function") {
+      void onRefresh();
+    }
+  };
+
   useEffect(() => {
     onFilterActiveChange?.(filterActive);
   }, [filterActive, onFilterActiveChange]);

@@ -1285,7 +1285,7 @@ export default function TindakanTable({
   onPhoneDirectoryOpen?: () => void;
 }) {
   const {
-    tindakanList,
+    tindakanList = [],
     openDetail,
     loading,
     refresh,

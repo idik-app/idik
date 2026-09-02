@@ -31,14 +31,22 @@ export default function RootError({
           <button
             type="button"
             onClick={() => {
-              if (typeof window !== "undefined") {
-                window.location.href = "/";
+              try {
+                if (typeof window !== "undefined") {
+                  window.localStorage.clear();
+                  window.sessionStorage.clear();
+                  window.location.href = "/";
+                }
+              } catch {
+                if (typeof window !== "undefined") {
+                  window.location.href = "/";
+                }
               }
             }}
             className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-2.5 text-xs font-semibold text-white shadow-lg transition hover:bg-cyan-500 active:scale-95 cursor-pointer"
           >
             <RefreshCw size={14} />
-            Halaman Login / Utam
+            Masuk ke Halaman Login
           </button>
         </div>
       </div>

@@ -54,12 +54,31 @@ export default function CinematicIntro_v3_ArcReactor_Heavy() {
     "intro" | "login" | "accessGranted" | "accessDenied"
   >("intro");
 
-  const reducedMotion = useReducedMotion();
-  const isMobile = useSyncExternalStore(
-    subscribeMobileViewport,
-    getMobileSnapshot,
-    () => false
-  );
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const mqMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+      setReducedMotion(mqMotion.matches);
+      const onMotionChange = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+      mqMotion.addEventListener("change", onMotionChange);
+
+      const mqMobile = window.matchMedia("(max-width: 767px)");
+      setIsMobile(mqMobile.matches);
+      const onMobileChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+      mqMobile.addEventListener("change", onMobileChange);
+
+      return () => {
+        mqMotion.removeEventListener("change", onMotionChange);
+        mqMobile.removeEventListener("change", onMobileChange);
+      };
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   /** Hanya matikan animasi berat saat prefers-reduced-motion (mobile ikut animasi penuh) */
   const lite = Boolean(reducedMotion);
   const router = useRouter();

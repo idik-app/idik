@@ -2746,7 +2746,6 @@ export default function TindakanTable({
         dokter: "Belum diisi",
         tindakan: "Belum diisi",
         status: "Menunggu",
-        kategori: "Cathlab",
         ruangan: "Cathlab",
       };
       try {
@@ -3430,111 +3429,22 @@ export default function TindakanTable({
   const revealRowInMainTable = useCallback(
     async (
       row: Record<string, unknown>,
-      opts?: { silent?: boolean; skipSearchFilter?: boolean },
+      opts?: { silent?: boolean },
     ) => {
-      const tanggalKey =
-        extractCalendarDateKey(String(row.tanggal ?? "").trim()) ??
-        String(row.tanggal ?? "").trim();
-      const rm = String(row.no_rm ?? row.rm ?? "").trim();
-      const nama = String(row.nama_pasien ?? row.nama ?? "").trim();
-      const searchQuery = opts?.skipSearchFilter ? "" : (rm || nama);
-      const rowId = String(row.id ?? "").trim();
-      const label = nama || rm || "baris";
-
-      // Reset filter berkonflik agar baris yang di-reveal pasti terlihat
-      setFilterDokter("");
-      setFilterRuangan("");
-      setFilterTindakan("");
-      setFilterStatus("");
-      setFilterPciOnly(false);
-      setPage(1);
-
-      // Cek apakah data baris ini sudah ada di tabel utama / rentang tanggal aktif
-      const isAlreadyInCurrentTable = (tindakanList as Record<string, unknown>[]).some((r) => {
-        const rId = String(r.id ?? "").trim();
-        const rRm = String(r.no_rm ?? r.rm ?? "").trim();
-        if (rowId && rId === rowId) return true;
-        if (rm && rRm && rmEquivalent(rRm, rm)) return true;
-        return false;
-      });
-
-      const isDateInActiveFilterRange =
-        Boolean(filterTanggalFrom) &&
-        Boolean(filterTanggalTo) &&
-        Boolean(tanggalKey) &&
-        tanggalKey >= filterTanggalFrom &&
-        tanggalKey <= filterTanggalTo;
-
-      // Jika data sudah terisi/ada di tabel tindakan atau sudah dalam rentang tanggal aktif,
-      // JANGAN filter otomatis di tanggal tersebut (pertahankan filter tanggal utama).
-      const shouldChangeDateFilter =
-        tanggalKey && !isAlreadyInCurrentTable && !isDateInActiveFilterRange;
-
-      const targetFrom = shouldChangeDateFilter ? tanggalKey : filterTanggalFrom;
-      const targetTo = shouldChangeDateFilter ? tanggalKey : filterTanggalTo;
-
-      if (shouldChangeDateFilter) {
-        const today = todayWibYmd();
-        if (tanggalKey > today) {
-          allowFutureDateFetchRef.current = true;
-        }
-        setFilterTanggalFrom(tanggalKey);
-        setFilterTanggalTo(tanggalKey);
-        persistTindakanDateFilter(tanggalKey, tanggalKey);
-      }
-
-      if (!opts?.skipSearchFilter) {
-        if (searchQuery) {
-          setSearch(searchQuery);
-        }
-        setToolbarFilterSync({
-          search: searchQuery,
-          tanggalFrom: targetFrom,
-          tanggalTo: targetTo,
-          dokter: "",
-          ruangan: "",
-          tindakan: "",
-          status: "",
-          isPciOnly: false,
-          seq: Date.now(),
-        });
-      } else {
-        setSearch("");
-        setToolbarFilterSync({
-          search: "",
-          tanggalFrom: targetFrom,
-          tanggalTo: targetTo,
-          dokter: "",
-          ruangan: "",
-          tindakan: "",
-          status: "",
-          isPciOnly: false,
-          seq: Date.now(),
-        });
-      }
-
       try {
         await refresh({ force: true });
       } catch {
-        /* tetap lanjut highlight jika data sudah ada lokal */
-      }
-
-      if (rowId) {
-        setHighlightTindakanRowId(rowId);
-        window.setTimeout(() => setHighlightTindakanRowId(null), 3500);
+        /* silent catch */
       }
 
       if (!opts?.silent) {
-        const dateDisp = shouldChangeDateFilter
-          ? ` ke tanggal ${formatTanggalDdMmYyyy(tanggalKey)}`
-          : "";
         notify({
           type: "success",
-          message: `${label} ditampilkan di tabel${dateDisp}.`,
+          message: "Jadwal ditutup. Data pasien tersimpan di database.",
         });
       }
     },
-    [filterTanggalFrom, filterTanggalTo, notify, tindakanList, refresh, setSearch, setPage],
+    [notify, refresh],
   );
 
   useEffect(() => {

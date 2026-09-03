@@ -515,20 +515,15 @@ export default function JadwalCathModal({
           return false;
         }
 
-        const patchWithCathlab = {
-          kategori: "Cathlab",
-          ...patch,
-        };
-
-        await updateOne(id, patchWithCathlab);
+        await updateOne(id, patch);
         setPinnedRows((prev) =>
-          prev.map((r) => (r.id === id ? { ...r, ...patchWithCathlab } : r)),
+          prev.map((r) => (r.id === id ? { ...r, ...patch } : r)),
         );
         setDraftByRowId((prev) => ({
           ...prev,
-          [id]: { ...(prev[id] ?? {}), ...(patchWithCathlab as Partial<JadwalRow>) },
+          [id]: { ...(prev[id] ?? {}), ...(patch as Partial<JadwalRow>) },
         }));
-        onPatchRow?.(id, patchWithCathlab);
+        onPatchRow?.(id, patch);
         clearDirty(id);
         scheduleSync();
         return true;
@@ -651,7 +646,6 @@ export default function JadwalCathModal({
           dokter: "Belum ditentukan",
           tindakan: "Belum diisi",
           status: "Menunggu",
-          kategori: "Cathlab",
           ruangan: ruanganResolved,
           kelas_pembiayaan: kelasDariPasien(patient) || null,
           umur: umurAngka && umurAngka > 0 ? umurAngka : null,
@@ -777,10 +771,12 @@ export default function JadwalCathModal({
     children: ReactNode,
     extraTdClasses?: string,
     style?: CSSProperties,
+    title?: string,
   ) => (
     <td
       className={cn(TD_BASE, JADWAL_ZOOM_CELL_CLASSES, extraTdClasses)}
       style={style}
+      title={title}
     >
       <div
         className={cn(
@@ -860,7 +856,7 @@ export default function JadwalCathModal({
               <th className={cn(TH_BASE, "text-left")} style={{ width: 140, minWidth: 140 }}>Diagnosa</th>
               <th className={cn(TH_BASE, "text-left")} style={{ width: 140, minWidth: 140 }}>Tindakan</th>
               <th className={cn(TH_BASE, "text-left")} style={{ width: 140, minWidth: 140 }}>Dokter</th>
-              <th className={cn(TH_BASE, "text-left")} style={{ width: 100, minWidth: 100 }}>Hasil lab</th>
+              <th className={cn(TH_BASE, "text-left")} style={{ width: 180, minWidth: 180 }}>Hasil lab</th>
               <th className={cn(TH_BASE, "text-center")} style={{ width: 95, minWidth: 95 }}>Asisten</th>
               <th className={cn(TH_BASE, "text-center")} style={{ width: 95, minWidth: 95 }}>Sirkuler</th>
               <th className={cn(TH_BASE, "text-center")} style={{ width: 95, minWidth: 95 }}>Logger</th>
@@ -959,16 +955,7 @@ export default function JadwalCathModal({
                   >
                     <div className="flex items-center justify-center gap-0.5">
                       <span>{rowNum}</span>
-                      {!isTemp && !isEmptyDayId(row.id) ? (
-                        <button
-                          type="button"
-                          title={`Tampilkan ${txt(row.nama_pasien) || "pasien"} di tabel tindakan`}
-                          onClick={() => handleRevealInMainTable(row)}
-                          className="inline-flex h-5 w-5 items-center justify-center rounded text-cyan-600 hover:bg-cyan-100 hover:text-cyan-800 transition-colors"
-                        >
-                          <Table2 size={12} />
-                        </button>
-                      ) : null}
+
                       {!isTemp && !isEmptyDayId(row.id) ? (
                         <button
                           type="button"
@@ -1064,19 +1051,7 @@ export default function JadwalCathModal({
                           }
                         />
                       </div>
-                      {!isTemp && !isEmptyDayId(row.id) && (txt(row.nama_pasien) || txt(row.no_rm)) ? (
-                        <button
-                          type="button"
-                          title={`Tampilkan ${txt(row.nama_pasien) || "pasien"} di tabel tindakan`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRevealInMainTable(row);
-                          }}
-                          className="inline-flex shrink-0 h-5 w-5 items-center justify-center rounded bg-cyan-50 text-cyan-700 hover:bg-cyan-600 hover:text-white border border-cyan-300/70 shadow-2xs transition-all dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-700/60 dark:hover:bg-cyan-600 dark:hover:text-white"
-                        >
-                          <Table2 size={12} />
-                        </button>
-                      ) : null}
+
                     </div>
                   </td>
 
@@ -1186,7 +1161,8 @@ export default function JadwalCathModal({
                       }
                     />,
                     undefined,
-                    { width: 100, minWidth: 100 },
+                    { width: 180, minWidth: 180 },
+                    txt(row.hasil_lab_ppm) || undefined,
                   )}
                   {zoomTd(
                     "center",

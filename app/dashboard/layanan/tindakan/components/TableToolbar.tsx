@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, memo } from "react";
+import { useState, useEffect, useRef, memo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { mutate } from "swr";
 import {
@@ -23,9 +23,9 @@ import {
   Users,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import type { Pasien } from "@/app/dashboard/pasien/types/pasien";
 import { cn } from "@/lib/utils";
 import { UI_LAYERS, Z_INDEX_VALUES } from "@/lib/ui/layers";
-import type { Pasien } from "@/app/dashboard/pasien/types/pasien";
 import TambahPasienQuickModal from "./TambahPasienQuickModal";
 import { TINDAKAN_STATUS } from "../bridge/bridge.constants";
 import TarifModal from "./TarifModal";
@@ -233,12 +233,25 @@ function TableToolbar({
     }
   };
 
-  const handleSavedPasien = () => {
-    setAddPasienOpen(false);
-    if (typeof onRefresh === "function") {
-      void onRefresh();
-    }
-  };
+  const handleSavedPasien = useCallback(
+    async (
+      patient: Pasien,
+      opts?: { tanggal?: string; ruangan?: string },
+    ) => {
+      setAddPasienOpen(false);
+      if (typeof onCreateDraftForPasien === "function") {
+        await onCreateDraftForPasien({
+          pasienId: patient.id,
+          rm: patient.noRM,
+          nama: patient.nama,
+          tanggal: opts?.tanggal,
+        });
+      } else if (typeof onRefresh === "function") {
+        void onRefresh();
+      }
+    },
+    [onCreateDraftForPasien, onRefresh],
+  );
 
   useEffect(() => {
     onFilterActiveChange?.(filterActive);

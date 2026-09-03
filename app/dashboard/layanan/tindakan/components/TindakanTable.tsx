@@ -1229,7 +1229,7 @@ function EditableDokterCell({
     
     setDraft(display);
     setSaving(true);
-    const ok = await onCommit(nextText);
+    const ok = await onCommit(display);
     setSaving(false);
     if (!ok) setDraft(curDisplay);
   };

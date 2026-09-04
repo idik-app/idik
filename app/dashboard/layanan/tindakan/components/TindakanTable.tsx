@@ -1956,9 +1956,6 @@ export default function TindakanTable({
   ]);
 
   const isCathlabRowComplete = useCallback((row: any): boolean => {
-    const isCath = `${row?.kategori ?? ""} ${row?.ruangan ?? ""}`.toLowerCase().includes("cath");
-    if (!isCath) return true; // Baris non-Cathlab tidak terkena aturan ini
-
     const txt = (v: any) => String(v ?? "").trim();
     const isPlaceholder = (s: string) => {
       const l = s.toLowerCase();
@@ -1975,38 +1972,8 @@ export default function TindakanTable({
     const hasRm = Boolean(txt(row?.no_rm ?? row?.rm)) && txt(row?.no_rm ?? row?.rm) !== "—";
     const hasNama = Boolean(txt(row?.nama_pasien ?? row?.nama)) && !isPlaceholder(txt(row?.nama_pasien ?? row?.nama));
 
-    const status = txt(row?.status).toLowerCase();
-    const isDraftLike =
-      !status || status === "menunggu" || status === "proses";
-    const tindakanPlaceholder = isPlaceholder(txt(row?.tindakan));
-    const dokterPlaceholder = isPlaceholder(txt(row?.dokter));
-    if (isDraftLike || tindakanPlaceholder || dokterPlaceholder) {
-      // Draft Cath Lab / toolbar: tampilkan di tabel utama dengan identitas minimal.
-      return hasTanggal && hasRm && hasNama;
-    }
-
-    const hasKelas = Boolean(txt(row?.kelas_pembiayaan));
-    const hasUmur = Boolean(txt(row?.umur));
-    const hasRuangan = Boolean(txt(row?.ruangan));
-    const hasDiagnosa = Boolean(txt(row?.diagnosa));
-    const hasTindakan =
-      Boolean(txt(row?.tindakan)) && !isPlaceholder(txt(row?.tindakan));
-    const hasDokter =
-      Boolean(txt(row?.dokter)) && !isPlaceholder(txt(row?.dokter));
-    const hasHasilLab = Boolean(txt(row?.hasil_lab_ppm));
-
-    return (
-      hasTanggal &&
-      hasRm &&
-      hasNama &&
-      hasKelas &&
-      hasUmur &&
-      hasRuangan &&
-      hasDiagnosa &&
-      hasTindakan &&
-      hasDokter &&
-      hasHasilLab
-    );
+    // Setiap baris yang memiliki Tanggal, No. RM, dan Nama Pasien wajib tetap tampil di tabel
+    return hasTanggal && hasRm && hasNama;
   }, []);
 
   const filteredRecords = useMemo(() => {

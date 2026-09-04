@@ -12,11 +12,13 @@ import {
 import { createPortal } from "react-dom";
 import {
   Calendar,
+  FolderPlus,
   Loader2,
   Maximize2,
   MessageCircle,
   Minimize2,
   Plus,
+  Stethoscope,
   Table2,
   Trash2,
   X,
@@ -951,20 +953,40 @@ export default function JadwalCathModal({
                       TD_BASE,
                       "sticky left-0 z-10 text-center font-mono font-bold bg-white group-hover:bg-[#EEF3FA] transition-colors border-r border-slate-200/80 px-0.5",
                     )}
-                    style={{ left: 0, width: 52, minWidth: 52 }}
+                    style={{ left: 0, width: 68, minWidth: 68 }}
                   >
                     <div className="flex items-center justify-center gap-0.5">
-                      <span>{rowNum}</span>
+                      <span className="text-[11px]">{rowNum}</span>
 
                       {!isTemp && !isEmptyDayId(row.id) ? (
-                        <button
-                          type="button"
-                          title="Hapus baris jadwal"
-                          onClick={() => void removeDraft(row)}
-                          className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-red-500/15 hover:text-red-600 transition-colors"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            title="Tambah / Tampilkan ke Kasus Tindakan"
+                            onClick={() => {
+                              if (onRevealInMainTable) {
+                                void onRevealInMainTable(row as any);
+                              } else {
+                                emitOpenDetail(row.id, "tindakan");
+                              }
+                              show({
+                                type: "success",
+                                message: `Menambahkan baris jadwal ${txt(row.nama_pasien) || txt(row.no_rm) || ""} ke Kasus Tindakan...`,
+                              });
+                            }}
+                            className="inline-flex h-5 w-5 items-center justify-center rounded border border-emerald-300/80 bg-emerald-100/90 text-emerald-800 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-colors shadow-xs"
+                          >
+                            <FolderPlus size={11} />
+                          </button>
+                          <button
+                            type="button"
+                            title="Hapus baris jadwal"
+                            onClick={() => void removeDraft(row)}
+                            className="inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 hover:bg-red-500/15 hover:text-red-600 transition-colors"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        </>
                       ) : null}
                     </div>
                   </td>
@@ -1051,7 +1073,26 @@ export default function JadwalCathModal({
                           }
                         />
                       </div>
-
+                      {!isTemp && !isEmptyDayId(row.id) ? (
+                        <button
+                          type="button"
+                          title="Tambah / Buka Kasus Tindakan"
+                          onClick={() => {
+                            if (onRevealInMainTable) {
+                              void onRevealInMainTable(row as any);
+                            } else {
+                              emitOpenDetail(row.id, "tindakan");
+                            }
+                            show({
+                              type: "success",
+                              message: `Menambahkan baris jadwal ${txt(row.nama_pasien) || txt(row.no_rm) || ""} ke Kasus Tindakan...`,
+                            });
+                          }}
+                          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-emerald-300/80 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors"
+                        >
+                          <Stethoscope size={11} />
+                        </button>
+                      ) : null}
                     </div>
                   </td>
 

@@ -34,6 +34,8 @@ export const JADWAL_PRIMARY_LIGHT_INPUT =
 
 export const TINDAKAN_TABLE_INPUT_TEXT = JADWAL_LIGHT_INPUT;
 export const TINDAKAN_TABLE_PRIMARY_COL_INPUT = JADWAL_PRIMARY_LIGHT_INPUT;
+export const TINDAKAN_TABLE_DOKTER_COL_INPUT =
+  "!w-full !min-w-0 !truncate !border-none !bg-transparent !p-0 !text-left !text-xs !font-extrabold !text-emerald-700 dark:!text-emerald-300 !placeholder:text-emerald-600/60 focus:!outline-none focus:!ring-0 select-all";
 export const JADWAL_TABLE_INPUT = JADWAL_LIGHT_INPUT;
 
 /** Zoom sel fokus di modal Jadwal Cath Lab (compact 14 kolom). */
@@ -528,7 +530,7 @@ export function EditableDokterCell({
       }
       loading={loading || saving}
       className="max-w-none w-full [&_input]:pr-2"
-      inputClassName={TINDAKAN_TABLE_PRIMARY_COL_INPUT}
+      inputClassName={TINDAKAN_TABLE_DOKTER_COL_INPUT}
     />
   );
 }

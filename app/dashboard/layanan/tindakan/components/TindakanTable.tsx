@@ -46,6 +46,7 @@ import {
   canonicalDoctorDisplayValue,
   canonicalDoctorStoredValue,
   formatDoctorLabel,
+  getDoctorColorClass,
   resolveDoctorFromLooseInput,
   type DoctorOption,
 } from "@/components/ui/doctor-combobox";
@@ -224,10 +225,6 @@ function TindakanSyncStatusBlock({
 /** Kolom tindakan & ruangan — amber di siang & malam. */
 const TINDAKAN_TABLE_INPUT_TEXT =
   "text-amber-800 placeholder:text-amber-700/55 dark:text-white dark:placeholder:text-white/90";
-
-/** Kolom Dokter — aksen warna khusus emerald/teal agar menonjol dari kolom lain. */
-const TINDAKAN_TABLE_DOKTER_COL_INPUT =
-  "text-emerald-700 font-bold placeholder:text-emerald-600/60 dark:text-emerald-300 dark:font-semibold dark:placeholder:text-emerald-200/80";
 
 /** Kolom No–Dokter — amber di siang; putih terang di mode malam. */
 const TINDAKAN_TABLE_PRIMARY_COL_INPUT =
@@ -1261,7 +1258,7 @@ function EditableDokterCell({
       }
       loading={loading || saving}
       className="max-w-none w-full [&_input]:pr-2"
-      inputClassName={TINDAKAN_TABLE_DOKTER_COL_INPUT}
+      inputClassName={cn(TINDAKAN_TABLE_PRIMARY_COL_INPUT, getDoctorColorClass(draft || value))}
     />
   );
 }
@@ -3755,7 +3752,7 @@ export default function TindakanTable({
                       className={cn(
                         TINDAKAN_SHEET_CELL,
                         "px-2 sm:px-2.5 py-1.5 max-2xl:px-1 max-2xl:py-0.5 font-mono font-black text-[9px] sm:text-[10px] uppercase tracking-wider leading-tight max-2xl:w-[12%] max-2xl:min-w-0 2xl:min-w-[12rem]",
-                        "text-emerald-950 bg-emerald-400/25 dark:text-emerald-300 dark:bg-emerald-950/40",
+                        "text-cyan-950 dark:text-slate-100",
                       )}
                     >
                       Dokter
@@ -4745,7 +4742,7 @@ export default function TindakanTable({
                                  TINDAKAN_SHEET_CELL,
                                  ZOOM_CELL_CLASSES,
                                  "px-2 sm:px-2.5 py-1 max-2xl:px-1 max-2xl:py-0.5 max-2xl:min-w-0 max-2xl:max-w-none 2xl:max-w-[18rem] 2xl:min-w-[12rem] text-center align-middle overflow-visible",
-                                 "text-emerald-800 bg-emerald-50/40 dark:text-emerald-300 dark:bg-emerald-950/20",
+                                 getDoctorColorClass(rec.dokter),
                                  anestesiArcRowKey === key &&
                                    cn("relative", UI_LAYERS.tableZoomedCell),
                                  cellSelection.isCellSelected(i, TCol.DOKTER) &&

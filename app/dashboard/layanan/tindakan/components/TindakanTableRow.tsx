@@ -433,7 +433,7 @@ export const TindakanTableRow = memo(function TindakanTableRow({
           className={cn(
             TINDAKAN_SHEET_CELL,
             "px-2 sm:px-2.5 py-1 text-left align-middle",
-            "text-emerald-800 bg-emerald-50/40 dark:text-emerald-300 dark:bg-emerald-950/20",
+            "text-amber-800 dark:text-white",
             cellSelection.isCellSelected(i, 4) && TINDAKAN_CELL_SELECTION_CLASS,
           )}
         >

@@ -166,6 +166,64 @@ export function canonicalDoctorStoredValue(
   return r ? String(r.nama_dokter).trim() : raw;
 }
 
+export const DOCTOR_COLOR_PALETTE = [
+  // 0. Cyan / Teal
+  {
+    inputLight: "!text-cyan-700 dark:!text-cyan-300 font-bold",
+  },
+  // 1. Emerald / Green
+  {
+    inputLight: "!text-emerald-700 dark:!text-emerald-300 font-bold",
+  },
+  // 2. Amber / Orange
+  {
+    inputLight: "!text-amber-800 dark:!text-amber-300 font-bold",
+  },
+  // 3. Violet / Purple
+  {
+    inputLight: "!text-purple-700 dark:!text-purple-300 font-bold",
+  },
+  // 4. Sky / Blue
+  {
+    inputLight: "!text-sky-700 dark:!text-sky-300 font-bold",
+  },
+  // 5. Rose / Pink
+  {
+    inputLight: "!text-rose-700 dark:!text-rose-300 font-bold",
+  },
+  // 6. Indigo
+  {
+    inputLight: "!text-indigo-700 dark:!text-indigo-300 font-bold",
+  },
+  // 7. Teal / Mint
+  {
+    inputLight: "!text-teal-700 dark:!text-teal-300 font-bold",
+  },
+  // 8. Fuchsia
+  {
+    inputLight: "!text-fuchsia-700 dark:!text-fuchsia-300 font-bold",
+  },
+  // 9. Lime / Green-yellow
+  {
+    inputLight: "!text-lime-800 dark:!text-lime-300 font-bold",
+  },
+];
+
+export function getDoctorColorClass(name?: string | null): string {
+  const s = String(name ?? "").trim();
+  if (!s || s === "—" || s.toLowerCase().includes("belum diisi") || s.toLowerCase().includes("belum ditentukan")) {
+    return "text-slate-500 placeholder:text-slate-400 dark:text-slate-400 dark:placeholder:text-slate-500";
+  }
+  const clean = s.toLowerCase().replace(/^(dr|drg|sp\.?[a-z]*)\.?\s*/gi, "").trim() || s.toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < clean.length; i++) {
+    hash = (hash << 5) - hash + clean.charCodeAt(i);
+    hash |= 0;
+  }
+  const idx = Math.abs(hash) % DOCTOR_COLOR_PALETTE.length;
+  return DOCTOR_COLOR_PALETTE[idx].inputLight;
+}
+
 export function DoctorCombobox({
   value,
   onChange,

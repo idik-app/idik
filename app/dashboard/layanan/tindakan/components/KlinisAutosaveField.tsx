@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, MousePointerClick, Search, Wand2, ZoomIn, ZoomOut } from "lucide-react";
+import { ExternalLink, Loader2, MousePointerClick, Search, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import { useEventBridge } from "@/contexts/EventBridgeContext";
 import { extractDataFromText } from "@/lib/tindakan/reportExtractor";
 
@@ -86,8 +85,6 @@ export default function KlinisAutosaveField({
   controlVariant = "default",
 }: Props) {
   const [draft, setDraft] = useState(() => draftFromValue(value));
-  const [isExtracting, setIsExtracting] = useState(false);
-  const [extractProgress, setExtractProgress] = useState(0);
   const [previewZoom, setPreviewZoom] = useState(1);
   const [previewInteract, setPreviewInteract] = useState(false);
   const [previewCopyText, setPreviewCopyText] = useState<string | null>(null);
@@ -134,9 +131,46 @@ export default function KlinisAutosaveField({
 
   const previewDocId = useMemo(() => {
     if (field !== "pci_report_link") return null;
-    const m = draft.match(/\/d\/([a-zA-Z0-9-_]+)/);
-    return m ? m[1] : null;
+    const trimmed = draft.trim();
+    if (!trimmed) return null;
+    const m = trimmed.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (m) return m[1];
+    if (/^[a-zA-Z0-9-_]{20,}$/.test(trimmed)) return trimmed;
+    return null;
   }, [draft, field]);
+
+  const hasValidPreview = useMemo(() => {
+    if (field !== "pci_report_link") return false;
+    const d = draft.toLowerCase().trim();
+    return d.includes("docs.google.com") || d.includes("drive.google.com") || !!previewDocId || d.endsWith(".pdf") || d.includes(".pdf?");
+  }, [draft, field, previewDocId]);
+
+  const previewIframeSrc = useMemo(() => {
+    const trimmed = draft.trim();
+    if (!trimmed) return null;
+    const d = trimmed.toLowerCase();
+
+    if (previewDocId) {
+      if (d.includes("docs.google.com/document")) {
+        return `https://docs.google.com/document/d/${previewDocId}/preview`;
+      }
+      if (d.includes("docs.google.com/spreadsheets")) {
+        return `https://docs.google.com/spreadsheets/d/${previewDocId}/preview`;
+      }
+      if (d.includes("docs.google.com/presentation")) {
+        return `https://docs.google.com/presentation/d/${previewDocId}/embed`;
+      }
+      // Untuk Google Drive (termasuk file PDF di Google Drive):
+      return `https://drive.google.com/file/d/${previewDocId}/preview`;
+    }
+
+    // Direct PDF URL fallback via Google Docs Viewer
+    if (d.endsWith(".pdf") || d.includes(".pdf?")) {
+      return `https://docs.google.com/gview?url=${encodeURIComponent(trimmed)}&embedded=true`;
+    }
+
+    return null;
+  }, [draft, previewDocId]);
 
   useEffect(() => {
     if (field !== "pci_report_link") return;
@@ -195,20 +229,6 @@ export default function KlinisAutosaveField({
     };
   }, [previewInteract, previewDocId, field]);
 
-  // Otomasi Ekstrak tanpa klik jika ini adalah field pci_report_link
-  useEffect(() => {
-    if (field === "pci_report_link" && draft.includes("docs.google.com")) {
-      // Ekstraksi otomatis saat link pertama kali ditempel/diubah
-      const timer = setTimeout(() => {
-        void handleExtract(false); 
-      }, 1000);
-
-      return () => {
-        clearTimeout(timer);
-      };
-    }
-  }, [draft, field]);
-
   useEffect(
     () => () => {
       // Flush any pending changes on unmount
@@ -225,21 +245,15 @@ export default function KlinisAutosaveField({
     if (!extraData && draftsEqualToServer(draftNow, valueRef.current)) return;
     const payloadVal = normalizeForCompare(draftNow);
 
-    // Gabungkan data dari input saat ini dengan data ekstraksi jika ada
     const patchData: Record<string, string | null | boolean> = { 
       [field]: payloadVal,
       ...extraData 
     };
 
-    // Jika teks yang diinput sangat panjang (kemungkinan paste laporan), jalankan ekstraksi otomatis
-    if (payloadVal && payloadVal.length > 100) {
+    // Jika teks yang diinput sangat panjang (dan BUKAN pci_report_link), jalankan ekstraksi otomatis
+    if (field !== "pci_report_link" && payloadVal && payloadVal.length > 100) {
       const extracted = extractDataFromText(payloadVal);
-      // Hanya masukkan kategori jika belum ada di extraData (hasil fetch-doc)
-      if (extracted.kategori && !patchData.kategori) {
-        // patchData.kategori = extracted.kategori;
-      }
       Object.assign(patchData, extracted as any);
-      // Hapus kategori agar tidak menimpa data yang sudah ada di UI (Kelompok Kasus)
       delete patchData.kategori;
     }
 
@@ -279,7 +293,6 @@ export default function KlinisAutosaveField({
       if (process.env.NODE_ENV === "development") {
         console.warn("[KlinisAutosaveField]", field, e);
       }
-      // Jangan reset ke `value` agar isian user tidak hilang saat gagal simpan sementara.
     }
   };
 
@@ -291,14 +304,6 @@ export default function KlinisAutosaveField({
     }, DEBOUNCE_MS);
   };
 
-  const flushBlur = () => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-      debounceRef.current = null;
-    }
-    void persist(draftRef.current);
-  };
-
   const handleFocus = () => {
     if (blurUnfocusTimerRef.current) {
       clearTimeout(blurUnfocusTimerRef.current);
@@ -308,7 +313,6 @@ export default function KlinisAutosaveField({
   };
 
   const handleBlur = () => {
-    // Jalankan persist tanpa menunggu re-render yang memblokir klik tab lain
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
@@ -326,119 +330,6 @@ export default function KlinisAutosaveField({
       });
     }, 800);
   };
-
-  const handleExtract = async (isSync = false) => {
-    if (field !== "pci_report_link" || !isGoogleDocs || (isExtracting && !isSync)) return;
-    if (!previewDocId) return;
-
-    setIsExtracting(true);
-    setExtractProgress(10);
-
-    if (!isSync) {
-      toast.info("Mengekstrak data dari Google Docs...", {
-        description: "Mohon tunggu sebentar.",
-      });
-    }
-
-    // Simulasi progress bar
-    const interval = setInterval(() => {
-      setExtractProgress((prev) => {
-        const next = prev >= 90 ? prev : prev + 15;
-        return next;
-      });
-    }, 150);
-
-    try {
-      // Panggil API Fetch Doc untuk mendapatkan data real dari Google Drive
-      const res = await fetch(
-        `/api/system/fetch-doc?docId=${encodeURIComponent(previewDocId)}`,
-      );
-      
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Gagal menghubungi API ekstraksi.");
-      }
-
-      const { data: extracted } = await res.json();
-      
-      if (!extracted || Object.keys(extracted).length === 0) {
-        throw new Error("Tidak ada data klinis yang ditemukan dalam laporan ini.");
-      }
-
-      // Ambil data tindakan saat ini dari DB untuk mencegah menimpa field yang sudah diedit manual
-      let currentData: Record<string, any> = {};
-      try {
-        const currentRes = await fetch(`/api/tindakan/${encodeURIComponent(tindakanId)}`);
-        if (currentRes.ok) {
-          const json = await currentRes.json();
-          if (json.ok && json.data) {
-            currentData = json.data;
-          }
-        }
-      } catch (err) {
-        console.warn("[KlinisAutosaveField] Gagal mengambil data tindakan untuk filter ekstraksi:", err);
-      }
-
-      // Hanya simpan data ekstraksi untuk field yang masih kosong di database
-      const filteredExtracted: Record<string, string | null | boolean> = {};
-      for (const [key, val] of Object.entries(extracted)) {
-        const currentVal = currentData[key];
-        const isCekBool =
-          key === "cek_heparin" ||
-          key === "cek_ntg_cedocard" ||
-          key === "cek_lain";
-        const isEmpty = isCekBool
-          ? currentVal === null ||
-            currentVal === undefined ||
-            currentVal === false ||
-            currentVal === 0 ||
-            String(currentVal) === "false" ||
-            String(currentVal) === "0" ||
-            String(currentVal).trim() === ""
-          : currentVal === null ||
-            currentVal === undefined ||
-            String(currentVal).trim() === "" ||
-            String(currentVal).trim() === "—" ||
-            String(currentVal).trim() === "-";
-
-        if (isEmpty) {
-          filteredExtracted[key] = val as string | null | boolean;
-        }
-      }
-
-      // Jalankan persist dengan data hasil ekstraksi real yang telah difilter
-      await persist(draft, filteredExtracted);
-      clearInterval(interval);
-
-      setExtractProgress(100);
-
-      setTimeout(() => {
-        setIsExtracting(false);
-        setExtractProgress(0);
-        
-        if (!isSync) {
-          toast.success("Ekstraksi Berhasil!", {
-            description: "Data klinis telah diperbarui dari Google Drive.",
-          });
-        }
-        
-        onSaved?.(); // Memicu refresh SWR di parent
-      }, isSync ? 400 : 800);
-
-    } catch (e: any) {
-      clearInterval(interval);
-      setIsExtracting(false);
-      setExtractProgress(0);
-      
-      if (!isSync) {
-        toast.error("Gagal Ekstraksi", {
-          description: e.message,
-        });
-      }
-    }
-  };
-
-  const isGoogleDocs = draft.includes("docs.google.com");
 
   const inputClass = cn(
     "mt-0.5 w-full rounded-md border px-2 py-1.5 text-sm font-semibold focus:outline-none",
@@ -460,18 +351,17 @@ export default function KlinisAutosaveField({
           : "Hasil lab PPM";
 
   if (field === "pci_report_link") {
+    const isValidUrl = draft.trim().startsWith("http://") || draft.trim().startsWith("https://");
+
     return (
       <div className="flex flex-col gap-3">
         <div className="relative">
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <input
               type="url"
               autoComplete="off"
-              className={cn(
-                inputClass,
-                isExtracting && "border-cyan-500 ring-1 ring-cyan-500/20"
-              )}
-              placeholder="https://docs.google.com/document/d/..."
+              className={inputClass}
+              placeholder="https://drive.google.com/file/d/... atau https://docs.google.com/document/d/..."
               value={draft}
               aria-label={aria}
               onFocus={handleFocus}
@@ -482,106 +372,98 @@ export default function KlinisAutosaveField({
               }}
               onBlur={handleBlur}
             />
-            <button
-              onClick={() => handleExtract(false)}
-              disabled={!isGoogleDocs || isExtracting}
-              className="flex shrink-0 items-center gap-2 rounded-md bg-cyan-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-cyan-500 disabled:opacity-50 dark:bg-cyan-700 dark:hover:bg-cyan-600"
-            >
-              {isExtracting ? (
-                <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-              ) : (
-                <Wand2 size={14} />
-              )}
-              {isExtracting ? "Proses..." : "Ekstrak"}
-            </button>
+            {isValidUrl && (
+              <a
+                href={draft.trim()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex shrink-0 items-center gap-1.5 rounded-md border border-cyan-500/40 bg-cyan-600/20 px-2.5 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-600/35 hover:text-white dark:border-cyan-500/50 dark:bg-cyan-950/40 dark:text-cyan-200 dark:hover:bg-cyan-900/60"
+                title="Buka link laporan di tab baru"
+              >
+                <ExternalLink size={14} />
+                <span className="hidden sm:inline">Buka Link</span>
+              </a>
+            )}
           </div>
-
-          {/* Visual Progress Bar - Menempel di pinggiran bawah Input */}
-          {isExtracting && (
-            <div className="absolute -bottom-[1px] left-0 h-[2px] w-full overflow-hidden rounded-b-md px-[1px]">
-              <div
-                className="h-full bg-cyan-500 transition-all duration-300 ease-out shadow-[0_0_8px_rgba(6,182,212,0.5)]"
-                style={{ width: `${extractProgress}%` }}
-              />
-            </div>
-          )}
         </div>
 
-        {/* Area Pratinjau (Review Panel) - Sekarang di bawah Input */}
+        {/* Area Pratinjau (Review Panel) */}
         <div
           className={cn(
             "flex h-[min(780px,68dvh)] min-h-[560px] flex-col rounded-lg border transition-all duration-300",
             "border-cyan-500/20 bg-zinc-900/30 p-3",
-            !isGoogleDocs && "opacity-40 grayscale-[0.5]",
+            !hasValidPreview && "opacity-40 grayscale-[0.5]",
           )}
         >
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-500/80">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400 dark:text-cyan-300">
               Pratinjau Laporan
             </p>
             <div className="flex items-center gap-2">
-              {isGoogleDocs && previewDocId ? (
+              {hasValidPreview ? (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewInteract((v) => !v)}
-                    className={cn(
-                      "flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors",
-                      previewInteract
-                        ? "border-amber-400/50 bg-amber-500/20 text-amber-100"
-                        : "border-cyan-500/30 bg-black/35 text-cyan-200/90 hover:bg-cyan-500/15",
-                    )}
-                    aria-pressed={previewInteract}
-                  >
-                    <MousePointerClick className="h-3 w-3" aria-hidden />
-                    {previewInteract ? "Selesai" : "Pilih teks"}
-                  </button>
+                  {previewDocId && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewInteract((v) => !v)}
+                      className={cn(
+                        "flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-bold uppercase tracking-wide transition-colors",
+                        previewInteract
+                          ? "border-amber-400/50 bg-amber-500/20 text-amber-100"
+                          : "border-cyan-500/30 bg-black/35 text-cyan-200/90 hover:bg-cyan-500/15",
+                      )}
+                      aria-pressed={previewInteract}
+                    >
+                      <MousePointerClick className="h-3 w-3" aria-hidden />
+                      {previewInteract ? "Selesai" : "Pilih teks"}
+                    </button>
+                  )}
                   <div
-                  className="flex items-center gap-0.5 rounded-md border border-cyan-500/30 bg-black/35 p-0.5"
-                  role="group"
-                  aria-label="Zoom pratinjau laporan"
-                >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPreviewZoom((z) =>
-                        Math.max(
-                          PREVIEW_ZOOM_MIN,
-                          Math.round((z - PREVIEW_ZOOM_STEP) * 100) / 100,
-                        ),
-                      )
-                    }
-                    disabled={previewZoom <= PREVIEW_ZOOM_MIN}
-                    className="flex h-7 w-7 items-center justify-center rounded text-cyan-200/90 transition-colors hover:bg-cyan-500/15 disabled:pointer-events-none disabled:opacity-35"
-                    aria-label="Perkecil pratinjau"
+                    className="flex items-center gap-0.5 rounded-md border border-cyan-500/30 bg-black/35 p-0.5"
+                    role="group"
+                    aria-label="Zoom pratinjau laporan"
                   >
-                    <ZoomOut className="h-3.5 w-3.5" aria-hidden />
-                  </button>
-                  <span className="min-w-[2.75rem] select-none text-center text-[10px] font-mono font-semibold tabular-nums text-cyan-100/90">
-                    {Math.round(previewZoom * 100)}%
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPreviewZoom((z) =>
-                        Math.min(
-                          PREVIEW_ZOOM_MAX,
-                          Math.round((z + PREVIEW_ZOOM_STEP) * 100) / 100,
-                        ),
-                      )
-                    }
-                    disabled={previewZoom >= PREVIEW_ZOOM_MAX}
-                    className="flex h-7 w-7 items-center justify-center rounded text-cyan-200/90 transition-colors hover:bg-cyan-500/15 disabled:pointer-events-none disabled:opacity-35"
-                    aria-label="Perbesar pratinjau"
-                  >
-                    <ZoomIn className="h-3.5 w-3.5" aria-hidden />
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPreviewZoom((z) =>
+                          Math.max(
+                            PREVIEW_ZOOM_MIN,
+                            Math.round((z - PREVIEW_ZOOM_STEP) * 100) / 100,
+                          ),
+                        )
+                      }
+                      disabled={previewZoom <= PREVIEW_ZOOM_MIN}
+                      className="flex h-7 w-7 items-center justify-center rounded text-cyan-200/90 transition-colors hover:bg-cyan-500/15 disabled:pointer-events-none disabled:opacity-35"
+                      aria-label="Perkecil pratinjau"
+                    >
+                      <ZoomOut className="h-3.5 w-3.5" aria-hidden />
+                    </button>
+                    <span className="min-w-[2.75rem] select-none text-center text-[10px] font-mono font-semibold tabular-nums text-cyan-100/90">
+                      {Math.round(previewZoom * 100)}%
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPreviewZoom((z) =>
+                          Math.min(
+                            PREVIEW_ZOOM_MAX,
+                            Math.round((z + PREVIEW_ZOOM_STEP) * 100) / 100,
+                          ),
+                        )
+                      }
+                      disabled={previewZoom >= PREVIEW_ZOOM_MAX}
+                      className="flex h-7 w-7 items-center justify-center rounded text-cyan-200/90 transition-colors hover:bg-cyan-500/15 disabled:pointer-events-none disabled:opacity-35"
+                      aria-label="Perbesar pratinjau"
+                    >
+                      <ZoomIn className="h-3.5 w-3.5" aria-hidden />
+                    </button>
+                  </div>
                 </>
               ) : null}
-              {isGoogleDocs && (
-                <span className="rounded bg-cyan-500/10 px-1.5 py-0.5 text-[9px] font-bold text-cyan-400">
-                  Google Docs
+              {hasValidPreview && (
+                <span className="rounded bg-cyan-500/10 px-1.5 py-0.5 text-[9px] font-bold text-cyan-400 dark:text-cyan-300">
+                  Google Drive / Docs / PDF
                 </span>
               )}
             </div>
@@ -617,7 +499,7 @@ export default function KlinisAutosaveField({
                 </button>
               </div>
             ) : null}
-            {isGoogleDocs && previewDocId ? (
+            {hasValidPreview && previewIframeSrc ? (
               previewInteract ? (
                 <div
                   className={cn(
@@ -643,7 +525,7 @@ export default function KlinisAutosaveField({
               ) : (
                 <>
                   <iframe
-                    src={`https://docs.google.com/document/d/${previewDocId}/preview`}
+                    src={previewIframeSrc}
                     className="pointer-events-none block max-w-none select-none border-none bg-white"
                     title="PCI Report Preview"
                     allow="autoplay"
@@ -653,26 +535,27 @@ export default function KlinisAutosaveField({
                       height: `${Math.round(PREVIEW_IFRAME_BASE_HEIGHT_PX * previewZoom)}px`,
                     }}
                   />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center pb-3">
-                    <button
-                      type="button"
-                      onClick={() => setPreviewInteract(true)}
-                      className="pointer-events-auto rounded-lg border border-slate-300/80 bg-white/95 px-3 py-1.5 text-[11px] font-semibold text-slate-700 shadow-md transition-colors hover:bg-white"
-                      aria-label="Aktifkan mode pilih dan salin teks dari laporan"
-                    >
-                      Klik untuk memilih &amp; menyalin teks laporan
-                    </button>
-                  </div>
+                  {previewDocId && (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center pb-3">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewInteract(true)}
+                        className="pointer-events-auto rounded-lg border border-slate-300/80 bg-white/95 px-3 py-1.5 text-[11px] font-semibold text-slate-700 shadow-md transition-colors hover:bg-white"
+                        aria-label="Aktifkan mode pilih dan salin teks dari laporan"
+                      >
+                        Klik untuk memilih &amp; menyalin teks laporan
+                      </button>
+                    </div>
+                  )}
                 </>
               )
             ) : (
               <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-                <div className="mb-3 rounded-full bg-cyan-500/5 p-4">
-                  <Search size={32} className="text-cyan-500/20" />
+                <div className="mb-3 rounded-full bg-cyan-500/10 p-4 dark:bg-cyan-500/20">
+                  <Search size={32} className="text-cyan-600 dark:text-cyan-400" />
                 </div>
-                <p className="text-xs font-medium text-slate-500 dark:text-white/40">
-                  Masukkan link Google Docs yang valid untuk melihat pratinjau
-                  laporan di sini.
+                <p className="text-xs font-medium text-slate-600 dark:text-white/85">
+                  Masukkan link Google Drive, Google Docs, atau file PDF yang valid untuk melihat pratinjau laporan di sini.
                 </p>
               </div>
             )}

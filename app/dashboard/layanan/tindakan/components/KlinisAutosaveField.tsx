@@ -72,6 +72,7 @@ type Props = {
   pasienId?: string | null;
   field: KlinisFieldKey;
   value: unknown;
+  initialValue?: unknown;
   onSaved?: (val?: string | null) => void;
   /** Drawer tab Tindakan: textarea/input abu gelap + teks putih. */
   controlVariant?: "default" | "drawerCharcoal";
@@ -82,10 +83,11 @@ export default function KlinisAutosaveField({
   pasienId,
   field,
   value,
+  initialValue,
   onSaved,
   controlVariant = "default",
 }: Props) {
-  const [draft, setDraft] = useState(() => draftFromValue(value));
+  const [draft, setDraft] = useState(() => draftFromValue(value ?? initialValue));
   const [previewZoom, setPreviewZoom] = useState(1);
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [previewInteract, setPreviewInteract] = useState(false);
@@ -110,7 +112,7 @@ export default function KlinisAutosaveField({
   }, [draft]);
 
   useEffect(() => {
-    const next = draftFromValue(value);
+    const next = draftFromValue(value ?? initialValue);
     const idChanged = lastTindakanIdRef.current !== tindakanId;
 
     if (idChanged) {
@@ -129,7 +131,7 @@ export default function KlinisAutosaveField({
       if (next === "" && prev.trim() !== "") return prev;
       return next;
     });
-  }, [value, field, tindakanId]);
+  }, [value, initialValue, field, tindakanId]);
 
   const previewDocId = useMemo(() => {
     if (field !== "pci_report_link") return null;

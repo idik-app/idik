@@ -719,6 +719,11 @@ function TindakanDetailDrawer({
     return { ...merged, tarif_tindakan: detailTarifFromApi };
   }, [record, pasienMaster, tindakanDetail, detailTarifFromApi]);
 
+  const tindakanBaseRecord = useMemo(() => {
+    if (!record) return null;
+    return mergeTindakanDetailIntoRecord(record, tindakanDetail);
+  }, [record, tindakanDetail]);
+
   const handleRecordPatch = useCallback(
     (info?: any) => {
       const wasCompleteBefore = checkAllFieldsCompleted(displayRecord);
@@ -1641,6 +1646,15 @@ function TindakanDetailDrawer({
                                       >,
                                       key,
                                     );
+                                    const rawTindakanVal = tindakanBaseRecord
+                                      ? getWireframeFieldValue(
+                                          tindakanBaseRecord as unknown as Record<
+                                            string,
+                                            unknown
+                                          >,
+                                          key,
+                                        )
+                                      : null;
                                     const tindakanId = String(
                                       displayRecord.id ?? "",
                                     ).trim();
@@ -1737,6 +1751,15 @@ function TindakanDetailDrawer({
                                     >,
                                     key,
                                   );
+                                  const rawTindakanVal = tindakanBaseRecord
+                                    ? getWireframeFieldValue(
+                                        tindakanBaseRecord as unknown as Record<
+                                          string,
+                                          unknown
+                                        >,
+                                        key,
+                                      )
+                                    : null;
                                   const tindakanId = String(
                                     displayRecord.id ?? "",
                                   ).trim();
@@ -1879,7 +1902,7 @@ function TindakanDetailDrawer({
                                           ).trim()}
                                           fieldKey={key}
                                           tab={def.id}
-                                          empty={isEmptyBotValue(rawVal)}
+                                          empty={isEmptyBotValue(rawTindakanVal ?? rawVal)}
                                         />
                                       </dt>
                                       <dd
@@ -1973,7 +1996,8 @@ function TindakanDetailDrawer({
                                             tindakanId={tindakanId}
                                             pasienId={pasienId}
                                             field={key as KlinisFieldKey}
-                                            value={rawVal}
+                                            value={rawTindakanVal}
+                                            initialValue={rawVal}
                                             onSaved={(savedVal) => handleRecordPatch({ field: key, value: savedVal })}
                                             controlVariant={
                                               drawerCharcoalTindakan

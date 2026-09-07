@@ -50,6 +50,7 @@ export type PasienPatchInput = Partial<
   faktor_risiko?: string | null;
   severity_level?: string | null;
   hasil_lab_ppm?: string | null;
+  target_lesion?: string | null;
   temuan_pembuluh?: string | null;
   kesimpulan_laporan?: string | null;
   plan_medis?: string | null;
@@ -152,6 +153,7 @@ export async function patchPatientFields(
     faktor_risiko: defined.faktor_risiko !== undefined ? defined.faktor_risiko : current.faktor_risiko,
     severity_level: defined.severity_level !== undefined ? defined.severity_level : current.severity_level,
     hasil_lab_ppm: defined.hasil_lab_ppm !== undefined ? defined.hasil_lab_ppm : current.hasil_lab_ppm,
+    target_lesion: defined.target_lesion !== undefined ? defined.target_lesion : current.target_lesion,
     temuan_pembuluh: defined.temuan_pembuluh !== undefined ? defined.temuan_pembuluh : current.temuan_pembuluh,
     kesimpulan_laporan: defined.kesimpulan_laporan !== undefined ? defined.kesimpulan_laporan : current.kesimpulan_laporan,
     plan_medis: defined.plan_medis !== undefined ? defined.plan_medis : current.plan_medis,

@@ -12,6 +12,7 @@ export interface ExtractedReportData {
   dokter?: string;
   diagnosa?: string;
   faktor_risiko?: string;
+  target_lesion?: string;
   temuan_pembuluh?: string;
   kesimpulan_laporan?: string;
   plan_medis?: string;
@@ -150,6 +151,9 @@ export const extractDataFromText = (text: string): ExtractedReportData => {
 
   const rfMatch = text.match(/(?:Risk Factor|Faktor Risiko):\s*([^\n\r]+)/i);
   if (rfMatch) data.faktor_risiko = rfMatch[1].trim();
+
+  const targetLesionMatch = text.match(/(?:Target Lesion|Target Lesi|Lesi Target|Lesion Target):\s*([^\n\r]+)/i);
+  if (targetLesionMatch) data.target_lesion = targetLesionMatch[1].trim();
 
   const coronaryLines = lines
     .filter((l) => /^\s*(?:LM|LAD|LCX|RCA)/i.test(l))

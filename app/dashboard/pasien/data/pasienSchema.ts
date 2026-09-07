@@ -85,6 +85,7 @@ export const mapFromSupabase = (p: any) => {
     faktor_risiko: p.faktor_risiko ?? "",
     severity_level: p.severity_level ?? "",
     hasil_lab_ppm: p.hasil_lab_ppm ?? "",
+    target_lesion: p.target_lesion ?? "",
     temuan_pembuluh: p.temuan_pembuluh ?? "",
     kesimpulan_laporan: p.kesimpulan_laporan ?? "",
     plan_medis: p.plan_medis ?? "",
@@ -102,6 +103,7 @@ export const mapToSupabase = (p: PasienFormData & {
   faktor_risiko?: string;
   severity_level?: string;
   hasil_lab_ppm?: string;
+  target_lesion?: string;
   temuan_pembuluh?: string;
   kesimpulan_laporan?: string;
   plan_medis?: string;
@@ -123,6 +125,7 @@ export const mapToSupabase = (p: PasienFormData & {
   faktor_risiko: p.faktor_risiko,
   severity_level: p.severity_level,
   hasil_lab_ppm: p.hasil_lab_ppm,
+  target_lesion: p.target_lesion,
   temuan_pembuluh: p.temuan_pembuluh,
   kesimpulan_laporan: p.kesimpulan_laporan,
   plan_medis: p.plan_medis,

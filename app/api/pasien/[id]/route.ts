@@ -22,6 +22,7 @@ const pasienApiPatchBodySchema = z
     faktor_risiko: z.string().optional().nullable(),
     severity_level: z.string().optional().nullable(),
     hasil_lab_ppm: z.string().optional().nullable(),
+    target_lesion: z.string().optional().nullable(),
     temuan_pembuluh: z.string().optional().nullable(),
     kesimpulan_laporan: z.string().optional().nullable(),
     plan_medis: z.string().optional().nullable(),
@@ -83,7 +84,7 @@ export async function GET(
       "id", "nama", "no_rm", "jenis_kelamin", "jk", "created_at", "updated_at", 
       "jenis_pembiayaan", "kelas_perawatan", "tgl_lahir", "tanggal_lahir",
       "asuransi", "dokter", "pci_report_link", "diagnosa", "faktor_risiko", 
-      "severity_level", "hasil_lab_ppm", "temuan_pembuluh", "kesimpulan_laporan", 
+      "severity_level", "hasil_lab_ppm", "target_lesion", "temuan_pembuluh", "kesimpulan_laporan", 
       "plan_medis", "total_kontras", "air_kerma", "dap_dose"
     ]);
     

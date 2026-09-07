@@ -656,6 +656,7 @@ type PriorTindakanEntry = {
   severity_level?: string | null;
   hasil_lab_ppm?: string | null;
   pci_report_link?: string | null;
+  target_lesion?: string | null;
   temuan_pembuluh?: string | null;
   kesimpulan_laporan?: string | null;
   plan_medis?: string | null;
@@ -760,6 +761,7 @@ function buildPriorTindakanListForRow(
       severity_level: row.severity_level,
       hasil_lab_ppm: row.hasil_lab_ppm,
       pci_report_link: row.pci_report_link,
+      target_lesion: row.target_lesion,
       temuan_pembuluh: row.temuan_pembuluh,
       kesimpulan_laporan: row.kesimpulan_laporan,
       plan_medis: row.plan_medis,

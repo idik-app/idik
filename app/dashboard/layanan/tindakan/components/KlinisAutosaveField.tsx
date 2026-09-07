@@ -13,6 +13,7 @@ export type KlinisFieldKey =
   | "pci_report_link"
   | "kesimpulan_laporan"
   | "plan_medis"
+  | "target_lesion"
   | "temuan_pembuluh"
   | "faktor_risiko"
   | "total_kontras"
@@ -33,6 +34,7 @@ const MULTILINE: Record<KlinisFieldKey, boolean> = {
   plan_medis: true,
   temuan_pembuluh: true,
   faktor_risiko: true,
+  target_lesion: false,
   severity_level: false,
   pci_report_link: false,
   total_kontras: false,
@@ -346,7 +348,9 @@ export default function KlinisAutosaveField({
         ? "Severity"
         : field === "pci_report_link"
           ? "Link Laporan PCI"
-          : "Hasil lab PPM";
+          : field === "target_lesion"
+            ? "Target Lesion"
+            : "Hasil lab PPM";
 
   if (field === "pci_report_link") {
     const isValidUrl = draft.trim().startsWith("http://") || draft.trim().startsWith("https://");

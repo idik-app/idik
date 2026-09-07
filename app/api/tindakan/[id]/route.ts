@@ -33,6 +33,7 @@ const PATCHABLE_TINDAKAN_KEYS = new Set([
   "severity_level",
   "pci_report_link",
   "hasil_lab_ppm",
+  "target_lesion",
   "temuan_pembuluh",
   "kesimpulan_laporan",
   "plan_medis",
@@ -155,7 +156,7 @@ export async function GET(_req: Request, ctx: Params) {
   const { data, error } = await supabase
     .from("tindakan")
     .select(
-      "id, tanggal, dokter, operator, dokter_anestesi, ppds, ruangan, cath, tindakan, status, status_keterangan, pasien_id, no_rm, nama, nama_pasien, asisten, sirkuler, logger, diagnosa, faktor_risiko, severity_level, pci_report_link, hasil_lab_ppm, temuan_pembuluh, kesimpulan_laporan, plan_medis, total_kontras, fluoro_time, dose, kv, ma, waktu, air_kerma, dap_dose, accession_no, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, fast_track_fotos, tarif_tindakan, total, krs, selisih, consumable, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, cek_ntg_cedocard, cek_ntg_cedocard_ket, cek_ntg_cedocard_jam, cek_ntg_cedocard_oleh, cek_heparin, cek_heparin_ket, cek_heparin_jam, cek_heparin_oleh, cek_lain, cek_lain_ket, cek_lain_jam, cek_lain_oleh, log_barang_klinis",
+      "id, tanggal, dokter, operator, dokter_anestesi, ppds, ruangan, cath, tindakan, status, status_keterangan, pasien_id, no_rm, nama, nama_pasien, asisten, sirkuler, logger, diagnosa, faktor_risiko, severity_level, pci_report_link, hasil_lab_ppm, target_lesion, temuan_pembuluh, kesimpulan_laporan, plan_medis, total_kontras, fluoro_time, dose, kv, ma, waktu, air_kerma, dap_dose, accession_no, is_fast_track, pasien_datang_igd, door_to_balloon, total_waktu_fast_track, fast_track_sign_in, fast_track_time_out, fast_track_sign_out, fast_track_fotos, tarif_tindakan, total, krs, selisih, consumable, pemakaian, kelas_pembiayaan, asmed, resume_erm, sjp, berkas_laporan, consumable_kelengkapan, billing_simrs, pj_laporan, operan_ranap, rs_perujuk, keterangan, cek_ntg_cedocard, cek_ntg_cedocard_ket, cek_ntg_cedocard_jam, cek_ntg_cedocard_oleh, cek_heparin, cek_heparin_ket, cek_heparin_jam, cek_heparin_oleh, cek_lain, cek_lain_ket, cek_lain_jam, cek_lain_oleh, log_barang_klinis",
     )
     .eq("id", tindakanId)
     .maybeSingle();

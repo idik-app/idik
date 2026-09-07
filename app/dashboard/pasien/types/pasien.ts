@@ -28,6 +28,7 @@ export interface Pasien {
   faktor_risiko?: string;
   severity_level?: string;
   hasil_lab_ppm?: string;
+  target_lesion?: string;
   temuan_pembuluh?: string;
   kesimpulan_laporan?: string;
   plan_medis?: string;

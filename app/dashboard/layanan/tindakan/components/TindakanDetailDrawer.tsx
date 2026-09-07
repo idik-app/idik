@@ -167,6 +167,7 @@ const KLINIS_AUTOSAVE_FIELDS: (KlinisFieldKey | string)[] = [
   "pci_report_link",
   "kesimpulan_laporan",
   "plan_medis",
+  "target_lesion",
   "temuan_pembuluh",
   "faktor_risiko",
   "total_kontras",
@@ -430,6 +431,10 @@ function mergePasienMasterIntoRow(
     ? pasien.total_kontras || null
     : row.total_kontras;
 
+  const target_lesion = isBlank(row.target_lesion)
+    ? pasien.target_lesion || null
+    : row.target_lesion;
+
   return {
     ...row,
     no_rm,
@@ -445,6 +450,7 @@ function mergePasienMasterIntoRow(
     faktor_risiko,
     severity_level,
     hasil_lab_ppm,
+    target_lesion,
     temuan_pembuluh,
     kesimpulan_laporan,
     plan_medis,
@@ -548,6 +554,7 @@ function checkAllFieldsCompleted(record: any): boolean {
     ["tindakan"],
     ["kategori"],
     ["status"],
+    ["target_lesion"],
     ["temuan_pembuluh"],
     ["kesimpulan_laporan"],
     ["plan_medis"],

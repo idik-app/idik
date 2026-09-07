@@ -39,6 +39,7 @@ export interface TindakanJoinResult {
   ppds?: string | null;
   tindakan: string | null;
   kategori: string | null;
+  target_lesion?: string | null;
   temuan_pembuluh: string | null;
   kesimpulan_laporan: string | null;
   plan_medis: string | null;

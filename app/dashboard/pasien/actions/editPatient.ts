@@ -81,6 +81,7 @@ export async function editPatient(
     faktor_risiko: data.faktor_risiko ?? null,
     severity_level: data.severity_level ?? null,
     hasil_lab_ppm: data.hasil_lab_ppm ?? null,
+    target_lesion: data.target_lesion ?? null,
     temuan_pembuluh: data.temuan_pembuluh ?? null,
     kesimpulan_laporan: data.kesimpulan_laporan ?? null,
     plan_medis: data.plan_medis ?? null,

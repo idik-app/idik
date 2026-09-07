@@ -13,8 +13,13 @@ type Props = {
 };
 
 function normalizeDraft(v: unknown): string {
-  const s = v === null || v === undefined ? "" : String(v).trim();
-  return CATHLAB_NOMOR.includes(s as (typeof CATHLAB_NOMOR)[number]) ? s : "";
+  if (v === null || v === undefined) return "";
+  const s = String(v).trim();
+  if (!s) return "";
+  if (CATHLAB_NOMOR.includes(s as (typeof CATHLAB_NOMOR)[number])) return s;
+  const match = s.match(/[123]/);
+  if (match) return match[0];
+  return "";
 }
 
 export default function CathlabSlotField({

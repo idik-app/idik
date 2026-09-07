@@ -23,7 +23,7 @@ type MasterItem = {
 type Props = {
   tindakanId: string;
   value: string | null | undefined;
-  onSaved?: () => void;
+  onSaved?: (val?: any) => void;
   controlVariant?: "default" | "drawerCharcoal";
 };
 
@@ -98,7 +98,7 @@ export default function KategoriTindakanField({
         throw new Error(json.message || res.statusText);
       }
       lastPersistedRef.current = trimmed;
-      onSaved?.();
+      onSaved?.(trimmed || null);
     } catch (e) {
       show({
         type: "error",

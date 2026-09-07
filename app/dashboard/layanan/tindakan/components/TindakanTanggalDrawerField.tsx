@@ -53,7 +53,7 @@ const inputClass = cn(
 type Props = {
   tindakanId: string;
   value: unknown;
-  onSaved?: () => void;
+  onSaved?: (val?: any) => void;
 };
 
 export default function TindakanTanggalDrawerField({
@@ -95,7 +95,7 @@ export default function TindakanTanggalDrawerField({
       if (!res.ok || !json.ok) {
         throw new Error(json.message || res.statusText);
       }
-      onSaved?.();
+      onSaved?.(next || null);
     } catch {
       setDraft(normalized);
     } finally {

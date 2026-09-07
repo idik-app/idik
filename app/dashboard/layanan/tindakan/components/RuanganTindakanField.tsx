@@ -12,7 +12,7 @@ import {
 type Props = {
   tindakanId: string;
   value: string | null | undefined;
-  onSaved?: () => void;
+  onSaved?: (val?: any) => void;
 };
 
 export default function RuanganTindakanField({
@@ -58,7 +58,7 @@ export default function RuanganTindakanField({
         throw new Error(json.message || res.statusText);
       }
       show({ type: "success", message: "Ruangan tersimpan." });
-      onSaved?.();
+      onSaved?.(next || null);
     } catch (e) {
       show({
         type: "error",

@@ -25,7 +25,7 @@ type Props = {
   tindakanId: string;
   field: TimPerawatFieldKey;
   value: string | null | undefined;
-  onSaved?: () => void;
+  onSaved?: (val?: any) => void;
 };
 
 function norm(s: string) {
@@ -85,7 +85,7 @@ export default function MasterPerawatTimField({
       
       // Berikan jeda sedikit sebelum refresh agar transisi UI/Tab selesai
       setTimeout(() => {
-        onSaved?.();
+        onSaved?.(apiVal);
       }, 500);
     } catch (e) {
       if (!isBlur) {

@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   tindakanId: string;
   value: string | null | undefined;
-  onSaved?: () => void;
+  onSaved?: (val?: any) => void;
   /** Drawer tab Tindakan: kotak abu gelap + teks putih (sama seperti Sign time). */
   controlVariant?: "default" | "drawerCharcoal";
 };
@@ -95,7 +95,7 @@ export default function MasterJenisTindakanField({
           throw new Error(json.message || res.statusText);
         }
         lastPersistedRef.current = nextKey;
-        onSaved?.();
+        onSaved?.(nextKey || null);
       } catch (e) {
         show({
           type: "error",

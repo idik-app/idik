@@ -88,7 +88,7 @@ type Props = {
   tindakanId: string;
   value: unknown;
   pasien: Pasien | null;
-  onSaved?: () => void;
+  onSaved?: (val?: any) => void;
 };
 
 export default function KelasPembiayaanBiayaField({
@@ -142,7 +142,7 @@ export default function KelasPembiayaanBiayaField({
       if (!res.ok || !json.ok) {
         throw new Error(json.message || res.statusText);
       }
-      onSaved?.();
+      onSaved?.(payload);
     } catch (e) {
       if (process.env.NODE_ENV === "development") {
         console.warn("[KelasPembiayaanBiayaField]", e);

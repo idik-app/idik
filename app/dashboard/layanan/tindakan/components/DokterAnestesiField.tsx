@@ -18,7 +18,7 @@ import { useMemo } from "react";
 type Props = {
   tindakanId: string;
   value: string | null | undefined;
-  onSaved?: () => void;
+  onSaved?: (val?: any) => void;
   /** Drawer: input penuh. Tabel: ikon + popover. */
   variant: "drawer" | "tableIcon";
   /** Di tabel: true saat mouse di area sel dokter (ikon arc terbang seperti menu nama pasien). */
@@ -112,7 +112,7 @@ export default function DokterAnestesiField({
           throw new Error(json.message || res.statusText);
         }
         lastPersistedRef.current = next;
-        onSaved?.();
+        onSaved?.(next || null);
         return true;
       } catch (e) {
         show({

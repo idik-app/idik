@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   tindakanId: string;
   value: string | null | undefined;
-  onSaved?: () => void;
+  onSaved?: (val?: any) => void;
 };
 
 function norm(s: string) {
@@ -76,7 +76,7 @@ export default function PpdsField({ tindakanId, value, onSaved }: Props) {
           throw new Error(json.message || res.statusText);
         }
         lastPersistedRef.current = nextKey;
-        onSaved?.();
+        onSaved?.(nextKey || null);
       } catch (e) {
         show({
           type: "error",

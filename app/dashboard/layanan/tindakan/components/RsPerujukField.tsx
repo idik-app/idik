@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   tindakanId: string;
   value: string | null | undefined;
-  onSaved?: () => void;
+  onSaved?: (val?: any) => void;
   placeholder?: string;
   className?: string;
   /** Drawer tab Pasien: kotak isian selaras `PasienAutosaveField` (bukan hanya ikon). */
@@ -67,7 +67,7 @@ export default function RsPerujukField({
       }
       lastPersistedRef.current = next;
       if (!next) setIsEditing(false);
-      onSaved?.();
+      onSaved?.(next || null);
     } catch (e) {
       show({
         type: "error",

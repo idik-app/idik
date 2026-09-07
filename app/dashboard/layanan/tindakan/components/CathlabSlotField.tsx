@@ -9,7 +9,7 @@ const CATHLAB_NOMOR = ["1", "2", "3"] as const;
 type Props = {
   tindakanId: string;
   value: string | null | undefined;
-  onSaved?: () => void;
+  onSaved?: (val?: any) => void;
 };
 
 function normalizeDraft(v: unknown): string {
@@ -63,7 +63,7 @@ export default function CathlabSlotField({
         throw new Error(json.message || res.statusText);
       }
       show({ type: "success", message: "Cathlab tersimpan." });
-      onSaved?.();
+      onSaved?.(apiVal);
     } catch (e) {
       show({
         type: "error",

@@ -723,13 +723,19 @@ function TindakanDetailDrawer({
     (info?: any) => {
       const wasCompleteBefore = checkAllFieldsCompleted(displayRecord);
 
-      // Tampilkan toast notifikasi sukses untuk autosave field
       if (info && typeof info.field === "string") {
         const label = FIELD_LABELS[info.field] || info.field;
-        toast.success(`${label} berhasil disimpan`, {
-          id: `autosave-${info.field}`,
-          duration: 2000,
-        });
+        const tid = String(displayRecord?.id ?? "").trim();
+        const isFilled = info.value != null && String(info.value).trim() !== "";
+        toast.success(
+          isFilled
+            ? `${label} berhasil terisi dan disimpan`
+            : `${label} berhasil disimpan`,
+          {
+            id: `autosave-${tid}-${info.field}`,
+            duration: 2500,
+          },
+        );
 
         // 1. Mutate the tindakan SWR cache immediately so the drawer shows the latest data.
         void mutateTindakan(

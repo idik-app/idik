@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, Loader2, Maximize2, Minimize2, MousePointerClick, Search, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { useEventBridge } from "@/contexts/EventBridgeContext";
 import { extractDataFromText } from "@/lib/tindakan/reportExtractor";
+import { FIELD_LABELS } from "../bridge/wireframeDrawerTabs";
 
 export type KlinisFieldKey =
   | "diagnosa"
@@ -289,6 +291,19 @@ export default function KlinisAutosaveField({
       }
 
       onSaved?.(payloadVal);
+
+      const label = FIELD_LABELS[field] || (field === "target_lesion" ? "Target Lesion" : field);
+      if (payloadVal) {
+        toast.success(`${label} berhasil terisi dan disimpan`, {
+          id: `autosave-${tindakanId}-${field}`,
+          duration: 2500,
+        });
+      } else {
+        toast.success(`${label} berhasil diperbarui`, {
+          id: `autosave-${tindakanId}-${field}`,
+          duration: 2000,
+        });
+      }
     } catch (e) {
       if (process.env.NODE_ENV === "development") {
         console.warn("[KlinisAutosaveField]", field, e);

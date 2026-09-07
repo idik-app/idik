@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink, Loader2, MousePointerClick, Search, ZoomIn, ZoomOut } from "lucide-react";
+import { ExternalLink, Loader2, Maximize2, Minimize2, MousePointerClick, Search, ZoomIn, ZoomOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEventBridge } from "@/contexts/EventBridgeContext";
 import { extractDataFromText } from "@/lib/tindakan/reportExtractor";
@@ -25,9 +25,6 @@ const PREVIEW_ZOOM_MAX = 2;
 const PREVIEW_ZOOM_STEP = 0.1;
 /** Tinggi dasar iframe (px); zoom memperbesar layout, bukan CSS scale — agar teks tidak blur/pecah. */
 const PREVIEW_IFRAME_BASE_HEIGHT_PX = 820;
-/** Panah gelap — terbaca di atas dokumen putih walau app dark mode / iframe cross-origin. */
-const PREVIEW_VIEWPORT_CURSOR =
-  'url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2720%27 height=%2720%27 viewBox=%270 0 20 20%27%3E%3Cpath fill=%27%230f172a%27 stroke=%27%23ffffff%27 stroke-width=%271%27 d=%27M3 1l14 9-6.5.5 4.5 7.5-2.5 1.5-4.5-7-5.5 4.5z%27/%3E%3C/svg%3E") 2 2, default';
 
 const MULTILINE: Record<KlinisFieldKey, boolean> = {
   diagnosa: true,
@@ -86,6 +83,7 @@ export default function KlinisAutosaveField({
 }: Props) {
   const [draft, setDraft] = useState(() => draftFromValue(value));
   const [previewZoom, setPreviewZoom] = useState(1);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
   const [previewInteract, setPreviewInteract] = useState(false);
   const [previewCopyText, setPreviewCopyText] = useState<string | null>(null);
   const [previewCopyLoading, setPreviewCopyLoading] = useState(false);
@@ -390,7 +388,10 @@ export default function KlinisAutosaveField({
         {/* Area Pratinjau (Review Panel) */}
         <div
           className={cn(
-            "flex h-[min(780px,68dvh)] min-h-[560px] flex-col rounded-lg border transition-all duration-300",
+            "flex flex-col rounded-lg border transition-all duration-300",
+            previewExpanded
+              ? "h-[min(920px,84dvh)] min-h-[640px]"
+              : "h-[min(780px,68dvh)] min-h-[560px]",
             "border-cyan-500/20 bg-zinc-900/30 p-3",
             !hasValidPreview && "opacity-40 grayscale-[0.5]",
           )}
@@ -421,7 +422,7 @@ export default function KlinisAutosaveField({
                   <div
                     className="flex items-center gap-0.5 rounded-md border border-cyan-500/30 bg-black/35 p-0.5"
                     role="group"
-                    aria-label="Zoom pratinjau laporan"
+                    aria-label="Kontrol pratinjau laporan"
                   >
                     <button
                       type="button"
@@ -458,6 +459,19 @@ export default function KlinisAutosaveField({
                     >
                       <ZoomIn className="h-3.5 w-3.5" aria-hidden />
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewExpanded((prev) => !prev)}
+                      className="flex h-7 w-7 items-center justify-center rounded border-l border-cyan-500/20 text-cyan-200/90 transition-colors hover:bg-cyan-500/15"
+                      title={previewExpanded ? "Kecilkan tampilan" : "Perbesar tampilan"}
+                      aria-label={previewExpanded ? "Kecilkan pratinjau" : "Perbesar pratinjau"}
+                    >
+                      {previewExpanded ? (
+                        <Minimize2 className="h-3.5 w-3.5" aria-hidden />
+                      ) : (
+                        <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+                      )}
+                    </button>
                   </div>
                 </>
               ) : null}
@@ -474,9 +488,6 @@ export default function KlinisAutosaveField({
               "relative min-h-0 flex-1 overflow-auto rounded-lg border border-cyan-500/30 bg-slate-200 shadow-inner",
               "[color-scheme:only_light]",
             )}
-            style={
-              previewInteract ? undefined : { cursor: PREVIEW_VIEWPORT_CURSOR }
-            }
             tabIndex={0}
             role="region"
             aria-label={
@@ -523,20 +534,20 @@ export default function KlinisAutosaveField({
                   ) : null}
                 </div>
               ) : (
-                <>
+                <div className="relative h-full w-full overflow-auto">
                   <iframe
                     src={previewIframeSrc}
-                    className="pointer-events-none block max-w-none select-none border-none bg-white"
+                    className="block border-none bg-white"
                     title="PCI Report Preview"
-                    allow="autoplay"
-                    tabIndex={-1}
+                    allow="autoplay; fullscreen"
                     style={{
                       width: `${previewZoom * 100}%`,
-                      height: `${Math.round(PREVIEW_IFRAME_BASE_HEIGHT_PX * previewZoom)}px`,
+                      height: "100%",
+                      minHeight: `${Math.round(PREVIEW_IFRAME_BASE_HEIGHT_PX * previewZoom)}px`,
                     }}
                   />
                   {previewDocId && (
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center pb-3">
+                    <div className="pointer-events-none absolute right-3 bottom-3 z-10 flex justify-end">
                       <button
                         type="button"
                         onClick={() => setPreviewInteract(true)}
@@ -547,7 +558,7 @@ export default function KlinisAutosaveField({
                       </button>
                     </div>
                   )}
-                </>
+                </div>
               )
             ) : (
               <div className="flex h-full flex-col items-center justify-center p-6 text-center">

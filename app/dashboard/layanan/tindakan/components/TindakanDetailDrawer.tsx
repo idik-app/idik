@@ -1658,7 +1658,7 @@ function TindakanDetailDrawer({
                                             pasienId={pasienId}
                                             field={key as KlinisFieldKey}
                                             value={rawVal}
-                                            onSaved={() => handleRecordPatch({ field: key })}
+                                            onSaved={(savedVal) => handleRecordPatch({ field: key, value: savedVal })}
                                           />
                                         </dd>
                                       </div>
@@ -1700,7 +1700,7 @@ function TindakanDetailDrawer({
                                               pasienId={pasienId}
                                               field={key as KlinisFieldKey}
                                               value={rawVal}
-                                              onSaved={() => handleRecordPatch({ field: key })}
+                                              onSaved={(savedVal) => handleRecordPatch({ field: key, value: savedVal })}
                                             />
                                           </dd>
                                         </div>
@@ -1968,7 +1968,7 @@ function TindakanDetailDrawer({
                                             pasienId={pasienId}
                                             field={key as KlinisFieldKey}
                                             value={rawVal}
-                                            onSaved={() => handleRecordPatch({ field: key })}
+                                            onSaved={(savedVal) => handleRecordPatch({ field: key, value: savedVal })}
                                             controlVariant={
                                               drawerCharcoalTindakan
                                                 ? "drawerCharcoal"

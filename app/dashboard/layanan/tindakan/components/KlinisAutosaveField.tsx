@@ -70,7 +70,7 @@ type Props = {
   pasienId?: string | null;
   field: KlinisFieldKey;
   value: unknown;
-  onSaved?: () => void;
+  onSaved?: (val?: string | null) => void;
   /** Drawer tab Tindakan: textarea/input abu gelap + teks putih. */
   controlVariant?: "default" | "drawerCharcoal";
 };
@@ -288,7 +288,7 @@ export default function KlinisAutosaveField({
         });
       }
 
-      onSaved?.();
+      onSaved?.(payloadVal);
     } catch (e) {
       if (process.env.NODE_ENV === "development") {
         console.warn("[KlinisAutosaveField]", field, e);

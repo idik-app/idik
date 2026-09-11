@@ -54,21 +54,7 @@ export const WIREFRAME_DRAWER_TABS: {
     id: "tindakan",
     label: "Tindakan",
     short: "Tin",
-    /**
-     * + Sign in / Time out / Sign out (jam) di `SignTimeFields` di bawah daftar field.
-     * `tindakan`: combobox master (`MasterJenisTindakanField`), autofill nama kanonik, PATCH + refresh silent (tanpa toast sukses).
-     * `kategori`: combobox master (`KategoriTindakanField`), kelola daftar (modal), PATCH + refresh silent.
-     */
-    fields: [
-      "tanggal_tindakan",
-      "tindakan",
-      "kategori",
-      "status",
-      "target_lesion",
-      "temuan_pembuluh",
-      "kesimpulan_laporan",
-      "plan_medis",
-    ],
+    fields: ["tanggal_tindakan", "tindakan", "kategori", "status"],
   },
   {
     id: "lokasi",
@@ -80,7 +66,6 @@ export const WIREFRAME_DRAWER_TABS: {
     id: "tim",
     label: "Dokter & tim",
     short: "Tim",
-    /** `dokter`: combobox master (`MasterDokterField`), autofill nama kanonik, simpan PATCH + refresh list tanpa toast sukses. */
     fields: ["dokter", "dokter_anestesi", "ppds", "asisten", "sirkuler", "logger"],
   },
   {
@@ -123,6 +108,10 @@ export const WIREFRAME_DRAWER_TABS: {
       "faktor_risiko",
       "severity_level",
       "hasil_lab_ppm",
+      "target_lesion",
+      "temuan_pembuluh",
+      "kesimpulan_laporan",
+      "plan_medis",
     ],
   },
   {

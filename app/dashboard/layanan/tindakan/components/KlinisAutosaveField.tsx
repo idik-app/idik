@@ -358,16 +358,7 @@ export default function KlinisAutosaveField({
         ),
   );
 
-  const aria =
-    field === "diagnosa"
-      ? "Diagnosa"
-      : field === "severity_level"
-        ? "Severity"
-        : field === "pci_report_link"
-          ? "Link Laporan PCI"
-          : field === "target_lesion"
-            ? "Target Lesion"
-            : "Hasil lab PPM";
+  const aria = FIELD_LABELS[field] || field;
 
   if (field === "pci_report_link") {
     const isValidUrl = draft.trim().startsWith("http://") || draft.trim().startsWith("https://");

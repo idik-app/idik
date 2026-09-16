@@ -177,6 +177,34 @@ export const ALL_COLUMNS_MAP: Record<string, string> = {
   keterangan: "Keterangan",
 };
 
+function parseNumericValue(val: unknown): number | null {
+  if (typeof val === "number" && Number.isFinite(val)) return val;
+  if (typeof val === "string" && val.trim() !== "") {
+    const cleaned = val
+      .trim()
+      .replace(/^rp\.?\s*/i, "")
+      .replace(/,-\s*$/i, "")
+      .trim()
+      .replace(/\s/g, "")
+      .replace(/\./g, "")
+      .replace(/,/g, ".");
+    if (!cleaned) return null;
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function formatRupiahKrs(val: unknown): string {
+  if (val === null || val === undefined || val === "") return "—";
+  const num = parseNumericValue(val);
+  if (num != null) {
+    return `Rp ${num.toLocaleString("id-ID")},-`;
+  }
+  const str = String(val).trim();
+  return str || "—";
+}
+
 export function formatPasienReportCell(row: TindakanJoinResult, key: string): string {
   switch (key) {
     case "tanggal":
@@ -299,7 +327,7 @@ export function formatPasienReportCell(row: TindakanJoinResult, key: string): st
     case "total":
       return row.total != null ? formatRupiah(row.total) : "—";
     case "krs":
-      return row.krs || "—";
+      return formatRupiahKrs(row.krs);
     case "selisih":
       return row.selisih != null ? formatRupiah(row.selisih) : "—";
     case "pemakaian":

@@ -329,7 +329,10 @@ export function formatFieldValue(key: string, value: unknown): string {
 
   if (WIREFRAME_MONEY_KEYS.has(key)) {
     const n = parseWireframeNumeric(value);
-    if (n != null) return `Rp ${n.toLocaleString("id-ID")}`;
+    if (n != null) {
+      if (key === "krs") return `Rp ${n.toLocaleString("id-ID")},-`;
+      return `Rp ${n.toLocaleString("id-ID")}`;
+    }
     if (key === "krs" && value != null && String(value).trim() !== "") {
       return String(value).trim();
     }

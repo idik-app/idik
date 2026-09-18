@@ -56,6 +56,12 @@ const DepoDashboardPage = dynamic(
 const DistributorPortalPage = dynamic(
   () => import(/* webpackPrefetch: true */ "@/app/distributor/pemakaian/page"),
 );
+const FarmasiStokOpnamePage = dynamic(
+  () =>
+    import(
+      /* webpackPrefetch: true */ "@/components/stok-opname/StokOpnameSessionView"
+    ),
+);
 const FarmasiPlaceholder = dynamic(
   () =>
     import(
@@ -176,7 +182,8 @@ export default function TabContent() {
       case "master-barang":
         return <MasterBarangFarmasiPage />;
       case "farmasi-stok-opname":
-        return <FarmasiPlaceholder slug={["stok-opname"]} />;
+      case "stok-opname":
+        return <FarmasiStokOpnamePage />;
       case "farmasi-laporan-keluar":
         return <FarmasiPlaceholder slug={["laporan", "keluar"]} />;
       case "farmasi-laporan-stok-alkes":

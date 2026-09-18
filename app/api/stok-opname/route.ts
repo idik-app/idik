@@ -32,7 +32,6 @@ export async function GET(request: Request) {
     }
 
     if (bulan && tahun) {
-      // Create date range for specified month and year
       const startDate = new Date(Date.UTC(tahun, bulan - 1, 1)).toISOString();
       const endDate = new Date(Date.UTC(tahun, bulan, 0, 23, 59, 59)).toISOString();
       query = query.gte("created_at", startDate).lte("created_at", endDate);
@@ -127,32 +126,33 @@ export async function POST(request: Request) {
 
     const sesiId = sesiData.id;
 
-    // 2. Insert/Replace Items
-    if (Array.isArray(items) && items.length > 0) {
-      // Hapus item lama dalam sesi ini untuk ganti dengan payload terbaru
+    // 2. Insert/Replace Items (Selalu hapus item lama di DB dulu agar sinkron dengan state UI)
+    if (Array.isArray(items)) {
       await supabase.from("stok_opname_item").delete().eq("sesi_id", sesiId);
 
-      const itemsPayload = items.map((it: any) => ({
-        sesi_id: sesiId,
-        barang_id: it.barang_id || null,
-        kode_barcode: it.kode_barcode,
-        nama_barang: it.nama_barang,
-        kategori: it.kategori || "Medis",
-        satuan: it.satuan || "Pcs",
-        lot_number: it.lot_number || null,
-        expired_date: it.expired_date || null,
-        stok_sistem: Number(it.stok_sistem) || 0,
-        stok_fisik: Number(it.stok_fisik) || 0,
-        selisih: (Number(it.stok_fisik) || 0) - (Number(it.stok_sistem) || 0),
-        status_ed: it.status_ed || "Aman",
-        catatan: it.catatan || "",
-        scanned_by_user: created_by || "Petugas Gudang",
-      }));
+      if (items.length > 0) {
+        const itemsPayload = items.map((it: any) => ({
+          sesi_id: sesiId,
+          barang_id: it.barang_id || null,
+          kode_barcode: it.kode_barcode,
+          nama_barang: it.nama_barang,
+          kategori: it.kategori || "Medis",
+          satuan: it.satuan || "Pcs",
+          lot_number: it.lot_number || null,
+          expired_date: it.expired_date || null,
+          stok_sistem: Number(it.stok_sistem) || 0,
+          stok_fisik: Number(it.stok_fisik) || 0,
+          selisih: (Number(it.stok_fisik) || 0) - (Number(it.stok_sistem) || 0),
+          status_ed: it.status_ed || "Aman",
+          catatan: it.catatan || "",
+          scanned_by_user: created_by || "Petugas Gudang",
+        }));
 
-      const { error: itemsErr } = await supabase.from("stok_opname_item").insert(itemsPayload);
+        const { error: itemsErr } = await supabase.from("stok_opname_item").insert(itemsPayload);
 
-      if (itemsErr) {
-        return NextResponse.json({ ok: false, error: itemsErr.message }, { status: 500 });
+        if (itemsErr) {
+          return NextResponse.json({ ok: false, error: itemsErr.message }, { status: 500 });
+        }
       }
     }
 
@@ -166,5 +166,30 @@ export async function POST(request: Request) {
       { ok: false, error: err instanceof Error ? err.message : "Terjadi kesalahan server" },
       { status: 500 }
     );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const sesiId = searchParams.get("sesiId");
+    const itemId = searchParams.get("itemId");
+
+    const supabase = getServiceSupabaseAdmin();
+    if (!supabase) {
+      return NextResponse.json({ ok: false, error: "Supabase Service Admin Not Configured" }, { status: 500 });
+    }
+
+    if (itemId) {
+      const { error } = await supabase.from("stok_opname_item").delete().eq("id", itemId);
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    } else if (sesiId) {
+      const { error } = await supabase.from("stok_opname_sesi").delete().eq("id", sesiId);
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true, message: "Berhasil dihapus dari database" }, { status: 200 });
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: err instanceof Error ? err.message : "Terjadi kesalahan server" }, { status: 500 });
   }
 }

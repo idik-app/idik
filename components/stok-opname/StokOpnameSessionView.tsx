@@ -19,6 +19,7 @@ import {
   Wifi,
   WifiOff,
   Filter,
+  RefreshCw,
 } from "lucide-react";
 import ScanCameraModal from "@/components/stok-opname/ScanCameraModal";
 import HardwareScannerListener from "@/components/stok-opname/HardwareScannerListener";
@@ -39,69 +40,6 @@ export interface StokOpnameItemRow {
   status_ed: "Aman" | "Mendekati" | "Expired" | "Non-ED";
   catatan: string;
 }
-
-const DUMMY_INITIAL_ITEMS: StokOpnameItemRow[] = [
-  {
-    id: "item-1",
-    barang_id: "brg-001",
-    kode_barcode: "00884961019283",
-    nama_barang: "Stent Koroner Resolute Onyx 3.0x18mm",
-    kategori: "Medis",
-    satuan: "Pcs",
-    lot_number: "LT-9921",
-    expired_date: "2028-05-12",
-    stok_sistem: 10,
-    stok_fisik: 10,
-    selisih: 0,
-    status_ed: "Aman",
-    catatan: "Kondisi baik di rak Cathlab A1",
-  },
-  {
-    id: "item-2",
-    barang_id: "brg-002",
-    kode_barcode: "08991001293812",
-    nama_barang: "Catheter Judkins Left JL4 6F",
-    kategori: "Medis",
-    satuan: "Pcs",
-    lot_number: "JL-3810",
-    expired_date: "2026-10-15",
-    stok_sistem: 5,
-    stok_fisik: 4,
-    selisih: -1,
-    status_ed: "Mendekati",
-    catatan: "Ada 1 unit terpakai belum di-input",
-  },
-  {
-    id: "item-3",
-    barang_id: "brg-003",
-    kode_barcode: "8991200391021",
-    nama_barang: "Kertas HVS A4 70gr PaperOne",
-    kategori: "Non-Medis",
-    satuan: "Ream",
-    lot_number: "-",
-    expired_date: "",
-    stok_sistem: 20,
-    stok_fisik: 22,
-    selisih: 2,
-    status_ed: "Non-ED",
-    catatan: "Surplus 2 ream di lemari ATK",
-  },
-  {
-    id: "item-4",
-    barang_id: "brg-004",
-    kode_barcode: "01089201928301",
-    nama_barang: "Spuit 10cc Terumo Luer Lock",
-    kategori: "Medis",
-    satuan: "Box",
-    lot_number: "SP-0021",
-    expired_date: "2026-03-01",
-    stok_sistem: 50,
-    stok_fisik: 48,
-    selisih: -2,
-    status_ed: "Expired",
-    catatan: "Item kadaluarsa disisihkan di kontainer khusus",
-  },
-];
 
 const BULAN_OPTIONS = [
   { value: 1, label: "Januari" },
@@ -133,13 +71,14 @@ export default function StokOpnameSessionView() {
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
-  // Sesi Opname Data State
+  // Sesi Opname Data State (Murni data real dari DB)
   const [nomorSesi, setNomorSesi] = useState<string>(
     `SO-${currentYear}${String(currentMonth).padStart(2, "0")}-001`
   );
-  const [items, setItems] = useState<StokOpnameItemRow[]>(DUMMY_INITIAL_ITEMS);
+  const [items, setItems] = useState<StokOpnameItemRow[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const [loadingDB, setLoadingDB] = useState(false);
   const [savingStatus, setSavingStatus] = useState<string | null>(null);
 
   // Connectivity Listener
@@ -155,6 +94,61 @@ export default function StokOpnameSessionView() {
       window.removeEventListener("offline", handleOffline);
     };
   }, []);
+
+  // Fetch Real Data Sesi & Items dari Supabase Database API
+  const loadDataFromDB = useCallback(async () => {
+    setLoadingDB(true);
+    try {
+      const queryParams = new URLSearchParams({
+        bulan: String(selectedBulan),
+        tahun: String(selectedTahun),
+        lokasi: selectedLokasi,
+      });
+
+      const res = await fetch(`/api/stok-opname?${queryParams.toString()}`);
+      const json = await res.json();
+
+      if (json.ok && Array.isArray(json.data) && json.data.length > 0) {
+        // Gunakan sesi terbaru di bulan ini
+        const activeSesi = json.data[0];
+        setNomorSesi(activeSesi.nomor_sesi);
+
+        if (Array.isArray(activeSesi.stok_opname_item)) {
+          const loadedItems: StokOpnameItemRow[] = activeSesi.stok_opname_item.map((it: any) => ({
+            id: it.id || `item-${Math.random()}`,
+            barang_id: it.barang_id,
+            kode_barcode: it.kode_barcode,
+            nama_barang: it.nama_barang,
+            kategori: it.kategori || "Medis",
+            satuan: it.satuan || "Pcs",
+            lot_number: it.lot_number || "-",
+            expired_date: it.expired_date || "",
+            stok_sistem: Number(it.stok_sistem) || 0,
+            stok_fisik: Number(it.stok_fisik) || 0,
+            selisih: Number(it.selisih) || 0,
+            status_ed: it.status_ed || calculateEDStatus(it.expired_date),
+            catatan: it.catatan || "",
+          }));
+          setItems(loadedItems);
+        } else {
+          setItems([]);
+        }
+      } else {
+        // Jika belum ada data di DB untuk bulan ini, gunakan state bersih (tanpa dummy)
+        setNomorSesi(`SO-${selectedTahun}${String(selectedBulan).padStart(2, "0")}-001`);
+        setItems([]);
+      }
+    } catch (e: any) {
+      console.error("Gagal memuat data dari DB:", e);
+      setItems([]);
+    } finally {
+      setLoadingDB(false);
+    }
+  }, [selectedBulan, selectedTahun, selectedLokasi]);
+
+  useEffect(() => {
+    void loadDataFromDB();
+  }, [loadDataFromDB]);
 
   // Handlers for Add / Update Scanned Item
   const handleBarcodeDecoded = useCallback((parsed: ParsedGS1Data) => {
@@ -222,8 +216,22 @@ export default function StokOpnameSessionView() {
     );
   };
 
-  const deleteItem = (id: string) => {
+  const deleteItem = async (id: string) => {
     setItems((prevItems) => prevItems.filter((it) => it.id !== id));
+    // Jika ID merupakan UUID DB (bukan item-temp), hapus juga dari DB
+    if (!id.startsWith("item-")) {
+      try {
+        await fetch(`/api/stok-opname?itemId=${id}`, { method: "DELETE" });
+      } catch {
+        /* ignore delete error */
+      }
+    }
+  };
+
+  const resetAllItems = () => {
+    if (confirm("Apakah Anda yakin ingin mengosongkan seluruh tabel opname ini?")) {
+      setItems([]);
+    }
   };
 
   // Metrics Auto-Calculation
@@ -273,7 +281,7 @@ export default function StokOpnameSessionView() {
     return filteredItems.slice(start, start + pageSize);
   }, [filteredItems, page, pageSize]);
 
-  // Save Sesi to API & DB
+  // Save Sesi to API & DB Permanen
   const saveSessionToDB = async () => {
     setSavingStatus("Menyimpan ke Database...");
     try {
@@ -291,8 +299,9 @@ export default function StokOpnameSessionView() {
 
       const json = await res.json();
       if (json.ok) {
-        setSavingStatus("🟢 Berhasil Disimpan ke Supabase Database!");
+        setSavingStatus("🟢 Berhasil Disimpan & Disinkronkan ke Database!");
         setTimeout(() => setSavingStatus(null), 4000);
+        void loadDataFromDB();
       } else {
         setSavingStatus(`🔴 Error: ${json.error}`);
       }
@@ -318,7 +327,7 @@ export default function StokOpnameSessionView() {
         <div>
           <h1 className="text-lg font-bold text-[#E8C547] flex items-center gap-2">
             <ClipboardList className="h-5 w-5 text-cyan-300" aria-hidden />
-            Stok Opname Inventaris (Medis & Non-Medis)
+            Stok Opname Inventaris (Medis &amp; Non-Medis)
           </h1>
           <p className="text-xs text-white/85 dark:text-white/85 mt-1">
             Sesi Active: <strong className="text-cyan-300 font-mono">{nomorSesi}</strong> |
@@ -326,17 +335,29 @@ export default function StokOpnameSessionView() {
           </p>
         </div>
 
-        {/* Connectivity Status Indicator */}
-        <div className="flex items-center gap-2 text-xs bg-slate-950/80 px-3 py-1.5 rounded-xl border border-cyan-700/50">
-          {isOnline ? (
-            <span className="flex items-center gap-1.5 text-emerald-400">
-              <Wifi className="h-4 w-4" /> Online (Database Ready)
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 text-amber-400">
-              <WifiOff className="h-4 w-4" /> Offline (Tersimpan Lokal Cache)
-            </span>
-          )}
+        {/* Connectivity Status & Reload Indicator */}
+        <div className="flex items-center gap-2 text-xs">
+          <button
+            type="button"
+            onClick={loadDataFromDB}
+            disabled={loadingDB}
+            className="px-2.5 py-1.5 rounded-xl border border-cyan-700/50 bg-slate-950/80 text-cyan-300 hover:bg-slate-800 flex items-center gap-1"
+            title="Muat Ulang Data DB"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loadingDB ? "animate-spin" : ""}`} />
+            {loadingDB ? "Memuat DB..." : "Refresh DB"}
+          </button>
+          <div className="flex items-center gap-1.5 text-xs bg-slate-950/80 px-3 py-1.5 rounded-xl border border-cyan-700/50">
+            {isOnline ? (
+              <span className="flex items-center gap-1.5 text-emerald-400">
+                <Wifi className="h-4 w-4" /> Online DB
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-amber-400">
+                <WifiOff className="h-4 w-4" /> Offline Cache
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -410,6 +431,17 @@ export default function StokOpnameSessionView() {
               <Scan className="h-4 w-4 text-emerald-400" />
               Scan Kamera HP
             </button>
+
+            {items.length > 0 && (
+              <button
+                type="button"
+                onClick={resetAllItems}
+                className="px-3 py-2 rounded-xl text-xs font-medium bg-rose-950/40 border border-rose-800/50 text-rose-300 hover:bg-rose-900/60 transition-colors"
+                title="Kosongkan Tabel"
+              >
+                Bersihkan Tabel
+              </button>
+            )}
 
             <button
               type="button"
@@ -490,10 +522,10 @@ export default function StokOpnameSessionView() {
         <div className="flex items-center justify-between gap-2 text-xs">
           <h2 className="font-semibold text-white dark:text-white flex items-center gap-1.5">
             <Filter className="h-4 w-4 text-cyan-400" />
-            Tabel Hasil Pemindaian Opname (Editable)
+            Tabel Hasil Pemindaian Opname Real (Database Real)
           </h2>
           <span className="text-white/80 dark:text-white/80 text-[11px]">
-            Klik angka stok fisik, lot, atau tanggal ED untuk meng-edit secara langsung
+            Data murni dari database | Klik tombol &quot;Simpan ke Database&quot; untuk memperbarui permanen
           </span>
         </div>
 
@@ -517,7 +549,7 @@ export default function StokOpnameSessionView() {
               {paginatedItems.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="p-8 text-center text-white/70 italic">
-                    Belum ada data barang. Gunakan tombol &quot;Scan Kamera HP&quot; atau tembakkan Barcode Gun.
+                    Belum ada data barang di database untuk bulan ini. Klik &quot;Scan Kamera HP&quot; atau tembakkan Barcode Gun untuk mulai opname real.
                   </td>
                 </tr>
               ) : (

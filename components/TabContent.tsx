@@ -60,7 +60,20 @@ const FarmasiStokOpnamePage = dynamic(
   () =>
     import(
       /* webpackPrefetch: true */ "@/components/stok-opname/StokOpnameSessionView"
+    ).catch((err) => {
+      console.warn("Retrying chunk load for StokOpnameSessionView...", err);
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
+      return { default: () => null };
+    }),
+  {
+    loading: () => (
+      <div className="flex min-h-[16rem] items-center justify-center text-sm text-cyan-300 font-medium">
+        Memuat Modul Stok Opname…
+      </div>
     ),
+  }
 );
 const FarmasiPlaceholder = dynamic(
   () =>

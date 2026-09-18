@@ -134,17 +134,17 @@ export default function ScanCameraModal({ open, onClose, onDecoded }: Props) {
 
   return (
     <div
-      className={`fixed inset-0 ${UI_LAYERS.modalTop} flex items-center justify-center p-3 bg-black/80 backdrop-blur-md transition-opacity`}
+      className={`fixed inset-0 ${UI_LAYERS.modalTop} overflow-y-auto p-2 sm:p-4 bg-black/85 backdrop-blur-md flex items-center justify-center`}
       role="dialog"
       aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-2xl border border-cyan-500/30 bg-[#0b1329] shadow-2xl overflow-hidden text-white dark:text-white"
+        className="w-full max-w-lg my-auto rounded-2xl border border-cyan-500/30 bg-[#0b1329] shadow-2xl overflow-hidden text-white dark:text-white max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-4 py-3 border-b border-cyan-800/40 flex items-center justify-between bg-cyan-950/40">
+        <div className="px-4 py-3 border-b border-cyan-800/40 flex items-center justify-between bg-cyan-950/40 shrink-0">
           <div className="flex items-center gap-2">
             <Camera className="h-5 w-5 text-cyan-300" aria-hidden />
             <div>
@@ -167,7 +167,7 @@ export default function ScanCameraModal({ open, onClose, onDecoded }: Props) {
         </div>
 
         {/* Viewfinder Section */}
-        <div className="p-4 space-y-3">
+        <div className="p-3 sm:p-4 space-y-3 overflow-y-auto flex-1">
           <div className="relative w-full rounded-xl bg-black/70 overflow-hidden border border-cyan-700/50 min-h-[220px]">
             <div id={REGION_ID} className="w-full h-full [&_video]:rounded-xl" />
             

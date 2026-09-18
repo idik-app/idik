@@ -72,27 +72,57 @@ const FastTrackListModal = dynamic(
   { ssr: false, loading: () => null },
 );
 const TindakanTerbanyakLabModal = dynamic(
-  () => import("../components/TindakanTerbanyakLabModal"),
+  () =>
+    import("../components/TindakanTerbanyakLabModal").catch((err) => {
+      console.warn("Retrying chunk load for TindakanTerbanyakLabModal...", err);
+      if (typeof window !== "undefined") window.location.reload();
+      return { default: () => null as any };
+    }),
   { ssr: false, loading: () => null },
 );
 const TindakanLaporanModal = dynamic(
-  () => import("../components/TindakanLaporanModal"),
+  () =>
+    import("../components/TindakanLaporanModal").catch((err) => {
+      console.warn("Retrying chunk load for TindakanLaporanModal...", err);
+      if (typeof window !== "undefined") window.location.reload();
+      return { default: () => null as any };
+    }),
   { ssr: false, loading: () => null },
 );
 const TindakanLaporanPemakaianModal = dynamic(
-  () => import("../components/TindakanLaporanPemakaianModal"),
+  () =>
+    import("../components/TindakanLaporanPemakaianModal").catch((err) => {
+      console.warn("Retrying chunk load for TindakanLaporanPemakaianModal...", err);
+      if (typeof window !== "undefined") window.location.reload();
+      return { default: () => null as any };
+    }),
   { ssr: false, loading: () => null },
 );
 const TindakanLaporanMutuModal = dynamic(
-  () => import("../components/TindakanLaporanMutuModal"),
+  () =>
+    import("../components/TindakanLaporanMutuModal").catch((err) => {
+      console.warn("Retrying chunk load for TindakanLaporanMutuModal...", err);
+      if (typeof window !== "undefined") window.location.reload();
+      return { default: () => null as any };
+    }),
   { ssr: false, loading: () => null },
 );
 const TindakanLaporanPasienModal = dynamic(
-  () => import("../components/TindakanLaporanPasienModal"),
+  () =>
+    import("../components/TindakanLaporanPasienModal").catch((err) => {
+      console.warn("Retrying chunk load for TindakanLaporanPasienModal...", err);
+      if (typeof window !== "undefined") window.location.reload();
+      return { default: () => null as any };
+    }),
   { ssr: false, loading: () => null },
 );
 const IntensiveDashboardView = dynamic(
-  () => import("@/components/intensive/IntensiveDashboardView"),
+  () =>
+    import("@/components/intensive/IntensiveDashboardView").catch((err) => {
+      console.warn("Retrying chunk load for IntensiveDashboardView...", err);
+      if (typeof window !== "undefined") window.location.reload();
+      return { default: () => null as any };
+    }),
   { ssr: false, loading: () => null },
 );
 import { computeTindakanStatsFromRows } from "../hooks/useTindakanStats";

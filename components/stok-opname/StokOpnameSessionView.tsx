@@ -81,6 +81,39 @@ export default function StokOpnameSessionView() {
   const [loadingDB, setLoadingDB] = useState(false);
   const [savingStatus, setSavingStatus] = useState<string | null>(null);
 
+  // Master Barang Live Search State
+  const [masterSearchResults, setMasterSearchResults] = useState<any[]>([]);
+  const [isSearchingMaster, setIsSearchingMaster] = useState(false);
+  const [showMasterDropdown, setShowMasterDropdown] = useState(false);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setMasterSearchResults([]);
+      setIsSearchingMaster(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearchingMaster(true);
+      try {
+        const res = await fetch(`/api/distributor/produk/catalog?search=${encodeURIComponent(q)}`);
+        const json = await res.json();
+        if (json.ok && Array.isArray(json.data)) {
+          setMasterSearchResults(json.data.slice(0, 5));
+        } else {
+          setMasterSearchResults([]);
+        }
+      } catch {
+        setMasterSearchResults([]);
+      } finally {
+        setIsSearchingMaster(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Connectivity Listener
   useEffect(() => {
     setIsOnline(navigator.onLine);
@@ -255,6 +288,37 @@ function cleanBarcodeKey(str?: string | null): string {
         .catch(() => { /* ignore catalog fetch error */ });
     }
   }, []);
+
+  const addItemFromMaster = (masterItem: any) => {
+    const barcode = masterItem.barcode || masterItem.kode || `MB-${Date.now()}`;
+    handleBarcodeDecoded({
+      raw: barcode,
+      gtin: barcode,
+      expiryDate: null,
+      lotNumber: null,
+      serialNumber: null,
+      isGS1: false,
+    });
+
+    setItems((prev) =>
+      prev.map((it) => {
+        if (cleanBarcodeKey(it.kode_barcode) === cleanBarcodeKey(barcode)) {
+          return {
+            ...it,
+            nama_barang: masterItem.nama || it.nama_barang,
+            kategori: (masterItem.kategori as any) || it.kategori || "Medis",
+            satuan: masterItem.satuan || it.satuan || "Pcs",
+          };
+        }
+        return it;
+      })
+    );
+
+    setSearchQuery("");
+    setShowMasterDropdown(false);
+    setSavingStatus(`🟢 Barang "${masterItem.nama}" ditambahkan ke tabel opname!`);
+    setTimeout(() => setSavingStatus(null), 3500);
+  };
 
   // Inline Table Edit Handlers
   const updateItemField = (id: string, field: keyof StokOpnameItemRow, value: any) => {
@@ -518,19 +582,76 @@ function cleanBarcodeKey(str?: string | null): string {
           </div>
         </div>
 
-        {/* Search Bar Input */}
+        {/* Search Bar Input & Master Barang Live Suggestions */}
         <div className="relative w-full">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/50" />
           <input
             type="text"
             value={searchQuery}
+            onFocus={() => setShowMasterDropdown(true)}
             onChange={(e) => {
               setSearchQuery(e.target.value);
+              setShowMasterDropdown(true);
               setPage(1);
             }}
-            placeholder="Cari berdasarkan nama barang, kode barcode/GTIN, atau nomor lot..."
+            placeholder="Filter tabel opname ATAU ketik nama/barcode untuk cari & tambah dari Master Barang (farmasi/master)..."
             className="w-full pl-9 pr-4 py-2 bg-slate-950/80 border border-cyan-800/60 rounded-xl text-xs text-white dark:text-white dark:placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-cyan-400"
           />
+
+          {/* Master Barang Live Suggestion Panel */}
+          {showMasterDropdown && searchQuery.trim().length >= 2 && (
+            <div className="absolute left-0 right-0 top-full mt-1.5 bg-slate-900 border border-cyan-700/80 rounded-xl shadow-2xl z-50 overflow-hidden text-xs">
+              <div className="px-3 py-1.5 bg-cyan-950/90 text-[11px] font-semibold text-cyan-300 flex items-center justify-between border-b border-cyan-800/50">
+                <span>🔍 Hasil Pencarian dari Master Barang RS (`farmasi/master`):</span>
+                {isSearchingMaster ? (
+                  <span className="text-amber-300 animate-pulse">Mencari Katalog...</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowMasterDropdown(false)}
+                    className="text-white/60 hover:text-white text-[10px]"
+                  >
+                    Tutup [✕]
+                  </button>
+                )}
+              </div>
+
+              {masterSearchResults.length > 0 ? (
+                <div className="divide-y divide-cyan-950 max-h-52 overflow-y-auto">
+                  {masterSearchResults.map((mItem: any) => (
+                    <div
+                      key={mItem.id}
+                      onClick={() => addItemFromMaster(mItem)}
+                      className="p-2.5 hover:bg-cyan-950/70 transition-colors cursor-pointer flex items-center justify-between gap-2"
+                    >
+                      <div>
+                        <div className="font-semibold text-white">{mItem.nama}</div>
+                        <div className="text-[10px] text-cyan-400 font-mono">
+                          Barcode: {mItem.barcode || mItem.kode || "—"} | Satuan: {mItem.satuan || "Pcs"} | Kategori: {mItem.kategori || "Medis"}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addItemFromMaster(mItem);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 font-medium text-[11px] hover:bg-emerald-500/40 shrink-0 flex items-center gap-1 shadow-sm"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Tambah ke Opname
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-3 text-center text-white/60 italic text-[11px]">
+                  {isSearchingMaster
+                    ? "Mencari di Katalog Master Barang..."
+                    : "Pencarian filter aktif untuk tabel lokal."}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

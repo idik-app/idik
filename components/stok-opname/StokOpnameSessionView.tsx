@@ -95,6 +95,11 @@ export default function StokOpnameSessionView() {
     };
   }, []);
 
+function cleanBarcodeKey(str?: string | null): string {
+  if (!str) return "";
+  return str.trim().replace(/^\][a-zA-Z0-9]{2}/, "").toLowerCase();
+}
+
   // Fetch Real Data Sesi & Items dari Supabase Database API
   const loadDataFromDB = useCallback(async () => {
     setLoadingDB(true);
@@ -129,7 +134,34 @@ export default function StokOpnameSessionView() {
             status_ed: it.status_ed || calculateEDStatus(it.expired_date),
             catatan: it.catatan || "",
           }));
-          setItems(loadedItems);
+
+          setItems((prevItems) => {
+            if (prevItems.length === 0) return loadedItems;
+            const prevMap = new Map(
+              prevItems.map((p) => [cleanBarcodeKey(p.kode_barcode), p])
+            );
+            return loadedItems.map((dbItem) => {
+              const key = cleanBarcodeKey(dbItem.kode_barcode);
+              const prev = prevMap.get(key);
+              if (prev) {
+                const hasCustomName =
+                  prev.nama_barang &&
+                  !prev.nama_barang.startsWith("Barang (GTIN:") &&
+                  prev.nama_barang !== dbItem.nama_barang;
+                return {
+                  ...dbItem,
+                  nama_barang: hasCustomName ? prev.nama_barang : dbItem.nama_barang,
+                  kategori: prev.kategori || dbItem.kategori,
+                  lot_number:
+                    prev.lot_number && prev.lot_number !== "-"
+                      ? prev.lot_number
+                      : dbItem.lot_number,
+                  expired_date: prev.expired_date || dbItem.expired_date,
+                };
+              }
+              return dbItem;
+            });
+          });
         } else {
           setItems([]);
         }
@@ -152,10 +184,14 @@ export default function StokOpnameSessionView() {
 
   // Handlers for Add / Update Scanned Item
   const handleBarcodeDecoded = useCallback((parsed: ParsedGS1Data) => {
+    const rawKey = cleanBarcodeKey(parsed.raw);
+    const gtinKey = cleanBarcodeKey(parsed.gtin);
+
     setItems((prevItems) => {
-      const existingIdx = prevItems.findIndex(
-        (it) => it.kode_barcode === parsed.gtin || it.kode_barcode === parsed.raw
-      );
+      const existingIdx = prevItems.findIndex((it) => {
+        const k = cleanBarcodeKey(it.kode_barcode);
+        return k === gtinKey || k === rawKey;
+      });
 
       if (existingIdx !== -1) {
         // Auto increment stok fisik +1
@@ -176,7 +212,7 @@ export default function StokOpnameSessionView() {
         const newItem: StokOpnameItemRow = {
           id: `item-${Date.now()}`,
           kode_barcode: parsed.gtin || parsed.raw,
-          nama_barang: `Barang (GTIN: ${parsed.gtin})`,
+          nama_barang: `Barang (GTIN: ${parsed.gtin || parsed.raw})`,
           kategori: "Medis",
           satuan: "Pcs",
           lot_number: parsed.lotNumber || "-",
@@ -190,6 +226,34 @@ export default function StokOpnameSessionView() {
         return [newItem, ...prevItems];
       }
     });
+
+    // Otomatis cari katalog nama barang jika belum ada
+    const targetGtin = parsed.gtin || parsed.raw;
+    if (targetGtin) {
+      void fetch(`/api/distributor/produk/catalog?barcode=${encodeURIComponent(targetGtin)}`)
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.ok && json.data) {
+            const found = Array.isArray(json.data) ? json.data[0] : json.data;
+            if (found && found.nama) {
+              setItems((prev) =>
+                prev.map((it) => {
+                  const k = cleanBarcodeKey(it.kode_barcode);
+                  if (k === cleanBarcodeKey(targetGtin) || k === cleanBarcodeKey(parsed.raw)) {
+                    return {
+                      ...it,
+                      nama_barang: found.nama,
+                      kategori: (found.kategori as any) || it.kategori,
+                    };
+                  }
+                  return it;
+                })
+              );
+            }
+          }
+        })
+        .catch(() => { /* ignore catalog fetch error */ });
+    }
   }, []);
 
   // Inline Table Edit Handlers

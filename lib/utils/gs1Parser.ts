@@ -17,7 +17,9 @@ export function parseGS1Barcode(rawText: string): ParsedGS1Data {
     return { raw: '', gtin: null, expiryDate: null, lotNumber: null, serialNumber: null, isGS1: false };
   }
 
-  const cleanText = rawText.trim().replace(/[\u001D]/g, '|'); // Replace FNC1 / GS separator with pipe
+  // Strip AIM symbology prefix (e.g., ]C1, ]d2, ]e0, ]Q3) & GS separators
+  const cleanedRaw = rawText.trim().replace(/^\][a-zA-Z0-9]{2}/, "");
+  const cleanText = cleanedRaw.replace(/[\u001D]/g, '|'); // Replace FNC1 / GS separator with pipe
   let gtin: string | null = null;
   let expiryDate: string | null = null;
   let lotNumber: string | null = null;
@@ -52,13 +54,13 @@ export function parseGS1Barcode(rawText: string): ParsedGS1Data {
     const lotIdx = cleanText.indexOf('10', 16);
     if (lotIdx !== -1) {
       const endIdx = cleanText.indexOf('|', lotIdx);
-      lotNumber = endIdx !== -1 ? cleanText.substring(lotIdx + 2, endIdx) : cleanText.substring(lotIdx + 2, lotIdx + 14);
+      lotNumber = endIdx !== -1 ? cleanText.substring(lotIdx + 2, endIdx) : cleanText.substring(lotIdx + 2);
     }
   }
 
   return {
     raw: rawText,
-    gtin: gtin || rawText,
+    gtin: gtin || cleanedRaw || rawText,
     expiryDate,
     lotNumber,
     serialNumber,

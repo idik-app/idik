@@ -306,9 +306,24 @@ function buildDrawerHeaderTitle(
   const rmStr = String(record.no_rm ?? "").trim();
   const namaStr = String(record.nama_pasien ?? "").trim() || "—";
   const tinStr = String(record.tindakan ?? "").trim();
+  const targetLesionVal = getWireframeFieldValue(
+    record as unknown as Record<string, unknown>,
+    "target_lesion",
+  );
+  const targetLesionStr = String(
+    targetLesionVal ?? record.target_lesion ?? "",
+  ).trim();
   const dokterStr = resolveDrawerDokterLabel(record, doctorOptions);
   const ruanganStr = String(record.ruangan ?? "").trim();
-  const copyText = [hariTanggal, rmStr || "—", namaStr, tinStr || "—"]
+  const copyText = [
+    hariTanggal,
+    rmStr || "—",
+    namaStr,
+    tinStr || "—",
+    targetLesionStr,
+    dokterStr,
+    ruanganStr,
+  ]
     .filter(Boolean)
     .join(" ");
   return {
@@ -316,6 +331,7 @@ function buildDrawerHeaderTitle(
     rmStr,
     namaStr,
     tinStr,
+    targetLesionStr,
     dokterStr,
     ruanganStr,
     copyText,
@@ -894,8 +910,15 @@ function TindakanDetailDrawer({
 
   const title = useMemo(() => {
     if (!displayRecord) return "Detail tindakan";
-    const { hariTanggal, rmStr, namaStr, tinStr, dokterStr, ruanganStr } =
-      buildDrawerHeaderTitle(displayRecord, doctorOptions);
+    const {
+      hariTanggal,
+      rmStr,
+      namaStr,
+      tinStr,
+      targetLesionStr,
+      dokterStr,
+      ruanganStr,
+    } = buildDrawerHeaderTitle(displayRecord, doctorOptions);
 
     return (
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden whitespace-nowrap">
@@ -935,8 +958,11 @@ function TindakanDetailDrawer({
         >
           {titleCopied ? <Check size={10} /> : <Copy size={10} />}
         </button>
-        {(dokterStr || ruanganStr) && (
+        {(targetLesionStr || dokterStr || ruanganStr) && (
           <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap">
+            {targetLesionStr && (
+              <span className="font-medium text-slate-200">{targetLesionStr}</span>
+            )}
             {dokterStr && (
               <span className="font-medium text-slate-200">{dokterStr}</span>
             )}

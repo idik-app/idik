@@ -535,7 +535,7 @@ export default function StokOpnameSessionView() {
               <tr className="border-b border-cyan-800/60 bg-cyan-950/50 text-cyan-200 font-medium">
                 <th className="p-2.5">No</th>
                 <th className="p-2.5">Barcode / GS1</th>
-                <th className="p-2.5">Nama Barang &amp; Kategori</th>
+                <th className="p-2.5">Nama Barang &amp; Kategori (Edit)</th>
                 <th className="p-2.5">Lot / Batch</th>
                 <th className="p-2.5">Expired Date (ED)</th>
                 <th className="p-2.5 text-center">Stok System</th>
@@ -564,19 +564,36 @@ export default function StokOpnameSessionView() {
                       <td className="p-2.5 font-mono text-[11px] text-cyan-300">
                         {item.kode_barcode}
                       </td>
-                      <td className="p-2.5">
-                        <div className="font-semibold text-white dark:text-white">
-                          {item.nama_barang}
+
+                      {/* Editable Nama Barang & Kategori */}
+                      <td className="p-2.5 space-y-1">
+                        <input
+                          type="text"
+                          value={item.nama_barang}
+                          onChange={(e) => updateItemField(item.id, "nama_barang", e.target.value)}
+                          placeholder="Nama barang..."
+                          className="w-full min-w-[160px] bg-slate-900 border border-cyan-800/60 rounded px-2 py-1 text-xs font-semibold text-white dark:text-white dark:placeholder:text-white/90 focus:outline-none focus:border-cyan-400"
+                        />
+                        <div>
+                          <select
+                            value={item.kategori}
+                            onChange={(e) =>
+                              updateItemField(
+                                item.id,
+                                "kategori",
+                                e.target.value as "Medis" | "Non-Medis"
+                              )
+                            }
+                            className={`text-[10px] px-2 py-0.5 rounded bg-slate-900 border font-medium focus:outline-none cursor-pointer ${
+                              item.kategori === "Medis"
+                                ? "bg-purple-950/80 text-purple-300 border-purple-500/50"
+                                : "bg-slate-900 text-slate-300 border-slate-600/50"
+                            }`}
+                          >
+                            <option value="Medis" className="bg-slate-900 text-purple-300">Medis</option>
+                            <option value="Non-Medis" className="bg-slate-900 text-slate-300">Non-Medis</option>
+                          </select>
                         </div>
-                        <span
-                          className={`inline-block mt-0.5 text-[9px] px-1.5 py-0.2 rounded ${
-                            item.kategori === "Medis"
-                              ? "bg-purple-500/20 text-purple-300 border border-purple-500/40"
-                              : "bg-slate-700/50 text-slate-300 border border-slate-600/40"
-                          }`}
-                        >
-                          {item.kategori}
-                        </span>
                       </td>
 
                       {/* Editable Lot Number */}

@@ -153,11 +153,62 @@ export async function POST(request: Request) {
         if (itemsErr) {
           return NextResponse.json({ ok: false, error: itemsErr.message }, { status: 500 });
         }
+
+        // 3. Sinkronkan item Medis yang ber-barcode ke `master_barang`
+        for (const it of items) {
+          const isMedis = (it.kategori || "Medis") === "Medis";
+          const barcodeVal = (it.kode_barcode || "").trim();
+          const namaVal = (it.nama_barang || "").trim();
+
+          if (isMedis && barcodeVal && namaVal && !namaVal.startsWith("Barang (GTIN:")) {
+            try {
+              const { data: existingByBarcode } = await supabase
+                .from("master_barang")
+                .select("id, nama, barcode")
+                .eq("barcode", barcodeVal)
+                .maybeSingle();
+
+              if (existingByBarcode) {
+                if (existingByBarcode.nama !== namaVal) {
+                  await supabase
+                    .from("master_barang")
+                    .update({ nama: namaVal })
+                    .eq("id", existingByBarcode.id);
+                }
+              } else {
+                const { data: existingByName } = await supabase
+                  .from("master_barang")
+                  .select("id, barcode")
+                  .ilike("nama", namaVal)
+                  .maybeSingle();
+
+                if (existingByName) {
+                  await supabase
+                    .from("master_barang")
+                    .update({ barcode: barcodeVal })
+                    .eq("id", existingByName.id);
+                } else {
+                  await supabase.from("master_barang").insert({
+                    kode: `MED-${Date.now().toString().slice(-6)}`,
+                    nama: namaVal,
+                    jenis: "ALKES",
+                    kategori: "Medis",
+                    satuan: it.satuan || "Pcs",
+                    barcode: barcodeVal,
+                    is_active: true,
+                  });
+                }
+              }
+            } catch (errSync) {
+              console.warn(`[POST /api/stok-opname] Gagal sync master_barang for ${barcodeVal}:`, errSync);
+            }
+          }
+        }
       }
     }
 
     return NextResponse.json(
-      { ok: true, data: { id: sesiId, nomor_sesi: sessionNo }, message: "Sesi stok opname berhasil disimpan ke database" },
+      { ok: true, data: { id: sesiId, nomor_sesi: sessionNo }, message: "Sesi stok opname & sinkronisasi Master Barang berhasil disimpan ke database" },
       { status: 201 }
     );
   } catch (err) {

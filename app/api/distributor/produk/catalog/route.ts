@@ -7,7 +7,7 @@ export async function GET(req: Request) {
   if (!id.ok) return NextResponse.json({ ok: false, message: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const q = (searchParams.get("q") ?? "").trim();
+  const q = (searchParams.get("q") ?? searchParams.get("search") ?? "").trim();
   const barcode = (searchParams.get("barcode") ?? "").trim();
 
   let supabase: ReturnType<typeof createAdminClient>;

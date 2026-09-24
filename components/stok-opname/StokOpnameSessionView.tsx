@@ -101,7 +101,7 @@ export default function StokOpnameSessionView() {
     const timer = setTimeout(async () => {
       setIsSearchingMaster(true);
       try {
-        const res = await fetch(`/api/distributor/produk/catalog?search=${encodeURIComponent(q)}`);
+        const res = await fetch(`/api/distributor/produk/catalog?q=${encodeURIComponent(q)}`);
         const json = await res.json();
         if (json.ok && Array.isArray(json.data)) {
           setMasterSearchResults(json.data.slice(0, 5));
@@ -368,32 +368,42 @@ function cleanBarcodeKey(str?: string | null): string {
       setTimeout(() => setLastScannedId(null), 2500);
     }
 
-    // Otomatis cari katalog nama barang di Master RS
+    // Otomatis cari katalog nama barang di Master RS (Tepat berdasarkan barcode / GTIN)
     if (targetGtin) {
-      void fetch(`/api/distributor/produk/catalog?search=${encodeURIComponent(targetGtin)}`)
-        .then((res) => res.json())
-        .then((json) => {
-          if (json.ok && Array.isArray(json.data) && json.data.length > 0) {
-            const found = json.data[0];
-            if (found && found.nama) {
-              playBeepSound("success");
-              setItems((prev) =>
-                prev.map((it) => {
-                  const k = cleanBarcodeKey(it.kode_barcode);
-                  if (k === cleanBarcodeKey(targetGtin) || k === cleanBarcodeKey(parsed.raw)) {
-                    return {
-                      ...it,
-                      nama_barang: found.nama,
-                      kategori: (found.kategori as any) || it.kategori,
-                      is_unregistered_master: false,
-                      catatan: "Terdaftar Master RS",
-                    };
-                  }
-                  return it;
-                })
-              );
-              setSavingStatus(`🟢 Scanned: "${found.nama}" (Terdaftar di Master RS) -> Stok Fisik: 1`);
-            }
+      const lookupBarcode = async () => {
+        try {
+          // 1. Coba exact match barcode
+          let res = await fetch(`/api/distributor/produk/catalog?barcode=${encodeURIComponent(targetGtin)}`);
+          let json = await res.json();
+          let foundList = json.ok && Array.isArray(json.data) ? json.data : [];
+
+          // 2. Jika tidak ada hasil exact barcode, coba cari berdasarkan text search q
+          if (foundList.length === 0) {
+            res = await fetch(`/api/distributor/produk/catalog?q=${encodeURIComponent(targetGtin)}`);
+            json = await res.json();
+            foundList = json.ok && Array.isArray(json.data) ? json.data : [];
+          }
+
+          const found = foundList.find((b: any) => b && b.nama);
+
+          if (found && found.nama) {
+            playBeepSound("success");
+            setItems((prev) =>
+              prev.map((it) => {
+                const k = cleanBarcodeKey(it.kode_barcode);
+                if (k === cleanBarcodeKey(targetGtin) || k === cleanBarcodeKey(parsed.raw)) {
+                  return {
+                    ...it,
+                    nama_barang: found.nama,
+                    kategori: (found.kategori as any) || it.kategori,
+                    is_unregistered_master: false,
+                    catatan: "Terdaftar Master RS",
+                  };
+                }
+                return it;
+              })
+            );
+            setSavingStatus(`🟢 Scanned: "${found.nama}" (Terdaftar di Master RS) -> Stok Fisik: 1`);
           } else {
             // TIDAK DITEMUKAN DI MASTER BARANG
             playBeepSound("warning");
@@ -414,10 +424,12 @@ function cleanBarcodeKey(str?: string | null): string {
               `⚠️ PERINGATAN: Barcode "${targetGtin}" TIDAK TERDAFTAR di Master RS, tetapi TETAP ditambahkan ke Tabel Hasil Pemindaian (Stok Fisik: 1). Anda dapat mengedit nama barang secara manual.`
             );
           }
-        })
-        .catch(() => {
+        } catch {
           playBeepSound("success");
-        });
+        }
+      };
+
+      void lookupBarcode();
     }
   }, []);
 

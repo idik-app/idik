@@ -20,10 +20,12 @@ import {
   WifiOff,
   Filter,
   RefreshCw,
+  X,
+  GitMerge,
 } from "lucide-react";
 import ScanCameraModal from "@/components/stok-opname/ScanCameraModal";
 import HardwareScannerListener from "@/components/stok-opname/HardwareScannerListener";
-import { calculateEDStatus, ParsedGS1Data } from "@/lib/utils/gs1Parser";
+import { calculateEDStatus, parseGS1Barcode, ParsedGS1Data } from "@/lib/utils/gs1Parser";
 
 export interface StokOpnameItemRow {
   id: string;
@@ -39,6 +41,7 @@ export interface StokOpnameItemRow {
   selisih: number;
   status_ed: "Aman" | "Mendekati" | "Expired" | "Non-ED";
   catatan: string;
+  is_unregistered_master?: boolean;
 }
 
 const BULAN_OPTIONS = [
@@ -80,6 +83,7 @@ export default function StokOpnameSessionView() {
   const [isOnline, setIsOnline] = useState(true);
   const [loadingDB, setLoadingDB] = useState(false);
   const [savingStatus, setSavingStatus] = useState<string | null>(null);
+  const [lastScannedId, setLastScannedId] = useState<string | null>(null);
 
   // Master Barang Live Search State
   const [masterSearchResults, setMasterSearchResults] = useState<any[]>([]);
@@ -215,10 +219,104 @@ function cleanBarcodeKey(str?: string | null): string {
     void loadDataFromDB();
   }, [loadDataFromDB]);
 
+  // Web Audio Synthesizer Beep Sound Helper
+  const playBeepSound = (type: "success" | "warning") => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      if (type === "success") {
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, ctx.currentTime); // High pitch 880Hz
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.12);
+      } else {
+        osc.type = "square";
+        osc.frequency.setValueAtTime(440, ctx.currentTime); // Low warning 440Hz
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.25);
+      }
+    } catch {
+      /* ignore audio context restrictions */
+    }
+  };
+
+  // Export Opname Table Data to Excel / CSV
+  const exportToCSV = () => {
+    if (items.length === 0) {
+      alert("Belum ada data barang di tabel opname untuk di-ekspor.");
+      return;
+    }
+
+    const headers = [
+      "No",
+      "Kode Barcode/GS1",
+      "Nama Barang",
+      "Kategori",
+      "Satuan",
+      "Lot/Batch",
+      "Expired Date",
+      "Status ED",
+      "Stok Sistem",
+      "Stok Fisik",
+      "Selisih",
+      "Status Master RS",
+      "Catatan",
+    ];
+
+    const rows = items.map((it, idx) => [
+      idx + 1,
+      `"${it.kode_barcode || ""}"`,
+      `"${(it.nama_barang || "").replace(/"/g, '""')}"`,
+      `"${it.kategori || "Medis"}"`,
+      `"${it.satuan || "Pcs"}"`,
+      `"${it.lot_number || "-"}"`,
+      `"${it.expired_date || "-"}"`,
+      `"${it.status_ed || "-"}"`,
+      it.stok_sistem || 0,
+      it.stok_fisik || 0,
+      it.selisih || 0,
+      it.is_unregistered_master ? "Belum Terdaftar Master" : "Terdaftar Master",
+      `"${(it.catatan || "").replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent =
+      "\uFEFF" +
+      [headers.join(";"), ...rows.map((e) => e.join(";"))].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `Laporan_Stok_Opname_${nomorSesi}_${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setSavingStatus("📊 Berhasil mengunduh Laporan Stok Opname (CSV/Excel)!");
+    setTimeout(() => setSavingStatus(null), 3500);
+  };
+
   // Handlers for Add / Update Scanned Item
   const handleBarcodeDecoded = useCallback((parsed: ParsedGS1Data) => {
     const rawKey = cleanBarcodeKey(parsed.raw);
     const gtinKey = cleanBarcodeKey(parsed.gtin);
+    const targetGtin = parsed.gtin || parsed.raw;
+
+    let targetItemId: string | null = null;
 
     setItems((prevItems) => {
       const existingIdx = prevItems.findIndex((it) => {
@@ -238,14 +336,16 @@ function cleanBarcodeKey(str?: string | null): string {
         }
         if (parsed.lotNumber) item.lot_number = parsed.lotNumber;
         updated[existingIdx] = item;
+        targetItemId = item.id;
+        setSavingStatus(`🟢 Scanned: "${item.nama_barang}" -> Stok Fisik bertambah (+1) = ${item.stok_fisik}`);
         return updated;
       } else {
         // Tambah item baru
         const edDate = parsed.expiryDate || "";
         const newItem: StokOpnameItemRow = {
           id: `item-${Date.now()}`,
-          kode_barcode: parsed.gtin || parsed.raw,
-          nama_barang: `Barang (GTIN: ${parsed.gtin || parsed.raw})`,
+          kode_barcode: targetGtin,
+          nama_barang: `Barang (GTIN: ${targetGtin})`,
           kategori: "Medis",
           satuan: "Pcs",
           lot_number: parsed.lotNumber || "-",
@@ -254,21 +354,29 @@ function cleanBarcodeKey(str?: string | null): string {
           stok_fisik: 1,
           selisih: 1,
           status_ed: calculateEDStatus(edDate),
-          catatan: "Scan otomatis baru",
+          catatan: "Hasil Scan (Mencari di Master...)",
+          is_unregistered_master: true,
         };
+        targetItemId = newItem.id;
+        setSavingStatus(`⚠️ Scanned: Barcode "${targetGtin}" ditambahkan ke Tabel Opname (Stok Fisik: 1). Mencari data Master RS...`);
         return [newItem, ...prevItems];
       }
     });
 
-    // Otomatis cari katalog nama barang jika belum ada
-    const targetGtin = parsed.gtin || parsed.raw;
+    if (targetItemId) {
+      setLastScannedId(targetItemId);
+      setTimeout(() => setLastScannedId(null), 2500);
+    }
+
+    // Otomatis cari katalog nama barang di Master RS
     if (targetGtin) {
-      void fetch(`/api/distributor/produk/catalog?barcode=${encodeURIComponent(targetGtin)}`)
+      void fetch(`/api/distributor/produk/catalog?search=${encodeURIComponent(targetGtin)}`)
         .then((res) => res.json())
         .then((json) => {
-          if (json.ok && json.data) {
-            const found = Array.isArray(json.data) ? json.data[0] : json.data;
+          if (json.ok && Array.isArray(json.data) && json.data.length > 0) {
+            const found = json.data[0];
             if (found && found.nama) {
+              playBeepSound("success");
               setItems((prev) =>
                 prev.map((it) => {
                   const k = cleanBarcodeKey(it.kode_barcode);
@@ -277,15 +385,39 @@ function cleanBarcodeKey(str?: string | null): string {
                       ...it,
                       nama_barang: found.nama,
                       kategori: (found.kategori as any) || it.kategori,
+                      is_unregistered_master: false,
+                      catatan: "Terdaftar Master RS",
                     };
                   }
                   return it;
                 })
               );
+              setSavingStatus(`🟢 Scanned: "${found.nama}" (Terdaftar di Master RS) -> Stok Fisik: 1`);
             }
+          } else {
+            // TIDAK DITEMUKAN DI MASTER BARANG
+            playBeepSound("warning");
+            setItems((prev) =>
+              prev.map((it) => {
+                const k = cleanBarcodeKey(it.kode_barcode);
+                if (k === cleanBarcodeKey(targetGtin) || k === cleanBarcodeKey(parsed.raw)) {
+                  return {
+                    ...it,
+                    is_unregistered_master: true,
+                    catatan: "⚠️ Belum terdaftar di Master RS",
+                  };
+                }
+                return it;
+              })
+            );
+            setSavingStatus(
+              `⚠️ PERINGATAN: Barcode "${targetGtin}" TIDAK TERDAFTAR di Master RS, tetapi TETAP ditambahkan ke Tabel Hasil Pemindaian (Stok Fisik: 1). Anda dapat mengedit nama barang secara manual.`
+            );
           }
         })
-        .catch(() => { /* ignore catalog fetch error */ });
+        .catch(() => {
+          playBeepSound("success");
+        });
     }
   }, []);
 
@@ -385,6 +517,103 @@ function cleanBarcodeKey(str?: string | null): string {
       totalExpired,
     };
   }, [items]);
+
+  // Duplicate Item Name Grouping & Manual Merge Handlers
+  const duplicateCountsMap = useMemo(() => {
+    const counts = new Map<string, number>();
+    items.forEach((it) => {
+      const key = it.nama_barang.trim().toLowerCase();
+      if (key && !key.startsWith("barang (gtin:")) {
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+    });
+    return counts;
+  }, [items]);
+
+  const totalDuplicateGroupCount = useMemo(() => {
+    let count = 0;
+    duplicateCountsMap.forEach((val) => {
+      if (val > 1) count++;
+    });
+    return count;
+  }, [duplicateCountsMap]);
+
+  const mergeDuplicatesByName = useCallback((targetNamaBarang: string) => {
+    const targetKey = targetNamaBarang.trim().toLowerCase();
+    if (!targetKey) return;
+
+    setItems((prevItems) => {
+      const matchingItems = prevItems.filter(
+        (it) => it.nama_barang.trim().toLowerCase() === targetKey
+      );
+
+      if (matchingItems.length <= 1) return prevItems;
+
+      const mergedStokFisik = matchingItems.reduce((acc, it) => acc + (it.stok_fisik || 0), 0);
+      const mergedStokSistem = matchingItems.reduce((acc, it) => acc + (it.stok_sistem || 0), 0);
+
+      const allBarcodes = Array.from(
+        new Set(matchingItems.map((it) => it.kode_barcode).filter(Boolean))
+      ).join(", ");
+
+      const allLots =
+        Array.from(
+          new Set(matchingItems.map((it) => it.lot_number).filter((l) => l && l !== "-"))
+        ).join(", ") || "-";
+
+      const validEDs = matchingItems
+        .map((it) => it.expired_date)
+        .filter((d) => d && d.length > 0)
+        .sort();
+      const mergedED = validEDs.length > 0 ? validEDs[0] : "";
+
+      const primary = matchingItems[0];
+      const mergedItem: StokOpnameItemRow = {
+        ...primary,
+        kode_barcode: allBarcodes || primary.kode_barcode,
+        lot_number: allLots,
+        expired_date: mergedED,
+        stok_sistem: mergedStokSistem,
+        stok_fisik: mergedStokFisik,
+        selisih: mergedStokFisik - mergedStokSistem,
+        status_ed: calculateEDStatus(mergedED),
+        catatan: `Hasil gabungan ${matchingItems.length} baris`,
+        is_unregistered_master: matchingItems.some((it) => it.is_unregistered_master),
+      };
+
+      const result: StokOpnameItemRow[] = [];
+      let mergedAdded = false;
+
+      for (const item of prevItems) {
+        if (item.nama_barang.trim().toLowerCase() === targetKey) {
+          if (!mergedAdded) {
+            result.push(mergedItem);
+            mergedAdded = true;
+          }
+        } else {
+          result.push(item);
+        }
+      }
+
+      setSavingStatus(
+        `🟢 Berhasil menggabungkan ${matchingItems.length} baris "${primary.nama_barang}" menjadi 1 baris (Total Stok Fisik: ${mergedStokFisik})`
+      );
+      setTimeout(() => setSavingStatus(null), 4500);
+
+      return result;
+    });
+  }, []);
+
+  const mergeAllDuplicates = useCallback(() => {
+    duplicateCountsMap.forEach((count, key) => {
+      if (count > 1) {
+        const found = items.find((it) => it.nama_barang.trim().toLowerCase() === key);
+        if (found) {
+          mergeDuplicatesByName(found.nama_barang);
+        }
+      }
+    });
+  }, [duplicateCountsMap, items, mergeDuplicatesByName]);
 
   // Filtering Logic
   const filteredItems = useMemo(() => {
@@ -551,6 +780,18 @@ function cleanBarcodeKey(str?: string | null): string {
 
           {/* Right Action Buttons */}
           <div className="flex flex-wrap items-center gap-2">
+            {totalDuplicateGroupCount > 0 && (
+              <button
+                type="button"
+                onClick={mergeAllDuplicates}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600/30 border border-indigo-400/60 text-indigo-100 hover:bg-indigo-600/50 flex items-center gap-1.5 transition-all shadow-md"
+                title="Gabungkan semua kelompok barang yang memiliki nama sama"
+              >
+                <GitMerge className="h-4 w-4 text-indigo-300" />
+                Gabungkan All Duplikat ({totalDuplicateGroupCount})
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setIsCameraOpen(true)}
@@ -573,6 +814,17 @@ function cleanBarcodeKey(str?: string | null): string {
 
             <button
               type="button"
+              onClick={exportToCSV}
+              disabled={items.length === 0}
+              className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-600/30 border border-emerald-400/60 text-emerald-100 hover:bg-emerald-600/40 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-all shadow-md"
+              title="Unduh Laporan Stok Opname format Excel/CSV"
+            >
+              <FileSpreadsheet className="h-4 w-4 text-emerald-300" />
+              Ekspor Excel / CSV
+            </button>
+
+            <button
+              type="button"
               onClick={saveSessionToDB}
               className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-cyan-600/30 border border-cyan-400/60 text-cyan-100 hover:bg-cyan-600/40 flex items-center gap-1.5 transition-all shadow-md"
             >
@@ -589,14 +841,49 @@ function cleanBarcodeKey(str?: string | null): string {
             type="text"
             value={searchQuery}
             onFocus={() => setShowMasterDropdown(true)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const val = searchQuery.trim();
+                if (val.length >= 3) {
+                  e.preventDefault();
+                  const parsed = parseGS1Barcode(val);
+                  handleBarcodeDecoded(parsed);
+                  setSearchQuery("");
+                  setShowMasterDropdown(false);
+                }
+              }
+            }}
             onChange={(e) => {
-              setSearchQuery(e.target.value);
+              const val = e.target.value;
+              // Deteksi otomatis jika teks berformat GS1 atau barcode ditembakkan dari Gun
+              if (val.startsWith("01") && val.length >= 24) {
+                const parsed = parseGS1Barcode(val);
+                handleBarcodeDecoded(parsed);
+                setSearchQuery("");
+                setShowMasterDropdown(false);
+                return;
+              }
+              setSearchQuery(val);
               setShowMasterDropdown(true);
               setPage(1);
             }}
-            placeholder="Filter tabel opname ATAU ketik nama/barcode untuk cari & tambah dari Master Barang (farmasi/master)..."
-            className="w-full pl-9 pr-4 py-2 bg-slate-950/80 border border-cyan-800/60 rounded-xl text-xs text-white dark:text-white dark:placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            placeholder="Scan Barcode Gun / GS1 / Ketik nama barang untuk filter atau cari Master RS..."
+            className="w-full pl-9 pr-9 py-2 bg-slate-950/80 border border-cyan-800/60 rounded-xl text-xs text-white dark:text-white dark:placeholder:text-white/90 focus:outline-none focus:ring-1 focus:ring-cyan-400"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                setShowMasterDropdown(false);
+                setPage(1);
+              }}
+              className="absolute right-3 top-2.5 text-white/50 hover:text-white transition-colors"
+              title="Hapus pencarian"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
 
           {/* Master Barang Live Suggestion Panel */}
           {showMasterDropdown && searchQuery.trim().length >= 2 && (
@@ -740,10 +1027,15 @@ function cleanBarcodeKey(str?: string | null): string {
               ) : (
                 paginatedItems.map((item, index) => {
                   const globalIdx = (page - 1) * pageSize + index + 1;
+                  const isHighlighted = item.id === lastScannedId;
                   return (
                     <tr
                       key={item.id}
-                      className="hover:bg-cyan-950/30 transition-colors text-white dark:text-white"
+                      className={`transition-all duration-500 text-white dark:text-white ${
+                        isHighlighted
+                          ? "bg-emerald-500/25 border-l-4 border-l-emerald-400 shadow-xl"
+                          : "hover:bg-cyan-950/30"
+                      }`}
                     >
                       <td className="p-2.5 text-white/70">{globalIdx}</td>
                       <td className="p-2.5 font-mono text-[11px] text-cyan-300">
@@ -759,7 +1051,7 @@ function cleanBarcodeKey(str?: string | null): string {
                           placeholder="Nama barang..."
                           className="w-full min-w-[160px] bg-slate-900 border border-cyan-800/60 rounded px-2 py-1 text-xs font-semibold text-white dark:text-white dark:placeholder:text-white/90 focus:outline-none focus:border-cyan-400"
                         />
-                        <div>
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <select
                             value={item.kategori}
                             onChange={(e) =>
@@ -778,6 +1070,48 @@ function cleanBarcodeKey(str?: string | null): string {
                             <option value="Medis" className="bg-slate-900 text-purple-300">Medis</option>
                             <option value="Non-Medis" className="bg-slate-900 text-slate-300">Non-Medis</option>
                           </select>
+
+                          {item.is_unregistered_master ? (
+                            <span
+                              className="text-[10px] px-2 py-0.5 rounded bg-amber-950/90 text-amber-300 border border-amber-500/60 font-medium flex items-center gap-1"
+                              title="Barang ini belum terdaftar di Master RS, namun TETAP terhitung di Stok Fisik Opname"
+                            >
+                              <AlertTriangle className="h-3 w-3 text-amber-400" />
+                              Belum ada di Master RS
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 font-medium">
+                              ✓ Terdaftar Master
+                            </span>
+                          )}
+
+                          {/* Group Badge & Manual Merge Button untuk barang dengan nama sama */}
+                          {(() => {
+                            const nameKey = item.nama_barang.trim().toLowerCase();
+                            const dupCount = duplicateCountsMap.get(nameKey) || 0;
+                            if (dupCount > 1) {
+                              return (
+                                <div className="flex items-center gap-1">
+                                  <span
+                                    className="text-[10px] px-2 py-0.5 rounded bg-indigo-950/90 text-indigo-300 border border-indigo-500/60 font-semibold flex items-center gap-1 animate-pulse"
+                                    title={`Terdapat ${dupCount} baris dengan nama barang yang sama di tabel ini`}
+                                  >
+                                    <GitMerge className="h-3 w-3 text-indigo-400" />
+                                    {dupCount} Baris Nama Sama
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => mergeDuplicatesByName(item.nama_barang)}
+                                    className="text-[10px] px-2 py-0.5 rounded bg-indigo-600/40 hover:bg-indigo-600/70 text-indigo-100 border border-indigo-400/60 font-semibold flex items-center gap-1 transition-all shadow-sm cursor-pointer"
+                                    title="Gabungkan seluruh baris dengan nama ini menjadi 1 baris (kuantitas fisik dijumlahkan)"
+                                  >
+                                    Gabungkan
+                                  </button>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </td>
 

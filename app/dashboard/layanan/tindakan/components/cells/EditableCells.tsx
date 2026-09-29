@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/master-tindakan-combobox";
 import {
   DoctorCombobox,
+  canonicalDoctorDisplayValue,
   formatDoctorLabel,
   getDoctorColorClass,
   resolveDoctorFromLooseInput,
@@ -470,7 +471,13 @@ export function EditableDokterCell({
   onCommit: (next: string) => Promise<boolean>;
   recordId?: string;
 }) {
-  const [draft, setDraft] = useState(value.trim());
+  const displayVal = useMemo(() => {
+    const raw = value.trim();
+    if (!doctorOptionsMaster.length) return raw;
+    return canonicalDoctorDisplayValue(doctorOptionsMaster, raw);
+  }, [value, doctorOptionsMaster]);
+
+  const [draft, setDraft] = useState(displayVal);
   const [saving, setSaving] = useState(false);
   const draftRef = useRef(draft);
 
@@ -479,11 +486,11 @@ export function EditableDokterCell({
   }, [draft]);
 
   useEffect(() => {
-    if (!saving) setDraft(value.trim());
-  }, [value, saving]);
+    if (!saving) setDraft(displayVal);
+  }, [displayVal, saving]);
 
   const tryCommit = async (nextRaw: string) => {
-    const curDisplay = value.trim();
+    const curDisplay = displayVal;
     const nextText = nextRaw.trim();
     
     const m = doctorOptionsMaster;

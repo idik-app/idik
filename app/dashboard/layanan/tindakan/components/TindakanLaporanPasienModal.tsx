@@ -314,6 +314,19 @@ function mergeVisibleColumnsWithCatalog(
   return { columns: next.length ? next : pruned, newlyAdded };
 }
 
+const REPORT_PRESET_MAP = [
+  { id: "default", label: "Ringkas", cols: ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "pembiayaan", "status"] },
+  { id: "klinis", label: "Klinis", cols: ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "diagnosa", "severity_level", "temuan_pembuluh", "kesimpulan_laporan", "plan_medis", "cek_ntg_cedocard", "cek_heparin", "cek_lain", "status"] },
+  { id: "fast_track", label: "Fast-Track", cols: ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "diagnosa", "is_fast_track", "pasien_datang_igd", "door_to_balloon", "total_waktu_fast_track", "fast_track_sign_in", "fast_track_time_out", "fast_track_sign_out", "status"] },
+  { id: "tim_medis", label: "Tim Medis", cols: ["tanggal", "no_rm", "nama_pasien", "tindakan", "ruangan", "cath", "dokter", "dokter_anestesi", "ppds", "asisten", "sirkuler", "logger", "pj_laporan"] },
+  { id: "demografi", label: "Demografi", cols: ["tanggal", "no_rm", "nama_pasien", "jenis_kelamin", "tgl_lahir", "umur", "alamat", "no_telp", "rs_perujuk", "ruangan"] },
+  { id: "logistik", label: "Logistik Alkes", cols: ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "pemakaian", "pemakaian_stent", "pemakaian_balloon", "pemakaian_konsolidasi", "pemakaian_non_konsolidasi", "pemakaian_lainnya", "consumable_kelengkapan"] },
+  { id: "keuangan", label: "Keuangan", cols: ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "pembiayaan", "kelas_pembiayaan", "tarif_tindakan", "consumable", "total", "krs", "selisih", "billing_simrs", "resume_erm"] },
+  { id: "radiologi", label: "Radiologi", cols: ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "total_kontras", "fluoro_time", "dose", "dap_dose", "kv", "ma", "accession_no"] },
+  { id: "kelengkapan", label: "Kelengkapan Berkas", cols: ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "berkas_laporan", "operan_ranap", "asmed", "sjp", "resume_erm", "consumable_kelengkapan", "pj_laporan"] },
+  { id: "semua", label: "Semua Kolom", cols: COLUMN_CATEGORIES.flatMap((c) => c.name.startsWith("Sistem") ? [] : c.columns.map((col) => col.key)) },
+];
+
 interface ColumnsDropdownProps {
   visibleColumns: string[];
   onChange: (columns: string[]) => void;
@@ -347,40 +360,11 @@ function ColumnsDropdown({
     }
   };
 
-  const applyPreset = (presetType: "default" | "klinis" | "logistik" | "keuangan" | "radiologi") => {
-    let cols: string[] = [];
-    switch (presetType) {
-      case "default":
-        cols = ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "pembiayaan", "status"];
-        break;
-      case "klinis":
-        cols = [
-          "tanggal",
-          "no_rm",
-          "nama_pasien",
-          "dokter",
-          "tindakan",
-          "diagnosa",
-          "severity_level",
-          "temuan_pembuluh",
-          "kesimpulan_laporan",
-          "cek_ntg_cedocard",
-          "cek_heparin",
-          "cek_lain",
-          "status",
-        ];
-        break;
-      case "logistik":
-        cols = ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "pemakaian", "pemakaian_stent", "pemakaian_balloon", "pemakaian_konsolidasi", "pemakaian_non_konsolidasi", "consumable_kelengkapan"];
-        break;
-      case "keuangan":
-        cols = ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "pembiayaan", "kelas_pembiayaan", "tarif_tindakan", "consumable", "total", "krs", "selisih", "billing_simrs", "resume_erm"];
-        break;
-      case "radiologi":
-        cols = ["tanggal", "no_rm", "nama_pasien", "dokter", "tindakan", "fluoro_time", "dose", "dap_dose", "kv", "ma", "accession_no"];
-        break;
+  const applyPreset = (presetId: string) => {
+    const preset = REPORT_PRESET_MAP.find((p) => p.id === presetId);
+    if (preset) {
+      onChange([...preset.cols]);
     }
-    onChange(cols);
   };
 
   const filteredCategories = useMemo(() => {
@@ -442,14 +426,15 @@ function ColumnsDropdown({
           <div className="mb-2.5 border-b border-slate-100 pb-2 dark:border-zinc-850">
             <span className="block text-[8px] font-bold uppercase tracking-wider text-slate-400 mb-1">Pilihan Cepat (Presets)</span>
             <div className="flex flex-wrap gap-1">
-              {(["default", "klinis", "logistik", "keuangan", "radiologi"] as const).map((preset) => (
+              {REPORT_PRESET_MAP.map((preset) => (
                 <button
-                  key={preset}
+                  key={preset.id}
                   type="button"
-                  onClick={() => applyPreset(preset)}
+                  onClick={() => applyPreset(preset.id)}
                   className="rounded bg-indigo-50 px-1.5 py-0.5 text-[8.5px] font-black uppercase text-indigo-700 transition hover:bg-indigo-100 dark:bg-indigo-950/30 dark:text-indigo-400 dark:hover:bg-indigo-900/40"
+                  title={`Pilih preset ${preset.label}`}
                 >
-                  {preset}
+                  {preset.label}
                 </button>
               ))}
             </div>

@@ -262,7 +262,14 @@ export function DoctorCombobox({
     if (!q) return options;
     return options.filter((d) => {
       const hay = normalize(`${d.nama_dokter} ${d.spesialis ?? ""}`);
-      return hay.includes(q);
+      if (hay.includes(q)) return true;
+      const aliasHit = resolveDoctorByLegacyAlias(options, value);
+      if (aliasHit && aliasHit.id === d.id) return true;
+      const tokens = doctorQueryTokens(value);
+      if (tokens.length > 0) {
+        return tokens.every((tok) => tokenMatchesDoctorHaystack(hay, tok));
+      }
+      return false;
     });
   }, [options, value]);
 
@@ -308,7 +315,7 @@ export function DoctorCombobox({
               : ""
           }
           className={cn(
-            "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-white/35 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40",
+            "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-slate-400 dark:placeholder:text-white/90 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40",
             "truncate",
             inputClassName,
           )}

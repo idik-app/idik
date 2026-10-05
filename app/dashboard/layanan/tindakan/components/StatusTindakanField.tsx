@@ -50,7 +50,7 @@ function todayYmdWib(): string {
 }
 
 export type StatusTindakanSavedInfo = {
-  field: "status" | "status_keterangan" | "tanggal";
+  field: "status" | "status_keterangan" | "status_tanggal";
   value: string | null;
 };
 
@@ -58,7 +58,7 @@ type Props = {
   tindakanId: string;
   value: string | null | undefined;
   statusKeterangan?: string | null;
-  tanggal?: string | null;
+  statusTanggal?: string | null;
   onSaved?: (info: StatusTindakanSavedInfo) => void;
 };
 
@@ -66,13 +66,13 @@ export default function StatusTindakanField({
   tindakanId,
   value,
   statusKeterangan,
-  tanggal,
+  statusTanggal,
   onSaved,
 }: Props) {
   const { show } = useNotification();
   const normalizedStatus = String(value ?? "").trim();
   const normalizedKet = String(statusKeterangan ?? "").trim();
-  const normalizedTanggal = extractCalendarDateKey(tanggal);
+  const normalizedTanggal = extractCalendarDateKey(statusTanggal);
 
   const [draft, setDraft] = useState(normalizedStatus);
   const [keteranganDraft, setKeteranganDraft] = useState(normalizedKet);
@@ -102,7 +102,7 @@ export default function StatusTindakanField({
       setTanggalDraft(normalizedTanggal);
       lastTanggalRef.current = normalizedTanggal;
     }
-  }, [tanggal, savingTanggal, tindakanId, normalizedTanggal]);
+  }, [statusTanggal, savingTanggal, tindakanId, normalizedTanggal]);
 
   const patchFields = useCallback(
     async (
@@ -224,15 +224,15 @@ export default function StatusTindakanField({
       setSavingTanggal(true);
       try {
         await patchFields(
-          { tanggal: next || null },
-          "Tanggal status/tindakan disimpan.",
-          { field: "tanggal", value: next || null },
+          { status_tanggal: next || null },
+          "Tanggal status disimpan.",
+          { field: "status_tanggal", value: next || null },
         );
         lastTanggalRef.current = next;
       } catch (e) {
         show({
           type: "error",
-          message: `Gagal simpan tanggal: ${(e as Error).message}`,
+          message: `Gagal simpan tanggal status: ${(e as Error).message}`,
         });
         setTanggalDraft(lastTanggalRef.current);
       } finally {
@@ -282,7 +282,7 @@ export default function StatusTindakanField({
           </select>
         </div>
 
-        {/* Tanggal Picker */}
+        {/* Tanggal Status Picker */}
         <div className="min-w-[150px] flex-1">
           <div className="mb-1 flex items-center justify-between gap-1">
             <label className="text-[10px] font-semibold uppercase tracking-wide text-white/80 dark:text-white/90">
@@ -328,7 +328,7 @@ export default function StatusTindakanField({
               disabled={savingTanggal || !tindakanId}
               onClick={openPicker}
               className="inline-flex shrink-0 items-center justify-center rounded-xl border border-white/12 bg-[#5C6573] p-1.5 text-white transition hover:bg-[#545C6A] focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-50"
-              aria-label="Pilih Tanggal"
+              aria-label="Pilih Tanggal Status"
             >
               <Calendar className="h-4 w-4" />
             </button>

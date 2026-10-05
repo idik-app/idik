@@ -2158,8 +2158,9 @@ function TindakanDetailDrawer({
                                                 : String(rawVal)
                                             }
                                             statusKeterangan={
-                                              displayRecord.status_keterangan
-                                            }
+                                               displayRecord.status_keterangan
+                                             }
+                                             tanggal={displayRecord.tanggal}
                                             onSaved={(info) =>
                                               handleRecordPatch(info)
                                             }

@@ -335,13 +335,6 @@ export async function PATCH(req: Request, ctx: Params) {
             : null;
 
         warnings.push(...buildStatusKeteranganWarnings(nextStatus, nextKet));
-
-        await insertTindakanStatusLog(supabase, {
-          tindakanId,
-          status: nextStatus,
-          statusKeterangan: nextKet,
-          changedBy: auth.userId,
-        });
       }
 
       return NextResponse.json(

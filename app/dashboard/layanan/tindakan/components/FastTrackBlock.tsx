@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import { FIELD_LABELS } from "../bridge/wireframeDrawerTabs";
 import FastTrackPhotoDropzone from "./FastTrackPhotoDropzone";
 import { DatetimeLocalPicker } from "@/components/ui/datetime-local-picker";
-import BotAskButton from "./simrs-bot/BotAskButton";
 
 const DEBOUNCE_MS = 550;
 
@@ -365,14 +364,6 @@ export default function FastTrackBlock({
               <span>
                 {FIELD_LABELS.pasien_datang_igd ?? "Waktu pasien tiba di IGD"}
               </span>
-              <BotAskButton
-                tindakanId={tindakanId}
-                noRm={noRm}
-                namaPasien={namaPasien}
-                fieldKey="pasien_datang_igd"
-                tab="fast_track"
-                empty={isEmptyFt(pasienDatangValue) && !igdDraft}
-              />
             </dt>
             <dd className="mt-0.5 overflow-visible">
               {canEdit ? (
@@ -401,14 +392,6 @@ export default function FastTrackBlock({
                 {FIELD_LABELS.door_to_balloon ??
                   "Waktu door-to-balloon (cathlab)"}
               </span>
-              <BotAskButton
-                tindakanId={tindakanId}
-                noRm={noRm}
-                namaPasien={namaPasien}
-                fieldKey="door_to_balloon"
-                tab="fast_track"
-                empty={isEmptyFt(doorToBalloonValue) && !d2bDraft}
-              />
             </dt>
             <dd className="mt-0.5 overflow-visible">
               {canEdit ? (

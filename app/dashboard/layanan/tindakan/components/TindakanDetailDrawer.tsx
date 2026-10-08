@@ -59,9 +59,6 @@ import BiayaAutosaveField, {
 } from "./BiayaAutosaveField";
 import KelasPembiayaanBiayaField from "./KelasPembiayaanBiayaField";
 import FastTrackBlock from "./FastTrackBlock";
-import SimrsBotEmptyFieldsList from "./simrs-bot/SimrsBotEmptyFieldsList";
-import BotAskButton from "./simrs-bot/BotAskButton";
-import { isEmptyBotValue } from "@/lib/simrs/botCatalog";
 import PasienAutosaveField, {
   isPasienDrawerAutosaveKey,
   type PasienDrawerAutosaveKey,
@@ -1601,16 +1598,7 @@ function TindakanDetailDrawer({
                               </h3>
                               {def.id === "fast_track" ? (
                             <div className="rounded-xl border border-[#9AA8B8]/80 bg-[#B8C5D3] p-3 shadow-none">
-                              <SimrsBotEmptyFieldsList
-                                record={
-                                  displayRecord as unknown as Record<
-                                    string,
-                                    unknown
-                                  >
-                                }
-                                className="mb-2"
-                              />
-                              <FastTrackBlock
+                                                            <FastTrackBlock
                                 tindakanId={String(displayRecord.id ?? "").trim()}
                                 noRm={String(
                                   displayRecord.no_rm ?? "",
@@ -1914,23 +1902,7 @@ function TindakanDetailDrawer({
                                     >
                                       <dt className="flex items-center justify-between gap-2 text-[9px] font-black uppercase tracking-widest text-white/90">
                                         <span>{FIELD_LABELS[key] ?? key}</span>
-                                        <BotAskButton
-                                          tindakanId={String(
-                                            displayRecord.id ?? "",
-                                          ).trim()}
-                                          noRm={String(
-                                            displayRecord.no_rm ?? "",
-                                          ).trim()}
-                                          namaPasien={String(
-                                            displayRecord.nama_pasien ??
-                                              (displayRecord as any).nama ??
-                                              "",
-                                          ).trim()}
-                                          fieldKey={key}
-                                          tab={def.id}
-                                          empty={isEmptyBotValue(rawTindakanVal ?? rawVal)}
-                                        />
-                                      </dt>
+                                                                              </dt>
                                       <dd
                                         className={cn(
                                           "mt-1 text-[13px] font-bold leading-snug text-white",

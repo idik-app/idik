@@ -28,6 +28,7 @@ import {
   clinicalMatrixAxisMeta,
   weekdaySun0Wib,
 } from "./tindakanBulananMatrix";
+import { hitungUsia } from "../utils/tindakanHelpers";
 
 function escapeHtml(s: string): string {
   return s
@@ -238,7 +239,12 @@ export function downloadFastTrackExcel(
       Nama: normalizeNamaPasien(displayNamaPasien(raw)),
       JK: formatJenisKelaminDisplay(jk),
       Lahir: String(rec.tgl_lahir ?? "").trim().slice(0, 10) || "—",
-      Umur: rec.umur ?? "—",
+      Umur:
+        rec.umur != null && rec.umur > 0
+          ? `${rec.umur} TH`
+          : rec.tgl_lahir
+            ? hitungUsia(rec.tgl_lahir).text || "—"
+            : "—",
       Alamat: String(rec.alamat ?? "").trim() || "—",
       Telp: String(rec.no_telp ?? "").trim() || "—",
       Dokter: String(rec.dokter ?? "").trim() || "—",

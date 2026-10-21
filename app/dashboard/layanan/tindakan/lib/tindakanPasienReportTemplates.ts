@@ -8,6 +8,7 @@ import {
   formatLogBarangReportCell,
   toBoolCek,
 } from "@/lib/tindakan/cekObatPemakaianBridge";
+import { hitungUsia } from "../utils/tindakanHelpers";
 
 function escapeHtml(str: string): string {
   return str
@@ -218,9 +219,50 @@ export function formatPasienReportCell(row: TindakanJoinResult, key: string): st
     case "jenis_kelamin":
       return row.jenis_kelamin || "—";
     case "tgl_lahir":
-      return row.tgl_lahir || "—";
-    case "umur":
-      return row.umur != null ? `${row.umur} Thn` : "—";
+      return row.tgl_lahir || (row as any).tanggal_lahir || "—";
+    case "umur": {
+      let umurVal: number | null = null;
+      if (typeof row.umur === "number" && !isNaN(row.umur) && row.umur > 0) {
+        umurVal = Math.trunc(row.umur);
+      } else if (typeof row.umur === "string") {
+        const parsed = parseInt(row.umur, 10);
+        if (!isNaN(parsed) && parsed > 0) umurVal = parsed;
+      }
+
+      if (!umurVal) {
+        const rawUsia = (row as any).usia;
+        if (typeof rawUsia === "number" && !isNaN(rawUsia) && rawUsia > 0) {
+          umurVal = Math.trunc(rawUsia);
+        } else if (typeof rawUsia === "string") {
+          const parsed = parseInt(rawUsia, 10);
+          if (!isNaN(parsed) && parsed > 0) umurVal = parsed;
+        }
+      }
+
+      // Fallback 1: Hitung dari tgl_lahir / tanggal_lahir baris tindakan
+      if (!umurVal) {
+        const dob = String(row.tgl_lahir || (row as any).tanggal_lahir || "").trim();
+        if (dob) {
+          const calc = hitungUsia(dob);
+          if (calc && calc.angka > 0) {
+            umurVal = calc.angka;
+          }
+        }
+      }
+
+      // Fallback 2: Cek apakah ada di catatan pemakaian (misal: "Lahir: 12/3/64" atau "Lahir: YYYY-MM-DD")
+      if (!umurVal && typeof row.pemakaian === "string") {
+        const m = row.pemakaian.match(/Lahir:\s*([^\n·,]+)/i);
+        if (m && m[1]) {
+          const calc = hitungUsia(m[1].trim());
+          if (calc && calc.angka > 0) {
+            umurVal = calc.angka;
+          }
+        }
+      }
+
+      return umurVal != null && umurVal > 0 ? `${umurVal} Thn` : "—";
+    }
     case "alamat":
       return row.alamat || "—";
     case "no_telp":
@@ -502,8 +544,16 @@ export function downloadPasienReportExcel(opts: {
 export function buildCoronaryAngiographyReportRm20cHtml(row: TindakanJoinResult): string {
   const nama = escapeHtml(displayNamaPasien(row as any) || "—");
   const rm = escapeHtml(displayRm(row as any) || "—");
-  const dob = escapeHtml(row.tgl_lahir || "—");
-  const umur = row.umur != null ? `${row.umur} TH` : "";
+  const dob = escapeHtml(row.tgl_lahir || (row as any).tanggal_lahir || "—");
+  let calculatedUmur = typeof row.umur === "number" && row.umur > 0 ? row.umur : null;
+  if (!calculatedUmur) {
+    const dobStr = String(row.tgl_lahir || (row as any).tanggal_lahir || "").trim();
+    if (dobStr) {
+      const calc = hitungUsia(dobStr);
+      if (calc && calc.angka > 0) calculatedUmur = calc.angka;
+    }
+  }
+  const umur = calculatedUmur != null && calculatedUmur > 0 ? `${calculatedUmur} TH` : "";
   const jk = escapeHtml(row.jenis_kelamin || "LAKI-LAKI");
   const status = escapeHtml(row.kelas_pembiayaan || row.pembiayaan || "BPJS");
   const alamat = escapeHtml(row.alamat || "—");

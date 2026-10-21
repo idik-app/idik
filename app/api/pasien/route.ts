@@ -161,6 +161,7 @@ export async function GET(request: Request) {
     const SAFE_PASIEN_COLUMNS = new Set([
       "id", "nama", "no_rm", "jenis_kelamin", "jk", "created_at", "updated_at", 
       "jenis_pembiayaan", "kelas_perawatan", "tgl_lahir", "tanggal_lahir",
+      "umur", "usia",
       "asuransi", "dokter", "pci_report_link", "diagnosa", "faktor_risiko", 
       "severity_level", "hasil_lab_ppm", "temuan_pembuluh", "kesimpulan_laporan", 
       "plan_medis", "total_kontras", "air_kerma", "dap_dose"

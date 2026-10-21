@@ -299,6 +299,18 @@ export function extractCalendarDateKey(raw: string): string | null {
       return `${year}-${mon}-${day}`;
     }
   }
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2})$/);
+  if (m) {
+    const day = m[1].padStart(2, "0");
+    const mon = m[2].padStart(2, "0");
+    const yr = Number(m[3]);
+    const mi = Number(mon);
+    const di = Number(day);
+    if (mi >= 1 && mi <= 12 && di >= 1 && di <= 31) {
+      const year = yr > 30 ? 1900 + yr : 2000 + yr;
+      return `${year}-${mon}-${day}`;
+    }
+  }
   return null;
 }
 

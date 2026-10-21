@@ -26,6 +26,13 @@ export function formatTanggalLahirFromDb(raw: unknown): string {
     const [, d, mo, y] = m;
     return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
+  const m2 = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+  if (m2) {
+    const [, d, mo, yr] = m2;
+    const yNum = Number(yr);
+    const fullY = yNum > 30 ? 1900 + yNum : 2000 + yNum;
+    return `${fullY}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
   return s;
 }
 

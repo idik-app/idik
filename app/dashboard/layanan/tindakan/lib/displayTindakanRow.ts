@@ -436,43 +436,74 @@ export function mergePasienMasterIntoRowForReport(
   options: readonly PasienOption[],
   lookup?: PasienReportLookup,
 ): TindakanJoinResult {
-  if (!options.length) return row;
   const raw = row as unknown as Record<string, unknown>;
-  const p = lookup
-    ? resolvePasienFromLookup(raw, lookup)
-    : resolvePasienFromRow(options as PasienOption[], raw);
-  if (!p) return row;
-  const next: TindakanJoinResult = { ...row };
-  const nama = p.nama?.trim();
-  if (nama) next.nama_pasien = nama;
-  if (p.no_rm != null && String(p.no_rm).trim() !== "") {
-    next.no_rm = String(p.no_rm);
-  }
-  if (p.jenis_kelamin) next.jenis_kelamin = p.jenis_kelamin;
-  if (p.tgl_lahir) next.tgl_lahir = p.tgl_lahir;
-  if (p.umur != null) next.umur = p.umur;
-  if (p.alamat) next.alamat = p.alamat;
-  if (p.no_telp) next.no_telp = p.no_telp;
+  const p = options.length
+    ? (lookup
+        ? resolvePasienFromLookup(raw, lookup)
+        : resolvePasienFromRow(options as PasienOption[], raw))
+    : null;
 
-  if (!next.kelas_pembiayaan && (p.jenis_pembiayaan || p.pembiayaan)) {
-    const jp = (p.jenis_pembiayaan || p.pembiayaan || "").trim();
-    const kls = (p.kelas_perawatan || p.kelas || "").trim();
-    if (jp && kls) next.kelas_pembiayaan = `${jp} - ${kls}`;
-    else if (jp) next.kelas_pembiayaan = jp;
-    else if (kls) next.kelas_pembiayaan = kls;
+  const next: TindakanJoinResult = { ...row };
+
+  if (p) {
+    const nama = p.nama?.trim();
+    if (nama) next.nama_pasien = nama;
+    if (p.no_rm != null && String(p.no_rm).trim() !== "") {
+      next.no_rm = String(p.no_rm);
+    }
+    if (p.jenis_kelamin) next.jenis_kelamin = p.jenis_kelamin;
+    if (p.tgl_lahir) next.tgl_lahir = p.tgl_lahir;
+    if (p.umur != null && p.umur > 0) next.umur = p.umur;
+    if (p.alamat) next.alamat = p.alamat;
+    if (p.no_telp) next.no_telp = p.no_telp;
+
+    if (!next.kelas_pembiayaan && (p.jenis_pembiayaan || p.pembiayaan)) {
+      const jp = (p.jenis_pembiayaan || p.pembiayaan || "").trim();
+      const kls = (p.kelas_perawatan || p.kelas || "").trim();
+      if (jp && kls) next.kelas_pembiayaan = `${jp} - ${kls}`;
+      else if (jp) next.kelas_pembiayaan = jp;
+      else if (kls) next.kelas_pembiayaan = kls;
+    }
+    if (!next.pembiayaan && (p.jenis_pembiayaan || p.pembiayaan)) {
+      next.pembiayaan = (p.jenis_pembiayaan || p.pembiayaan || "").trim();
+    }
+    if (!next.kelas && (p.kelas_perawatan || p.kelas)) {
+      next.kelas = (p.kelas_perawatan || p.kelas || "").trim();
+    }
+    if (!next.diagnosa && p.diagnosa) {
+      next.diagnosa = p.diagnosa.trim();
+    }
+    if (!next.faktor_risiko && p.faktor_risiko) {
+      next.faktor_risiko = p.faktor_risiko.trim();
+    }
   }
-  if (!next.pembiayaan && (p.jenis_pembiayaan || p.pembiayaan)) {
-    next.pembiayaan = (p.jenis_pembiayaan || p.pembiayaan || "").trim();
+
+  // Hitung umur jika belum ada atau <= 0
+  if (next.umur == null || next.umur <= 0) {
+    const dob =
+      (p && p.tgl_lahir) ||
+      next.tgl_lahir ||
+      (raw.tanggal_lahir as string) ||
+      (raw.tgl_lahir as string);
+    if (dob) {
+      const calc = hitungUsia(String(dob).trim());
+      if (calc && calc.angka > 0) {
+        next.umur = calc.angka;
+      }
+    }
   }
-  if (!next.kelas && (p.kelas_perawatan || p.kelas)) {
-    next.kelas = (p.kelas_perawatan || p.kelas || "").trim();
+
+  // Fallback pemakaian jika umur masih kosong
+  if ((next.umur == null || next.umur <= 0) && typeof next.pemakaian === "string") {
+    const m = next.pemakaian.match(/Lahir:\s*([^\n·,]+)/i);
+    if (m && m[1]) {
+      const calc = hitungUsia(m[1].trim());
+      if (calc && calc.angka > 0) {
+        next.umur = calc.angka;
+      }
+    }
   }
-  if (!next.diagnosa && p.diagnosa) {
-    next.diagnosa = p.diagnosa.trim();
-  }
-  if (!next.faktor_risiko && p.faktor_risiko) {
-    next.faktor_risiko = p.faktor_risiko.trim();
-  }
+
   return next;
 }
 

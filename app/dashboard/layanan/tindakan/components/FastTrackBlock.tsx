@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { FIELD_LABELS } from "../bridge/wireframeDrawerTabs";
 import FastTrackPhotoDropzone from "./FastTrackPhotoDropzone";
 import { DatetimeLocalPicker } from "@/components/ui/datetime-local-picker";
+import { formatDurasiJamMenit } from "../lib/displayTindakanRow";
 
 const DEBOUNCE_MS = 550;
 
@@ -318,7 +319,7 @@ export default function FastTrackBlock({
 
   const totalDisplay =
     computedMinutes != null
-      ? `${computedMinutes.toLocaleString("id-ID")} menit (otomatis)`
+      ? `${formatDurasiJamMenit(computedMinutes)} (otomatis)`
       : "—";
 
   const invalidOrder =

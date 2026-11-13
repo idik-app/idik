@@ -8,6 +8,7 @@ import type { PasienOption } from "@/components/ui/pasien-combobox";
 import {
   displayNamaPasien,
   displayRm,
+  formatDurasiJamMenit,
   formatJenisKelaminDisplay,
   resolveJenisKelaminFromRow,
   resolvePasienFromRow,
@@ -164,7 +165,7 @@ export function buildFastTrackReportHtml(
   <td>${escapeHtml(String(rec.tindakan ?? "").trim() || "—")}</td>
   <td>${formatWaktuReport(rec.pasien_datang_igd)}</td>
   <td>${formatWaktuReport(rec.door_to_balloon)}</td>
-  <td class="num">${escapeHtml(String(rec.total_waktu_fast_track ?? "").trim() || "—")}</td>
+  <td class="num">${escapeHtml(formatDurasiJamMenit(rec.total_waktu_fast_track))}</td>
 </tr>`;
     })
     .join("\n");
@@ -251,7 +252,7 @@ export function downloadFastTrackExcel(
       Tindakan: String(rec.tindakan ?? "").trim() || "—",
       "Pasien Tiba IGD": rec.pasien_datang_igd || "—",
       "Door to Balloon": rec.door_to_balloon || "—",
-      "Total Waktu": rec.total_waktu_fast_track || "—",
+      "Total Waktu": formatDurasiJamMenit(rec.total_waktu_fast_track),
     };
   });
 

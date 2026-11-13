@@ -571,3 +571,33 @@ export function rowMatchesPasienAktifFilter(
     dispNama.includes(namaNorm);
   return rmMatch || namaMatch;
 }
+
+/**
+ * Format total menit fast-track menjadi format jam dan menit.
+ * Contoh:
+ * 85 -> "1 jam 25 menit"
+ * 60 -> "1 jam"
+ * 45 -> "45 menit"
+ * 0  -> "0 menit"
+ */
+export function formatDurasiJamMenit(
+  raw: number | string | null | undefined,
+): string {
+  if (raw == null) return "—";
+  const str = String(raw).trim().replace(",", ".");
+  if (!str) return "—";
+  const num = parseFloat(str);
+  if (!Number.isFinite(num) || num < 0) return "—";
+
+  const totalMins = Math.round(num);
+  const jam = Math.floor(totalMins / 60);
+  const menit = totalMins % 60;
+
+  if (jam > 0 && menit > 0) {
+    return `${jam} jam ${menit} menit`;
+  }
+  if (jam > 0 && menit === 0) {
+    return `${jam} jam`;
+  }
+  return `${menit} menit`;
+}

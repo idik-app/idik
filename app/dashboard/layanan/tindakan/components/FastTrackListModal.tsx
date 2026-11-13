@@ -24,6 +24,7 @@ import type { TindakanJoinResult } from "../bridge/mapping.types";
 import {
   displayNamaPasien,
   displayRm,
+  formatDurasiJamMenit,
 } from "../lib/displayTindakanRow";
 import { normalizeNamaPasien } from "@/app/dashboard/pasien/utils/normalizeNamaPasien";
 import {
@@ -474,7 +475,7 @@ export default function FastTrackListModal({
         overlayClassName={UI_LAYERS.dialogOverlayTop}
         className={cn(
           "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-          "h-[98vh] w-[98vw] max-w-[1400px] overflow-hidden p-0 flex flex-col sm:h-[95vh] sm:w-[96vw]",
+          "h-[96dvh] max-h-[96dvh] w-[98vw] max-w-[1400px] overflow-hidden p-0 flex flex-col sm:h-[95vh] sm:w-[96vw]",
           "border-slate-300/60 bg-slate-50 dark:border-amber-500/35 dark:bg-[#0f1115]",
           "shadow-2xl ring-1 ring-black/5 dark:ring-white/10",
           UI_LAYERS.dialogContentTop
@@ -482,7 +483,7 @@ export default function FastTrackListModal({
       >
         <div
           className={cn(
-            "flex min-h-0 flex-1 flex-col gap-2 p-2 sm:gap-4 sm:p-6",
+            "flex min-h-0 flex-1 flex-col gap-2 p-2.5 sm:gap-3.5 sm:p-5 overflow-y-auto sm:overflow-hidden",
             "text-slate-900 dark:text-slate-100",
           )}
         >
@@ -500,26 +501,28 @@ export default function FastTrackListModal({
                 Monitoring waktu penanganan pasien dari IGD ke Cathlab.
               </p>
             </DialogHeader>
-            <div className="flex items-center gap-2">
-              <ReportExportActionBar
-                className="shrink-0 scale-75 origin-left sm:scale-100"
-                disabled={loading}
-                empty={!loading && filteredRows.length === 0}
-                fileNameBase={exportFileBase}
-                buildHtml={buildExportHtml}
-                buildWhatsAppText={buildExportWhatsApp}
-                onDownloadExcel={onDownloadExcel}
-              />
+            <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-1 overflow-x-auto max-w-[calc(100vw-110px)] sm:max-w-none py-0.5 scrollbar-none">
+                <ReportExportActionBar
+                  className="shrink-0"
+                  disabled={loading}
+                  empty={!loading && filteredRows.length === 0}
+                  fileNameBase={exportFileBase}
+                  buildHtml={buildExportHtml}
+                  buildWhatsAppText={buildExportWhatsApp}
+                  onDownloadExcel={onDownloadExcel}
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => onOpenChange(false)}
-                className="group relative flex h-8 items-center gap-2 overflow-hidden rounded-full bg-slate-800/50 pl-2 pr-3 transition-all hover:bg-red-500/10 hover:ring-1 hover:ring-red-500/30 sm:h-9 sm:pl-3 sm:pr-4"
+                className="group relative flex h-7 items-center gap-1.5 shrink-0 overflow-hidden rounded-full bg-slate-800/50 pl-2 pr-2.5 transition-all hover:bg-red-500/10 hover:ring-1 hover:ring-red-500/30 sm:h-9 sm:gap-2 sm:pl-3 sm:pr-4"
                 aria-label="Tutup"
               >
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-700/50 text-slate-400 transition-colors group-hover:bg-red-500 group-hover:text-white sm:h-6 sm:w-6">
-                  <X className="h-3 w-3 sm:h-3.5 sm:w-3.5" strokeWidth={3} />
+                <div className="flex h-4 w-4 items-center justify-center rounded-full bg-slate-700/50 text-slate-400 transition-colors group-hover:bg-red-500 group-hover:text-white sm:h-6 sm:w-6">
+                  <X className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5" strokeWidth={3} />
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 transition-colors group-hover:text-red-400 sm:text-[11px]">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 transition-colors group-hover:text-red-400 sm:text-[11px]">
                   Tutup
                 </span>
               </button>
@@ -578,7 +581,7 @@ export default function FastTrackListModal({
           {!isFilterCollapsed && (
             <div
               className={cn(
-                "grid shrink-0 grid-cols-1 gap-x-3 gap-y-2.5 rounded-lg border p-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7",
+                "grid shrink-0 grid-cols-1 gap-x-2.5 gap-y-2 rounded-lg border p-2.5 sm:p-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 max-h-[35vh] sm:max-h-none overflow-y-auto sm:overflow-visible",
                 "border-slate-200 bg-white dark:border-slate-700 dark:bg-[#161b22]",
               )}
             >
@@ -813,44 +816,44 @@ export default function FastTrackListModal({
             </div>
           )}
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-300 bg-white dark:border-slate-700 dark:bg-[#161b22] sm:rounded-xl">
+          <div className="flex min-h-[260px] sm:min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-300 bg-white dark:border-slate-700 dark:bg-[#161b22] sm:rounded-xl">
             <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-amber-500/20 scrollbar-track-transparent">
-              <table className="w-full min-w-[900px] border-separate border-spacing-0 text-left text-[10px] font-semibold sm:min-w-[1300px] sm:text-[12px]">
+              <table className="w-full min-w-[950px] border-separate border-spacing-0 text-left text-[10px] font-semibold sm:min-w-[1250px] sm:text-[12px]">
                 <thead className="sticky top-0 z-20">
                   <tr
                     className={cn(
                       "border-b text-center backdrop-blur-md",
-                      "border-amber-400/50 bg-amber-400 dark:border-amber-500/50 dark:bg-amber-600/90",
+                      "border-amber-400/50 bg-amber-400 dark:border-amber-500/50 dark:bg-amber-600",
                     )}
                   >
-                    <th className="sticky left-0 top-0 z-30 bg-inherit px-1 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white w-8 sm:px-2 sm:py-2.5 sm:text-[11px] sm:w-10">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white w-8 sm:px-2 sm:py-2.5 sm:text-[11px] sm:w-10">
                       No
                     </th>
-                    <th className="px-1 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[80px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[120px]">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[70px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[110px]">
                       Foto
                     </th>
-                    <th className="px-1 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white w-20 sm:px-2 sm:py-2.5 sm:text-[11px] sm:w-24">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white w-20 sm:px-2 sm:py-2.5 sm:text-[11px] sm:w-24">
                       Tanggal
                     </th>
-                    <th className="px-1 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white w-20 sm:px-2 sm:py-2.5 sm:text-[11px] sm:w-24">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white w-16 sm:px-2 sm:py-2.5 sm:text-[11px] sm:w-20">
                       RM
                     </th>
-                    <th className="sticky left-8 top-0 z-30 bg-inherit px-1 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[130px] sm:left-10 sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[180px]">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[120px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[160px]">
                       Nama pasien
                     </th>
-                    <th className="px-1 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[120px] sm:px-2 sm:py-2.5 sm:text-[11px]">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[120px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[150px]">
                       Dokter
                     </th>
-                    <th className="px-1 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[120px] sm:px-2 sm:py-2.5 sm:text-[11px]">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[110px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[140px]">
                       Tindakan
                     </th>
-                    <th className="px-1 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[150px] sm:px-2 sm:py-2.5 sm:text-[11px]">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[140px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[160px]">
                       Pasien tiba IGD
                     </th>
-                    <th className="px-1 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[150px] sm:px-2 sm:py-2.5 sm:text-[11px]">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[140px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[160px]">
                       Door-to-balloon
                     </th>
-                    <th className="px-1 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 dark:text-white w-24 sm:px-2 sm:py-2.5 sm:text-[11px]">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 dark:text-white min-w-[90px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[110px]">
                       Total waktu
                     </th>
                   </tr>
@@ -862,7 +865,7 @@ export default function FastTrackListModal({
                         colSpan={10}
                         className={cn(
                           "px-4 py-8 text-center text-[13px]",
-                          "text-slate-600 dark:text-slate-400",
+                          "text-slate-600 dark:text-slate-300",
                         )}
                       >
                         Tidak ada baris untuk filter ini.
@@ -876,14 +879,14 @@ export default function FastTrackListModal({
                         <tr
                           key={String(rec.id ?? globalIndex)}
                           className={cn(
-                            "group border-b align-top hover:bg-slate-50 dark:hover:bg-slate-800/50",
+                            "group border-b align-top bg-white dark:bg-[#161b22] hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors",
                             "border-slate-200 dark:border-slate-700",
                           )}
                         >
-                          <td className="sticky left-0 z-10 bg-inherit px-1 py-1 text-center font-mono tabular-nums text-slate-600 border-r border-slate-200 dark:text-slate-400 dark:border-slate-700 sm:px-2 sm:py-2">
+                          <td className="px-1.5 py-1.5 text-center font-mono tabular-nums text-slate-600 border-r border-slate-200 dark:text-slate-300 dark:border-slate-700 sm:px-2 sm:py-2">
                             {globalIndex + 1}
                           </td>
-                          <td className="px-1 py-1 border-r border-slate-200 dark:border-slate-700 sm:px-2 sm:py-2">
+                          <td className="px-1.5 py-1.5 border-r border-slate-200 dark:border-slate-700 sm:px-2 sm:py-2">
                             <FastTrackPhotoDropzone
                               tindakanId={String(rec.id)}
                               fotosValue={rec.fast_track_fotos}
@@ -892,30 +895,30 @@ export default function FastTrackListModal({
                               onSaved={onRecordPatch}
                             />
                           </td>
-                          <td className="px-1 py-1 text-center font-mono text-[9px] text-slate-700 border-r border-slate-200 dark:text-slate-300 dark:border-slate-700 sm:px-2 sm:py-2 sm:text-[11px]">
+                          <td className="px-1.5 py-1.5 text-center font-mono text-[9px] text-slate-700 border-r border-slate-200 dark:text-slate-200 dark:border-slate-700 sm:px-2 sm:py-2 sm:text-[11px]">
                             {String(rec.tanggal ?? "").slice(0, 10) || "—"}
                           </td>
-                          <td className="px-1 py-1 text-center font-mono text-[9px] text-slate-700 border-r border-slate-200 dark:text-slate-300 dark:border-slate-700 sm:px-2 sm:py-2 sm:text-[11px]">
+                          <td className="px-1.5 py-1.5 text-center font-mono text-[9px] text-slate-700 border-r border-slate-200 dark:text-slate-200 dark:border-slate-700 sm:px-2 sm:py-2 sm:text-[11px]">
                             {displayRm(raw)}
                           </td>
-                          <td className="sticky left-8 z-10 bg-inherit px-1 py-1 text-[10px] font-bold text-slate-900 border-r border-slate-200 dark:text-slate-100 dark:border-slate-700 sm:left-10 sm:px-2 sm:py-2 sm:text-[12px]">
+                          <td className="px-1.5 py-1.5 text-[10px] font-bold text-slate-900 border-r border-slate-200 dark:text-white dark:border-slate-700 sm:px-2 sm:py-2 sm:text-[12px]">
                             {normalizeNamaPasien(displayNamaPasien(raw))}
                           </td>
-                          <td className="px-1 py-1 text-[10px] text-slate-700 border-r border-slate-200 dark:text-slate-300 dark:border-slate-700 sm:px-2 sm:py-2 sm:text-[12px]">
+                          <td className="px-1.5 py-1.5 text-[10px] text-slate-700 border-r border-slate-200 dark:text-slate-200 dark:border-slate-700 sm:px-2 sm:py-2 sm:text-[12px]">
                             <MasterDokterField
                               tindakanId={String(rec.id)}
                               value={String(rec.dokter ?? "")}
                               onSaved={onRecordPatch}
                             />
                           </td>
-                          <td className="px-1 py-1 text-[10px] text-slate-700 border-r border-slate-200 dark:text-slate-300 dark:border-slate-700 sm:px-2 sm:py-2 sm:text-[12px]">
+                          <td className="px-1.5 py-1.5 text-[10px] text-slate-700 border-r border-slate-200 dark:text-slate-200 dark:border-slate-700 sm:px-2 sm:py-2 sm:text-[12px]">
                             <MasterJenisTindakanField
                               tindakanId={String(rec.id)}
                               value={String(rec.tindakan ?? "")}
                               onSaved={onRecordPatch}
                             />
                           </td>
-                          <td className="px-1 py-1 text-[9px] leading-tight text-slate-700 border-r border-slate-200 dark:text-slate-300 dark:border-slate-700 sm:px-2 sm:py-2 sm:text-[11px] sm:leading-snug">
+                          <td className="px-1.5 py-1.5 text-[9px] leading-tight text-slate-700 border-r border-slate-200 dark:text-slate-200 dark:border-slate-700 sm:px-2 sm:py-2 sm:text-[11px] sm:leading-snug">
                             <DatetimeLocalPicker
                               appearance="drawer"
                               value={normalizeDatetimeLocalInput(
@@ -931,7 +934,7 @@ export default function FastTrackListModal({
                               }
                             />
                           </td>
-                          <td className="px-1 py-1 text-[9px] leading-tight text-slate-700 border-r border-slate-200 dark:text-slate-300 dark:border-slate-700 sm:px-2 sm:py-2 sm:text-[11px] sm:leading-snug">
+                          <td className="px-1.5 py-1.5 text-[9px] leading-tight text-slate-700 border-r border-slate-200 dark:text-slate-200 dark:border-slate-700 sm:px-2 sm:py-2 sm:text-[11px] sm:leading-snug">
                             <DatetimeLocalPicker
                               appearance="drawer"
                               value={normalizeDatetimeLocalInput(
@@ -947,9 +950,10 @@ export default function FastTrackListModal({
                               }
                             />
                           </td>
-                          <td className="px-1 py-1 text-center font-mono text-[9px] text-slate-700 dark:text-slate-300 sm:px-2 sm:py-2 sm:text-[11px]">
-                            {String(rec.total_waktu_fast_track ?? "").trim() ||
-                              "—"}
+                          <td className="px-1.5 py-1.5 text-center font-mono text-[9px] font-bold text-slate-700 dark:text-amber-400 sm:px-2 sm:py-2 sm:text-[11px] whitespace-nowrap">
+                            {formatDurasiJamMenit(
+                              rec.total_waktu_fast_track
+                            )}
                           </td>
                         </tr>
                       );
@@ -972,11 +976,11 @@ export default function FastTrackListModal({
             </div>
           )}
 
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-white/10">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-2.5 dark:border-white/10 sm:pt-3">
             <p
               className={cn(
-                "text-[11px] font-semibold",
-                "text-slate-500 dark:text-white/75",
+                "text-[10px] sm:text-[11px] font-semibold",
+                "text-slate-500 dark:text-white/85",
               )}
             >
               Menampilkan {paginatedRows.length} dari {filteredRows.length} baris
@@ -984,24 +988,24 @@ export default function FastTrackListModal({
             </p>
 
             {totalPages > 1 && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1 sm:gap-1.5">
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                   className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-md border transition disabled:opacity-30",
+                    "flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-md border transition disabled:opacity-30",
                     "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
                     "dark:border-white/10 dark:bg-black/40 dark:text-white/80 dark:hover:bg-black/60",
                   )}
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </button>
-                <div className="flex items-center gap-1 px-2">
+                <div className="flex items-center gap-1 px-1 sm:px-2">
                   <select
                     value={currentPage}
                     onChange={(e) => setCurrentPage(Number(e.target.value))}
                     className={cn(
-                      "h-8 rounded-md border px-1.5 text-[12px] font-bold focus:outline-none focus:ring-1 focus:ring-amber-500",
+                      "h-7 sm:h-8 rounded-md border px-1 sm:px-1.5 text-[11px] sm:text-[12px] font-bold focus:outline-none focus:ring-1 focus:ring-amber-500",
                       "border-slate-200 bg-white text-amber-600",
                       "dark:border-white/10 dark:bg-black dark:text-amber-400"
                     )}
@@ -1012,7 +1016,7 @@ export default function FastTrackListModal({
                       </option>
                     ))}
                   </select>
-                  <span className="text-[12px] font-medium text-slate-400 dark:text-white/40">
+                  <span className="text-[11px] sm:text-[12px] font-medium text-slate-400 dark:text-white/40">
                     / {totalPages}
                   </span>
                 </div>
@@ -1020,12 +1024,12 @@ export default function FastTrackListModal({
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                   className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-md border transition disabled:opacity-30",
+                    "flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-md border transition disabled:opacity-30",
                     "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
                     "dark:border-white/10 dark:bg-black/40 dark:text-white/80 dark:hover:bg-black/60",
                   )}
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </button>
               </div>
             )}

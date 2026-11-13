@@ -473,9 +473,10 @@ export default function FastTrackListModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         overlayClassName={UI_LAYERS.dialogOverlayTop}
+        bodyClassName="p-0 flex flex-col h-full min-h-0 overflow-hidden"
         className={cn(
           "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-          "h-[96dvh] max-h-[96dvh] w-[98vw] max-w-[1400px] overflow-hidden p-0 flex flex-col sm:h-[95vh] sm:w-[96vw]",
+          "h-[94dvh] max-h-[94dvh] w-[98vw] max-w-[1440px] overflow-hidden p-0 flex flex-col sm:h-[92vh] sm:w-[97vw]",
           "border-slate-300/60 bg-slate-50 dark:border-amber-500/35 dark:bg-[#0f1115]",
           "shadow-2xl ring-1 ring-black/5 dark:ring-white/10",
           UI_LAYERS.dialogContentTop
@@ -483,7 +484,7 @@ export default function FastTrackListModal({
       >
         <div
           className={cn(
-            "flex min-h-0 flex-1 flex-col gap-2 p-2.5 sm:gap-3.5 sm:p-5 overflow-y-auto sm:overflow-hidden",
+            "flex h-full min-h-0 flex-1 flex-col gap-2 p-2.5 sm:gap-3 sm:p-4 overflow-hidden",
             "text-slate-900 dark:text-slate-100",
           )}
         >
@@ -816,9 +817,9 @@ export default function FastTrackListModal({
             </div>
           )}
 
-          <div className="flex min-h-[260px] sm:min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-300 bg-white dark:border-slate-700 dark:bg-[#161b22] sm:rounded-xl">
-            <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-amber-500/20 scrollbar-track-transparent">
-              <table className="w-full min-w-[950px] border-separate border-spacing-0 text-left text-[10px] font-semibold sm:min-w-[1250px] sm:text-[12px]">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-300 bg-white dark:border-slate-700 dark:bg-[#161b22] sm:rounded-xl">
+            <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-amber-500/40 dark:scrollbar-thumb-amber-500/50 scrollbar-track-transparent">
+              <table className="w-full min-w-[920px] border-separate border-spacing-0 text-left text-[10px] font-semibold sm:min-w-[1040px] sm:text-[11px] lg:text-[12px]">
                 <thead className="sticky top-0 z-20">
                   <tr
                     className={cn(
@@ -826,34 +827,34 @@ export default function FastTrackListModal({
                       "border-amber-400/50 bg-amber-400 dark:border-amber-500/50 dark:bg-amber-600",
                     )}
                   >
-                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white w-8 sm:px-2 sm:py-2.5 sm:text-[11px] sm:w-10">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white w-8 sm:px-2 sm:py-2.5 sm:text-[11px] sm:w-10 text-center">
                       No
                     </th>
-                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[70px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[110px]">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white w-16 sm:px-2 sm:py-2.5 sm:text-[11px] sm:w-20 text-center">
                       Foto
                     </th>
-                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white w-20 sm:px-2 sm:py-2.5 sm:text-[11px] sm:w-24">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white w-20 sm:px-2 sm:py-2.5 sm:text-[11px] sm:w-24 text-center">
                       Tanggal
                     </th>
-                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white w-16 sm:px-2 sm:py-2.5 sm:text-[11px] sm:w-20">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white w-14 sm:px-2 sm:py-2.5 sm:text-[11px] sm:w-16 text-center">
                       RM
                     </th>
-                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[120px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[160px]">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[110px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[140px]">
                       Nama pasien
                     </th>
-                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[120px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[150px]">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[110px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[135px]">
                       Dokter
                     </th>
-                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[110px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[140px]">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white w-16 sm:px-2 sm:py-2.5 sm:text-[11px] sm:w-20 text-center">
                       Tindakan
                     </th>
-                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[140px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[160px]">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[130px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[145px]">
                       Pasien tiba IGD
                     </th>
-                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[140px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[160px]">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 border-r border-amber-500/30 dark:text-white min-w-[130px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[145px]">
                       Door-to-balloon
                     </th>
-                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 dark:text-white min-w-[90px] sm:px-2 sm:py-2.5 sm:text-[11px] sm:min-w-[110px]">
+                    <th className="px-1.5 py-1.5 text-[9px] uppercase tracking-wider text-slate-900 dark:text-white w-20 sm:px-2 sm:py-2.5 sm:text-[11px] sm:w-24 text-center">
                       Total waktu
                     </th>
                   </tr>

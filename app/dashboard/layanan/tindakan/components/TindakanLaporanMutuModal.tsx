@@ -26,6 +26,10 @@ import {
   type MutuPenundaanElektifRow,
 } from "../lib/tindakanMutuPenundaanElektif";
 import {
+  buildKepatuhanRadiasiRowsFromTindakan,
+  type MutuKepatuhanRadiasiRow,
+} from "../lib/tindakanMutuKepatuhanRadiasi";
+import {
   buildMutuReportHtml,
   buildMutuReportWhatsAppText,
   downloadMutuReportExcel,
@@ -34,7 +38,7 @@ import {
 type MutuReportId =
   | "penundaan-elektif"
   | "identifikasi-pasien"
-  | "e-report-tanpa-kesalahan"
+  | "kepatuhan-dosis-radiasi"
   | "kepatuhan-apd"
   | "kebersihan-tangan";
 
@@ -97,16 +101,18 @@ const REPORT_DEFINITIONS: readonly MutuDefinition[] = [
     denominatorLabel:
       "JUMLAH PEMBERI PELAYANAN YG DIOBSERVASI DLM PERIODE OBSERVASI",
     resultLabel: "C/D x100%",
+    targetLabel: "Target 100%",
     exportFileSuffix: "imn-kepatuhan-identifikasi-pasien",
   },
   {
-    id: "e-report-tanpa-kesalahan",
+    id: "kepatuhan-dosis-radiasi",
     badge: "IMPU",
-    title: "E-REPORT PASIEN YANG DIBUAT TANPA KESALAHAN",
-    numeratorLabel: "JUMLAH REPORT YANG DIBUAT TANPA KESALAHAN",
-    denominatorLabel: "JUMLAH REPORT YANG DIBUAT DALAM PERIODE WAKTU",
+    title: "KEPATUHAN PERAWAT DALAM PENCATATAN KELENGKAPAN DOSIS RADIASI DAN FLUOROSKOPI TIME",
+    numeratorLabel: "JUMLAH TINDAKAN DENGAN PENCATATAN DOSIS RADIASI DAN FLUOROSKOPI TIME SECARA LENGKAP",
+    denominatorLabel: "JUMLAH SELURUH TINDAKAN DENGAN RADIASI DAN FLUOROSKOPI",
     resultLabel: "C/D x100%",
-    exportFileSuffix: "impu-e-report-tanpa-kesalahan",
+    targetLabel: "Target 100%",
+    exportFileSuffix: "impu-kepatuhan-dosis-radiasi-fluoroskopi",
   },
   {
     id: "kepatuhan-apd",
@@ -115,6 +121,7 @@ const REPORT_DEFINITIONS: readonly MutuDefinition[] = [
     numeratorLabel: "JUMLAH PEMBERI PELAYANAN YANG PATUH MENGGUNAKAN APD",
     denominatorLabel: "JUMLAH PEMBERI PELAYANAN YANG DIOBSERVASI",
     resultLabel: "C/D x100%",
+    targetLabel: "Target 100%",
     exportFileSuffix: "imn-kepatuhan-penggunaan-apd",
   },
   {
@@ -124,6 +131,7 @@ const REPORT_DEFINITIONS: readonly MutuDefinition[] = [
     numeratorLabel: "JUMLAH PEMBERI PELAYANAN YANG PATUH KEBERSIHAN TANGAN",
     denominatorLabel: "JUMLAH PEMBERI PELAYANAN YANG DIOBSERVASI",
     resultLabel: "C/D x100%",
+    targetLabel: "Target 100%",
     exportFileSuffix: "imn-kepatuhan-kebersihan-tangan",
   },
 ] as const;
@@ -227,8 +235,13 @@ function ensureMonthState(
   };
   const existingMonth = { ...(next.reportsByMonth[monthYyyyMm] ?? {}) };
   for (const def of REPORT_DEFINITIONS) {
+    const existingEntry =
+      existingMonth[def.id] ??
+      (def.id === "kepatuhan-dosis-radiasi"
+        ? (existingMonth as Record<string, any>)["e-report-tanpa-kesalahan"]
+        : undefined);
     existingMonth[def.id] = {
-      rows: normalizeRows(existingMonth[def.id]?.rows, dayCount),
+      rows: normalizeRows(existingEntry?.rows, dayCount),
     };
   }
   next.reportsByMonth[monthYyyyMm] = existingMonth;
@@ -654,6 +667,8 @@ export default function TindakanLaporanMutuModal({
   );
 
   const isPenundaanElektifTab = activeTab === "penundaan-elektif";
+  const isKepatuhanRadiasiTab = activeTab === "kepatuhan-dosis-radiasi";
+  const isAutomatedTab = isPenundaanElektifTab || isKepatuhanRadiasiTab;
 
   const penundaanElektifRows = useMemo(
     () =>
@@ -663,10 +678,20 @@ export default function TindakanLaporanMutuModal({
     [isPenundaanElektifTab, rows, monthYyyyMm],
   );
 
+  const kepatuhanRadiasiRows = useMemo(
+    () =>
+      isKepatuhanRadiasiTab
+        ? buildKepatuhanRadiasiRowsFromTindakan(rows, monthYyyyMm)
+        : [],
+    [isKepatuhanRadiasiTab, rows, monthYyyyMm],
+  );
+
   const activeRows: MutuRow[] = isPenundaanElektifTab
     ? penundaanElektifRows
-    : storage.reportsByMonth[monthYyyyMm]?.[activeTab]?.rows ??
-      createDefaultRows(configuredDayCount);
+    : isKepatuhanRadiasiTab
+      ? kepatuhanRadiasiRows
+      : storage.reportsByMonth[monthYyyyMm]?.[activeTab]?.rows ??
+        createDefaultRows(configuredDayCount);
 
   const summary = useMemo(() => summarizeRows(activeRows), [activeRows]);
   const summaryPercent = useMemo(
@@ -986,7 +1011,7 @@ export default function TindakanLaporanMutuModal({
                       >
                         {definition.badge}
                       </div>
-                      <div className="mt-0.5 truncate max-w-[200px]" title={definition.title}>
+                      <div className="mt-0.5 truncate max-w-[220px]" title={definition.title}>
                         {definition.title}
                       </div>
                     </button>
@@ -1000,22 +1025,22 @@ export default function TindakanLaporanMutuModal({
                     </div>
 
                     <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200">
-                      <table className="w-full border-collapse text-xs">
+                      <table className="w-full min-w-[580px] border-collapse text-xs">
                         <thead className="sticky top-0 z-10 bg-slate-100">
                           <tr>
-                            <th className="border border-slate-300 px-2 py-1 text-center w-[45px] shrink-0 text-[#1B2B44]">
+                            <th className="border border-slate-300 px-2 py-1 text-center w-[50px] shrink-0 text-[#1B2B44]">
                               HARI
                             </th>
-                            <th className="border border-slate-300 px-2 py-1 text-center text-[#1B2B44]">
+                            <th className="border border-slate-300 px-2 py-1 text-center w-[110px] shrink-0 text-[#1B2B44]">
                               TANGGAL
                             </th>
-                            <th className="border border-slate-300 px-2 py-1 text-center text-indigo-900 w-[180px]">
+                            <th className="border border-slate-300 px-2 py-1 text-center text-indigo-900 min-w-[140px]">
                               PEMBILANG
                             </th>
-                            <th className="border border-slate-300 px-2 py-1 text-center text-[#1B2B44] w-[180px]">
+                            <th className="border border-slate-300 px-2 py-1 text-center text-[#1B2B44] min-w-[140px]">
                               PENYEBUT
                             </th>
-                            <th className="border border-slate-300 px-2 py-1 text-center text-[#1B2B44] w-[90px] shrink-0">
+                            <th className="border border-slate-300 px-2 py-1 text-center text-[#1B2B44] w-[100px] shrink-0">
                               PERSENTASE
                             </th>
                           </tr>
@@ -1023,8 +1048,14 @@ export default function TindakanLaporanMutuModal({
                         <tbody>
                           {activeRows.map((row, rowIndex) => {
                             const isPenundaanElektifTab = activeDefinition.id === "penundaan-elektif";
+                            const isKepatuhanRadiasiTab = activeDefinition.id === "kepatuhan-dosis-radiasi";
+                            const isRowAutomated = isPenundaanElektifTab || isKepatuhanRadiasiTab;
+
                             const penundaanRow = isPenundaanElektifTab
                               ? penundaanElektifRows[rowIndex]
+                              : null;
+                            const radiasiRow = isKepatuhanRadiasiTab
+                              ? kepatuhanRadiasiRows[rowIndex]
                               : null;
 
                             const numeratorCount = Number(row.numerator || 0);
@@ -1035,7 +1066,11 @@ export default function TindakanLaporanMutuModal({
                               percentVal = (numeratorCount / denominatorCount) * 100;
                             }
 
-                            const overTarget = isPenundaanElektifTab && percentVal >= 5;
+                            const isWarning = isPenundaanElektifTab
+                              ? percentVal >= 5
+                              : isKepatuhanRadiasiTab
+                                ? denominatorCount > 0 && percentVal < 100
+                                : false;
                             const percentLabel = denominatorCount > 0
                               ? `${percentVal.toFixed(1)}%`
                               : "—";
@@ -1049,7 +1084,7 @@ export default function TindakanLaporanMutuModal({
                                   {rowIndex + 1}.
                                 </td>
                                 <td className="border border-slate-300/80 px-2 py-1">
-                                  {isPenundaanElektifTab ? (
+                                  {isRowAutomated ? (
                                     <div className="px-2 py-1 text-center font-semibold text-slate-800">
                                       {row.tanggal}
                                     </div>
@@ -1069,15 +1104,19 @@ export default function TindakanLaporanMutuModal({
                                   )}
                                 </td>
                                 <td className="border border-slate-300/80 px-2 py-1">
-                                  {isPenundaanElektifTab ? (
+                                  {isRowAutomated ? (
                                     numeratorCount > 0 ? (
                                       <button
                                         type="button"
                                         className="w-full rounded-md px-2 py-1 text-center font-bold text-indigo-800 underline-offset-2 hover:bg-indigo-50 hover:underline"
                                         onClick={(event) =>
                                           openPatientPopover(
-                                            `Tertunda · Tgl ${row.tanggal}`,
-                                            penundaanRow?.patientsTertunda ?? [],
+                                            isPenundaanElektifTab
+                                              ? `Tertunda · Tgl ${row.tanggal}`
+                                              : `Lengkap & Hari H · Tgl ${row.tanggal}`,
+                                            isPenundaanElektifTab
+                                              ? penundaanRow?.patientsTertunda ?? []
+                                              : radiasiRow?.patientsPatuh ?? [],
                                             event.currentTarget,
                                           )
                                         }
@@ -1107,15 +1146,19 @@ export default function TindakanLaporanMutuModal({
                                   )}
                                 </td>
                                 <td className="border border-slate-300/80 px-2 py-1">
-                                  {isPenundaanElektifTab ? (
+                                  {isRowAutomated ? (
                                     denominatorCount > 0 ? (
                                       <button
                                         type="button"
                                         className="w-full rounded-md px-2 py-1 text-center font-bold text-[#1B2B44] underline-offset-2 hover:bg-slate-100 hover:underline"
                                         onClick={(event) =>
                                           openPatientPopover(
-                                            `Pasien elektif · Tgl ${row.tanggal}`,
-                                            penundaanRow?.patientsElektif ?? [],
+                                            isPenundaanElektifTab
+                                              ? `Pasien elektif · Tgl ${row.tanggal}`
+                                              : `Seluruh tindakan radiasi · Tgl ${row.tanggal}`,
+                                            isPenundaanElektifTab
+                                              ? penundaanRow?.patientsElektif ?? []
+                                              : radiasiRow?.patientsSemua ?? [],
                                             event.currentTarget,
                                           )
                                         }
@@ -1147,9 +1190,11 @@ export default function TindakanLaporanMutuModal({
                                 <td
                                   className={cn(
                                     "border border-slate-300/80 px-2 py-1 text-center font-extrabold",
-                                    overTarget
+                                    isWarning
                                       ? "text-rose-700"
-                                      : "text-slate-800",
+                                      : isKepatuhanRadiasiTab && denominatorCount > 0 && percentVal === 100
+                                        ? "text-emerald-700"
+                                        : "text-slate-800",
                                   )}
                                 >
                                   {percentLabel}
@@ -1227,7 +1272,7 @@ export default function TindakanLaporanMutuModal({
                               min={1}
                               max={31}
                               value={configuredDayCount}
-                              disabled={isPenundaanElektifTab}
+                              disabled={isAutomatedTab}
                               onChange={(event) =>
                                 handleDayCountChange(Number(event.target.value))
                               }
@@ -1238,7 +1283,7 @@ export default function TindakanLaporanMutuModal({
                           <button
                             type="button"
                             onClick={handleResetTab}
-                            disabled={isPenundaanElektifTab}
+                            disabled={isAutomatedTab}
                             className={cn(
                               "inline-flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-extrabold transition",
                               "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
@@ -1246,7 +1291,7 @@ export default function TindakanLaporanMutuModal({
                             )}
                           >
                             <RotateCcw size={14} />
-                            {isPenundaanElektifTab
+                            {isAutomatedTab
                               ? "Tab otomatis dari tindakan"
                               : "Reset tab aktif"}
                           </button>

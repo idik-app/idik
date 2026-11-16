@@ -9,7 +9,7 @@ const UNIT_SLUG = "idik";
 const REPORT_IDS = [
   "penundaan-elektif",
   "identifikasi-pasien",
-  "e-report-tanpa-kesalahan",
+  "kepatuhan-dosis-radiasi",
   "kepatuhan-apd",
   "kebersihan-tangan",
 ] as const;
@@ -57,10 +57,17 @@ function sanitizeReports(raw: unknown, dayCount: number): MonthlyPayload["report
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const next: MonthlyPayload["reports"] = {};
   for (const reportId of REPORT_IDS) {
-    const entry =
+    let entry =
       source[reportId] && typeof source[reportId] === "object"
         ? (source[reportId] as Record<string, unknown>)
         : null;
+    if (!entry && reportId === "kepatuhan-dosis-radiasi") {
+      entry =
+        source["e-report-tanpa-kesalahan"] &&
+        typeof source["e-report-tanpa-kesalahan"] === "object"
+          ? (source["e-report-tanpa-kesalahan"] as Record<string, unknown>)
+          : null;
+    }
     next[reportId] = {
       rows: sanitizeRows(entry?.rows, dayCount),
     };

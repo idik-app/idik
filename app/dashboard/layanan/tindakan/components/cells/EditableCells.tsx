@@ -462,6 +462,7 @@ export function EditableDokterCell({
   listboxId,
   onCommit,
   recordId,
+  variant = "default",
 }: {
   value: string;
   doctorOptionsMaster: DoctorOption[];
@@ -470,6 +471,7 @@ export function EditableDokterCell({
   listboxId: string;
   onCommit: (next: string) => Promise<boolean>;
   recordId?: string;
+  variant?: "default" | "table";
 }) {
   const displayVal = useMemo(() => {
     const raw = value.trim();
@@ -513,6 +515,8 @@ export function EditableDokterCell({
     if (!ok) setDraft(curDisplay);
   };
 
+  const isLight = variant === "table";
+
   return (
     <DoctorCombobox
       listboxId={listboxId}
@@ -521,8 +525,8 @@ export function EditableDokterCell({
       onSelectOption={(picked) => {
         void tryCommit(formatDoctorLabel(picked));
       }}
-      onInputBlur={() => {
-        void tryCommit(draftRef.current);
+      onInputBlur={(finalText) => {
+        void tryCommit(finalText ?? draftRef.current);
       }}
       options={
         doctorOptionsMaster.length
@@ -536,7 +540,10 @@ export function EditableDokterCell({
       }
       loading={loading || saving}
       className="max-w-none w-full [&_input]:pr-2"
-      inputClassName={cn(TINDAKAN_TABLE_PRIMARY_COL_INPUT, getDoctorColorClass(draft || value))}
+      inputClassName={cn(
+        isLight ? JADWAL_PRIMARY_LIGHT_INPUT : TINDAKAN_TABLE_PRIMARY_COL_INPUT,
+        getDoctorColorClass(draft || value, isLight ? "light" : "auto"),
+      )}
     />
   );
 }

@@ -608,7 +608,7 @@ export default function JadwalCathModal({
   const handleSavedPasienFromJadwal = useCallback(
     async (
       patient: Pasien,
-      opts?: { tanggal?: string; ruangan?: string },
+      opts?: { tanggal?: string; ruangan?: string; dokter?: string },
     ) => {
       setCreating(true);
       try {
@@ -639,13 +639,15 @@ export default function JadwalCathModal({
           String(opts?.ruangan ?? "").trim() ||
           defaultCathlabRuangan ||
           null;
+        const dokterResolved =
+          String(opts?.dokter ?? "").trim() || "Belum ditentukan";
         const payload: Record<string, unknown> = {
           tanggal,
           pasien_id: pasienId || null,
           no_rm: rm || null,
           nama: nama || (rm ? `Pasien ${rm}` : "Pasien"),
           nama_pasien: nama || (rm ? `Pasien ${rm}` : "Pasien"),
-          dokter: "Belum ditentukan",
+          dokter: dokterResolved,
           tindakan: "Belum diisi",
           status: "Menunggu",
           ruangan: ruanganResolved,
@@ -1177,6 +1179,7 @@ export default function JadwalCathModal({
                   {zoomTd(
                     "left",
                     <EditableDokterCell
+                      variant="table"
                       value={txt(row.dokter)}
                       doctorOptionsMaster={doctorOptions}
                       dokterOptions={doctorOptions.map((d) => d.nama_dokter)}

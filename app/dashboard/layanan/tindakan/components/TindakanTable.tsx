@@ -2699,6 +2699,7 @@ export default function TindakanTable({
       rm: string;
       nama: string;
       tanggal?: string;
+      dokter?: string;
     }) => {
       setSearch("");
       setPerPage(100);
@@ -2737,13 +2738,14 @@ export default function TindakanTable({
         }
       }
 
+      const dokterResolved = String(p.dokter ?? "").trim() || "Belum diisi";
       const payload: Record<string, unknown> = {
         tanggal,
         pasien_id: pasienId || null,
         no_rm: rmResolved || null,
         nama: namaResolved,
         nama_pasien: namaResolved,
-        dokter: "Belum diisi",
+        dokter: dokterResolved,
         tindakan: "Belum diisi",
         status: "Menunggu",
         ruangan: "Cathlab",

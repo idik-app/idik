@@ -40,6 +40,7 @@ interface Props {
     rm: string;
     nama: string;
     tanggal?: string;
+    dokter?: string;
   }) => Promise<void> | void;
   onSearch: (val: string) => void;
   onFilter: (
@@ -236,7 +237,7 @@ function TableToolbar({
   const handleSavedPasien = useCallback(
     async (
       patient: Pasien,
-      opts?: { tanggal?: string; ruangan?: string },
+      opts?: { tanggal?: string; ruangan?: string; dokter?: string },
     ) => {
       setAddPasienOpen(false);
       if (typeof onCreateDraftForPasien === "function") {
@@ -245,6 +246,7 @@ function TableToolbar({
           rm: patient.noRM,
           nama: patient.nama,
           tanggal: opts?.tanggal,
+          dokter: opts?.dokter,
         });
       } else if (typeof onRefresh === "function") {
         void onRefresh();

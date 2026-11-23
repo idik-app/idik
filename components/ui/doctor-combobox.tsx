@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, Loader2, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { UI_LAYERS } from "@/lib/ui/layers";
@@ -124,21 +124,52 @@ export function resolveDoctorFromLooseInput(
   input: string,
 ): DoctorOption | null {
   if (!options.length) return null;
-  const exact = resolveDoctorExactMatch(options, input);
+  const raw = input.trim();
+  if (!raw || raw === "—" || raw.toLowerCase().includes("belum diisi")) return null;
+
+  // 1. Exact match (display label or nama_dokter)
+  const exact = resolveDoctorExactMatch(options, raw);
   if (exact) return exact;
 
-  const aliasHit = resolveDoctorByLegacyAlias(options, input);
+  // 2. Legacy alias match
+  const aliasHit = resolveDoctorByLegacyAlias(options, raw);
   if (aliasHit) return aliasHit;
 
-  const tokens = doctorQueryTokens(input);
-  if (tokens.length === 0) return null;
+  // 3. Name starts with input (clean, ignoring dr./drg.)
+  const cleanInput = raw.replace(/^(dr|drg|sp\.?[a-z]*)\.?\s*/gi, "").trim().toLowerCase();
+  if (cleanInput.length >= 2) {
+    const prefixHits = options.filter((d) => {
+      const cleanDoc = String(d.nama_dokter ?? "").replace(/^(dr|drg|sp\.?[a-z]*)\.?\s*/gi, "").trim().toLowerCase();
+      return cleanDoc.startsWith(cleanInput);
+    });
+    if (prefixHits.length === 1) return prefixHits[0]!;
+  }
 
-  const candidates = options.filter((d) => {
-    const hay = `${String(d.nama_dokter ?? "")} ${String(d.spesialis ?? "")}`;
-    return tokens.every((tok) => tokenMatchesDoctorHaystack(hay, tok));
-  });
+  // 4. Token-based matching (each token matches word prefix or substring)
+  const tokens = doctorQueryTokens(raw);
+  if (tokens.length > 0) {
+    const candidates = options.filter((d) => {
+      const hay = `${String(d.nama_dokter ?? "")} ${String(d.spesialis ?? "")}`.toLowerCase();
+      return tokens.every((tok) => hay.includes(tok));
+    });
+    if (candidates.length === 1) return candidates[0]!;
+    if (candidates.length > 1) {
+      const wordHits = candidates.filter((d) => {
+        const hay = `${String(d.nama_dokter ?? "")} ${String(d.spesialis ?? "")}`;
+        return tokens.every((tok) => new RegExp(`\\b${escapeRegex(tok)}`, "i").test(hay));
+      });
+      if (wordHits.length === 1) return wordHits[0]!;
+    }
+  }
 
-  if (candidates.length === 1) return candidates[0]!;
+  // 5. General substring match
+  if (cleanInput.length >= 2) {
+    const subHits = options.filter((d) => {
+      const hay = `${String(d.nama_dokter ?? "")} ${String(d.spesialis ?? "")}`.toLowerCase();
+      return hay.includes(cleanInput);
+    });
+    if (subHits.length === 1) return subHits[0]!;
+  }
 
   return null;
 }
@@ -167,52 +198,67 @@ export function canonicalDoctorStoredValue(
 }
 
 export const DOCTOR_COLOR_PALETTE = [
-  // 0. Cyan / Teal
+  // 0. Teal / Cyan
   {
-    inputLight: "!text-cyan-700 dark:!text-cyan-300 font-bold",
+    inputLight: "!text-teal-700 dark:!text-cyan-300 font-bold",
+    tableLight: "!text-teal-800 font-bold",
   },
   // 1. Emerald / Green
   {
     inputLight: "!text-emerald-700 dark:!text-emerald-300 font-bold",
+    tableLight: "!text-emerald-800 font-bold",
   },
   // 2. Amber / Orange
   {
     inputLight: "!text-amber-800 dark:!text-amber-300 font-bold",
+    tableLight: "!text-amber-900 font-bold",
   },
   // 3. Violet / Purple
   {
     inputLight: "!text-purple-700 dark:!text-purple-300 font-bold",
+    tableLight: "!text-purple-800 font-bold",
   },
   // 4. Sky / Blue
   {
     inputLight: "!text-sky-700 dark:!text-sky-300 font-bold",
+    tableLight: "!text-blue-800 font-bold",
   },
   // 5. Rose / Pink
   {
     inputLight: "!text-rose-700 dark:!text-rose-300 font-bold",
+    tableLight: "!text-rose-800 font-bold",
   },
   // 6. Indigo
   {
     inputLight: "!text-indigo-700 dark:!text-indigo-300 font-bold",
+    tableLight: "!text-indigo-800 font-bold",
   },
-  // 7. Teal / Mint
+  // 7. Cyan / Blue-green
   {
-    inputLight: "!text-teal-700 dark:!text-teal-300 font-bold",
+    inputLight: "!text-cyan-700 dark:!text-cyan-300 font-bold",
+    tableLight: "!text-cyan-800 font-bold",
   },
   // 8. Fuchsia
   {
     inputLight: "!text-fuchsia-700 dark:!text-fuchsia-300 font-bold",
+    tableLight: "!text-fuchsia-800 font-bold",
   },
   // 9. Lime / Green-yellow
   {
     inputLight: "!text-lime-800 dark:!text-lime-300 font-bold",
+    tableLight: "!text-lime-900 font-bold",
   },
 ];
 
-export function getDoctorColorClass(name?: string | null): string {
+export function getDoctorColorClass(
+  name?: string | null,
+  mode: "auto" | "light" = "auto",
+): string {
   const s = String(name ?? "").trim();
   if (!s || s === "—" || s.toLowerCase().includes("belum diisi") || s.toLowerCase().includes("belum ditentukan")) {
-    return "text-slate-500 placeholder:text-slate-400 dark:text-slate-400 dark:placeholder:text-slate-500";
+    return mode === "light"
+      ? "!text-slate-400 placeholder:!text-slate-400 font-normal"
+      : "text-slate-500 placeholder:text-slate-400 dark:text-slate-400 dark:placeholder:text-slate-500";
   }
   const clean = s.toLowerCase().replace(/^(dr|drg|sp\.?[a-z]*)\.?\s*/gi, "").trim() || s.toLowerCase();
   let hash = 0;
@@ -221,7 +267,8 @@ export function getDoctorColorClass(name?: string | null): string {
     hash |= 0;
   }
   const idx = Math.abs(hash) % DOCTOR_COLOR_PALETTE.length;
-  return DOCTOR_COLOR_PALETTE[idx].inputLight;
+  const item = DOCTOR_COLOR_PALETTE[idx];
+  return mode === "light" ? item.tableLight : item.inputLight;
 }
 
 export function DoctorCombobox({
@@ -253,6 +300,7 @@ export function DoctorCombobox({
   listboxId?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
   /** Hindari commit blur saat klik item list. */
   const skipBlurRef = useRef(false);
@@ -272,6 +320,93 @@ export function DoctorCombobox({
       return false;
     });
   }, [options, value]);
+
+  useEffect(() => {
+    setHighlightIndex(0);
+  }, [filtered]);
+
+  const pickOption = (opt: DoctorOption) => {
+    const label = formatDoctorLabel(opt);
+    onChange(label);
+    onSelectOption?.(opt);
+    setOpen(false);
+    skipBlurRef.current = false;
+  };
+
+  const handleBlur = () => {
+    if (skipBlurRef.current) {
+      skipBlurRef.current = false;
+      return;
+    }
+    const resolved = resolveDoctorFromLooseInput(options, value);
+    if (resolved) {
+      const label = formatDoctorLabel(resolved);
+      if (label !== value) {
+        onChange(label);
+        onSelectOption?.(resolved);
+      }
+      onInputBlur?.(label);
+    } else {
+      onInputBlur?.(value.trim());
+    }
+  };
+
+  const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+      } else if (filtered.length > 0) {
+        setHighlightIndex((i) => (i + 1) % filtered.length);
+      }
+      return;
+    }
+
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+      } else if (filtered.length > 0) {
+        setHighlightIndex((i) => (i - 1 + filtered.length) % filtered.length);
+      }
+      return;
+    }
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (open && filtered.length > 0) {
+        const idx = Math.min(highlightIndex, filtered.length - 1);
+        pickOption(filtered[idx]!);
+        return;
+      }
+      const resolved = resolveDoctorFromLooseInput(options, value);
+      if (resolved) {
+        pickOption(resolved);
+        return;
+      }
+      setOpen(false);
+      onInputBlur?.(value.trim());
+      return;
+    }
+
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      return;
+    }
+
+    if (e.key === "Tab") {
+      if (open && filtered.length > 0) {
+        const idx = Math.min(highlightIndex, filtered.length - 1);
+        pickOption(filtered[idx]!);
+      } else {
+        const resolved = resolveDoctorFromLooseInput(options, value);
+        if (resolved) {
+          pickOption(resolved);
+        }
+      }
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -296,16 +431,11 @@ export function DoctorCombobox({
               setOpen(true);
             }
           }}
-          onBlur={() => {
-            if (skipBlurRef.current) {
-              skipBlurRef.current = false;
-              return;
-            }
-            onInputBlur?.(value.trim());
-          }}
+          onBlur={handleBlur}
           onFocus={() => {
             if (!disabled) setOpen(true);
           }}
+          onKeyDown={onInputKeyDown}
           autoComplete="off"
           placeholder={
             placeholder !== undefined
@@ -315,20 +445,59 @@ export function DoctorCombobox({
               : ""
           }
           className={cn(
-            "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-white placeholder:text-slate-400 dark:placeholder:text-white/90 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40",
+            "w-full bg-black/40 border border-white/15 rounded-md px-2 py-1.5 pr-8 text-[11px] text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-white/90 focus:outline-none focus:ring-2 focus:ring-[#E8C547]/40",
             "truncate",
             inputClassName,
           )}
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={listboxId}
+          aria-activedescendant={
+            open && filtered.length > 0
+              ? `${listboxId}-opt-${highlightIndex}`
+              : undefined
+          }
         />
         {loading ? (
           <Loader2
-            className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-[#E8C547]/80"
+            className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-[#E8C547]/80"
             aria-hidden
           />
-        ) : null}
+        ) : (
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            {value && !disabled && (
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange("");
+                  setOpen(false);
+                }}
+                className="p-0.5 text-slate-400 hover:text-red-400 dark:text-white/60 dark:hover:text-red-300 transition-colors"
+                title="Hapus pilihan dokter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => {
+                if (!disabled) setOpen((prev) => !prev);
+              }}
+              className="text-slate-400 hover:text-slate-200 dark:text-white/60 dark:hover:text-white transition-colors"
+              title="Pilih dokter"
+            >
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 transition-transform duration-200",
+                  open && "rotate-180",
+                )}
+              />
+            </button>
+          </div>
+        )}
       </div>
       {open && !loading && filtered.length > 0 ? (
         <ul
@@ -342,19 +511,23 @@ export function DoctorCombobox({
             UI_LAYERS.popover,
           )}
         >
-          {filtered.map((d) => {
-            const label = formatDoctorLabel(d);
+          {filtered.map((d, idx) => {
+            const isHighlighted = idx === highlightIndex;
             return (
               <li key={d.id} role="presentation">
                 <button
+                  id={`${listboxId}-opt-${idx}`}
                   type="button"
                   role="option"
-                  className="w-full px-2 py-1.5 text-left text-[11px] text-white hover:bg-[#E8C547]/20 focus:bg-[#E8C547]/25 focus:outline-none"
+                  aria-selected={isHighlighted}
+                  className={cn(
+                    "w-full px-2 py-1.5 text-left text-[11px] text-white hover:bg-[#E8C547]/20 focus:bg-[#E8C547]/25 focus:outline-none transition-colors",
+                    isHighlighted && "bg-[#E8C547]/25 ring-1 ring-[#E8C547]/40 font-semibold",
+                  )}
+                  onMouseEnter={() => setHighlightIndex(idx)}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
-                    onChange(label);
-                    onSelectOption?.(d);
-                    setOpen(false);
+                    pickOption(d);
                   }}
                 >
                   <span className="block font-medium text-white/95">

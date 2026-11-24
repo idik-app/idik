@@ -42,7 +42,7 @@ export const JADWAL_TABLE_INPUT = JADWAL_LIGHT_INPUT;
 export const JADWAL_ZOOM_CELL_CLASSES =
   "focus-within:z-[80]";
 export const JADWAL_ZOOM_INNER_CLASSES = cn(
-  "min-w-0 w-full rounded transition-all duration-150 ease-out p-0.5 overflow-hidden",
+  "min-w-0 w-full rounded transition-all duration-150 ease-out p-0.5",
   "focus-within:bg-[#EEF2FF] focus-within:ring-2 focus-within:ring-indigo-600 focus-within:rounded-md",
 );
 
@@ -520,6 +520,7 @@ export function EditableDokterCell({
   return (
     <DoctorCombobox
       listboxId={listboxId}
+      variant={variant}
       value={draft}
       onChange={setDraft}
       onSelectOption={(picked) => {

@@ -1222,6 +1222,7 @@ function EditableDokterCell({
   loading,
   listboxId,
   onCommit,
+  variant = "default",
 }: {
   value: string;
   doctorOptionsMaster: DoctorOption[];
@@ -1229,6 +1230,7 @@ function EditableDokterCell({
   loading: boolean;
   listboxId: string;
   onCommit: (next: string) => Promise<boolean>;
+  variant?: "default" | "table";
 }) {
   const [draft, setDraft] = useState(value.trim());
   const [saving, setSaving] = useState(false);
@@ -1270,6 +1272,7 @@ function EditableDokterCell({
   return (
     <DoctorCombobox
       listboxId={listboxId}
+      variant={variant}
       value={draft}
       onChange={setDraft}
       onSelectOption={(picked) => {

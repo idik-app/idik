@@ -10,6 +10,7 @@ const REPORT_IDS = [
   "penundaan-elektif",
   "identifikasi-pasien",
   "kepatuhan-dosis-radiasi",
+  "door-to-balloon-stemi",
   "kepatuhan-apd",
   "kebersihan-tangan",
 ] as const;

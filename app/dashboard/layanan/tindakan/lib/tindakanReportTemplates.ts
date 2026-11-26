@@ -1061,10 +1061,21 @@ function parseMutuNumeric(raw: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-function formatMutuPercent(numeratorRaw: string, denominatorRaw: string): string {
+function formatMutuResult(
+  definition: MutuExportDefinition,
+  numeratorRaw: string,
+  denominatorRaw: string,
+): string {
   const numerator = parseMutuNumeric(numeratorRaw);
   const denominator = parseMutuNumeric(denominatorRaw);
   if (numerator == null || denominator == null || denominator <= 0) return "—";
+  if (
+    definition.badge === "IMPRS" ||
+    definition.resultLabel?.toLowerCase().includes("menit")
+  ) {
+    const avg = numerator / denominator;
+    return `${avg.toFixed(avg % 1 === 0 ? 0 : 1)} menit`;
+  }
   const percent = (numerator / denominator) * 100;
   return `${percent.toFixed(percent % 1 === 0 ? 0 : 2)}%`;
 }
@@ -1077,7 +1088,7 @@ export function buildMutuReportHtml(opts: {
 }): string {
   const bodyRows = opts.rows
     .map((row, index) => {
-      const result = formatMutuPercent(row.numerator, row.denominator);
+      const result = formatMutuResult(opts.definition, row.numerator, row.denominator);
       return `<tr>
         <td class="num">${index + 1}</td>
         <td class="num">${escapeHtml(String(row.tanggal || index + 1))}</td>
@@ -1096,7 +1107,8 @@ export function buildMutuReportHtml(opts: {
     (sum, row) => sum + (parseMutuNumeric(row.denominator) ?? 0),
     0,
   );
-  const totalResult = formatMutuPercent(
+  const totalResult = formatMutuResult(
+    opts.definition,
     String(totalNumerator),
     String(totalDenominator),
   );
@@ -1153,7 +1165,7 @@ export function buildMutuReportWhatsAppText(opts: {
   lines.push("");
 
   opts.rows.forEach((row, index) => {
-    const result = formatMutuPercent(row.numerator, row.denominator);
+    const result = formatMutuResult(opts.definition, row.numerator, row.denominator);
     lines.push(
       `${index + 1}. Tgl ${row.tanggal || index + 1}: ${row.numerator || 0}/${row.denominator || 0} = ${result}`,
     );
@@ -1169,7 +1181,8 @@ export function buildMutuReportWhatsAppText(opts: {
   );
   lines.push(
     "",
-    `TOTAL: ${totalNumerator}/${totalDenominator} = ${formatMutuPercent(
+    `TOTAL: ${totalNumerator}/${totalDenominator} = ${formatMutuResult(
+      opts.definition,
       String(totalNumerator),
       String(totalDenominator),
     )}`,
@@ -1189,7 +1202,7 @@ export function downloadMutuReportExcel(opts: {
     Tanggal: row.tanggal || String(index + 1),
     [opts.definition.numeratorLabel]: parseMutuNumeric(row.numerator) ?? 0,
     [opts.definition.denominatorLabel]: parseMutuNumeric(row.denominator) ?? 0,
-    [opts.definition.resultLabel]: formatMutuPercent(row.numerator, row.denominator),
+    [opts.definition.resultLabel]: formatMutuResult(opts.definition, row.numerator, row.denominator),
     Bulan: opts.monthLabel,
     Ruangan: opts.roomName,
   }));
@@ -1207,7 +1220,8 @@ export function downloadMutuReportExcel(opts: {
     Tanggal: "",
     [opts.definition.numeratorLabel]: totalNumerator,
     [opts.definition.denominatorLabel]: totalDenominator,
-    [opts.definition.resultLabel]: formatMutuPercent(
+    [opts.definition.resultLabel]: formatMutuResult(
+      opts.definition,
       String(totalNumerator),
       String(totalDenominator),
     ),

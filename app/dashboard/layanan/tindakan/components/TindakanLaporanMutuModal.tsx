@@ -30,6 +30,10 @@ import {
   type MutuKepatuhanRadiasiRow,
 } from "../lib/tindakanMutuKepatuhanRadiasi";
 import {
+  buildDoorToBalloonRowsFromTindakan,
+  type MutuDoorToBalloonRow,
+} from "../lib/tindakanMutuDoorToBalloon";
+import {
   buildMutuReportHtml,
   buildMutuReportWhatsAppText,
   downloadMutuReportExcel,
@@ -39,6 +43,7 @@ type MutuReportId =
   | "penundaan-elektif"
   | "identifikasi-pasien"
   | "kepatuhan-dosis-radiasi"
+  | "door-to-balloon-stemi"
   | "kepatuhan-apd"
   | "kebersihan-tangan";
 
@@ -113,6 +118,18 @@ const REPORT_DEFINITIONS: readonly MutuDefinition[] = [
     resultLabel: "C/D x100%",
     targetLabel: "Target 100%",
     exportFileSuffix: "impu-kepatuhan-dosis-radiasi-fluoroskopi",
+  },
+  {
+    id: "door-to-balloon-stemi",
+    badge: "IMPRS",
+    title: "WAKTU TANGGAP DOOR TO BALLOON (D2B) PADA PASIEN STEMI",
+    numeratorLabel:
+      "TOTAL WAKTU (DALAM MENIT) SEJAK PASIEN MASUK INSTALASI GAWAT DARURAT (IGD) HINGGA DILAKUKAN PEMASANGAN GUIDE WAIRE DAN INFLASI BALON PADA PROSEDUR DI CATHLAB",
+    denominatorLabel:
+      "JUMLAH SELURUH PASIEN STEMI YANG DATANG DI IGD DAN MENJALANI PPCI",
+    resultLabel: "Rerata (Menit)",
+    targetLabel: "Target < 90 Menit",
+    exportFileSuffix: "imprs-door-to-balloon-stemi",
   },
   {
     id: "kepatuhan-apd",
@@ -197,10 +214,22 @@ function parsePositiveNumber(raw: string): number | null {
   return value;
 }
 
-function formatPercent(numeratorRaw: string, denominatorRaw: string): string {
+function formatMutuSummaryResult(
+  definition: MutuDefinition,
+  numeratorRaw: string,
+  denominatorRaw: string,
+): string {
   const numerator = parsePositiveNumber(numeratorRaw);
   const denominator = parsePositiveNumber(denominatorRaw);
   if (numerator == null || denominator == null || denominator <= 0) return "—";
+  if (
+    definition.badge === "IMPRS" ||
+    definition.id === "door-to-balloon-stemi" ||
+    definition.resultLabel.toLowerCase().includes("menit")
+  ) {
+    const avg = numerator / denominator;
+    return `${avg.toFixed(avg % 1 === 0 ? 0 : 1)} menit`;
+  }
   const percent = (numerator / denominator) * 100;
   return `${percent.toFixed(percent % 1 === 0 ? 0 : 2)}%`;
 }
@@ -668,7 +697,9 @@ export default function TindakanLaporanMutuModal({
 
   const isPenundaanElektifTab = activeTab === "penundaan-elektif";
   const isKepatuhanRadiasiTab = activeTab === "kepatuhan-dosis-radiasi";
-  const isAutomatedTab = isPenundaanElektifTab || isKepatuhanRadiasiTab;
+  const isDoorToBalloonTab = activeTab === "door-to-balloon-stemi";
+  const isAutomatedTab =
+    isPenundaanElektifTab || isKepatuhanRadiasiTab || isDoorToBalloonTab;
 
   const penundaanElektifRows = useMemo(
     () =>
@@ -686,17 +717,32 @@ export default function TindakanLaporanMutuModal({
     [isKepatuhanRadiasiTab, rows, monthYyyyMm],
   );
 
+  const doorToBalloonRows = useMemo(
+    () =>
+      isDoorToBalloonTab
+        ? buildDoorToBalloonRowsFromTindakan(rows, monthYyyyMm)
+        : [],
+    [isDoorToBalloonTab, rows, monthYyyyMm],
+  );
+
   const activeRows: MutuRow[] = isPenundaanElektifTab
     ? penundaanElektifRows
     : isKepatuhanRadiasiTab
       ? kepatuhanRadiasiRows
-      : storage.reportsByMonth[monthYyyyMm]?.[activeTab]?.rows ??
-        createDefaultRows(configuredDayCount);
+      : isDoorToBalloonTab
+        ? doorToBalloonRows
+        : storage.reportsByMonth[monthYyyyMm]?.[activeTab]?.rows ??
+          createDefaultRows(configuredDayCount);
 
   const summary = useMemo(() => summarizeRows(activeRows), [activeRows]);
   const summaryPercent = useMemo(
-    () => formatPercent(String(summary.numerator), String(summary.denominator)),
-    [summary.denominator, summary.numerator],
+    () =>
+      formatMutuSummaryResult(
+        activeDefinition,
+        String(summary.numerator),
+        String(summary.denominator),
+      ),
+    [activeDefinition, summary.denominator, summary.numerator],
   );
   const exportFileBase = useMemo(() => {
     const safeMonth = monthYyyyMm.replace(/[^\d-]/g, "") || "bulan";
@@ -1040,8 +1086,10 @@ export default function TindakanLaporanMutuModal({
                             <th className="border border-slate-300 px-2 py-1 text-center text-[#1B2B44] min-w-[140px]">
                               PENYEBUT
                             </th>
-                            <th className="border border-slate-300 px-2 py-1 text-center text-[#1B2B44] w-[100px] shrink-0">
-                              PERSENTASE
+                            <th className="border border-slate-300 px-2 py-1 text-center text-[#1B2B44] w-[110px] shrink-0">
+                              {activeDefinition.id === "door-to-balloon-stemi"
+                                ? "RERATA (MENIT)"
+                                : "PERSENTASE"}
                             </th>
                           </tr>
                         </thead>
@@ -1049,7 +1097,9 @@ export default function TindakanLaporanMutuModal({
                           {activeRows.map((row, rowIndex) => {
                             const isPenundaanElektifTab = activeDefinition.id === "penundaan-elektif";
                             const isKepatuhanRadiasiTab = activeDefinition.id === "kepatuhan-dosis-radiasi";
-                            const isRowAutomated = isPenundaanElektifTab || isKepatuhanRadiasiTab;
+                            const isDoorToBalloonTab = activeDefinition.id === "door-to-balloon-stemi";
+                            const isRowAutomated =
+                              isPenundaanElektifTab || isKepatuhanRadiasiTab || isDoorToBalloonTab;
 
                             const penundaanRow = isPenundaanElektifTab
                               ? penundaanElektifRows[rowIndex]
@@ -1057,23 +1107,36 @@ export default function TindakanLaporanMutuModal({
                             const radiasiRow = isKepatuhanRadiasiTab
                               ? kepatuhanRadiasiRows[rowIndex]
                               : null;
+                            const d2bRow = isDoorToBalloonTab
+                              ? doorToBalloonRows[rowIndex]
+                              : null;
 
                             const numeratorCount = Number(row.numerator || 0);
                             const denominatorCount = Number(row.denominator || 0);
 
                             let percentVal = 0;
-                            if (denominatorCount > 0) {
-                              percentVal = (numeratorCount / denominatorCount) * 100;
-                            }
+                            let avgMinutes = 0;
+                            let percentLabel = "—";
+                            let isWarning = false;
 
-                            const isWarning = isPenundaanElektifTab
-                              ? percentVal >= 5
-                              : isKepatuhanRadiasiTab
-                                ? denominatorCount > 0 && percentVal < 100
-                                : false;
-                            const percentLabel = denominatorCount > 0
-                              ? `${percentVal.toFixed(1)}%`
-                              : "—";
+                            if (isDoorToBalloonTab) {
+                              if (denominatorCount > 0) {
+                                avgMinutes = numeratorCount / denominatorCount;
+                                percentLabel = `${avgMinutes.toFixed(avgMinutes % 1 === 0 ? 0 : 1)} menit`;
+                                isWarning = avgMinutes >= 90;
+                              }
+                            } else {
+                              if (denominatorCount > 0) {
+                                percentVal = (numeratorCount / denominatorCount) * 100;
+                                percentLabel = `${percentVal.toFixed(1)}%`;
+                              }
+
+                              isWarning = isPenundaanElektifTab
+                                ? percentVal >= 5
+                                : isKepatuhanRadiasiTab
+                                  ? denominatorCount > 0 && percentVal < 100
+                                  : false;
+                            }
 
                             return (
                               <tr
@@ -1113,10 +1176,14 @@ export default function TindakanLaporanMutuModal({
                                           openPatientPopover(
                                             isPenundaanElektifTab
                                               ? `Tertunda · Tgl ${row.tanggal}`
-                                              : `Lengkap & Hari H · Tgl ${row.tanggal}`,
+                                              : isKepatuhanRadiasiTab
+                                                ? `Lengkap & Hari H · Tgl ${row.tanggal}`
+                                                : `Total Waktu D2B · Tgl ${row.tanggal}`,
                                             isPenundaanElektifTab
                                               ? penundaanRow?.patientsTertunda ?? []
-                                              : radiasiRow?.patientsPatuh ?? [],
+                                              : isKepatuhanRadiasiTab
+                                                ? radiasiRow?.patientsPatuh ?? []
+                                                : d2bRow?.patientsD2b ?? [],
                                             event.currentTarget,
                                           )
                                         }
@@ -1155,10 +1222,14 @@ export default function TindakanLaporanMutuModal({
                                           openPatientPopover(
                                             isPenundaanElektifTab
                                               ? `Pasien elektif · Tgl ${row.tanggal}`
-                                              : `Seluruh tindakan radiasi · Tgl ${row.tanggal}`,
+                                              : isKepatuhanRadiasiTab
+                                                ? `Seluruh tindakan radiasi · Tgl ${row.tanggal}`
+                                                : `Pasien STEMI PPCI · Tgl ${row.tanggal}`,
                                             isPenundaanElektifTab
                                               ? penundaanRow?.patientsElektif ?? []
-                                              : radiasiRow?.patientsSemua ?? [],
+                                              : isKepatuhanRadiasiTab
+                                                ? radiasiRow?.patientsSemua ?? []
+                                                : d2bRow?.patientsStemi ?? [],
                                             event.currentTarget,
                                           )
                                         }
@@ -1192,9 +1263,11 @@ export default function TindakanLaporanMutuModal({
                                     "border border-slate-300/80 px-2 py-1 text-center font-extrabold",
                                     isWarning
                                       ? "text-rose-700"
-                                      : isKepatuhanRadiasiTab && denominatorCount > 0 && percentVal === 100
+                                      : isDoorToBalloonTab && denominatorCount > 0 && avgMinutes < 90
                                         ? "text-emerald-700"
-                                        : "text-slate-800",
+                                        : isKepatuhanRadiasiTab && denominatorCount > 0 && percentVal === 100
+                                          ? "text-emerald-700"
+                                          : "text-slate-800",
                                   )}
                                 >
                                   {percentLabel}

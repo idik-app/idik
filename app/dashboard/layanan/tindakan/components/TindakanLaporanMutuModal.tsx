@@ -70,6 +70,7 @@ type MutuDefinition = {
   id: MutuReportId;
   badge: string;
   title: string;
+  shortTitle?: string;
   numeratorLabel: string;
   denominatorLabel: string;
   resultLabel: string;
@@ -91,6 +92,7 @@ const REPORT_DEFINITIONS: readonly MutuDefinition[] = [
     id: "penundaan-elektif",
     badge: "IMN",
     title: "PENUNDAAN PASIEN ELEKTIF",
+    shortTitle: "PENUNDAAN ELEKTIF",
     numeratorLabel:
       "JUMLAH PASIEN YANG JADWAL OPERASINYA TERTUNDA LEBIH DARI 1 JAM",
     denominatorLabel: "JUMLAH PASIEN ELEKTIF",
@@ -102,6 +104,7 @@ const REPORT_DEFINITIONS: readonly MutuDefinition[] = [
     id: "identifikasi-pasien",
     badge: "IMN",
     title: "KEPATUHAN IDENTIFIKASI PASIEN",
+    shortTitle: "IDENTIFIKASI PASIEN",
     numeratorLabel:
       "JUMLAH PEMBERI PELAYANAN YG MELAKUKAN IDENTIFIKASI YG BENAR",
     denominatorLabel:
@@ -114,6 +117,7 @@ const REPORT_DEFINITIONS: readonly MutuDefinition[] = [
     id: "kepatuhan-dosis-radiasi",
     badge: "IMPU",
     title: "KEPATUHAN PERAWAT DALAM PENCATATAN KELENGKAPAN DOSIS RADIASI DAN FLUOROSKOPI TIME",
+    shortTitle: "DOSIS RADIASI & FLUORO",
     numeratorLabel: "JUMLAH TINDAKAN DENGAN PENCATATAN DOSIS RADIASI DAN FLUOROSKOPI TIME SECARA LENGKAP",
     denominatorLabel: "JUMLAH SELURUH TINDAKAN DENGAN RADIASI DAN FLUOROSKOPI",
     resultLabel: "C/D x100%",
@@ -124,6 +128,7 @@ const REPORT_DEFINITIONS: readonly MutuDefinition[] = [
     id: "door-to-balloon-stemi",
     badge: "IMPRS",
     title: "WAKTU TANGGAP DOOR TO BALLOON (D2B) PADA PASIEN STEMI",
+    shortTitle: "DOOR TO BALLOON (D2B)",
     numeratorLabel:
       "TOTAL WAKTU (DALAM MENIT) SEJAK PASIEN MASUK INSTALASI GAWAT DARURAT (IGD) HINGGA DILAKUKAN PEMASANGAN GUIDE WAIRE DAN INFLASI BALON PADA PROSEDUR DI CATHLAB",
     denominatorLabel:
@@ -136,6 +141,7 @@ const REPORT_DEFINITIONS: readonly MutuDefinition[] = [
     id: "kepatuhan-apd",
     badge: "IMN",
     title: "KEPATUHAN PENGGUNAAN APD",
+    shortTitle: "PENGGUNAAN APD",
     numeratorLabel: "JUMLAH PEMBERI PELAYANAN YANG PATUH MENGGUNAKAN APD",
     denominatorLabel: "JUMLAH PEMBERI PELAYANAN YANG DIOBSERVASI",
     resultLabel: "C/D x100%",
@@ -146,6 +152,7 @@ const REPORT_DEFINITIONS: readonly MutuDefinition[] = [
     id: "kebersihan-tangan",
     badge: "IMN",
     title: "KEPATUHAN KEBERSIHAN TANGAN",
+    shortTitle: "KEBERSIHAN TANGAN",
     numeratorLabel: "JUMLAH PEMBERI PELAYANAN YANG PATUH KEBERSIHAN TANGAN",
     denominatorLabel: "JUMLAH PEMBERI PELAYANAN YANG DIOBSERVASI",
     resultLabel: "C/D x100%",
@@ -549,10 +556,7 @@ export default function TindakanLaporanMutuModal({
     roomName: "IDIK",
     reportsByMonth: {},
   }));
-  const [settingsOpen, setSettingsOpen] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia("(min-width: 1024px)").matches;
-  });
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -919,7 +923,7 @@ export default function TindakanLaporanMutuModal({
               opacity: { duration: 0.15 }
             }}
             className={cn(
-              "pointer-events-auto flex h-[85vh] max-h-[85vh] min-w-0 w-full max-w-[92rem] cursor-default flex-col rounded-2xl border antialiased [text-rendering:optimizeLegibility]",
+              "pointer-events-auto flex h-[94vh] max-h-[96vh] min-w-0 w-full max-w-[96rem] cursor-default flex-col rounded-2xl border antialiased [text-rendering:optimizeLegibility]",
               "border-slate-200 bg-white shadow-[0_24px_56px_rgba(15,23,42,0.3)] dark:border-white/10 dark:bg-[#0c0f17]",
               "font-[family-name:Inter,ui-sans-serif,system-ui,sans-serif]",
             )}
@@ -933,9 +937,9 @@ export default function TindakanLaporanMutuModal({
               )}
             >
               {/* Navy header — selaras drawer detail tindakan */}
-              <div className="shrink-0 border-b border-white/10 bg-gradient-to-r from-[#1B2B44] to-[#2D4A6E] px-4 py-3 sm:px-5">
+              <div className="shrink-0 border-b border-white/10 bg-gradient-to-r from-[#1B2B44] to-[#2D4A6E] px-4 py-2.5 sm:px-5">
                 <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
-                  <div className="space-y-1 text-left">
+                  <div className="space-y-0.5 text-left">
                     <h2 className="flex items-center gap-2 text-left text-base font-bold tracking-wide text-white sm:text-lg">
                       <FileSpreadsheet
                         className="shrink-0 text-amber-100"
@@ -945,7 +949,7 @@ export default function TindakanLaporanMutuModal({
                       />
                       Laporan MUTU
                     </h2>
-                    <p className="text-[12px] font-medium text-slate-200">
+                    <p className="text-[11px] font-medium text-slate-200">
                       Tabulasi indikator mutu bulanan · selaras drawer detail tindakan
                     </p>
                   </div>
@@ -960,28 +964,28 @@ export default function TindakanLaporanMutuModal({
                       buildWhatsAppText={buildExportWhatsApp}
                       onDownloadExcel={handleDownloadExcel}
                     />
-                    <label className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-300">
+                    <label className="flex flex-col gap-0.5">
+                      <span className="text-[9px] font-bold uppercase tracking-wide text-slate-300">
                         Bulan
                       </span>
                       <input
                         type="month"
                         value={monthYyyyMm}
                         onChange={(event) => setMonthYyyyMm(event.target.value)}
-                        className="rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-[13px] font-semibold text-white [color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-white/30"
+                        className="rounded-lg border border-white/20 bg-white/10 px-2 py-1 text-[12px] font-semibold text-white [color-scheme:dark] focus:outline-none focus:ring-2 focus:ring-white/30"
                       />
                     </label>
                     <button
                       type="button"
                       onClick={() => setSettingsOpen((v) => !v)}
                       className={cn(
-                        "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-extrabold transition",
+                        "inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-extrabold transition",
                         settingsOpen
                           ? "border-white/40 bg-white text-[#1B2B44]"
                           : "border-white/25 bg-white/10 text-white hover:bg-white/20",
                       )}
                     >
-                      <Settings2 size={15} />
+                      <Settings2 size={14} />
                       Pengaturan
                     </button>
                   </div>
@@ -991,7 +995,7 @@ export default function TindakanLaporanMutuModal({
                   type="button"
                   onClick={() => onOpenChange(false)}
                   className={cn(
-                    "absolute right-3 top-3 rounded-lg border border-white/20 bg-white/10 p-1.5 text-slate-200 transition-all duration-200",
+                    "absolute right-3 top-2.5 rounded-lg border border-white/20 bg-white/10 p-1.5 text-slate-200 transition-all duration-200",
                     "hover:border-white/35 hover:bg-white/20 hover:text-white",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
                   )}
@@ -1001,52 +1005,80 @@ export default function TindakanLaporanMutuModal({
                 </button>
               </div>
 
-              <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-3 sm:p-4 bg-slate-50">
-                <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs">
-                  <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 font-semibold text-slate-700 shadow-sm">
-                    {isLoading ? (
-                      <>
-                        <Loader2 size={13} className="animate-spin text-indigo-600" />
-                        Memuat
-                      </>
-                    ) : isSaving ? (
-                      <>
-                        <Save size={13} className="text-[#2D4A6E]" />
-                        Menyimpan
-                      </>
-                    ) : (
-                      <>
-                        <ShieldCheck size={13} className="text-indigo-700" />
-                        Tersinkron Supabase
-                      </>
-                    )}
+              <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2.5 sm:p-3 bg-slate-50">
+                {/* Status sync & Quick KPI bar */}
+                <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-xs">
+                      {isLoading ? (
+                        <>
+                          <Loader2 size={13} className="animate-spin text-indigo-600" />
+                          Memuat
+                        </>
+                      ) : isSaving ? (
+                        <>
+                          <Save size={13} className="text-[#2D4A6E]" />
+                          Menyimpan
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck size={13} className="text-indigo-700" />
+                          Tersinkron Supabase
+                        </>
+                      )}
+                    </div>
+                    {lastSaved ? (
+                      <div className="hidden text-[11px] text-slate-500 sm:inline">
+                        Tersimpan{" "}
+                        {new Intl.DateTimeFormat("id-ID", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        }).format(lastSaved)}
+                      </div>
+                    ) : null}
+                    {saveError ? (
+                      <div className="inline-flex items-center gap-1 text-xs font-semibold text-rose-700">
+                        <AlertCircle size={13} />
+                        {saveError}
+                      </div>
+                    ) : null}
                   </div>
-                  {lastSaved ? (
-                    <div className="text-slate-500">
-                      Tersimpan{" "}
-                      {new Intl.DateTimeFormat("id-ID", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      }).format(lastSaved)}
+
+                  {/* Ringkasan Cepat KPI aktif */}
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <div className="inline-flex items-center gap-1 rounded-lg border border-slate-300/80 bg-white px-2.5 py-1 font-bold shadow-xs">
+                      <span className="text-[10px] uppercase tracking-wide text-slate-500">Capaian:</span>
+                      <span className="text-slate-900">{summaryPercent}</span>
+                      {activeDefinition.targetLabel ? (
+                        <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-900">
+                          {activeDefinition.targetLabel}
+                        </span>
+                      ) : null}
                     </div>
-                  ) : null}
-                  {saveError ? (
-                    <div className="inline-flex items-center gap-1 font-semibold text-rose-700">
-                      <AlertCircle size={13} />
-                      {saveError}
+                    <div className="inline-flex items-center gap-1 rounded-lg border border-slate-300/80 bg-white px-2 py-1 text-slate-700 shadow-xs">
+                      <span className="text-[10px] uppercase tracking-wide text-slate-500">Pembilang:</span>
+                      <span className="font-bold text-indigo-900">{summary.numerator}</span>
                     </div>
-                  ) : null}
+                    <div className="inline-flex items-center gap-1 rounded-lg border border-slate-300/80 bg-white px-2 py-1 text-slate-700 shadow-xs">
+                      <span className="text-[10px] uppercase tracking-wide text-slate-500">Penyebut:</span>
+                      <span className="font-bold text-slate-900">{summary.denominator}</span>
+                    </div>
+                    <div className="inline-flex items-center gap-1 rounded-lg border border-slate-300/80 bg-white px-2 py-1 text-slate-700 shadow-xs">
+                      <span className="text-[10px] uppercase tracking-wide text-slate-500">Terisi:</span>
+                      <span className="font-bold text-slate-900">{summary.filledRows}/{configuredDayCount} hari</span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Tab strip — gaya nav drawer */}
-                <div className="flex shrink-0 flex-wrap gap-1.5 rounded-xl border border-slate-300 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] p-2">
+                <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto rounded-xl border border-slate-300 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] p-1.5">
                   {REPORT_DEFINITIONS.map((definition) => (
                     <button
                       key={definition.id}
                       type="button"
                       onClick={() => setActiveTab(definition.id)}
                       className={cn(
-                        "rounded-lg border px-3 py-2 text-left text-[11px] font-extrabold transition",
+                        "shrink-0 rounded-lg border px-2.5 py-1.5 text-left text-[11px] font-extrabold transition",
                         activeTab === definition.id
                           ? "border-slate-300 bg-white text-slate-900 shadow-sm"
                           : "border-transparent text-slate-600 hover:bg-[#DDE6F2]",
@@ -1062,21 +1094,21 @@ export default function TindakanLaporanMutuModal({
                       >
                         {definition.badge}
                       </div>
-                      <div className="mt-0.5 truncate max-w-[220px]" title={definition.title}>
-                        {definition.title}
+                      <div className="mt-0.5 whitespace-nowrap" title={definition.title}>
+                        {definition.shortTitle || definition.title}
                       </div>
                     </button>
                   ))}
                 </div>
 
-                <div className="flex min-h-0 flex-1 gap-3 overflow-hidden">
-                  <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-300 bg-white p-3 shadow-sm">
-                    <div className="mb-2 shrink-0 rounded-lg bg-indigo-50/50 p-2 text-xs font-semibold text-[#1B2B44]">
+                <div className="flex min-h-0 flex-1 gap-2.5 overflow-hidden">
+                  <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-300 bg-white p-2.5 shadow-sm">
+                    <div className="mb-1.5 shrink-0 rounded-lg bg-indigo-50/60 px-3 py-1.5 text-xs font-semibold text-[#1B2B44]">
                       {activeDefinition.numeratorLabel}
                     </div>
 
                     <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200">
-                      <table className="w-full min-w-[580px] border-collapse text-xs">
+                      <table className="w-full min-w-[540px] border-collapse text-xs">
                         <thead className="sticky top-0 z-10 bg-slate-100">
                           <tr>
                             <th className="border border-slate-300 px-2 py-1 text-center w-[50px] shrink-0 text-[#1B2B44]">
@@ -1304,7 +1336,7 @@ export default function TindakanLaporanMutuModal({
                   </div>
 
                   {settingsOpen ? (
-                    <aside className="flex min-h-0 flex-col gap-3 overflow-auto rounded-2xl border border-slate-300 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] p-3">
+                    <aside className="flex min-h-0 w-full sm:w-[270px] shrink-0 flex-col gap-2.5 overflow-auto rounded-2xl border border-slate-300 bg-gradient-to-b from-[#E6ECF5] to-[#D3DFF0] p-3 shadow-sm">
                       <div className="rounded-xl border border-slate-200/80 bg-white/95 p-3 shadow-sm">
                         <div className="mb-2 flex items-center gap-2 text-sm font-black text-[#1B2B44]">
                           <ShieldCheck size={16} className="text-indigo-700" />

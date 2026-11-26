@@ -33,6 +33,7 @@ import {
   buildDoorToBalloonRowsFromTindakan,
   type MutuDoorToBalloonRow,
 } from "../lib/tindakanMutuDoorToBalloon";
+import { formatDurasiJamMenit } from "../lib/displayTindakanRow";
 import {
   buildMutuReportHtml,
   buildMutuReportWhatsAppText,
@@ -228,7 +229,11 @@ function formatMutuSummaryResult(
     definition.resultLabel.toLowerCase().includes("menit")
   ) {
     const avg = numerator / denominator;
-    return `${avg.toFixed(avg % 1 === 0 ? 0 : 1)} menit`;
+    const minsStr = `${avg.toFixed(avg % 1 === 0 ? 0 : 1)} menit`;
+    if (avg >= 60) {
+      return `${minsStr} (${formatDurasiJamMenit(avg)})`;
+    }
+    return minsStr;
   }
   const percent = (numerator / denominator) * 100;
   return `${percent.toFixed(percent % 1 === 0 ? 0 : 2)}%`;
@@ -1117,12 +1122,16 @@ export default function TindakanLaporanMutuModal({
                             let percentVal = 0;
                             let avgMinutes = 0;
                             let percentLabel = "—";
+                            let subLabel = "";
                             let isWarning = false;
 
                             if (isDoorToBalloonTab) {
                               if (denominatorCount > 0) {
                                 avgMinutes = numeratorCount / denominatorCount;
                                 percentLabel = `${avgMinutes.toFixed(avgMinutes % 1 === 0 ? 0 : 1)} menit`;
+                                if (avgMinutes >= 60) {
+                                  subLabel = formatDurasiJamMenit(avgMinutes);
+                                }
                                 isWarning = avgMinutes >= 90;
                               }
                             } else {
@@ -1188,7 +1197,16 @@ export default function TindakanLaporanMutuModal({
                                           )
                                         }
                                       >
-                                        {row.numerator || "0"}
+                                        {isDoorToBalloonTab && numeratorCount >= 60 ? (
+                                          <span className="flex flex-col items-center leading-tight">
+                                            <span>{row.numerator}</span>
+                                            <span className="text-[10px] font-normal text-slate-500">
+                                              ({formatDurasiJamMenit(numeratorCount)})
+                                            </span>
+                                          </span>
+                                        ) : (
+                                          row.numerator || "0"
+                                        )}
                                       </button>
                                     ) : (
                                       <div className="px-2 py-1 text-center font-semibold text-slate-500">
@@ -1270,7 +1288,12 @@ export default function TindakanLaporanMutuModal({
                                           : "text-slate-800",
                                   )}
                                 >
-                                  {percentLabel}
+                                  <div>{percentLabel}</div>
+                                  {subLabel ? (
+                                    <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-0.5 leading-none">
+                                      ({subLabel})
+                                    </div>
+                                  ) : null}
                                 </td>
                               </tr>
                             );

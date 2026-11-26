@@ -1074,7 +1074,11 @@ function formatMutuResult(
     definition.resultLabel?.toLowerCase().includes("menit")
   ) {
     const avg = numerator / denominator;
-    return `${avg.toFixed(avg % 1 === 0 ? 0 : 1)} menit`;
+    const minsStr = `${avg.toFixed(avg % 1 === 0 ? 0 : 1)} menit`;
+    if (avg >= 60) {
+      return `${minsStr} (${formatDurasiJamMenit(avg)})`;
+    }
+    return minsStr;
   }
   const percent = (numerator / denominator) * 100;
   return `${percent.toFixed(percent % 1 === 0 ? 0 : 2)}%`;
